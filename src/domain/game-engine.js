@@ -236,17 +236,91 @@ function resolveTransports(state) {
   state.transports = state.transports.filter(t => t.status !== 'arrived');
 }
 
+// --- IA maritime (V9, corrige B11) -------------------------------------------------------------
+// Uniquement avec les mécaniques V6 : ports (une route n'est ouverte que si ses deux ports sont construits),
+// navires de guerre (usine + port), transports (embarquement puis traversée) et combat naval (navalPower).
+const seaRouteCount = (map, id) => (map.maritimeRoutes || []).filter(([a, b]) => a === id || b === id).length;
+const hasOrQueued = (state, provinceId, type) => (state.provinces[provinceId]?.buildings?.[type] || 0) > 0
+  || (state.productionQueue || []).some(q => q.kind === 'building' && q.provinceId === provinceId && q.type === type)
+  || (state.orders || []).some(o => o.kind === 'construction' && o.status === 'pending' && o.provinceId === provinceId && o.type === type);
+const defenseOf = (state, id) => { const p = state.provinces[id]; return landPower(p.units, true) * RULES.fortDefense[p.buildings.fort || 0] + (p.warships || 0) * RULES.units.warship.power; };
+const hostileTo = (state, nationId, owner) => owner && owner !== nationId && !pairTreaty(state, nationId, owner, 'alliance') && !pairTreaty(state, nationId, owner, 'ceasefire');
+// Plus forte menace terrestre immédiate sur une province (forces des voisins hostiles).
+const landThreat = (map, state, nationId, id) => Math.max(0, ...(provinceDef(map, id)?.landConnections || []).filter(n => hostileTo(state, nationId, state.provinces[n]?.ownerId)).map(n => landPower(state.provinces[n].units)));
+// Base navale : site portuaire possédé, de préférence déjà équipé, puis celui qui ouvre le plus de routes.
+function navalBase(map, state, owned) {
+  const score = p => { const b = state.provinces[p.id].buildings; return (b.port ? 2 : 0) + (b.factory ? 1 : 0); };
+  return owned.filter(p => state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0)
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || a.id.localeCompare(b.id))[0] || null;
+}
+function aiNavalOrders(state, map, nationId, owned, base, threshold) {
+  const treasury = () => state.nations[nationId].treasury;
+  if (!base) return;
+  const baseState = state.provinces[base.id];
+  // 1. Port puis usine sur la base navale (les navires exigent les deux au même endroit).
+  if (!hasOrQueued(state, base.id, 'port') && treasury() >= RULES.buildings.port.cost) queueConstruction(state, { nationId, provinceId: base.id, type: 'port' });
+  if (!hasOrQueued(state, base.id, 'factory') && treasury() >= RULES.buildings.factory.cost + 60) queueConstruction(state, { nationId, provinceId: base.id, type: 'factory' });
+  // 2. Flotte : un navire par tour (deux si le trésor déborde), plafond qui grandit avec la partie.
+  if (baseState.buildings.port && baseState.buildings.factory) {
+    const queuedShips = (state.productionQueue || []).filter(q => q.kind === 'unit' && q.type === 'warship' && q.nationId === nationId).reduce((n, q) => n + q.amount, 0)
+      + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
+    const fleet = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + queuedShips;
+    const cap = Math.min(30, 4 + Math.floor(state.turn / 8));
+    const lots = treasury() >= 400 ? 2 : 1;
+    if (fleet < cap && treasury() >= RULES.units.warship.cost * lots + 20) queueRecruitment(state, { nationId, provinceId: base.id, type: 'warship', lots });
+  }
+  // 3. Ports secondaires quand le trésor le permet (plus de routes ouvertes = plus d'options).
+  if (baseState.buildings.port && treasury() >= RULES.buildings.port.cost + 20) {
+    const site = owned.find(p => p.id !== base.id && state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0 && !hasOrQueued(state, p.id, 'port'));
+    if (site) queueConstruction(state, { nationId, provinceId: site.id, type: 'port' });
+  }
+  const ports = owned.filter(p => state.provinces[p.id].buildings.port);
+  const seaLinks = ports.flatMap(p => legalDestinations(map, state, p.id).filter(d => d.type === 'sea').map(d => ({ from: p, to: d.id, owner: state.provinces[d.id].ownerId })));
+  // 4. Débarquement : au plus un par tour, jamais tant qu'une flotte d'invasion de cette nation est en mer.
+  const invasionAtSea = (state.transports || []).some(t => t.nationId === nationId && state.provinces[t.toId]?.ownerId !== nationId);
+  if (!invasionAtSea) {
+    const targets = seaLinks.filter(x => hostileTo(state, nationId, x.owner)).map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
+    targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to) - defenseOf(state, b.to) || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
+    // Marge plus prudente que sur terre : la cible a un tour entier pour se renforcer pendant la traversée.
+    const margin = (x) => (x.atWar ? Math.max(1.1, threshold - .2) : threshold) + .4;
+    for (const x of targets) {
+      const available = availableForces(state, x.from.id);
+      const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * .5)]));
+      const warships = available.warships;
+      if (!warships) continue; // pas d'invasion sans escorte : les troupes seules ne pèsent que 12 % en mer.
+      const attack = navalPower({ units, warships, transport: true });
+      const kept = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, available[k] - units[k]]));
+      const homeSafe = landPower(kept, true) * RULES.fortDefense[state.provinces[x.from.id].buildings.fort || 0] >= landThreat(map, state, nationId, x.from.id) * .9;
+      if (homeSafe && attack > defenseOf(state, x.to) * margin(x)) { queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }); break; }
+    }
+  }
+  // 5. Renfort par mer d'une tête de pont menacée ou en première ligne (au plus un par tour).
+  const bridgeheads = seaLinks.filter(x => x.owner === nationId && provinceDef(map, x.to).landConnections.some(n => hostileTo(state, nationId, state.provinces[n]?.ownerId)))
+    .sort((a, b) => landPower(state.provinces[a.to].units) - landPower(state.provinces[b.to].units) || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
+  for (const x of bridgeheads) {
+    const available = availableForces(state, x.from.id), here = landPower(state.provinces[x.to].units, true);
+    if (landPower(available) < Math.max(80, here * 2)) continue;
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * .4)]));
+    const kept = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, available[k] - units[k]]));
+    if (landPower(kept, true) < landThreat(map, state, nationId, x.from.id) * .9) continue;
+    queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units });
+    break;
+  }
+}
+
 function aiPlan(state, map, nationId) {
   const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === nationId);
   if (!owned.length) return;
+  const base = navalBase(map, state, owned);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
-  const source = factory || owned[0];
+  const source = factory || base || owned[0];
   if (!factory && state.nations[nationId].treasury >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
   const bankProvince = owned.find(p => !state.provinces[p.id].buildings.bank && p.id !== source.id);
   if (bankProvince && state.nations[nationId].treasury >= RULES.buildings.bank.cost) queueConstruction(state, { nationId, provinceId:bankProvince.id, type:'bank' });
   if (state.nations[nationId].treasury >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
   const trait=state.ai.traits?.[nationId]||'prudent';
   const threshold=({offensif:1.08,impulsif:.92,prudent:1.3,fidele:1.45})[trait]||1.25;
+  aiNavalOrders(state, map, nationId, owned, base, threshold);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
     return owner&&owner!==nationId&&d.type==='land'&&!pairTreaty(state,nationId,owner,'alliance')&&!pairTreaty(state,nationId,owner,'ceasefire');

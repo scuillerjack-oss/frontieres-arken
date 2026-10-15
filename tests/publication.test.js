@@ -42,3 +42,18 @@ test('le build tamponne la version dans la page et le cache', () => {
   assert.ok(!existsSync(join(root, 'dist', 'tests')), 'les tests ne sont pas publiés');
   rmSync(join(root, 'dist'), { recursive: true, force: true });
 });
+
+test('B12 corrigé : le service worker ne met en cache que les réponses valides, clonées avant usage', () => {
+  const sw = read('sw.js');
+  assert.match(sw, /response\.ok/);
+  const fetchHandler = sw.slice(sw.indexOf("addEventListener('fetch'"));
+  assert.ok(fetchHandler.indexOf('response.clone()') < fetchHandler.indexOf('caches.open'), 'clone avant caches.open');
+});
+
+test('V9 : la carte Leonardo et les modules de la carte V9 sont mis en cache hors ligne', () => {
+  const sw = read('sw.js');
+  for (const p of ['./assets/carte-leonardo.jpg', './src/map/arken-v9-map.js', './src/map/arken-v9-data.js']) assert.ok(sw.includes(`'${p}'`), p);
+  // Tout module importé par le jeu est dans la liste du service worker.
+  const imports = [...read('app.js').matchAll(/from '\.\/([^']+)'/g)].map(m => m[1]);
+  for (const p of imports) assert.ok(sw.includes(`'./${p}'`), `module non mis en cache : ${p}`);
+});

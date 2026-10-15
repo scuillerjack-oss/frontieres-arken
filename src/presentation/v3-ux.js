@@ -1,6 +1,6 @@
 import { LAND_UNIT_TYPES } from '../domain/constants.js';
-export function clampMapTransform({scale,x,y,viewportWidth,viewportHeight,mapWidth,mapHeight,minVisible=.6}){
-  const safeScale=Math.max(1,Math.min(2.5,Number(scale)||1)),w=mapWidth*safeScale,h=mapHeight*safeScale;
+export function clampMapTransform({scale,x,y,viewportWidth,viewportHeight,mapWidth,mapHeight,minVisible=.6,maxScale=2.5,minScale=1}){
+  const safeScale=Math.max(minScale,Math.min(maxScale,Number(scale)||1)),w=mapWidth*safeScale,h=mapHeight*safeScale;
   const bound=(position,content,viewport)=>content<=viewport?0:Math.max(-(content-viewport)/2,Math.min((content-viewport)/2,Number(position)||0));
   return{scale:safeScale,x:bound(Number(x)||0,w,viewportWidth),y:bound(Number(y)||0,h,viewportHeight)};
 }
