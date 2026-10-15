@@ -4,7 +4,13 @@
 //  1. icônes et écran de lancement FRONTIÈRES: ARKEN (android-res/ → android/app/src/main/res/) ;
 //  2. versionCode / versionName lus dans l'environnement au moment du build Gradle ;
 //  3. signature STABLE avec la clé de bêta android-debug/arken-debug.keystore, pour que
-//     chaque nouvel APK s'installe PAR-DESSUS le précédent (les parties sont conservées).
+//     chaque nouvel APK s'installe PAR-DESSUS le précédent (les parties sont conservées) ;
+//  4. signature « play » avec la CLÉ D'IMPORTATION Google Play, choisie AU MOMENT DU BUILD
+//     GRADLE si la variable ARKEN_PLAY_STORE_FILE est définie (workflow android-aab.yml, qui
+//     décode la clé depuis les secrets GitHub dans $RUNNER_TEMP). Sans cette variable
+//     (android-apk.yml, build local), rien ne change : la bêta reste signée avec android-debug.
+//     Variables lues : ARKEN_PLAY_STORE_FILE, ARKEN_PLAY_STORE_PASSWORD, ARKEN_PLAY_KEY_ALIAS,
+//     ARKEN_PLAY_KEY_PASSWORD. Aucun secret n'est écrit dans ce fichier ni dans android/.
 //
 // Usage : node scripts/android-prepare.js   (après `npx cap add android`)
 import { cpSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
@@ -35,7 +41,9 @@ if (!gradle.includes(MARK)) {
   replace(/versionName "[^"]*"/, 'versionName(System.getenv("ARKEN_VERSION_NAME") ?: "local")', 'versionName');
   gradle += `
 ${MARK} : signature de BÊTA stable (clé publique de débogage, voir android-debug/README.md).
-// La vraie clé Google Play (V12) viendra des secrets GitHub, jamais du dépôt.
+// Clé d'importation Google Play : uniquement si le workflow android-aab.yml fournit les
+// variables d'environnement (secrets GitHub). Jamais de secret dans ce fichier.
+def arkenPlayStore = System.getenv("ARKEN_PLAY_STORE_FILE")
 android {
     signingConfigs {
         arkenBeta {
@@ -45,13 +53,22 @@ android {
             keyAlias 'arkendebug'
             keyPassword 'android'
         }
+        if (arkenPlayStore) {
+            arkenPlay {
+                storeFile file(arkenPlayStore)
+                storeType 'pkcs12'
+                storePassword System.getenv("ARKEN_PLAY_STORE_PASSWORD")
+                keyAlias System.getenv("ARKEN_PLAY_KEY_ALIAS")
+                keyPassword System.getenv("ARKEN_PLAY_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         debug { signingConfig signingConfigs.arkenBeta }
-        release { signingConfig signingConfigs.arkenBeta }
+        release { signingConfig(arkenPlayStore ? signingConfigs.arkenPlay : signingConfigs.arkenBeta) }
     }
 }
 `;
   writeFileSync(gradleFile, gradle);
 }
-console.log('android/ personnalisé : icônes, version, signature de bêta');
+console.log('android/ personnalisé : icônes, version, signature (bêta, ou « play » si ARKEN_PLAY_STORE_FILE est défini au build)');

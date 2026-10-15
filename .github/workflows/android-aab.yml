@@ -1,0 +1,167 @@
+name: AAB Google Play (test interne)
+
+# À chaque fusion dans main (ou à la demande) : fabrique l'AAB Android que Jack importe
+# dans la Play Console (Test interne), signé avec la CLÉ D'IMPORTATION Google Play
+# (« upload key »). Google re-signe ensuite l'appli avec sa propre clé (Play App Signing).
+# L'AAB est publié à une adresse FIXE :
+#   https://github.com/scuillerjack-oss/frontieres-arken/releases/download/play/frontieres-arken.aab
+#
+# La clé d'importation est SECRÈTE : elle vit uniquement dans les secrets GitHub
+#   PLAY_UPLOAD_KEYSTORE_BASE64, PLAY_UPLOAD_KEYSTORE_PASSWORD,
+#   PLAY_UPLOAD_KEY_ALIAS, PLAY_UPLOAD_KEY_PASSWORD
+# (voir docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md). Tant qu'ils ne sont pas configurés, ce
+# workflow s'arrête EN SUCCÈS avec le message « clé d'importation non configurée ».
+#
+# L'APK de bêta (android-apk.yml, clé publique android-debug/) n'est pas modifié : la clé
+# Google Play n'est utilisée que si ARKEN_PLAY_STORE_FILE est défini (scripts/android-prepare.js).
+#
+# versionCode : Google Play refuse tout AAB dont le versionCode n'est pas STRICTEMENT plus grand
+# que les précédents. On utilise  PLAY_VERSION_CODE_OFFSET + github.run_number  (numéro
+# d'exécution de CE workflow, qui ne fait que croître). Le décalage 10000 place les versions Play
+# au-dessus de tous les APK de bêta (qui utilisent run_number seul). Si un jour le numéro
+# d'exécution repart de 1 (workflow renommé/recréé), AUGMENTER le décalage (ex. 20000), ne
+# jamais le baisser. Relancer une même exécution (« Re-run ») redonne le même versionCode :
+# Google refusera ce doublon, il faut alors relancer via « Run workflow » (nouveau numéro).
+#
+# L'envoi automatique vers Google Play (API + compte de service) n'est pas en place :
+# Jack importe l'AAB à la main dans la Play Console.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-aab
+  cancel-in-progress: false
+
+env:
+  PLAY_VERSION_CODE_OFFSET: 10000
+  # Empreinte SHA-256 du certificat de la clé d'importation (publique, pas un secret).
+  PLAY_UPLOAD_CERT_SHA256: 739764E974E94F243D4F43E113A0A132630441FE40A4D481E5299F74CD2235CF
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clé d'importation configurée ?
+        id: cle
+        env:
+          KEYSTORE_B64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::notice title=AAB Google Play::clé d'importation non configurée (secret PLAY_UPLOAD_KEYSTORE_BASE64 absent) : aucun AAB fabriqué. Voir docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md."
+            {
+              echo "### AAB Google Play : clé d'importation non configurée"
+              echo "Aucun AAB fabriqué. Ajouter les 4 secrets PLAY_UPLOAD_* (docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cle.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.cle.outputs.ok == 'true'
+        with:
+          # Le CLI Capacitor 8 exige Node >= 22.
+          node-version: 22
+          cache: npm
+
+      - if: steps.cle.outputs.ok == 'true'
+        run: npm ci
+      - if: steps.cle.outputs.ok == 'true'
+        run: npm test
+      - if: steps.cle.outputs.ok == 'true'
+        run: node scripts/build.js "$GITHUB_SHA"
+
+      - name: Générer et personnaliser le projet Android
+        if: steps.cle.outputs.ok == 'true'
+        run: |
+          npx cap add android
+          node scripts/android-prepare.js
+          npx cap sync android
+          chmod +x android/gradlew
+
+      - uses: actions/setup-java@v4
+        if: steps.cle.outputs.ok == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Décoder la clé d'importation (dans $RUNNER_TEMP, hors du dépôt)
+        if: steps.cle.outputs.ok == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          KS="$RUNNER_TEMP/play-upload.jks"
+          # tr retire espaces et retours à la ligne éventuellement collés avec le secret.
+          printf '%s' "$KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > "$KS"
+          chmod 600 "$KS"
+          test -s "$KS"
+          echo "ARKEN_PLAY_STORE_FILE=$KS" >> "$GITHUB_ENV"
+
+      - name: Compiler l'AAB (signé avec la clé d'importation)
+        if: steps.cle.outputs.ok == 'true'
+        working-directory: android
+        env:
+          ARKEN_PLAY_STORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
+          ARKEN_PLAY_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          ARKEN_PLAY_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+        run: |
+          ARKEN_VERSION_CODE=$(( PLAY_VERSION_CODE_OFFSET + GITHUB_RUN_NUMBER ))
+          ARKEN_VERSION_NAME="$(cat ../dist/version.txt)"
+          export ARKEN_VERSION_CODE ARKEN_VERSION_NAME
+          echo "versionCode=${ARKEN_VERSION_CODE} versionName=${ARKEN_VERSION_NAME}"
+          echo "ARKEN_VERSION_CODE=${ARKEN_VERSION_CODE}" >> "$GITHUB_ENV"
+          ./gradlew bundleRelease --stacktrace --no-daemon
+
+      - name: Supprimer la clé d'importation du runner
+        if: always() && steps.cle.outputs.ok == 'true'
+        run: rm -f "$RUNNER_TEMP/play-upload.jks"
+
+      - name: Vérifier la signature et renommer
+        if: steps.cle.outputs.ok == 'true'
+        run: |
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB"
+          # jarsigner vérifie la signature ; keytool -printcert -jarfile donne l'empreinte.
+          jarsigner -verify "$AAB" | tee verify.txt
+          grep -q "jar verified" verify.txt
+          keytool -printcert -jarfile "$AAB" | tee signature.txt
+          FOUND="$(grep -m1 'SHA256:' signature.txt | sed 's/.*SHA256: *//' | tr -d ':' | tr 'a-f' 'A-F')"
+          echo "Empreinte trouvée : $FOUND"
+          echo "Empreinte attendue : $PLAY_UPLOAD_CERT_SHA256"
+          if [ "$FOUND" != "$PLAY_UPLOAD_CERT_SHA256" ]; then
+            echo "::error::L'AAB n'est pas signé avec la clé d'importation attendue (secrets PLAY_UPLOAD_* incorrects ?)"
+            exit 1
+          fi
+          cp "$AAB" frontieres-arken.aab
+
+      - name: Publier dans la pré-version « play » (adresse fixe)
+        if: steps.cle.outputs.ok == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(cat dist/version.txt)"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/play/frontieres-arken.aab"
+          NOTES="AAB Google Play ${VERSION} — versionCode ${ARKEN_VERSION_CODE} (commit ${GITHUB_SHA}).
+          À importer dans la Play Console : Test et publication → Tests → Test interne → Créer une version.
+          Fichier : ${URL}
+          Ce fichier ne s'installe pas directement sur le téléphone (c'est l'APK de bêta qui sert à ça)."
+          if gh release view play >/dev/null 2>&1; then
+            gh release upload play frontieres-arken.aab --clobber
+            gh release edit play --prerelease --title "Google Play ${VERSION} (versionCode ${ARKEN_VERSION_CODE})" --notes "$NOTES"
+          else
+            gh release create play frontieres-arken.aab --prerelease --target "$GITHUB_SHA" \
+              --title "Google Play ${VERSION} (versionCode ${ARKEN_VERSION_CODE})" --notes "$NOTES"
+          fi
+          {
+            echo "### AAB Google Play publié : ${VERSION} (versionCode ${ARKEN_VERSION_CODE})"
+            echo "${URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
