@@ -3,10 +3,11 @@ import { createGameState } from './src/state/create-game-state.js';
 import { encodeSave, decodeSave } from './src/persistence/save-codec.js';
 import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury } from './src/domain/game-engine.js';
 import { compactForces, diplomacyActions, relationWithPlayer, totalArmy } from './src/presentation/v3-ux.js';
-import { forceSelection, provinceBorderPoint, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
+import { forceSelection, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
 import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows, orderPath } from './src/presentation/v5-ux.js';
 import { resolveNewGameRequest } from './src/presentation/start-flow.js';
 import { setActiveScreen } from './src/presentation/screen-flow.js';
+import { territoryBorders, outlinePath, trimPolyline, unitPrerequisiteText, buildingUnavailableReason } from './src/presentation/v5-ux.js';
 import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
@@ -18,7 +19,7 @@ const province = id => map.provinces.find(p => p.id === id) || { name:'Province 
 let state, selected = null, moveSource = null, scale = 1, tx = 0, ty = 0, drag = null, toastTimer, tutorialShown = new Set();
 let pointers = new Map(), pinching = false, pinchStart = null, ignoreClickUntil = 0, audioCtx, musicNodes = [], frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, transformFrame=0;
 // V9 : repère de la carte Leonardo (1536 × 1536). Zoom max plus grand que la V6 (2,5) pour viser 20 provinces sur téléphone.
-const FRAME = map.frame, MAX_ZOOM = 3;
+const FRAME = map.frame, MAX_ZOOM = 3, PAN_SLACK = .22;
 // Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
 let minZoom = 1;
 let backgroundImage = null;
@@ -34,42 +35,51 @@ function tutorial(id,title,text) {
   $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;
 }
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
-// Route maritime : pointillés d'un port à l'autre en suivant les waypoints ; « open » quand les deux ports sont construits.
+// Route maritime (V10) : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line) ;
+// plus marquée quand un port est construit à l'une des extrémités.
 function seaLane(lane){
-  const a=province(lane.from),b=province(lane.to),open=Boolean(state.provinces[lane.from]?.buildings.port&&state.provinces[lane.to]?.buildings.port);
-  return E('path',{d:pathData([a.port.anchor,...lane.waypoints,b.port.anchor]),class:`route maritime${open?' open':''}`});
+  const a=province(lane.from),b=province(lane.to),built=Boolean(state.provinces[lane.from]?.buildings.port||state.provinces[lane.to]?.buildings.port);
+  const d=pathData([a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor]),g=E('g',{class:`route maritime${built?' open':''}`});
+  g.append(E('path',{d,class:'casing'}),E('path',{d,class:'dash'}));return g;
 }
+// Port (V10) : ancre aux couleurs de la nation propriétaire ; construit = pastille pleine cerclée d'or,
+// non construit = simple emplacement en pointillés.
 function portMarker(d){
-  const built=Boolean(state.provinces[d.id].buildings.port),g=E('g',{class:`port-marker${built?' built':''}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`}),inner=E('g',{class:'ui-scale'});
-  const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:22}),icon);g.append(inner);return g;
+  const p=state.provinces[d.id],built=Boolean(p.buildings.port),color=nation(p.ownerId).color;
+  const g=E('g',{class:`port-marker${built?' built':' site'}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`,'aria-label':`${built?'Port':'Site portuaire'} de ${d.name} (${nation(p.ownerId).short})`}),inner=E('g',{class:'ui-scale'});
+  inner.style.setProperty('--port',color);
+  const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:built?25:21}),icon);g.append(inner);return g;
 }
-// Flèche d'ordre : terre = du cœur de l'origine jusque dans la cible ; mer = suit la route maritime jusqu'à la côte visée.
-function arrowPoints(order){
-  const from=province(order.fromId),to=province(order.toId),path=orderPath(map,order);
-  if(order.routeType==='sea'&&path.length>2){const sea=path.slice(1,-1),last=sea.at(-1),landing=provinceBorderPoint(to,last);return[from.markerAnchor,...sea,{x:landing.x+(to.markerAnchor.x-landing.x)*.25,y:landing.y+(to.markerAnchor.y-landing.y)*.25}];}
-  const exit=provinceBorderPoint(from,to.markerAnchor),entry=provinceBorderPoint(to,from.markerAnchor);
-  const start={x:from.markerAnchor.x+(exit.x-from.markerAnchor.x)*.35,y:from.markerAnchor.y+(exit.y-from.markerAnchor.y)*.35};
-  const end={x:entry.x+(to.markerAnchor.x-entry.x)*.55,y:entry.y+(to.markerAnchor.y-entry.y)*.55};
-  return[start,end];
-}
+// Flèche d'ordre (V10) : part du point de la province de départ et vise le point de la province d'arrivée ;
+// par mer, elle suit la route (port, étapes) puis termine sur le point.
+function arrowPoints(order){return trimPolyline(orderPath(map,order),26,22);}
 // Icônes d'une province, en coordonnées locales autour de son centre ; « ui-scale » les garde lisibles quel que soit le zoom.
 function provinceLabel(d,p){
   const g=E('g',{class:'province-label',transform:`translate(${d.markerAnchor.x} ${d.markerAnchor.y})`}),inner=E('g',{class:'ui-scale'});
-  const name=E('text',{class:'name',y:12});name.textContent=d.name;inner.append(name);
+  inner.style.setProperty('--owner',nation(p.ownerId).color);
   const capital=Object.values(state.nations).some(n=>n.capitalId===d.id),troops=Object.values(p.units).some(Boolean)||p.warships;
-  if(capital){const star=E('text',{x:troops?-20:0,y:-30,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
-  if(troops)inner.append(E('circle',{cx:capital?22:0,cy:-42,r:11,class:'marker'}));
+  // V10 : le « point » de la province (sa ville) est sur l'ancre ; c'est lui que visent les flèches.
+  if(capital){const star=E('text',{y:3,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
+  else inner.append(E('circle',{r:13,class:'city'}));
+  if(troops){const t=E('text',{x:30,y:-22,class:'troops','aria-label':'Troupes présentes'});t.textContent='⚔';inner.append(t);}
+  const name=E('text',{class:'name',y:46});name.textContent=d.name;inner.append(name);
   const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
-  built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:56,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
+  built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:86,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
   g.append(inner);return g;
 }
 function destinations(){return new Set(moveSource?legalDestinations(map,state,moveSource).map(x=>x.id):[]);}
 function render(){
   const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs');
-  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'6',refY:'5',markerUnits:'userSpaceOnUse',markerWidth:'46',markerHeight:'46',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
+  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',markerHeight:'3.4',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
   backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
-  const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),labelLayer=E('g',{class:'labels'});
-  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer);
+  const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),borderLayer=E('g',{class:'territory-borders'}),labelLayer=E('g',{class:'labels'});
+  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer,borderLayer);
+  // V10 : liseré bleu = mon territoire, liseré rouge = nations en guerre contre moi (au-dessus du voile et de la sélection).
+  // Chaque liseré est découpé à l'intérieur de son territoire : bleu et rouge ne se recouvrent jamais à une frontière commune.
+  const polygonPoints=id=>province(id).geometry.points.map(x=>x.join(',')).join(' ');
+  for(const border of territoryBorders(state,map)){const clipId=`clip-${border.kind}-${border.nationId}`,clip=E('clipPath',{id:clipId});border.provinceIds.forEach(id=>clip.append(E('polygon',{points:polygonPoints(id)})));defs.append(clip);
+    const d=outlinePath(border.segments);borderLayer.append(E('path',{d,class:`territory ${border.kind}`,'data-nation':border.nationId,'clip-path':`url(#${clipId})`}));}
+  if(selected&&!moveSource){const clip=E('clipPath',{id:'clip-selected'});clip.append(E('polygon',{points:polygonPoints(selected)}));defs.append(clip);}
   map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
   map.provinces.filter(d=>d.port).forEach(d=>routeLayer.push(portMarker(d)));
   for(const d of map.provinces){
@@ -81,7 +91,7 @@ function render(){
     group.style.setProperty('--owner',nation(p.ownerId).color);group.style.setProperty('--diplo',diploState==='war'?'#e45c56':diploState==='alliance'?'#5da9ff':'#f3f1e9');
     // Le polygone est à la fois le dessin et la zone tactile (plus de chevauchement : B7).
     const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
-    if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id)))highlightLayer.append(E('polygon',{points,class:`outline ${moveSource&&allowed.has(d.id)?'destination':'selected'}`}));
+    if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id))){const kind=moveSource&&allowed.has(d.id)?'destination':'selected',attrs={points,class:`outline ${kind}`};if(kind==='selected'&&selected===d.id&&!moveSource)attrs['clip-path']='url(#clip-selected)';highlightLayer.append(E('polygon',attrs));}
     labelLayer.append(provinceLabel(d,p));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
@@ -139,8 +149,10 @@ function openForceSelection(fromId,toId){
   if(route?.type==='sea')tutorial('maritime','Transport maritime',TUTORIAL_GUIDE.find(x=>x.id==='maritime').text);
 }
 function openRecruit(){
-  const p=state.provinces[selected],items=Object.entries(RULES.units).map(([key,r])=>({key,r,blocked:(r.requiresFactory&&!p.buildings.factory)||(r.requiresPort&&!p.buildings.port)}));
-  actionModal('Recrutement',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div>${items.map(({key,r,blocked})=>`<div class="action-card recruit-row"><span><b>${r.label}</b><small>${r.amount} par lot · ${r.cost} or · ${r.turns} tour(s)${blocked?' · Prérequis manquant':''}</small></span><div class="lot-controls"><button data-lot-minus="${key}" ${blocked?'disabled':''}>−</button><b id="lot-count-${key}">0</b><button data-lot-plus="${key}" ${blocked?'disabled':''}>+</button><small id="lot-amount-${key}">0 unité</small></div></div>`).join('')}<div class="total-line"><span>Coût total</span><b id="recruitCost">0</b></div><p id="recruitWarning"></p><button id="confirmRecruit" class="primary">Vérifier la commande</button>`);
+  const p=state.provinces[selected],pendingBuild=Object.fromEntries(state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected).map(o=>[o.type,o.remaining]));
+  for(const o of state.orders)if(o.kind==='construction'&&o.provinceId===selected&&o.status==='pending')pendingBuild[o.type]??=RULES.buildings[o.type]?.turns||1;
+  const items=Object.entries(RULES.units).map(([key,r])=>{const reason=unitPrerequisiteText(r,p.buildings,pendingBuild);return{key,r,reason,blocked:Boolean(reason)};});
+  actionModal('Recrutement',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div>${items.map(({key,r,blocked,reason})=>`<div class="action-card recruit-row${blocked?' blocked':''}"><span><b>${r.label}</b><small>${r.amount} par lot · ${r.cost} or · ${r.turns} tour(s)</small>${blocked?`<small class="prereq">⚠ ${reason}</small>`:''}</span><div class="lot-controls"><button data-lot-minus="${key}" ${blocked?'disabled':''}>−</button><b id="lot-count-${key}">0</b><button data-lot-plus="${key}" ${blocked?'disabled':''}>+</button><small id="lot-amount-${key}">0 unité</small></div></div>`).join('')}<div class="total-line"><span>Coût total</span><b id="recruitCost">0</b></div><p id="recruitWarning"></p><button id="confirmRecruit" class="primary">Vérifier la commande</button>`);
   const lots=Object.fromEntries(items.map(x=>[x.key,0]));
   const update=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),available=spendableTreasury(state,state.playerNationId);$('#recruitCost').textContent=`${total} or`;$('#recruitWarning').textContent=total>available?'Trésor insuffisant après les sommes réservées.':'';for(const {key,r,blocked} of items){$(`#lot-count-${key}`).textContent=lots[key];$(`#lot-amount-${key}`).textContent=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}`;const plus=document.querySelector(`[data-lot-plus="${key}"]`);if(plus)plus.disabled=blocked||total+r.cost>available;}};
   for(const {key} of items){document.querySelector(`[data-lot-minus="${key}"]`)?.addEventListener('click',()=>{lots[key]=Math.max(0,lots[key]-1);update();});document.querySelector(`[data-lot-plus="${key}"]`)?.addEventListener('click',()=>{lots[key]++;update();});}update();
@@ -151,9 +163,9 @@ function openRecruit(){
 }
 function openBuild(){
   const p=state.provinces[selected],orders=state.orders.filter(o=>o.kind==='construction'&&o.provinceId===selected&&o.status==='pending'),active=state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected);
-  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;return{type,cost,turns:rule.turns,count};}).filter(x=>x.type!=='fort'||x.count<3).filter(x=>x.type!=='port'||x.count===0);
-  actionModal('Construction',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span><b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost} or · ${x.turns} tour(s)${x.count?' · déjà en file':''}</small></span><button data-build="${x.type}" ${spendableTreasury(state,state.playerNationId)<x.cost?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
-  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
+  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;return{type,rule,cost,turns:rule.turns,count,built,queued:count-built};}).map(x=>({...x,reason:buildingUnavailableReason({type:x.type,label:buildingNames[x.type],rule:x.rule,count:x.count,portSite:p.portSite,cost:x.cost??0,spendable:spendableTreasury(state,state.playerNationId)})}));
+  actionModal('Construction',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span><b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
+  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
   tutorial('build','Financer une construction','Chaque bâtiment, y compris un port, coûte de l’or et n’apparaît qu’après sa durée de construction.');
 }
 function diplomaticExplanation(id,target){return({war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.`,alliance:`Proposer une alliance à ${nation(target).short}. Elle commencera à l’inter-tour.`,ultimatum:`Proposer un cessez-le-feu payé à ${nation(target).short}. L’offre peut être refusée ; dans ce cas, aucun paiement ne sera prélevé.`})[id]||'Action diplomatique';}
@@ -241,12 +253,13 @@ function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={w
   mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
   Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2}px`,top:`${(frameSize.height-mapContentSize.height)/2}px`});clampTransform();}
 // Centre la vue sur une province (capitale du joueur au lancement).
-function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform();}
+function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform(0);}
 // Les icônes et noms rétrécissent un peu quand on zoome (sinon ils deviendraient énormes) : appliqué en fin de geste.
-function updateLabelScale(){$('#map').style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));}
-function clampTransform(){
+function updateLabelScale(){const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
+// edgeSlack : marge de glisse au-delà du bord (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
+function clampTransform(edgeSlack=PAN_SLACK){
   if(!frameSize.width||!frameSize.height)return;
-  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom);
+  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack);
   scale=next.scale;tx=next.x;ty=next.y;
   if(!transformFrame)transformFrame=requestAnimationFrame(()=>{transformFrame=0;$('#map').style.transform=`translate3d(${tx}px,${ty}px,0) scale(${scale})`;});
 }
@@ -270,13 +283,15 @@ viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('poi
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#tutorialOk').onclick=()=>$('#tutorialBubble').hidden=true;
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;render();};
-$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#diplomacyBtn').onclick=()=>openDiplomacy();$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
+$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
 $('#resetHints').onclick=()=>{state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
-$('#zoomIn').onclick=()=>{scale=Math.min(MAX_ZOOM,scale*1.4);clampTransform();updateLabelScale();};$('#zoomOut').onclick=()=>{scale=Math.max(minZoom,scale/1.4);clampTransform();updateLabelScale();};$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
+// Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
+function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;clampTransform();updateLabelScale();}
+$('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
 $('#mapShell').addEventListener('click',event=>{if(event.target.closest('.order-arrow'))tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
 function handleAppBack(){
   const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);
