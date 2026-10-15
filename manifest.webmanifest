@@ -1,1 +1,37 @@
-{"id":"/","name":"FRONTIÈRES: ARKEN","short_name":"ARKEN","description":"Jeu de stratégie au tour par tour : ordonnez pendant le tour, résolvez à l’inter-tour.","lang":"fr","start_url":"/?source=pwa&version=v6.0.2","scope":"/","display":"standalone","orientation":"any","background_color":"#071c2b","theme_color":"#071c2b","categories":["games","strategy"],"icons":[{"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/icons/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}]}
+{
+  "id": "./",
+  "name": "FRONTIÈRES: ARKEN",
+  "short_name": "ARKEN",
+  "description": "Jeu de stratégie au tour par tour : ordonnez pendant le tour, résolvez à l’inter-tour.",
+  "lang": "fr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071c2b",
+  "theme_color": "#071c2b",
+  "categories": [
+    "games",
+    "strategy"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

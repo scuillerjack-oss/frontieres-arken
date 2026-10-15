@@ -1,13 +1,13 @@
-import { arkenV1Map as map } from '/src/map/arken-v1-map.js';
-import { createGameState } from '/src/state/create-game-state.js';
-import { encodeSave, decodeSave } from '/src/persistence/save-codec.js';
-import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury } from '/src/domain/game-engine.js';
-import { compactForces, diplomacyActions, relationWithPlayer, totalArmy, clampMapTransform } from '/src/presentation/v3-ux.js';
-import { forceSelection, provinceBorderPoint, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from '/src/presentation/v4-ux.js';
-import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows } from '/src/presentation/v5-ux.js';
-import { resolveNewGameRequest } from '/src/presentation/start-flow.js';
-import { setActiveScreen } from '/src/presentation/screen-flow.js';
-import { RULES, LAND_UNIT_TYPES } from '/src/domain/constants.js';
+import { arkenV1Map as map } from './src/map/arken-v1-map.js';
+import { createGameState } from './src/state/create-game-state.js';
+import { encodeSave, decodeSave } from './src/persistence/save-codec.js';
+import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury } from './src/domain/game-engine.js';
+import { compactForces, diplomacyActions, relationWithPlayer, totalArmy, clampMapTransform } from './src/presentation/v3-ux.js';
+import { forceSelection, provinceBorderPoint, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
+import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows } from './src/presentation/v5-ux.js';
+import { resolveNewGameRequest } from './src/presentation/start-flow.js';
+import { setActiveScreen } from './src/presentation/screen-flow.js';
+import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 const names = {Infanterie:'Infanterie',Cavalerie:'Cavalerie',Blindés:'Blindés',Artillerie:'Artillerie',Ballons:'Ballons',Navires:'Navires'};
@@ -246,4 +246,4 @@ function handleAppBack(){
   else showWelcome();
   if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);
 }
-addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');setup();
+addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();

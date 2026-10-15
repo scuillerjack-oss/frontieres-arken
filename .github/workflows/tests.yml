@@ -1,0 +1,25 @@
+name: Tests
+
+# Tourne sur chaque Pull Request : Jack voit un ✓ vert ou un ✗ rouge
+# directement dans l'app GitHub avant de fusionner.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Vérifier la syntaxe des workflows
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+      - name: Le build tamponne bien la version
+        run: node scripts/build.js "$GITHUB_SHA" && cat dist/version.txt
