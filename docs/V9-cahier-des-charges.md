@@ -65,3 +65,37 @@ Combats à points de vie et marine (V10), personnalités des dirigeants (V11), m
 ## Point à vérifier pendant l'audit
 Le code V6 contient deux listes de nations différentes (`arken, valdor, kael, sol, nerys` dans les constantes,
 `valmorne, roc-epine, noireflamme, oroel, aurel` dans la carte). À clarifier avant d'y toucher.
+
+---
+
+## Réalisé (15/10/2026) — version 9.0.0
+
+**Base** : V6.0.2 importée telle quelle (commit de référence), publiée en 6.0.3 sur GitHub Pages (PR #1).
+
+**Carte Leonardo** (validée par Jack le 15/10, avec sa demande : chaque île reliée aux 4 autres)
+- 20 provinces aux ids, noms, nations et biomes de la V6, une île par nation, frontières calées sur le dessin.
+- 10 ports (2 par île) et 10 routes maritimes (graphe complet), tracées par la mer.
+- Données : `src/map/arken-v9-map.js` (+ `arken-v9-data.js` généré depuis `tools/carte/arken-v9-carte.json`).
+- Nouvel identifiant de carte `arken-v9-leonardo` : une sauvegarde de l'ancienne carte affiche un message clair
+  et propose une nouvelle partie (elle n'est plus ignorée en silence).
+
+**Mer et IA** (mécaniques navales V6 conservées, la refonte est en V10)
+- Une route est utilisable quand les deux ports sont construits ; embarquement, traversée, débarquement.
+- L'IA sait désormais utiliser la mer (B11 corrigé) : base navale, flotte, débarquements escortés, renforts.
+  En simulation : premiers combats navals vers le tour 28, 8 à 38 combats inter-îles par partie de 200 tours.
+
+**Rendu** : image Leonardo en fond, voile couleur nation, zones tactiles = polygones (chevauchements B7 corrigés),
+icônes recalées, ports et routes visibles, flèches d'ordres (y compris par mer), zoom ×3, en-tête « ARKEN · V9 ».
+
+**Service worker** : B12 corrigé (seules les réponses valides sont mises en cache).
+
+**Bêta sur téléphone** : la PWA ne s'installe pas sur le téléphone de Jack (« Impossible d'ouvrir l'application ») ;
+ajout d'un APK Android fabriqué par GitHub Actions (Capacitor), signé avec une clé de bêta stable, publié à
+https://github.com/scuillerjack-oss/frontieres-arken/releases/download/beta/frontieres-arken-beta.apk
+
+**Tests** : 92 tests (91 OK, 1 « à faire » = B3). Simulation IA contre IA 5 × 200 tours sur la carte V9 avec
+combats inter-îles obligatoires. Parcours réel vérifié dans Chrome mobile simulé.
+
+**Restent ouverts** : B1/B2 (combats traités dans l'ordre alphabétique), B3, B4, B5, B6 (pas de fin de partie),
+B8 (taille de la sauvegarde), B9 (diplomatie de l'IA) ; la mer s'ouvre tard pour le joueur (il faut que la nation
+d'en face construise son port) — à revoir avec la refonte marine de la V10.

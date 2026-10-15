@@ -1,16 +1,15 @@
-import { arkenV1Map as map } from './src/map/arken-v1-map.js';
+import { arkenV9Map as map } from './src/map/arken-v9-map.js';
 import { createGameState } from './src/state/create-game-state.js';
 import { encodeSave, decodeSave } from './src/persistence/save-codec.js';
 import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury } from './src/domain/game-engine.js';
-import { compactForces, diplomacyActions, relationWithPlayer, totalArmy, clampMapTransform } from './src/presentation/v3-ux.js';
+import { compactForces, diplomacyActions, relationWithPlayer, totalArmy } from './src/presentation/v3-ux.js';
 import { forceSelection, provinceBorderPoint, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
-import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows } from './src/presentation/v5-ux.js';
+import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows, orderPath } from './src/presentation/v5-ux.js';
 import { resolveNewGameRequest } from './src/presentation/start-flow.js';
 import { setActiveScreen } from './src/presentation/screen-flow.js';
 import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
-const names = {Infanterie:'Infanterie',Cavalerie:'Cavalerie',Blindés:'Blindés',Artillerie:'Artillerie',Ballons:'Ballons',Navires:'Navires'};
 const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', balloon:'Ballons', warship:'Navires' };
 const buildingNames = { bank:'Banque', factory:'Usine', fort:'Forteresse', port:'Port' };
 const icons = { bank:'▦', factory:'⚒', fort:'▣', port:'⚓' };
@@ -18,6 +17,11 @@ const nation = id => map.nations.find(n => n.id === id) || { short:'Nation incon
 const province = id => map.provinces.find(p => p.id === id) || { name:'Province inconnue', markerAnchor:{x:0,y:0}, geometry:{points:[]} };
 let state, selected = null, moveSource = null, scale = 1, tx = 0, ty = 0, drag = null, toastTimer, tutorialShown = new Set();
 let pointers = new Map(), pinching = false, pinchStart = null, ignoreClickUntil = 0, audioCtx, musicNodes = [], frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, transformFrame=0;
+// V9 : repère de la carte Leonardo (1536 × 1536). Zoom max plus grand que la V6 (2,5) pour viser 20 provinces sur téléphone.
+const FRAME = map.frame, MAX_ZOOM = 3;
+// Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
+let minZoom = 1;
+let backgroundImage = null;
 const save = () => { if (state) localStorage.setItem(SAVE_KEY, encodeSave(state)); };
 const load = () => { try { const raw=localStorage.getItem(SAVE_KEY); return raw ? decodeSave(raw) : null; } catch { return null; } };
 const E = (tag, attrs={}) => { const node=document.createElementNS(SVG,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); return node; };
@@ -29,35 +33,62 @@ function tutorial(id,title,text) {
   state.tutorial.shown.push(id);tutorialShown.add(id);state.tutorial.seen.push(id);state.tutorial.stage=(state.tutorial.stage||0)+1;save();
   $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;
 }
-function routeLine(fromId,toId,kind){
-  const a=province(fromId),b=province(toId),start=provinceBorderPoint(a,b.markerAnchor),end=provinceBorderPoint(b,a.markerAnchor);
-  return E('line',{x1:start.x,y1:start.y,x2:end.x,y2:end.y,class:`route ${kind}`});
+const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
+// Route maritime : pointillés d'un port à l'autre en suivant les waypoints ; « open » quand les deux ports sont construits.
+function seaLane(lane){
+  const a=province(lane.from),b=province(lane.to),open=Boolean(state.provinces[lane.from]?.buildings.port&&state.provinces[lane.to]?.buildings.port);
+  return E('path',{d:pathData([a.port.anchor,...lane.waypoints,b.port.anchor]),class:`route maritime${open?' open':''}`});
+}
+function portMarker(d){
+  const built=Boolean(state.provinces[d.id].buildings.port),g=E('g',{class:`port-marker${built?' built':''}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`}),inner=E('g',{class:'ui-scale'});
+  const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:22}),icon);g.append(inner);return g;
+}
+// Flèche d'ordre : terre = du cœur de l'origine jusque dans la cible ; mer = suit la route maritime jusqu'à la côte visée.
+function arrowPoints(order){
+  const from=province(order.fromId),to=province(order.toId),path=orderPath(map,order);
+  if(order.routeType==='sea'&&path.length>2){const sea=path.slice(1,-1),last=sea.at(-1),landing=provinceBorderPoint(to,last);return[from.markerAnchor,...sea,{x:landing.x+(to.markerAnchor.x-landing.x)*.25,y:landing.y+(to.markerAnchor.y-landing.y)*.25}];}
+  const exit=provinceBorderPoint(from,to.markerAnchor),entry=provinceBorderPoint(to,from.markerAnchor);
+  const start={x:from.markerAnchor.x+(exit.x-from.markerAnchor.x)*.35,y:from.markerAnchor.y+(exit.y-from.markerAnchor.y)*.35};
+  const end={x:entry.x+(to.markerAnchor.x-entry.x)*.55,y:entry.y+(to.markerAnchor.y-entry.y)*.55};
+  return[start,end];
+}
+// Icônes d'une province, en coordonnées locales autour de son centre ; « ui-scale » les garde lisibles quel que soit le zoom.
+function provinceLabel(d,p){
+  const g=E('g',{class:'province-label',transform:`translate(${d.markerAnchor.x} ${d.markerAnchor.y})`}),inner=E('g',{class:'ui-scale'});
+  const name=E('text',{class:'name',y:12});name.textContent=d.name;inner.append(name);
+  const capital=Object.values(state.nations).some(n=>n.capitalId===d.id),troops=Object.values(p.units).some(Boolean)||p.warships;
+  if(capital){const star=E('text',{x:troops?-20:0,y:-30,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
+  if(troops)inner.append(E('circle',{cx:capital?22:0,cy:-42,r:11,class:'marker'}));
+  const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
+  built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:56,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
+  g.append(inner);return g;
 }
 function destinations(){return new Set(moveSource?legalDestinations(map,state,moveSource).map(x=>x.id):[]);}
 function render(){
   const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs');
-  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
-  svg.replaceChildren(defs,E('rect',{width:400,height:260,class:'sea'}));
-  map.maritimeRoutes.forEach(r=>routeLayer.push(routeLine(r[0],r[1],'maritime'))); map.visibleRoutes.forEach(r=>routeLayer.push(routeLine(r.from,r.to,'land')));
+  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'6',refY:'5',markerUnits:'userSpaceOnUse',markerWidth:'46',markerHeight:'46',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
+  backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
+  const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),labelLayer=E('g',{class:'labels'});
+  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer);
+  map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
+  map.provinces.filter(d=>d.port).forEach(d=>routeLayer.push(portMarker(d)));
   for(const d of map.provinces){
     const p=state.provinces[d.id],diploState=relationWithPlayer(state,p.ownerId),classes=['province'];
     if(selected===d.id)classes.push('selected');
     if(p.ownerId===state.playerNationId&&!moveSource)classes.push('player-province');
-    if(moveSource)classes.push(allowed.has(d.id)?'destination':'blocked');
+    if(moveSource)classes.push(d.id===moveSource?'source':allowed.has(d.id)?'destination':'blocked');
     const group=E('g',{class:classes.join(' '),'data-id':d.id,role:'button',tabindex:'0','aria-label':`${d.name}, ${nation(p.ownerId).short}`});
     group.style.setProperty('--owner',nation(p.ownerId).color);group.style.setProperty('--diplo',diploState==='war'?'#e45c56':diploState==='alliance'?'#5da9ff':'#f3f1e9');
-    const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points}),E('polygon',{points}));
-    const label=E('text',{x:d.markerAnchor.x,y:d.markerAnchor.y});label.textContent=d.name;group.append(label);
-    if(Object.values(state.nations).some(n=>n.capitalId===d.id)){const star=E('text',{x:d.markerAnchor.x,y:d.markerAnchor.y-12,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';group.append(star);}
-    let offset=-14;for(const [key,count] of Object.entries(p.buildings||{}))if(count){const symbol=E('text',{x:d.markerAnchor.x+offset,y:d.markerAnchor.y+12,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;group.append(symbol);offset+=10;}
-    if(Object.values(p.units).some(Boolean)||p.warships)group.append(E('circle',{cx:d.markerAnchor.x+18,cy:d.markerAnchor.y-10,r:4,class:'marker'}));
+    // Le polygone est à la fois le dessin et la zone tactile (plus de chevauchement : B7).
+    const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
+    if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id)))highlightLayer.append(E('polygon',{points,class:`outline ${moveSource&&allowed.has(d.id)?'destination':'selected'}`}));
+    labelLayer.append(provinceLabel(d,p));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
-    group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});svg.append(group);
+    group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
   }
-  svg.append(...routeLayer);
+  svg.append(...routeLayer,labelLayer);
   for(const order of playerOrderArrows(state,map)){
-    const start=provinceBorderPoint(province(order.fromId),order.end),end=provinceBorderPoint(province(order.toId),order.start);
-    const arrow=E('line',{x1:start.x,y1:start.y,x2:end.x,y2:end.y,class:`order-arrow ${order.kind}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='attack'?'Attaque':'Déplacement'} : ${order.fromName} vers ${order.toName}`});
+    const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?' par mer':''} : ${order.fromName} vers ${order.toName}`});
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').textContent=state.turn;$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
@@ -161,6 +192,9 @@ function resolveTurn(){
 }
 function playSfx(){if(!state.settings.sfx)return;audioCtx ||= new AudioContext();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=330;g.gain.setValueAtTime(.035,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.12);}
 function setMusic(on){if(!on){musicNodes.forEach(n=>n.stop?.());musicNodes=[];return;}audioCtx ||= new AudioContext();if(musicNodes.length)return;[110,146.8,164.8].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.009/(i+1);o.connect(g).connect(audioCtx.destination);o.start();musicNodes.push(o);});}
+// Sauvegarde d'une autre carte (ex. V6 'arken-v1-original-map') : elle n'est plus ignorée en silence (B14).
+function savedOnOtherMap(value){return Boolean(value&&value.mapId&&value.mapId!==map.id);}
+function showSaveNotice(raw){const notice=$('#saveNotice');notice.hidden=!savedOnOtherMap(raw);}
 function hydrateState(value){
   if(!value||value.mapId!==map.id)return null;
   value.turnJournal||=value.journal||[];value.chronicle||=[];value.orders||=[];value.tutorial||={seen:[],stage:0,turn:value.turn,shown:[]};value.tutorial.shown||=[];value.tutorial.turn??=value.turn;
@@ -171,13 +205,13 @@ function hydrateState(value){
   return value;
 }
 function showWelcome(){
-  setActiveScreen(document,'welcome');const saved=hydrateState(load());$('#continueGame').hidden=!saved;$('#tutorialBubble').hidden=true;state=null;history.replaceState({arkenScreen:'home'},'',location.href);
+  setActiveScreen(document,'welcome');const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);$('#tutorialBubble').hidden=true;state=null;history.replaceState({arkenScreen:'home'},'',location.href);
 }
 function showGame(){
   setActiveScreen(document,'game');history.pushState({arkenScreen:'game'},'',location.href);
-  requestAnimationFrame(()=>{measureFrame();render();clampTransform();});
+  requestAnimationFrame(()=>{measureFrame();render();focusProvince(state.nations[state.playerNationId]?.capitalId||'p01');});
 }
-function continueSavedGame(){state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;showGame();}
+function continueSavedGame(){state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();}
 function confirmSaveReplacement(){
   const dialog=$('#replaceSaveDialog');
   return new Promise(resolve=>{
@@ -198,14 +232,21 @@ function beginNewGame(){
 }
 function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=()=>{state=createGameState({map,playerNationId:b.dataset.nation});$('#nationDialog').close();selected=null;moveSource=null;scale=1;tx=ty=0;showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=()=>{state=createGameState({map,playerNationId:b.dataset.nation});$('#nationDialog').close();selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
-function setup(){const saved=hydrateState(load());$('#continueGame').hidden=!saved;setActiveScreen(document,'welcome');}
-function measureFrame(){const viewport=$('#viewport');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};const fit=Math.min(frameSize.width/400,frameSize.height/260);mapContentSize={width:400*fit,height:260*fit};clampTransform();}
+function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');}
+function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
+  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height),contain=Math.min(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
+  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
+  Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2}px`,top:`${(frameSize.height-mapContentSize.height)/2}px`});clampTransform();}
+// Centre la vue sur une province (capitale du joueur au lancement).
+function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform();}
+// Les icônes et noms rétrécissent un peu quand on zoome (sinon ils deviendraient énormes) : appliqué en fin de geste.
+function updateLabelScale(){$('#map').style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));}
 function clampTransform(){
   if(!frameSize.width||!frameSize.height)return;
-  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize);
+  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom);
   scale=next.scale;tx=next.x;ty=next.y;
   if(!transformFrame)transformFrame=requestAnimationFrame(()=>{transformFrame=0;$('#map').style.transform=`translate3d(${tx}px,${ty}px,0) scale(${scale})`;});
 }
@@ -218,12 +259,12 @@ viewport.addEventListener('pointerdown',event=>{
 });
 viewport.addEventListener('pointermove',event=>{
   if(pointers.has(event.pointerId))pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,type:event.pointerType});
-  if(pinching&&pointers.size>=2){const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},next=pinchTransform({scale:pinchStart.scale,x:pinchStart.x,y:pinchStart.y,startMidX:pinchStart.mid.x,startMidY:pinchStart.mid.y,midX:mid.x-pinchStart.left,midY:mid.y-pinchStart.top,centerX:pinchStart.centerX,centerY:pinchStart.centerY,startDistance:pinchStart.distance,currentDistance:pointerDistance(a,b)});scale=next.scale;tx=next.x;ty=next.y;ignoreClickUntil=Date.now()+600;clampTransform();event.preventDefault();return;}
+  if(pinching&&pointers.size>=2){const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},next=pinchTransform({scale:pinchStart.scale,x:pinchStart.x,y:pinchStart.y,startMidX:pinchStart.mid.x,startMidY:pinchStart.mid.y,midX:mid.x-pinchStart.left,midY:mid.y-pinchStart.top,centerX:pinchStart.centerX,centerY:pinchStart.centerY,startDistance:pinchStart.distance,currentDistance:pointerDistance(a,b),maxScale:MAX_ZOOM,minScale:minZoom});scale=next.scale;tx=next.x;ty=next.y;ignoreClickUntil=Date.now()+600;clampTransform();event.preventDefault();return;}
   if(!drag||drag.pointerId!==event.pointerId)return;
   if(!drag.panning&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>6){drag.panning=true;viewport.setPointerCapture?.(drag.pointerId);ignoreClickUntil=Date.now()+400;}
   if(drag.panning){tx+=event.clientX-drag.lastX;ty+=event.clientY-drag.lastY;drag.lastX=event.clientX;drag.lastY=event.clientY;clampTransform();}
 });
-const endPointer=event=>{pointers.delete(event.pointerId);if(pointers.size<2&&pinching){pinching=false;pinchStart=null;ignoreClickUntil=Date.now()+600;}if(drag?.pointerId===event.pointerId){if(drag.panning)ignoreClickUntil=Date.now()+400;drag=null;}};
+const endPointer=event=>{pointers.delete(event.pointerId);if(pointers.size<2&&pinching){pinching=false;pinchStart=null;ignoreClickUntil=Date.now()+600;updateLabelScale();}if(drag?.pointerId===event.pointerId){if(drag.panning)ignoreClickUntil=Date.now()+400;drag=null;}};
 viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('pointercancel',endPointer);
 
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
@@ -235,7 +276,7 @@ $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}To
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
 $('#resetHints').onclick=()=>{state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
-$('#zoomIn').onclick=()=>{scale=Math.min(2.5,scale+.25);clampTransform();};$('#zoomOut').onclick=()=>{scale=Math.max(1,scale-.25);clampTransform();};$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();};
+$('#zoomIn').onclick=()=>{scale=Math.min(MAX_ZOOM,scale*1.4);clampTransform();updateLabelScale();};$('#zoomOut').onclick=()=>{scale=Math.max(minZoom,scale/1.4);clampTransform();updateLabelScale();};$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
 $('#mapShell').addEventListener('click',event=>{if(event.target.closest('.order-arrow'))tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
 function handleAppBack(){
   const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);

@@ -54,11 +54,12 @@ test('planAIOrders est idempotent dans un même tour', () => {
   assert.equal(s.orders.length, first);
 });
 
-test('constat V6 : l\'IA ne construit jamais de port ni d\'ordre maritime ; trésors qui s\'accumulent', () => {
+// B11 CORRIGÉ en V9 (test inversé) : l'IA construit des ports, des navires et traverse la mer.
+test('B11 corrigé : l\'IA construit des ports et des navires et lance des opérations maritimes', () => {
   const s = simulate('valmorne', 200);
-  assert.equal(Object.values(s.provinces).filter(p => p.buildings.port).length, 0);
-  assert.equal(s.transports.length, 0);
-  assert.ok(Object.values(s.nations).some(n => n.treasury > 5000), 'IA thésaurise (dépense max ~1 recrutement par tour)');
+  assert.ok(Object.values(s.provinces).filter(p => p.buildings.port).length > 0, 'ports construits');
+  assert.ok(Object.values(s.provinces).some(p => p.warships > 0) || s.events.some(e => e.naval), 'flotte ou combat naval');
+  assert.ok(s.events.some(e => e.naval), 'au moins un combat naval');
 });
 
 // BUG CONNU (game-engine.js:244-246) : l'IA ne tient pas compte des constructions en file ; elle relance usine ou

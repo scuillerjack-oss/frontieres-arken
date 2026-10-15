@@ -3,3 +3,12 @@ dist/
 .env
 *.keystore
 *.jks
+
+# Android (APK de bêta) : android/ est régénéré à chaque build par GitHub Actions
+# (npx cap add android + scripts/android-prepare.js) ; jamais committé.
+android/
+*.apk
+*.aab
+.gradle/
+# Seule exception autorisée : la clé PUBLIQUE de débogage des bêtas (voir android-debug/README.md).
+!android-debug/arken-debug.keystore

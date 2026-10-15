@@ -1,0 +1,97 @@
+name: APK Android de bêta
+
+# À chaque fusion dans main : fabrique un vrai APK Android (Capacitor) à partir du
+# site publié (dist/), signé avec la clé de bêta stable (android-debug/), et le
+# publie à une adresse FIXE que Jack ouvre sur son téléphone :
+#   https://github.com/scuillerjack-oss/frontieres-arken/releases/download/beta/frontieres-arken-beta.apk
+#
+# android/ n'est pas commité : il est régénéré ici à chaque fois (npx cap add android
+# + scripts/android-prepare.js). Raisons : l'environnement de développement ne peut pas
+# compiler Android (dl.google.com bloqué), il n'y a aucun code natif propre au jeu, et
+# on évite ainsi des centaines de fichiers générés à maintenir. Les runners GitHub ont
+# le SDK Android préinstallé.
+#
+# Indépendant de deploy.yml (GitHub Pages) et de tests.yml, qui ne sont pas modifiés.
+on:
+  push:
+    # Sur une branche de mission : on compile pour vérifier l'APK avant la fusion,
+    # sans rien publier. Sur main : on compile ET on publie la bêta.
+    branches: [main, 'mission/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Le CLI Capacitor 8 exige Node >= 22.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/build.js "$GITHUB_SHA"
+
+      - name: Générer et personnaliser le projet Android
+        run: |
+          npx cap add android
+          node scripts/android-prepare.js
+          npx cap sync android
+          chmod +x android/gradlew
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compiler l'APK (signé avec la clé de bêta stable)
+        working-directory: android
+        env:
+          # versionCode doit augmenter à chaque bêta : numéro d'exécution du workflow.
+          ARKEN_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          ARKEN_VERSION_NAME="$(cat ../dist/version.txt)"
+          export ARKEN_VERSION_NAME
+          ./gradlew assembleRelease --stacktrace --no-daemon
+
+      - name: Vérifier la signature et renommer
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs "$APK" | tee signature.txt
+          # Empreinte attendue de android-debug/arken-debug.keystore (alias arkendebug).
+          grep -qi "0d4f7a5eeb0009a28935b95cd88919fecb8b5c5392d8afe20a008299bfff03d8" signature.txt
+          cp "$APK" frontieres-arken-beta.apk
+
+      - name: Publier dans la pré-version « beta » (adresse fixe)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(cat dist/version.txt)"
+          NOTES="Bêta Android ${VERSION} (commit ${GITHUB_SHA}).
+          Télécharger sur le téléphone : https://github.com/${GITHUB_REPOSITORY}/releases/download/beta/frontieres-arken-beta.apk
+          S'installe par-dessus la bêta précédente (même signature) : les parties sont conservées."
+          if gh release view beta >/dev/null 2>&1; then
+            gh release upload beta frontieres-arken-beta.apk --clobber
+            gh release edit beta --prerelease --title "Bêta Android ${VERSION}" --notes "$NOTES"
+          else
+            gh release create beta frontieres-arken-beta.apk --prerelease --target "$GITHUB_SHA" \
+              --title "Bêta Android ${VERSION}" --notes "$NOTES"
+          fi
+          {
+            echo "### APK de bêta publié : ${VERSION}"
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/beta/frontieres-arken-beta.apk"
+          } >> "$GITHUB_STEP_SUMMARY"
