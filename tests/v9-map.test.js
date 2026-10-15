@@ -147,8 +147,10 @@ test('V9 résolution simultanée : « j\'attaque X→Y pendant qu\'on attaque X 
   assert.equal(s.turn, 2);
   assert.equal(s.orders.length, 0);
   const fights = s.events.filter(e => e.type === 'battle' || e.type === 'conquest').map(e => [e.type, e.attacker, e.provinceId]);
-  // Comportement V6 conservé (voir AUDIT B1) : cibles traitées par identifiant, p03 avant p04.
-  assert.deepEqual(fights, [['conquest', 'noireflamme', 'p03'], ['battle', 'valmorne', 'p04']]);
+  // V10 (B1 corrigé) : X se défend d'abord avec toute sa garnison ; l'attaque de Valmorne, dont l'origine est tombée,
+  // est annulée sans combat fantôme.
+  assert.deepEqual(fights, [['conquest', 'noireflamme', 'p03']]);
+  assert.ok(s.events.some(e => e.type === 'attack-cancelled' && e.nationId === 'valmorne'));
   assert.equal(s.provinces.p03.ownerId, 'noireflamme');
   assert.equal(s.provinces.p04.ownerId, 'roc-epine');
   assertInvariants(s, 'V9 simultané');

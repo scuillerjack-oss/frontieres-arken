@@ -63,8 +63,8 @@ test('cessez-le-feu accepté (offre 25 %, aléa forcé à 0) : guerre terminée,
   assert.equal(atWar(s, 'valmorne', 'oroel'), false);
   assert.equal(relationWithPlayer(s, 'oroel'), 'ceasefire');
   assert.equal(s.nations.valmorne.treasury, 120 - 30 + 16);
-  // BUG CONNU (game-engine.js:189) : le paiement est débité au demandeur mais jamais crédité à la cible.
-  assert.equal(s.nations.oroel.treasury, 120 + 16);
+  // B3 CORRIGÉ en V10 (test inversé) : le paiement est versé à la nation qui accepte.
+  assert.equal(s.nations.oroel.treasury, 120 + 30 + 16);
   // Après une trêve, l'alliance redevient possible.
   assert.equal(diplomacyActions(s, 'oroel').find(a => a.id === 'alliance').enabled, true);
 });
@@ -93,4 +93,8 @@ test('attaquer une nation alliée rompt l\'alliance et déclare la guerre', () =
   assert.equal(relationWithPlayer(s, 'roc-epine'), 'war');
 });
 
-test.todo('BUG CONNU : un cessez-le-feu accepté devrait créditer la nation cible (game-engine.js:189)');
+test('B3 corrigé : le journal indique à qui la somme du cessez-le-feu est versée', async () => {
+  const { journalEntry } = await import('../src/domain/game-engine.js');
+  const e = journalEntry({ type: 'ceasefire-offer', nationId: 'valmorne', target: 'oroel', amount: 30, accepted: true }, map, 'valmorne');
+  assert.match(e.text, /30 or, versés à/);
+});

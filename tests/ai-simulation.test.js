@@ -62,16 +62,16 @@ test('B11 corrigé : l\'IA construit des ports et des navires et lance des opér
   assert.ok(s.events.some(e => e.naval), 'au moins un combat naval');
 });
 
-// BUG CONNU (game-engine.js:244-246) : l'IA ne tient pas compte des constructions en file ; elle relance usine ou
-// banque sur la même province chaque tour où elle a l'argent -> plusieurs usines / banques par province.
-test('BUG CONNU : l\'IA empile plusieurs usines ou banques sur une même province', () => {
-  const s = simulate('valmorne', 10);
-  assert.ok(Object.values(s.provinces).some(p => p.buildings.factory > 1 || p.buildings.bank > 1));
+// B5 CORRIGÉ en V10 (test inversé) : une banque et une usine au plus par province, file comprise ; l'IA les respecte.
+test('B5 corrigé : l\'IA n\'empile plus usines ni banques sur une même province', () => {
+  const s = simulate('valmorne', 60);
+  assert.ok(Object.values(s.provinces).every(p => p.buildings.factory <= 1 && p.buildings.bank <= 1));
+  assert.ok(Object.values(s.provinces).some(p => p.buildings.factory === 1), 'des usines sont construites');
 });
 
-// BUG CONNU : aucune nation n'est jamais éliminée ni victorieuse (champ `eliminated` jamais mis à jour, aucune
-// condition de fin de partie).
-test('BUG CONNU : pas de fin de partie, `eliminated` jamais modifié', () => {
+// B6 CORRIGÉ en V10 (au minimum) : une nation sans province est marquée éliminée (voir combat-v10.test.js) ;
+// la condition de victoire reste à définir (point ouvert).
+test('B6 : `eliminated` reste cohérent avec les provinces possédées pendant toute la partie', () => {
   const s = simulate('valmorne', 200);
-  assert.ok(Object.values(s.nations).every(n => n.eliminated === false));
+  for (const [id, n] of Object.entries(s.nations)) assert.equal(n.eliminated, !Object.values(s.provinces).some(p => p.ownerId === id) && !(s.transports || []).some(t => t.nationId === id));
 });

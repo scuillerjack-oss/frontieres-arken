@@ -2,6 +2,8 @@ import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
 import { validateMapDefinition } from '../map/validate-map.js';
 
 const emptyUnits = () => Object.fromEntries(LAND_UNIT_TYPES.map(id => [id, 0]));
+// V10 : blessures (PV perdus) par type d'unité, navires compris. Voir src/domain/combat.js.
+export const emptyWounds = () => Object.fromEntries([...LAND_UNIT_TYPES, 'warship'].map(id => [id, 0]));
 
 export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
   const checked = validateMapDefinition(map);
@@ -23,6 +25,7 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
       ownerId: p.initialOwner,
       units: { ...emptyUnits(), infantry: capitals[p.initialOwner]===p.id ? 200 : 40, cavalry: capitals[p.initialOwner]===p.id ? 10 : 0, armor: capitals[p.initialOwner]===p.id ? 6 : 0, artillery: capitals[p.initialOwner]===p.id ? 2 : 0, balloon: capitals[p.initialOwner]===p.id ? 1 : 0 },
       warships: 0,
+      wounds: emptyWounds(),
       // `portSite` is geographic eligibility; a port must be built and paid for.
       portSite: Boolean(p.port),
       buildings: { bank: 0, factory: 0, fort: 0, port: 0 }

@@ -59,12 +59,13 @@ test('flèches d\'ordre du joueur : vert = déplacement, rouge = attaque, ancré
   assert.deepEqual(arrows[0].start, { x: 89, y: 78 });
 });
 
-test('attaque simple : guerre déclarée automatiquement, conquête si ratio > 1,08', () => {
+test('attaque simple (combat V10 à PV) : guerre déclarée automatiquement, capitale prise et pillée', () => {
   const s = freshState({ allHuman: true });
-  s.provinces.p04.units.infantry = 500;
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 500 } });
+  s.provinces.p04.units.infantry = 1000;
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 1000 } });
   resolveInterturn(s, map);
   assert.equal(s.provinces.p05.ownerId, 'valmorne');
-  assert.equal(s.nations.valmorne.treasury, 120 + 30 + 20, 'trésor de guerre (capitale) + revenu de 5 provinces');
+  // Trésor de guerre (30) + pillage de 50 % du trésor de Roc-Épine (60) + revenu de 5 provinces.
+  assert.equal(s.nations.valmorne.treasury, 120 + 30 + 60 + 20);
   assert.ok(s.diplomacy.wars.some(w => w.participants.includes('valmorne') && w.participants.includes('roc-epine')));
 });

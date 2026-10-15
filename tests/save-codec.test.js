@@ -31,20 +31,20 @@ test('aller-retour sans perte : partie avancée avec ordres, guerres, file de pr
   assert.deepEqual(back, s);
 });
 
-test('schéma 5 conservé ; schémas inconnus refusés', () => {
+test('schéma 6 (V10) ; schémas inconnus refusés', () => {
   const s = freshState();
-  assert.equal(JSON.parse(encodeSave(s)).schemaVersion, 5);
-  assert.throws(() => decodeSave(JSON.stringify({ ...s, schemaVersion: 6 })), /unsupported_save_schema:6/);
+  assert.equal(JSON.parse(encodeSave(s)).schemaVersion, 6);
+  assert.throws(() => decodeSave(JSON.stringify({ ...s, schemaVersion: 7 })), /unsupported_save_schema:7/);
   assert.throws(() => migrateSave(null), /invalid_save/);
   assert.throws(() => decodeSave('pas du json'));
 });
 
-test('migration v4 -> v5 : cessez-le-feu en attente rendu gratuit, champs ajoutés', () => {
+test('migration v4 -> v6 : cessez-le-feu en attente rendu gratuit, champs ajoutés', () => {
   const s = freshState();
   const old = { ...structuredClone(s), schemaVersion: 4, orders: [{ id: 'o1', kind: 'diplomacy', action: 'ceasefire', status: 'pending', nationId: 'valmorne', target: 'aurel' }], prisoners: [1] };
   delete old.chronicle; delete old.warChestsClaimed;
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 5);
+  assert.equal(m.schemaVersion, 6);
   assert.equal(m.prisoners, undefined);
   assert.deepEqual(m.chronicle, []);
   assert.deepEqual(m.warChestsClaimed, {});
