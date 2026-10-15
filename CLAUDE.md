@@ -9,14 +9,16 @@ un chantier : messages courts, en français, livrables prêts à l'emploi.
 - `assets/carte-leonardo.jpg` : la carte de référence. `V8-cahier-des-charges-original.pdf` : cahier d'origine.
 - Le commit « V6.0.2 telle que récupérée » est la référence intouchable de départ.
 
-## Fusion dans `main` : c'est Jack qui fusionne
-Jack avait autorisé Claude à fusionner lui-même (15/10/2026), mais l'environnement de Claude bloque
-toute fusion sans validation humaine : ne pas chercher à contourner ce garde-fou.
-Claude ouvre donc la Pull Request et ne la présente à Jack comme prête que si les trois conditions sont réunies :
+## Fusion dans `main`
+Jack laisse à Claude le contrôle de GitHub. L'environnement de Claude exige une validation humaine explicite :
+Claude fusionne quand Jack le lui demande dans la conversation (« fusionne », « vas-y fais-le », ou une autorisation
+donnée pour une série de versions). Si le garde-fou bloque malgré tout, ne pas le contourner : Jack fusionne depuis
+l'app GitHub (Merge pull request → Confirm merge).
+Dans tous les cas, une Pull Request n'est fusionnée (ou présentée comme prête) que si les trois conditions sont réunies :
 1. tous les tests automatiques sont au vert (workflows `Tests` et `APK Android de bêta`) ;
 2. le jeu a été vérifié dans un Chrome mobile simulé (Playwright) sur le parcours réel ;
 3. une relecture par un sous-agent indépendant n'a rien trouvé de bloquant.
-Jack fusionne ensuite depuis l'app GitHub (Merge pull request → Confirm merge).
+
 
 ## Bêta sur téléphone
 L'installation de la PWA par Chrome échoue sur le téléphone de Jack. La bêta passe par l'APK :

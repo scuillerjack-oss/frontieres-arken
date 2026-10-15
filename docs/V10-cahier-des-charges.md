@@ -57,3 +57,26 @@ envoi), guidées pas à pas. L'APK de bêta reste disponible en secours.
 
 ## Hors périmètre
 Personnalités des dirigeants (V11), modèle économique (V12).
+
+---
+
+## Réalisé (15–16/10/2026) — version 10.0.0
+
+Les 16 retours de bêta V9 concernés (points 1 à 16) sont traités et ont été vérifiés en jeu par un testeur indépendant
+(Chrome mobile simulé). Détails : `V10-moteur.md` (règles, combats, blessures) et `V10-marine.md`.
+
+- **Ergonomie** : cadre réduit, barre du haut et boutons du bas lisibles, bouton Diplomatie du bas retiré,
+  glisser dans tous les sens à tout zoom, flèches vers le point des provinces, liserés bleu (mon territoire) et rouge
+  (guerre), ports colorés selon leur propriétaire, prérequis affichés en clair.
+- **Règles** : une banque, une usine, un port par province ; forteresse niveaux 1 à 3 (+10 % de défense par niveau) ;
+  guerre automatique ; pillage de 50 % du trésor à la prise d'une capitale ; journal public des affrontements ;
+  nation sans province éliminée. Bugs B1 à B6 corrigés.
+- **Combats** : bataillons à points de vie en 3 passes, forces et faiblesses par type, blessures lentes (+10 % par tour).
+- **Marine** : embarquement depuis son propre port vers toute côte reliée, convois visibles en 2 tours minimum,
+  interception, escorte, débarquement. Le blocage de la bêta V9 (point 14) est levé.
+- **Fin de partie** au tour 60 avec classement.
+- **Google Play** : AAB signé prêt pour le test interne (clé d'importation à ajouter par Jack, voir
+  `GUIDE-GOOGLE-PLAY-TEST-INTERNE.md`).
+- **Tests** : 159 tests verts, sauvegarde schéma 7 avec migration.
+
+**À équilibrer à la prochaine bêta** : IA passive jusqu'au tour ~47 ; interceptions qui ne coulent jamais de convoi.
