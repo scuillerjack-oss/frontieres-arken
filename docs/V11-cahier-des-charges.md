@@ -22,7 +22,13 @@ Il découvre qui est le traître à son comportement, ce qui donne envie de rejo
 - Les répliques diplomatiques varient selon la personnalité (textes écrits à l'avance).
 - Chaque personnalité réagit différemment aux mêmes actions du joueur, et garde la mémoire de ses relations.
 
-## 5. Tests et livraison
+## 5. Échanges entre dirigeants et tension (retours bêta V9, points 17 et 18)
+- Fil d'échanges public et sobre entre dirigeants : le joueur n'écrit pas, il choisit un ton parmi 3
+  (hostile, neutre, amical) pour lancer ou répondre ; les dirigeants IA s'expriment selon leur personnalité.
+- **Curseur de tension** par nation : les échanges hostiles le font monter et augmentent le risque de guerre ;
+  le Conquérant peut attaquer sans attendre la tension.
+
+## 6. Tests et livraison
 - Tests par personnalité : chacune se comporte conformément à son archétype sur des scénarios fixés.
 - Simulations IA contre IA : aucune personnalité ne gagne systématiquement ; le traître trahit bien.
 - Même critère bloquant de livraison : bêta réellement jouable sur le téléphone de Jack.
