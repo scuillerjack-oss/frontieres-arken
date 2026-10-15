@@ -17,11 +17,29 @@ function migrate5to6(copy) {
   return copy;
 }
 
+/** V6 (V10 lot 2) -> V7 (V10 marine) : les transports V9 (embarking / at-sea, remaining) deviennent des convois à
+ *  étapes { id, via, lane, stage, turns } en gardant EXACTEMENT leur date d'arrivée (2 tours au total, comme en V9).
+ *  Les anciennes routes reliaient deux ports : la province d'arrivée est aussi le bout de la route (via = toId). */
+function migrate6to7(copy) {
+  let seq = Math.max(1, Number(copy.transportSequence) || 1);
+  copy.transports = (copy.transports || []).filter(t => t && t.status !== 'arrived').map(t => {
+    const { status, remaining, ...rest } = t;
+    const stage = Number.isFinite(t.stage) ? t.stage : status === 'embarking' ? 0 : Math.max(0, 2 - Math.max(1, Number(remaining) || 1));
+    const via = t.via || t.toId;
+    return { ...rest, id: t.id || `c${seq++}`, via, lane: t.lane || [t.fromId, via].sort().join('|'), stage, turns: Number.isFinite(t.turns) ? t.turns : 2,
+      wounds: t.wounds || Object.fromEntries(WOUND_TYPES.map(k => [k, 0])) };
+  });
+  copy.transportSequence = seq;
+  copy.schemaVersion = 7;
+  return copy;
+}
+
 export function migrateSave(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
   if (copy.schemaVersion === SAVE_SCHEMA_VERSION) return copy;
-  if (copy.schemaVersion === 5) return migrate5to6(copy);
+  if (copy.schemaVersion === 6) return migrate6to7(copy);
+  if (copy.schemaVersion === 5) return migrate6to7(migrate5to6(copy));
   if ([1, 2, 3, 4].includes(copy.schemaVersion)) {
     const previous = copy.schemaVersion;
     copy.schemaVersion=5; copy.settings={music:true,sfx:true,hints:true,...copy.settings};
@@ -35,7 +53,7 @@ export function migrateSave(raw) {
     if(previous===4)for(const order of copy.orders)if(order.kind==='diplomacy'&&order.action==='ceasefire'&&order.status==='pending'&&order.offerLevel==null){order.legacyFree=true;order.amount=0;order.acceptanceProbability=1;}
     // Existing buildings and active projects survive migration; only new games omit free setup.
     if (previous < 4) for (const province of Object.values(copy.provinces||{})) province.portSite ??= Boolean(province.buildings?.port);
-    return migrate5to6(copy);
+    return migrate6to7(migrate5to6(copy));
   }
   throw new Error(`unsupported_save_schema:${copy.schemaVersion}`);
 }

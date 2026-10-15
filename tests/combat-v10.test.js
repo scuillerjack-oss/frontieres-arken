@@ -312,7 +312,7 @@ test('B5 : migration d\'une sauvegarde V9 (schéma 5) : PV pleins, aucune blessu
   old.productionQueue = [{ kind: 'unit', type: 'infantry', provinceId: 'p01', nationId: 'valmorne', amount: 40, remaining: 1 }, { kind: 'building', type: 'bank', provinceId: 'p02', nationId: 'valmorne', amount: 1, remaining: 2 }];
   old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 1, status: 'at-sea', remaining: 1 }];
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 6);
+  assert.equal(m.schemaVersion, 7, 'V9 -> V10 lot 2 -> V10 marine');
   for (const p of Object.values(m.provinces)) assert.deepEqual(p.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 });
   assert.deepEqual(m.productionQueue.map(q => q.cost), [40, 30]);
   assert.equal(m.transports[0].wounds.infantry, 0);

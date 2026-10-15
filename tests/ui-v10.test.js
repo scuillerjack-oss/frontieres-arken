@@ -93,3 +93,57 @@ test('V10 point 8 : raisons en clair pour une construction indisponible', () => 
   assert.match(buildingUnavailableReason({ type: 'bank', label: 'Banque', rule: {}, cost: 30, spendable: 10 }), /il manque 20 or/);
   assert.equal(buildingUnavailableReason({ type: 'bank', label: 'Banque', rule: {}, cost: 30, spendable: 100 }), '');
 });
+
+// --- V10 marine et moteur : affichage (convois, PV, journal) ------------------------------------------------------
+import { convoyMarkers, convoySeaPath, pointAlong, forceHealthRows, journalCategoryClass } from '../src/presentation/v5-ux.js';
+import { TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
+import { journalEntry } from '../src/domain/game-engine.js';
+
+test('V10 marine : jeton de convoi placé à son étape sur la route, tours restants, points d\'étape', () => {
+  const s = fresh();
+  s.transports.push({ id: 'c1', nationId: 'valmorne', fromId: 'p03', toId: 'p20', via: 'p19', lane: 'p03|p19', stage: 1, turns: 3, units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 2, wounds: {} });
+  s.transports.push({ id: 'c2', nationId: 'oroel', fromId: 'p14', toId: 'p03', via: 'p03', lane: 'p03|p14', stage: 0, turns: 2, units: { infantry: 20 }, warships: 0, wounds: {} });
+  const [mine, theirs] = convoyMarkers(s, map);
+  assert.deepEqual([mine.remaining, mine.stages.length, mine.troops, mine.warships], [2, 2, 40, 2]);
+  const path = convoySeaPath(map, s.transports[0]);
+  assert.deepEqual(path[0], map.provinces.find(p => p.id === 'p03').port.anchor);
+  assert.deepEqual(path.at(-1), map.provinces.find(p => p.id === 'p19').port.anchor);
+  assert.deepEqual(mine.position, pointAlong(path, 1 / 3));
+  // Convoi étranger : composition cachée ; au départ, sur l'ancre du port d'origine (sens p14 → p03).
+  assert.deepEqual([theirs.own, theirs.troops, theirs.warships], [false, null, null]);
+  assert.deepEqual(theirs.position, map.provinces.find(p => p.id === 'p14').port.anchor);
+});
+
+test('V10 : PV lisibles dans la fiche (« 8 blindés · 92 % PV »)', () => {
+  const hp = Object.fromEntries(Object.entries(RULES.combat.units).map(([k, u]) => [k, u.hp]));
+  const rows = forceHealthRows({ units: { infantry: 200, cavalry: 0, armor: 8, artillery: 0, balloon: 0 }, warships: 1, wounds: { armor: Math.round(8 * 240 * .08), infantry: 0, warship: 0 } }, hp);
+  assert.deepEqual(rows.map(r => r.text), ['200 fantassins · 100 % PV', '8 blindés · 92 % PV', '1 navire · 100 % PV']);
+  assert.equal(rows[1].wounded, true);
+});
+
+test('V10 : nouvelles catégories du journal stylées (pillage, élimination, affrontement, ordre annulé, marine, fin)', () => {
+  const expected = { 'PILLAGE': 'plunder', 'ÉLIMINATION': 'elimination', 'AFFRONTEMENT': 'foreign-conflict', 'ORDRE ANNULÉ': 'cancelled', 'INTERCEPTION': 'naval', 'DÉBARQUEMENT': 'naval', 'MARINE': 'naval', 'FIN DE PARTIE': 'endgame', 'CONQUÊTE': 'conquest' };
+  for (const [type, cls] of Object.entries(expected)) assert.equal(journalCategoryClass(type), cls, type);
+  // Chaque type produit par le moteur a un style dédié (jamais « neutral » par défaut pour ces événements).
+  const events = [
+    { type: 'capital-plunder', attacker: 'valmorne', defender: 'oroel', provinceId: 'p13', amount: 10 },
+    { type: 'elimination', nationId: 'oroel' },
+    { type: 'battle', attacker: 'oroel', defender: 'aurel', provinceId: 'p17' },
+    { type: 'attack-cancelled', nationId: 'valmorne', fromId: 'p03', provinceId: 'p04', reason: 'origin-lost' },
+    { type: 'interception', kind: 'sea', attacker: 'oroel', defender: 'valmorne', target: 'valmorne', fromId: 'p03', toId: 'p14', provinceId: 'p14' },
+    { type: 'convoy-arrived', nationId: 'valmorne', provinceId: 'p19', amount: 3 },
+    { type: 'game-over', reason: 'turn-limit', turn: 60, winnerId: 'valmorne' }
+  ];
+  for (const e of events) assert.notEqual(journalCategoryClass(journalEntry(e, map, 'valmorne').type), 'neutral', e.type);
+});
+
+test('V10 marine : aide « maritime » à jour (un seul port au départ, durée, interception, escorte)', () => {
+  const text = TUTORIAL_GUIDE.find(x => x.id === 'maritime').text;
+  assert.match(text, /port construit dans la province de départ/);
+  assert.match(text, /aucun port n’est nécessaire en face/);
+  assert.match(text, /2 tours au minimum/);
+  assert.match(text, /intercepter/);
+  assert.match(text, /escorter/);
+  assert.doesNotMatch(text, /à chaque extrémité/);
+  assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /60 tours/.test(x.text)));
+});

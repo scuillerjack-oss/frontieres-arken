@@ -34,7 +34,7 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
     ai: { memories: {}, replay: [], traits:Object.fromEntries(nationIds.filter(id=>id!==playerNationId).map((id,i)=>[id,['prudent','offensif','fidele','impulsif'][i]])) },
     orderSequence: 1,
     randomCounter: 0,
-    settings:{music:true,sfx:true,hints:true}, tutorial:{seen:[],stage:0,turn:1,shown:[]}, transports:[], messages:[], events: [],
+    settings:{music:true,sfx:true,hints:true}, tutorial:{seen:[],stage:0,turn:1,shown:[]}, transports:[], transportSequence:1, messages:[], events: [],
     warChestsClaimed:{}, journal:[], turnJournal:[], chronicle:[], lastJournalEventIndex:0
   };
 }

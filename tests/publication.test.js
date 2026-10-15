@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
@@ -56,4 +56,30 @@ test('V9 : la carte Leonardo et les modules de la carte V9 sont mis en cache hor
   // Tout module importé par le jeu est dans la liste du service worker.
   const imports = [...read('app.js').matchAll(/from '\.\/([^']+)'/g)].map(m => m[1]);
   for (const p of imports) assert.ok(sw.includes(`'./${p}'`), `module non mis en cache : ${p}`);
+});
+
+// V10 : TOUS les modules du jeu, y compris ceux importés indirectement (ex. src/domain/combat.js), sont mis en
+// cache hors ligne : graphe d'imports parcouru récursivement depuis app.js.
+function importGraph(entry) {
+  const seen = new Set(), todo = [entry];
+  while (todo.length) {
+    const file = todo.pop();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const src = read(file);
+    for (const [, spec] of src.matchAll(/(?:import|export)\s[^'"]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) todo.push(relative(root, normalize(join(root, dirname(file), spec))).split('\\').join('/'));
+    for (const [, spec] of src.matchAll(/import\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*\)/g)) todo.push(relative(root, normalize(join(root, dirname(file), spec))).split('\\').join('/'));
+  }
+  return [...seen].sort();
+}
+test('V10 : chaque module du graphe d\'imports depuis app.js est dans ASSETS du service worker', () => {
+  const list = read('sw.js').match(/const ASSETS=\[([^\]]*)\]/)[1];
+  const assets = new Set([...list.matchAll(/'\.\/([^']*)'/g)].map(m => m[1]));
+  const graph = importGraph('app.js');
+  assert.ok(graph.includes('src/domain/combat.js'), 'combat.js est bien importé indirectement');
+  assert.ok(graph.length >= 14, `${graph.length} modules`);
+  for (const p of graph) {
+    assert.ok(existsSync(join(root, p)), `module importé absent : ${p}`);
+    assert.ok(assets.has(p), `module non mis en cache hors ligne : ${p}`);
+  }
 });

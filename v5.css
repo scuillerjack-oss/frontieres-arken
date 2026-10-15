@@ -150,3 +150,42 @@ nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
 .action-card.blocked > span > b{opacity:.75}
 .province .area{stroke-width:calc(2.8px * var(--line,1))}
 .province-label .troops{fill:#ffe9b0;font:800 30px system-ui,sans-serif;stroke:#06121a;stroke-width:7px}
+/* V10 marine : convois en mer (jeton aux couleurs de la nation + tours restants), points d'étape. */
+.convoys{pointer-events:none}
+.convoy{pointer-events:auto;cursor:pointer}
+.convoy-stage{fill:#071722;stroke:var(--nation);stroke-width:calc(5px * var(--line,1));opacity:.9}
+.convoy-wake{fill:none;stroke:var(--nation);stroke-width:calc(9px * var(--line,1));stroke-linecap:round;stroke-dasharray:calc(4px * var(--line,1)) calc(14px * var(--line,1));opacity:.9}
+.convoy-body{fill:var(--nation);stroke:#071722;stroke-width:5}
+.convoy.own .convoy-body{stroke:#ffe17d;stroke-width:7}
+.convoy.returning .convoy-body{fill-opacity:.7;stroke-dasharray:8 6}
+.convoy-ship{font:700 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff}
+.convoy-turns{font:900 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff;paint-order:stroke;stroke:#071722;stroke-width:5px}
+/* V10 : PV / blessures dans la fiche d'une province. */
+.info-chip.hp{display:inline-flex;flex-direction:column;gap:3px;min-width:120px}
+.info-chip.hp b{font-weight:700}
+.hp-bar{display:block;height:5px;border-radius:3px;background:#2a4352;overflow:hidden}
+.hp-bar i{display:block;height:100%;width:var(--hp,100%);background:#63e899}
+.info-chip.hp.wounded .hp-bar i{background:linear-gradient(90deg,#e2bf73,#63e899)}
+.info-chip.hp.wounded{border-color:#8b7449}
+.info-chip.note{color:#cfe3ea;border-style:dashed}
+.info-chip.warn{color:#ffd9a0;border-color:#b07a3a;background:#2c1f0c}
+.sea-note{background:#0a2f44;border:1px solid #3f7ea0;border-radius:9px;padding:8px 10px;font-size:.82rem}
+/* V10 : nouvelles catégories du journal. */
+.journal-entry.plunder{border-color:#f0b84a}
+.journal-entry.elimination{border-color:#b01f1a;background:#2a1012}
+.journal-entry.cancelled{border-color:#9aa7ae;border-left-style:dashed}
+.journal-entry.naval{border-color:#45b7e8}
+.journal-entry.endgame{border-color:var(--gold);background:#2b2410}
+/* V10 : écran de fin de partie. */
+#endDialog[data-result="victory"] h2{color:#ffe17d}
+#endDialog[data-result="defeat"] h2{color:#ff8a80}
+#endDialog h2{font:1.7rem Georgia,serif;margin:4px 0 8px}
+.end-why{font-size:.9rem}
+.ranking{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}
+.ranking th{color:#a8bbc4;font-size:.68rem;text-align:left;font-weight:600;border-bottom:1px solid #2b4655;padding:4px}
+.ranking td{padding:7px 4px;border-bottom:1px solid #1d3644}
+.ranking td i{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--nation);margin-right:6px}
+.ranking tr.me td{background:#14384a;font-weight:800}
+.ranking tr.out td{color:#7f949e}
+.end-rule{font-size:.72rem;color:#a8bbc4}
+.end-map{width:100%;margin-top:8px;background:transparent;border:1px solid #4b6878;color:#fff;border-radius:8px;padding:9px}

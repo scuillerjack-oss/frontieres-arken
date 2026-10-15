@@ -4,13 +4,14 @@ import { legalDestinations, queueMoveOrder, availableForces, resolveInterturn } 
 import { cancelPendingOrder, playerOrderArrows } from '../src/presentation/v5-ux.js';
 import { map, freshState } from './helpers/fixtures.js';
 
-test('destinations légales = voisins terrestres ; mer seulement si les deux ports sont construits', () => {
+test('destinations légales = voisins terrestres ; mer dès que le port de DÉPART est construit (V10 marine)', () => {
   const s = freshState({ allHuman: true });
   assert.deepEqual(legalDestinations(map, s, 'p07'), [{ id: 'p03', type: 'land' }, { id: 'p06', type: 'land' }, { id: 'p08', type: 'land' }]);
   s.provinces.p07.buildings.port = 1;
-  assert.equal(legalDestinations(map, s, 'p07').some(d => d.type === 'sea'), false);
-  s.provinces.p13.buildings.port = 1;
-  assert.deepEqual(legalDestinations(map, s, 'p07').filter(d => d.type === 'sea'), [{ id: 'p13', type: 'sea' }]);
+  // Carte V6 : routes p07-p13 et p07-p17 ; côte d'arrivée = bout de la route + voisines côtières de la même île.
+  const sea = legalDestinations(map, s, 'p07').filter(d => d.type === 'sea').map(d => d.id);
+  assert.ok(sea.includes('p13') && sea.includes('p17'), sea.join(','));
+  assert.ok(!sea.includes('p03'), 'jamais par mer vers un voisin terrestre');
 });
 
 test('déplacement légal vers une province voisine possédée', () => {

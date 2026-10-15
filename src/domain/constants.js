@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 6;
+export const SAVE_SCHEMA_VERSION = 7;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
 export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery', 'balloon']);
@@ -52,7 +52,13 @@ export const RULES = Object.freeze({
     healRate:.1               // guérison : 10 % des PV max de la pile par tour, si la province n'a pas combattu
   },
   // V10 : réglages de l'IA (évaluation des attaques par simulation du combat).
-  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.15 }
+  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.15 },
+  // V10 marine (docs/V10-marine.md) : durée d'une traversée = max(minTurns, arrondi supérieur de length / stageLength)
+  // tours, length = longueur de la route en unités de la carte (1536 × 1536). 1 tour = 1 étape en mer.
+  naval:{ stageLength:150, minTurns:2 },
+  // V10 : fin de partie à la fin du tour 60 (classement : provinces, puis capitales tenues, puis trésor) ;
+  // victoire anticipée d'une nation qui tient les 5 capitales.
+  gameLength:60
 });
 
 export const HISTORICAL_RULE_REFERENCE = Object.freeze({
