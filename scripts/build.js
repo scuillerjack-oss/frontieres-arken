@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist');
 
 // Seuls les fichiers du jeu sont publiés (pas les tests, docs, scripts).
-const PUBLISHED = ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest', 'styles.css', 'v5.css', 'icons', 'src', 'assets'];
+const PUBLISHED = ['index.html', 'app.js', 'update-check.js', 'sw.js', 'manifest.webmanifest', 'styles.css', 'v5.css', 'icons', 'src', 'assets'];
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const commit = (process.argv[2] || process.env.GITHUB_SHA || 'local').slice(0, 7);
