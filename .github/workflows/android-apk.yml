@@ -45,6 +45,8 @@ jobs:
 
       - name: Générer et personnaliser le projet Android
         run: |
+          # Bêta : l'appli charge le jeu depuis le site => mise à jour automatique à chaque fusion.
+          node scripts/apk-beta-config.js
           npx cap add android
           node scripts/android-prepare.js
           npx cap sync android
