@@ -189,3 +189,77 @@ nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
 .ranking tr.out td{color:#7f949e}
 .end-rule{font-size:.72rem;color:#a8bbc4}
 .end-map{width:100%;margin-top:8px;background:transparent;border:1px solid #4b6878;color:#fff;border-radius:8px;padding:9px}
+/* V11 : barre du bas à trois boutons (Journal · Échanges · Fin du tour). */
+nav.bottom-bar #talkBtn{flex:1;position:relative;color:#e3edf1;background:#123142;border:1.5px solid #4f6b7c}
+nav.bottom-bar #talkBtn.has-mail{border-color:var(--gold);color:#ffe9b8}
+nav.bottom-bar #journalBtn,nav.bottom-bar #talkBtn{gap:6px;padding:6px 6px;font-size:.95rem}
+nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.9rem}
+nav.bottom-bar #journalBtn i,nav.bottom-bar #talkBtn i{font-size:1.25rem}
+nav.bottom-bar #nextTurn{flex:1.5}
+#talkBadge{position:absolute;top:5px;right:6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#e45c56;color:#fff;font-size:.72rem;font-weight:900;display:inline-grid;place-items:center;box-shadow:0 0 0 2px #081d2a}
+#talkBadge[hidden]{display:none}
+@media(max-width:360px){nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.78rem}}
+/* V11 : fil d'échanges public. */
+.crest{display:inline-grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:var(--nation);box-shadow:inset 0 0 0 2px #0008,0 0 0 1.5px #f3e2b5aa;font-size:.95rem;line-height:1}
+.talk-start small{color:#a8bbc4;font-size:.72rem}
+.talk-nations{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 10px}
+.talk-nations button{flex:none;border:1px solid var(--nation);border-left-width:5px;background:#0c2b3d;color:#fff;border-radius:9px;padding:8px 10px;font-weight:700;font-size:.82rem;min-height:42px}
+.talk-planned{background:#132f1f;border:1px dashed #63e899;border-radius:9px;padding:7px 10px;font-size:.78rem;margin-bottom:8px;color:#d6f5e3}
+.talk-feed{display:grid;gap:8px}
+.talk-empty{color:#a8bbc4;font-style:italic;font-size:.85rem}
+.talk-msg{border:1px solid #2f4b5b;border-left:5px solid var(--nation);background:#0b2939;border-radius:4px 10px 10px 4px;padding:8px 10px}
+.talk-msg.to-me{background:#16303a;border-color:#8b7449;border-left-color:var(--nation)}
+.talk-msg.from-me{background:#0e2433}
+.talk-msg p{margin:6px 0 2px;font-size:.88rem;line-height:1.35}
+.talk-head{display:flex;align-items:center;gap:7px;font-size:.82rem}
+.talk-head .crest{width:24px;height:24px;font-size:.8rem}
+.talk-to{color:#a8bbc4;font-size:.74rem}
+.talk-head small{margin-left:auto;color:#8ea4b0;font-size:.7rem}
+.talk-tone{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;font-size:.7rem;border:1px solid currentColor}
+.tone-hostile .talk-tone,.tone-card.tone-hostile .tone-name{color:#ff8a80}
+.tone-neutre .talk-tone,.tone-card.tone-neutre .tone-name{color:#c9d6dc}
+.tone-amical .talk-tone,.tone-card.tone-amical .tone-name{color:#7fe3a8}
+.talk-msg.tone-hostile p{color:#ffe1dd}
+.talk-reply{display:block;color:#8ea4b0;font-size:.7rem;margin-top:3px}
+.talk-answer{margin-top:6px;border:1px solid #8b7449;background:#c79b4b;color:#07151d;border-radius:8px;padding:8px 14px;font-weight:800;min-height:40px}
+.talk-quote{margin:0 0 8px;padding:8px 10px;border-left:4px solid #59798a;background:#091c27;border-radius:0 8px 8px 0;font-size:.84rem;display:flex;gap:8px;align-items:flex-start}
+.talk-quote.tone-hostile{border-left-color:#e45c56}.talk-quote.tone-amical{border-left-color:#63e899}
+.talk-quote .crest{width:22px;height:22px;font-size:.75rem}
+.talk-help{font-size:.8rem;color:#c9d6dc;margin:4px 0 8px}
+.tone-list{display:grid;gap:8px}
+.tone-card{display:grid;gap:4px;text-align:left;border:1.5px solid #3c5868;background:#0c2b3d;color:#fff;border-radius:10px;padding:10px 12px;min-height:56px}
+.tone-card .tone-name{font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+.tone-card .tone-text{font-size:.88rem;line-height:1.35}
+.tone-card small{color:#a8bbc4;font-size:.74rem}
+.tone-card.tone-hostile{border-color:#7a3a36}.tone-card.tone-amical{border-color:#2f6b49}
+.tone-card[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset;background:#14384a}
+/* V11 : fiche de nation — impression sur le dirigeant et curseur de tension. */
+.nation-panel{border:1px solid #3c5868;border-top:4px solid var(--nation);background:#0a2433;border-radius:10px;padding:10px 12px;margin:4px 0 6px}
+.nation-head{display:flex;gap:10px;align-items:flex-start}
+.nation-head .crest{width:36px;height:36px;font-size:1.2rem}
+.nation-head b{display:block;font-size:.92rem}
+.nation-head small{color:#a8bbc4;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+.leader-hint{margin:3px 0 0;font-style:italic;color:#e9dfc6;font-size:.88rem}
+.leader-hint.revealed{font-style:normal;font-weight:800;color:#ffe17d}
+.tension{margin-top:10px}
+.tension-top{display:flex;justify-content:space-between;font-size:.76rem;color:#c9d6dc}
+.tension-top b{color:#fff}
+.tension-track{position:relative;height:10px;border-radius:6px;margin:5px 0 3px;background:linear-gradient(90deg,#2c5a43 0 25%,#6a6532 25% 50%,#7a4a26 50% 75%,#7a2a26 75%);overflow:hidden}
+.tension-track i{position:absolute;inset:0 auto 0 0;border-right:3px solid #fff;background:linear-gradient(90deg,#63e899,#e2bf73 50%,#ff9a3c 75%,#ff3b30);box-shadow:0 0 6px #0008}
+.tension-scale{display:flex;justify-content:space-between;font-size:.62rem;color:#8ea4b0}
+.tension-3 .tension-top b{color:#ffb070}
+.talk-launch{width:100%;margin-top:10px;border:1px solid #4b6878;background:#14384a;color:#fff;border-radius:8px;padding:10px;font-weight:800;min-height:44px}
+.info-chip.tension-chip.tension-1{border-color:#8b7d3c}.info-chip.tension-chip.tension-2{border-color:#b0702f;color:#ffd2a0}.info-chip.tension-chip.tension-3{border-color:#ff9a3c;color:#ffc58a;background:#2c1a0c}
+.info-chip.leader-chip{font-style:italic;color:#e9dfc6}
+/* V11 : liseré orange (pointillé) = nation au bord de la guerre avec moi ; reste distinct du bleu et du rouge. */
+.territory.brink{stroke:#ff9a3c;stroke-dasharray:calc(22px * var(--line,1)) calc(14px * var(--line,1));stroke-width:calc(12px * var(--line,1));filter:drop-shadow(0 0 2px #3a1a00)}
+/* V11 : nouvelles catégories du journal. */
+.journal-entry.talk{border-color:#a7c4d3;background:#0d2a37}
+.journal-entry.betrayal{border-color:#d0457a;background:#2a0f1c}
+.journal-entry.reveal{border-color:#ffe17d;background:#2a2610}
+.journal-entry.tension{border-color:#ff9a3c}
+/* V11 (testeur V10) : la bulle du tutoriel ne couvre plus la fiche de province ; elle passe en haut quand la fiche est ouverte. */
+#tutorialBubble.top{top:calc(70px + env(safe-area-inset-top));bottom:auto;max-height:36dvh;overflow:auto}
+/* V11 (testeur V10) : jeton de convoi décalé le long de la route, relié à sa position réelle. */
+.convoy-tether{stroke:var(--nation);stroke-width:calc(5px * var(--line,1));stroke-dasharray:calc(6px * var(--line,1)) calc(6px * var(--line,1));opacity:.85}
+.convoy-origin{fill:var(--nation);stroke:#071722;stroke-width:3}

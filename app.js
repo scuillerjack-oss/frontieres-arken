@@ -9,6 +9,9 @@ import { resolveNewGameRequest } from './src/presentation/start-flow.js';
 import { setActiveScreen } from './src/presentation/screen-flow.js';
 import { territoryBorders, outlinePath, trimPolyline, unitPrerequisiteText, buildingUnavailableReason, convoyMarkers, forceHealthRows } from './src/presentation/v5-ux.js';
 import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
+import { talkOptions, queueTalk, tensionLevel, leaderHint } from './src/presentation/v11-talk-ui.js';
+import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, tensionGauge, tensionBorderGroups, convoyTokenPosition } from './src/presentation/v11-ux.js';
+import { nationsAtWarWith, territoryOutline } from './src/presentation/v5-ux.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', balloon:'Ballons', warship:'Navires' };
@@ -32,8 +35,11 @@ function tutorial(id,title,text) {
   if(state.tutorial.turn!==state.turn){state.tutorial.turn=state.turn;state.tutorial.shown=[];}
   state.tutorial.shown||=[];if(state.tutorial.shown.length>=2)return;
   state.tutorial.shown.push(id);tutorialShown.add(id);state.tutorial.seen.push(id);state.tutorial.stage=(state.tutorial.stage||0)+1;save();
-  $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;
+  $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;placeTutorial();
 }
+// V11 (testeur V10) : la bulle du tutoriel ne doit jamais couvrir les boutons de la fiche de province.
+// Fiche ouverte → la bulle passe en haut de l'écran, sous la barre d'état du jeu ; sinon elle reste en bas.
+function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.classList.toggle('top',!$('#provinceSheet').hidden);}
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
 // Route maritime (V10) : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line) ;
 // plus marquée quand un port est construit à l'une des extrémités.
@@ -56,7 +62,11 @@ function convoyMarker(m){
   g.style.setProperty('--nation',color);
   if(m.own){g.append(E('path',{d:pathData([m.position,...m.path.filter((_,i,a)=>i>0&&pathProgress(a,i)>m.stage/m.turns)]),class:'convoy-wake'}));}
   for(const p of m.stages)g.append(E('circle',{cx:p.x,cy:p.y,r:9,class:'convoy-stage'}));
-  const token=E('g',{transform:`translate(${Math.round(m.position.x)} ${Math.round(m.position.y)})`}),inner=E('g',{class:'ui-scale'});
+  // V11 (testeur V10) : au départ, le jeton glisse le long de la route pour ne pas masquer les ancres de port voisines ;
+  // un petit repère relié au jeton garde la position réelle du convoi.
+  const at=convoyTokenPosition(m,map);
+  if(at.shifted){g.append(E('line',{x1:m.position.x,y1:m.position.y,x2:at.x,y2:at.y,class:'convoy-tether'}),E('circle',{cx:m.position.x,cy:m.position.y,r:7,class:'convoy-origin'}));}
+  const token=E('g',{transform:`translate(${Math.round(at.x)} ${Math.round(at.y)})`}),inner=E('g',{class:'ui-scale'});
   const ship=E('text',{y:-4,class:'convoy-ship'});ship.textContent='⛵';
   const left=E('text',{y:30,class:'convoy-turns'});left.textContent=`${m.remaining}`;
   inner.append(E('rect',{x:-30,y:-34,width:60,height:78,rx:16,class:'convoy-body'}),ship,left);token.append(inner);g.append(token);
@@ -95,7 +105,9 @@ function render(){
   // V10 : liseré bleu = mon territoire, liseré rouge = nations en guerre contre moi (au-dessus du voile et de la sélection).
   // Chaque liseré est découpé à l'intérieur de son territoire : bleu et rouge ne se recouvrent jamais à une frontière commune.
   const polygonPoints=id=>province(id).geometry.points.map(x=>x.join(',')).join(' ');
-  for(const border of territoryBorders(state,map)){const clipId=`clip-${border.kind}-${border.nationId}`,clip=E('clipPath',{id:clipId});border.provinceIds.forEach(id=>clip.append(E('polygon',{points:polygonPoints(id)})));defs.append(clip);
+  // V11 : liseré orange discret = nation « au bord de la guerre » avec moi (pas encore en guerre : sinon liseré rouge).
+  const brink=safeEngine(()=>tensionBorderGroups(state,map,id=>tensionLevel(state,state.playerNationId,id),nationsAtWarWith(state)),[]);
+  for(const border of [...brink.map(g=>({...g,segments:territoryOutline(map,g.provinceIds)})),...territoryBorders(state,map)]){const clipId=`clip-${border.kind}-${border.nationId}`,clip=E('clipPath',{id:clipId});border.provinceIds.forEach(id=>clip.append(E('polygon',{points:polygonPoints(id)})));defs.append(clip);
     const d=outlinePath(border.segments);borderLayer.append(E('path',{d,class:`territory ${border.kind}`,'data-nation':border.nationId,'clip-path':`url(#${clipId})`}));}
   if(selected&&!moveSource){const clip=E('clipPath',{id:'clip-selected'});clip.append(E('polygon',{points:polygonPoints(selected)}));defs.append(clip);}
   map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
@@ -121,7 +133,7 @@ function render(){
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').textContent=state.turn;$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
-  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length; save();
+  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
 }
 function selectProvince(id){
   if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(embarkStatus(map,state,moveSource).ok?`${province(id).name} n’est pas sur une côte reliée à ce port`:embarkStatus(map,state,moveSource).reason);return;}
@@ -139,13 +151,13 @@ function showProvinceSheet(){
   const convalescence=health.some(h=>h.wounded)?`<span class="info-chip note">En convalescence : +${Math.round(RULES.combat.healRate*100)} % de PV par tour sans combat</span>`:'';
   const forcesHtml=known?(health.length?healthHtml+convalescence:'<span class="info-chip">Forces : aucune</span>'):forces.map(f=>`<span class="info-chip unknown">${f.label} : ${f.value}</span>`).join('');
   const naval=mine&&seaRoutesFrom(map,selected).length?(()=>{const st=embarkStatus(map,state,selected);return`<span class="info-chip ${st.ok?'note':'warn'}">${st.ok?'⚓ Port construit : embarquement possible vers les côtes reliées':`⚓ ${st.reason}`}</span>`;})():'';
-  $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forcesHtml}${naval}`;
-  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie']];
-  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;
-  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId)})[button.dataset.sheetAction]());
+  $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forcesHtml}${naval}${mine?'':nationChips(p.ownerId)}`;
+  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie'],['talk','Échanger']];
+  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;placeTutorial();
+  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
   if(!mine&&forces[0]?.value!=='Forces inconnues')tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
 }
-function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;$('#moveBanner').hidden=false;const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte`;if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Choisissez une destination verte. Votre ordre sera préparé et les forces resteront réservées jusqu’à la résolution.');}
+function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte`;if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Choisissez une destination verte. Votre ordre sera préparé et les forces resteront réservées jusqu’à la résolution.');}
 function cancelMove(){moveSource=null;$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}
 function actionModal(title,kicker,html){const dialog=$('#actionDialog');if(dialog.open)dialog.close();$('#actionTitle').textContent=title;$('#actionKicker').textContent=kicker;$('#actionBody').innerHTML=html;dialog.showModal();}
 function confirmationModal(title,details,onConfirm){actionModal(title,'VÉRIFIE TON ORDRE',`${details}<div class="confirm-actions"><button class="cancel" id="cancelConfirmation">Annuler</button><button class="primary" id="acceptConfirmation">Confirmer</button></div>`);$('#cancelConfirmation').onclick=()=>$('#actionDialog').close();$('#acceptConfirmation').onclick=onConfirm;}
@@ -208,9 +220,55 @@ function confirmDiplomacy(action,target,offerLevel=.5){
 function openDiplomacy(target=null){
   if(!target){actionModal('Diplomatie','CHOISISSEZ UN PAYS',`<div class="action-list">${map.nations.filter(n=>n.id!==state.playerNationId).map(n=>`<button class="nation" data-country="${n.id}" style="--nation:${n.color}"><i></i>${n.name}</button>`).join('')}</div>`);document.querySelectorAll('[data-country]').forEach(b=>b.onclick=()=>{const id=b.dataset.country;$('#actionDialog').close();openDiplomacy(id)});return;}
   const actions=diplomacyActions(state,target),pending=state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
-  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>`);
+  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>`);
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
+  $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
   tutorial('diplomacy','Diplomatie en deux étapes','Choisir affiche d’abord les exigences et conséquences. Tu confirmes ensuite l’action, qui attendra l’inter-tour.');
+}
+// --- V11 : personnalités des dirigeants, fil d'échanges et tension ------------------------------------------
+// Les appels au moteur V11 sont protégés : une erreur ne doit jamais bloquer la carte ni la fin du tour.
+function safeEngine(fn,fallback){try{return fn();}catch(error){console.warn('V11',error);return fallback;}}
+const escapeHtml=text=>String(text??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+function nationBadge(id){const n=nation(id);return`<span class="crest" style="--nation:${n.color||'#888'}" aria-hidden="true">${crestGlyph(n.crest)}</span>`;}
+function tensionWith(id){return tensionGauge(safeEngine(()=>tensionLevel(state,state.playerNationId,id),{value:0,label:'calme'}));}
+function hintFor(id){return safeEngine(()=>leaderHint(state,id),'')||'Dirigeant encore mal connu';}
+function nationChips(id){const t=tensionWith(id);return`<span class="info-chip tension-chip ${t.cls}">Tension ${t.value} · ${t.label}</span><span class="info-chip leader-chip">☉ ${escapeHtml(hintFor(id))}</span>`;}
+function nationPanel(id){const t=tensionWith(id),revealed=Boolean(state.leaders?.[id]?.revealed);
+  return`<div class="nation-panel" style="--nation:${nation(id).color}"><div class="nation-head">${nationBadge(id)}<div><b>${nation(id).name}</b><small>${revealed?'Personnalité révélée':'Impression sur son dirigeant'}</small><p class="leader-hint${revealed?' revealed':''}">${escapeHtml(hintFor(id))}</p></div></div>
+  <div class="tension ${t.cls}" role="meter" aria-label="Tension avec ${nation(id).short}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${t.value}"><div class="tension-top"><span>Tension</span><b>${t.value} / 100 · ${t.label}</b></div><div class="tension-track"><i style="width:${t.pct}%"></i></div><div class="tension-scale"><span>calme</span><span>tendu</span><span>hostile</span><span>guerre</span></div></div>
+  <button id="nationTalk" class="talk-launch">✉ Échanger publiquement</button></div>`;}
+function updateTalkBadge(){const n=safeEngine(()=>talkBadgeCount(state),0),badge=$('#talkBadge');badge.hidden=!n;badge.textContent=n;$('#talkBtn').classList.toggle('has-mail',n>0);}
+function talkLine(item){const tone=toneMeta(item.tone),from=nation(item.from),to=item.to?nation(item.to):null;
+  return`<article class="talk-msg ${tone.cls}${item.toMe?' to-me':''}${item.fromMe?' from-me':''}" style="--nation:${from.color||'#888'}" data-talk-id="${escapeHtml(item.id)}">
+   <div class="talk-head">${nationBadge(item.from)}<b>${from.short}</b><span class="talk-to">${to?`→ ${item.toMe?'vous':to.short}`:'→ à tous'}</span><span class="talk-tone" title="Ton ${tone.label.toLowerCase()}" aria-label="Ton ${tone.label.toLowerCase()}">${tone.icon}</span><small>T${item.turn}</small></div>
+   ${item.replyTo&&item.replyToFrom?`<small class="talk-reply">en réponse à ${item.replyToFrom===state.playerNationId?'vous':nation(item.replyToFrom).short}</small>`:''}
+   <p>${escapeHtml(item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
+function plannedTalk(){return(state.orders||[]).filter(o=>o.kind==='talk'&&o.status==='pending'&&o.nationId===state.playerNationId);}
+function openTalk(){
+  const feed=safeEngine(()=>talkFeed(state),[]),planned=plannedTalk(),others=map.nations.filter(n=>n.id!==state.playerNationId);
+  $('#talkKicker').textContent=`FIL PUBLIC DES DIRIGEANTS · TOUR ${state.turn}`;
+  $('#talkBody').innerHTML=`<div class="talk-start"><small>Lancer un échange avec</small><div class="talk-nations">${others.map(n=>`<button data-talk-nation="${n.id}" style="--nation:${n.color}">${crestGlyph(n.crest)} ${n.short}</button>`).join('')}</div></div>
+   ${planned.length?`<div class="talk-planned">${planned.map(o=>`<div>✉ ${toneMeta(o.tone).icon} Message à ${o.to?nation(o.to).short:'tous'} : part à la fin du tour</div>`).join('')}</div>`:''}
+   <div class="talk-feed">${feed.length?feed.map(talkLine).join(''):'<p class="talk-empty">Aucun échange public pour l’instant. Les dirigeants prendront la parole au fil des tours.</p>'}</div>`;
+  document.querySelectorAll('[data-talk-nation]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.talkNation));
+  document.querySelectorAll('[data-reply]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.to,b.dataset.reply));
+  if(!$('#talkDialog').open)$('#talkDialog').showModal();
+  tutorial('talk','Échanges entre dirigeants','Les dirigeants se parlent en public. Tu n’écris pas : tu choisis un ton (hostile, neutre ou amical). Les messages hostiles font monter la tension et le risque de guerre.');
+}
+function openTalkCompose(to,replyTo=null){
+  const options=safeEngine(()=>talkOptions(state,map,{from:state.playerNationId,to,replyTo}),[]),original=replyTo?(state.talk||[]).find(m=>m.id===replyTo):null,t=tensionWith(to);
+  if($('#talkDialog').open)$('#talkDialog').close();
+  const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
+  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · TENSION ${t.value} (${t.label.toUpperCase()})`,
+   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
+   <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;}).join(''):'<p>Aucun message possible pour l’instant.</p>'}</div>
+   <div class="confirm-actions"><button class="cancel" id="talkBack">Retour</button><button class="primary" id="talkSend" disabled>Envoyer</button></div>`);
+  let chosen=null;
+  document.querySelectorAll('[data-tone]').forEach(b=>b.onclick=()=>{chosen=b.dataset.tone;document.querySelectorAll('[data-tone]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#talkSend').disabled=false;$('#talkSend').textContent=`Envoyer (${toneMeta(chosen).label.toLowerCase()})`;});
+  $('#talkBack').onclick=()=>{$('#actionDialog').close();openTalk();};
+  $('#talkSend').onclick=()=>{if(!chosen)return;const before=(state.talk||[]).length,result=safeEngine(()=>queueTalk(state,map,{from:state.playerNationId,to,tone:chosen,replyTo}),{ok:false,error:'Échange impossible pour le moment'});
+    if(!result?.ok)return toast(result?.error||'Échange impossible');
+    $('#actionDialog').close();render();toast((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`);openTalk();};
 }
 function renderJournal(permanent=false){
   const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
@@ -321,7 +379,8 @@ viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('poi
 
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#tutorialOk').onclick=()=>$('#tutorialBubble').hidden=true;
-$('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;render();};
+$('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;placeTutorial();render();};
+$('#talkBtn').onclick=()=>openTalk();
 $('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};

@@ -98,7 +98,9 @@ export function ceasefireOffers(targetTreasury){
 // Style d'une entrée de journal d'après son type affiché (V10 : nouvelles catégories du moteur et de la marine).
 export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITOIRE PERDU':'lost','CONFLIT ÉTRANGER':'foreign-conflict','COMBAT':'combat',
   'AFFRONTEMENT':'foreign-conflict','PILLAGE':'plunder','ÉLIMINATION':'elimination','ORDRE ANNULÉ':'cancelled',
-  'INTERCEPTION':'naval','DÉBARQUEMENT':'naval','MARINE':'naval','FIN DE PARTIE':'endgame','DIPLOMATIE':'blue','diplomatie':'blue'});
+  'INTERCEPTION':'naval','DÉBARQUEMENT':'naval','MARINE':'naval','FIN DE PARTIE':'endgame','DIPLOMATIE':'blue','diplomatie':'blue',
+  // V11 : personnalités des dirigeants.
+  'ÉCHANGE':'talk','TRAHISON':'betrayal','RÉVÉLATION':'reveal','TENSION':'tension'});
 export function journalCategoryClass(type){
   return JOURNAL_TYPE_CLASSES[type]||'neutral';
 }
