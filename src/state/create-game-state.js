@@ -1,7 +1,10 @@
 import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
 import { validateMapDefinition } from '../map/validate-map.js';
+import { assignLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
 
 const emptyUnits = () => Object.fromEntries(LAND_UNIT_TYPES.map(id => [id, 0]));
+// V10 : blessures (PV perdus) par type d'unité, navires compris. Voir src/domain/combat.js.
+export const emptyWounds = () => Object.fromEntries([...LAND_UNIT_TYPES, 'warship'].map(id => [id, 0]));
 
 export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
   const checked = validateMapDefinition(map);
@@ -9,7 +12,9 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
   const nationIds = map.nations.map(n => n.id);
   if (!nationIds.includes(playerNationId)) throw new Error('invalid_player_nation');
   const capitals=Object.fromEntries(nationIds.map(id=>[id,map.provinces.find(p=>p.initialOwner===id).id]));
-  return {
+  // V11 : 4 archétypes redistribués selon la graine entre les nations IA, cachés au joueur (docs/V11-contrat.md).
+  const leaders = assignLeaders(seed, nationIds.filter(id => id !== playerNationId));
+  const state = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     mapId: map.id,
     seed,
@@ -23,15 +28,20 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
       ownerId: p.initialOwner,
       units: { ...emptyUnits(), infantry: capitals[p.initialOwner]===p.id ? 200 : 40, cavalry: capitals[p.initialOwner]===p.id ? 10 : 0, armor: capitals[p.initialOwner]===p.id ? 6 : 0, artillery: capitals[p.initialOwner]===p.id ? 2 : 0, balloon: capitals[p.initialOwner]===p.id ? 1 : 0 },
       warships: 0,
+      wounds: emptyWounds(),
       // `portSite` is geographic eligibility; a port must be built and paid for.
       portSite: Boolean(p.port),
       buildings: { bank: 0, factory: 0, fort: 0, port: 0 }
     }])),
     seaForces: {}, orders: [], productionQueue: [], diplomacy: { wars: [], treaties: [], proposals: [] },
-    ai: { memories: {}, replay: [], traits:Object.fromEntries(nationIds.filter(id=>id!==playerNationId).map((id,i)=>[id,['prudent','offensif','fidele','impulsif'][i]])) },
+    // `traits` (V6–V10) est conservé, dérivé des archétypes, pour la compatibilité ; l'IA V11 lit `leaders`.
+    ai: { memories: {}, replay: [], traits: Object.fromEntries(Object.entries(leaders).map(([id, l]) => [id, ARCHETYPE_TO_LEGACY_TRAIT[l.archetype]])) },
+    leaders, tension: {}, talk: [], talkPending: {}, talkSequence: 1,
     orderSequence: 1,
     randomCounter: 0,
-    settings:{music:true,sfx:true,hints:true}, tutorial:{seen:[],stage:0,turn:1,shown:[]}, transports:[], messages:[], events: [],
+    settings:{music:true,sfx:true,hints:true}, tutorial:{seen:[],stage:0,turn:1,shown:[]}, transports:[], transportSequence:1, messages:[], events: [],
     warChestsClaimed:{}, journal:[], turnJournal:[], chronicle:[], lastJournalEventIndex:0
   };
+  state.tension = initialTension(state);
+  return state;
 }

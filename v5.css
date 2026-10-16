@@ -87,3 +87,218 @@ nav #nextTurn{flex:1.2;min-width:0;background:#24323a;border-color:#8c7449;borde
 .save-notice{margin:0 0 14px;padding:10px 12px;border:1px solid #c79b4b;border-radius:10px;background:#2b2412;color:#f4e8c9;font-size:.82rem;line-height:1.45;text-align:left}
 .save-notice[hidden]{display:none}
 #moveBanner{top:54px;max-width:calc(100% - 24px);white-space:normal;text-align:center}
+/* ===== V10 : ergonomie (retours bêta V9, points 1 à 9) ===== */
+/* 1-3. Gabarit : barre du haut sous la barre d'état Android, carte au cadre fin, grande barre du bas. */
+#gameScreen:not([hidden]){grid-template-rows:auto minmax(0,1fr) auto}
+.hud{height:auto;min-height:64px;padding:calc(6px + env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 6px max(10px,env(safe-area-inset-left));gap:6px;background:linear-gradient(180deg,#0d2b3c,#0a2332);border-bottom:1px solid #4a6578}
+.brand{min-width:0;margin-right:auto;flex-shrink:1}
+.brand b{font-size:.78rem;letter-spacing:.06em}.brand small{font-size:.62rem;letter-spacing:.2em}
+.hud-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:58px;min-height:50px;padding:3px 6px;border:1px solid #2f4a5b;border-radius:10px;background:#081c28;color:#b8cad3;line-height:1.05}
+.hud-stat small{font-size:.66rem;font-weight:700;letter-spacing:.08em}
+.hud-stat b{font-size:1.4rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+.army{border-left:1px solid #2f4a5b;border-right:1px solid #2f4a5b;cursor:pointer}
+.hud .icon-btn{width:44px;height:50px;border-radius:10px;font-size:1.25rem;font-weight:800;flex-shrink:0}
+.map-frame{inset:4px 4px 4px;padding:0;border:1.5px solid #8c7449;border-radius:12px;box-shadow:0 3px 10px #0007}
+.map-frame #viewport,#viewport{inset:0;border:0;border-radius:10px}
+.zoom{top:10px;right:10px;gap:6px;z-index:3}
+.zoom button{width:44px;height:44px;border-radius:10px;font-size:1.3rem;background:#0a2231e6}
+nav.bottom-bar{min-height:0;display:flex;gap:8px;padding:8px max(10px,env(safe-area-inset-right)) max(10px,calc(6px + env(safe-area-inset-bottom))) max(10px,env(safe-area-inset-left));background:#081d2a;border-top:1px solid #4a6578}
+nav.bottom-bar button{min-height:60px;display:flex;align-items:center;justify-content:center;gap:9px;border-radius:12px;font-size:1.08rem;font-weight:800;padding:6px 10px}
+nav.bottom-bar button i{font-style:normal;font-size:1.45rem;line-height:1}
+nav.bottom-bar span{display:inline;font-size:1.08rem}
+nav.bottom-bar #journalBtn{flex:1;color:#e3edf1;background:#123142;border:1.5px solid #4f6b7c}
+nav.bottom-bar #nextTurn{flex:1.7;color:#10151a;background:linear-gradient(180deg,#f0cd7c,#c99a45);border:2px solid #f6dfa3;box-shadow:0 0 0 1px #6b5023,0 4px 14px #c79b4b55}
+nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
+#pendingCount{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 8px;border-radius:15px;background:#0b2635;color:#ffe9b0;font-size:1rem;font-weight:900;border:2px solid #fff3cf}
+#provinceSheet{bottom:calc(84px + env(safe-area-inset-bottom))}
+#tutorialBubble{bottom:calc(96px + env(safe-area-inset-bottom))}
+#sheetActions button{min-height:48px;font-size:.86rem;padding:10px 12px}
+#moveBanner{top:62px;font-size:.84rem}
+#moveBanner button{min-height:36px;padding:6px 12px;font-weight:700}
+@media(max-width:370px){.brand{display:none}.hud-stat{min-width:52px}.hud-stat b{font-size:1.25rem}}
+@media(min-width:700px){.map-frame{inset:8px 16px}#provinceSheet{bottom:96px}}
+/* 6. Liserés de territoire : bleu = moi, rouge = nations en guerre contre moi (découpés dans le territoire). */
+.territory-borders{pointer-events:none}
+.territory{fill:none;stroke-linejoin:round;stroke-linecap:round;stroke-width:calc(16px * var(--line,1))}
+.territory.player{stroke:#2f8bff;filter:drop-shadow(0 0 2px #001a3a)}
+.territory.war{stroke:#ff3b30;filter:drop-shadow(0 0 2px #3a0000)}
+.highlights .outline.selected{stroke:#ffe17d;stroke-width:calc(34px * var(--line,1))}
+.province .area{stroke:#f3f1e9;stroke-opacity:.85;stroke-width:2.6}
+/* 5. Point de la province (sa ville) : cible des flèches d'ordres. */
+.province-label .city{fill:#fff4d6;stroke:#132028;stroke-width:6}
+.province-label .capital{font-size:50px}
+.province-label .marker{fill:#131f26;stroke:#f5d88a;stroke-width:4}
+.province-label .name{font-size:36px;stroke-width:8px}
+.order-arrow{stroke-width:calc(15px * var(--line,1))}
+.order-arrow:focus{stroke-width:calc(22px * var(--line,1))}
+.order-arrow.sea{stroke-dasharray:28 12}
+/* 7. Routes maritimes contrastées, épaisseur selon le zoom ; ports aux couleurs du propriétaire. */
+.route.maritime{opacity:1}
+.route.maritime path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.route.maritime .casing{stroke:#04131d;stroke-opacity:.7;stroke-width:calc(13px * var(--line,1))}
+.route.maritime .dash{stroke:#f2fbff;stroke-width:calc(6px * var(--line,1));stroke-dasharray:calc(22px * var(--line,1)) calc(13px * var(--line,1))}
+.route.maritime.open .casing{stroke:#1a1203;stroke-opacity:.8;stroke-width:calc(15px * var(--line,1))}
+.route.maritime.open .dash{stroke:#ffe17d;stroke-width:calc(7px * var(--line,1))}
+.port-marker circle{fill:var(--port,#0d2230);stroke:#071722;stroke-width:5;opacity:1}
+.port-marker text{fill:#fff;font:800 28px system-ui,sans-serif;opacity:1;paint-order:stroke;stroke:#071722;stroke-width:4px}
+.port-marker.site circle{fill:#0d2230;fill-opacity:.82;stroke:var(--port,#e9f8ff);stroke-width:5;stroke-dasharray:7 6}
+.port-marker.site text{fill:var(--port,#e9f8ff);stroke:#071722;font-size:24px}
+.port-marker.built circle{stroke:#ffe17d;stroke-width:6}
+.port-marker.built text{fill:#fff}
+/* 8. Prérequis en clair. */
+.action-card .prereq{color:#ffcf8a;font-weight:600;margin-top:3px;line-height:1.35}
+.action-card.blocked > span > b{opacity:.75}
+.province .area{stroke-width:calc(2.8px * var(--line,1))}
+.province-label .troops{fill:#ffe9b0;font:800 30px system-ui,sans-serif;stroke:#06121a;stroke-width:7px}
+/* V10 marine : convois en mer (jeton aux couleurs de la nation + tours restants), points d'étape. */
+.convoys{pointer-events:none}
+.convoy{pointer-events:auto;cursor:pointer}
+.convoy-stage{fill:#071722;stroke:var(--nation);stroke-width:calc(5px * var(--line,1));opacity:.9}
+.convoy-wake{fill:none;stroke:var(--nation);stroke-width:calc(9px * var(--line,1));stroke-linecap:round;stroke-dasharray:calc(4px * var(--line,1)) calc(14px * var(--line,1));opacity:.9}
+.convoy-body{fill:var(--nation);stroke:#071722;stroke-width:5}
+.convoy.own .convoy-body{stroke:#ffe17d;stroke-width:7}
+.convoy.returning .convoy-body{fill-opacity:.7;stroke-dasharray:8 6}
+.convoy-ship{font:700 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff}
+.convoy-turns{font:900 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff;paint-order:stroke;stroke:#071722;stroke-width:5px}
+/* V10 : PV / blessures dans la fiche d'une province. */
+.info-chip.hp{display:inline-flex;flex-direction:column;gap:3px;min-width:120px}
+.info-chip.hp b{font-weight:700}
+.hp-bar{display:block;height:5px;border-radius:3px;background:#2a4352;overflow:hidden}
+.hp-bar i{display:block;height:100%;width:var(--hp,100%);background:#63e899}
+.info-chip.hp.wounded .hp-bar i{background:linear-gradient(90deg,#e2bf73,#63e899)}
+.info-chip.hp.wounded{border-color:#8b7449}
+.info-chip.note{color:#cfe3ea;border-style:dashed}
+.info-chip.warn{color:#ffd9a0;border-color:#b07a3a;background:#2c1f0c}
+.sea-note{background:#0a2f44;border:1px solid #3f7ea0;border-radius:9px;padding:8px 10px;font-size:.82rem}
+/* V10 : nouvelles catégories du journal. */
+.journal-entry.plunder{border-color:#f0b84a}
+.journal-entry.elimination{border-color:#b01f1a;background:#2a1012}
+.journal-entry.cancelled{border-color:#9aa7ae;border-left-style:dashed}
+.journal-entry.naval{border-color:#45b7e8}
+.journal-entry.endgame{border-color:var(--gold);background:#2b2410}
+/* V10 : écran de fin de partie. */
+#endDialog[data-result="victory"] h2{color:#ffe17d}
+#endDialog[data-result="defeat"] h2{color:#ff8a80}
+#endDialog h2{font:1.7rem Georgia,serif;margin:4px 0 8px}
+.end-why{font-size:.9rem}
+.ranking{width:100%;border-collapse:collapse;font-size:.85rem;margin:8px 0}
+.ranking th{color:#a8bbc4;font-size:.68rem;text-align:left;font-weight:600;border-bottom:1px solid #2b4655;padding:4px}
+.ranking td{padding:7px 4px;border-bottom:1px solid #1d3644}
+.ranking td i{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--nation);margin-right:6px}
+.ranking tr.me td{background:#14384a;font-weight:800}
+.ranking tr.out td{color:#7f949e}
+.end-rule{font-size:.72rem;color:#a8bbc4}
+.end-map{width:100%;margin-top:8px;background:transparent;border:1px solid #4b6878;color:#fff;border-radius:8px;padding:9px}
+/* V11 : barre du bas à trois boutons (Journal · Échanges · Fin du tour). */
+nav.bottom-bar #talkBtn{flex:1;position:relative;color:#e3edf1;background:#123142;border:1.5px solid #4f6b7c}
+nav.bottom-bar #talkBtn.has-mail{border-color:var(--gold);color:#ffe9b8}
+nav.bottom-bar #journalBtn,nav.bottom-bar #talkBtn{gap:6px;padding:6px 6px;font-size:.95rem}
+nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.9rem}
+nav.bottom-bar #journalBtn i,nav.bottom-bar #talkBtn i{font-size:1.25rem}
+nav.bottom-bar #nextTurn{flex:1.5}
+#talkBadge{position:absolute;top:5px;right:6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#e45c56;color:#fff;font-size:.72rem;font-weight:900;display:inline-grid;place-items:center;box-shadow:0 0 0 2px #081d2a}
+#talkBadge[hidden]{display:none}
+@media(max-width:360px){nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.78rem}}
+/* V11 : fil d'échanges public. */
+.crest{display:inline-grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:var(--nation);box-shadow:inset 0 0 0 2px #0008,0 0 0 1.5px #f3e2b5aa;font-size:.95rem;line-height:1}
+.talk-start small{color:#a8bbc4;font-size:.72rem}
+.talk-nations{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0 10px}
+.talk-nations button{flex:none;border:1px solid var(--nation);border-left-width:5px;background:#0c2b3d;color:#fff;border-radius:9px;padding:8px 10px;font-weight:700;font-size:.82rem;min-height:42px}
+.talk-planned{background:#132f1f;border:1px dashed #63e899;border-radius:9px;padding:7px 10px;font-size:.78rem;margin-bottom:8px;color:#d6f5e3}
+.talk-feed{display:grid;gap:8px}
+.talk-empty{color:#a8bbc4;font-style:italic;font-size:.85rem}
+.talk-msg{border:1px solid #2f4b5b;border-left:5px solid var(--nation);background:#0b2939;border-radius:4px 10px 10px 4px;padding:8px 10px}
+.talk-msg.to-me{background:#16303a;border-color:#8b7449;border-left-color:var(--nation)}
+.talk-msg.from-me{background:#0e2433}
+.talk-msg p{margin:6px 0 2px;font-size:.88rem;line-height:1.35}
+.talk-head{display:flex;align-items:center;gap:7px;font-size:.82rem}
+.talk-head .crest{width:24px;height:24px;font-size:.8rem}
+.talk-to{color:#a8bbc4;font-size:.74rem}
+.talk-head small{margin-left:auto;color:#8ea4b0;font-size:.7rem}
+.talk-tone{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;font-size:.7rem;border:1px solid currentColor}
+.tone-hostile .talk-tone,.tone-card.tone-hostile .tone-name{color:#ff8a80}
+.tone-neutre .talk-tone,.tone-card.tone-neutre .tone-name{color:#c9d6dc}
+.tone-amical .talk-tone,.tone-card.tone-amical .tone-name{color:#7fe3a8}
+.talk-msg.tone-hostile p{color:#ffe1dd}
+.talk-reply{display:block;color:#8ea4b0;font-size:.7rem;margin-top:3px}
+.talk-answer{margin-top:6px;border:1px solid #8b7449;background:#c79b4b;color:#07151d;border-radius:8px;padding:8px 14px;font-weight:800;min-height:40px}
+.talk-quote{margin:0 0 8px;padding:8px 10px;border-left:4px solid #59798a;background:#091c27;border-radius:0 8px 8px 0;font-size:.84rem;display:flex;gap:8px;align-items:flex-start}
+.talk-quote.tone-hostile{border-left-color:#e45c56}.talk-quote.tone-amical{border-left-color:#63e899}
+.talk-quote .crest{width:22px;height:22px;font-size:.75rem}
+.talk-help{font-size:.8rem;color:#c9d6dc;margin:4px 0 8px}
+.tone-list{display:grid;gap:8px}
+.tone-card{display:grid;gap:4px;text-align:left;border:1.5px solid #3c5868;background:#0c2b3d;color:#fff;border-radius:10px;padding:10px 12px;min-height:56px}
+.tone-card .tone-name{font-weight:800;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+.tone-card .tone-text{font-size:.88rem;line-height:1.35}
+.tone-card small{color:#a8bbc4;font-size:.74rem}
+.tone-card.tone-hostile{border-color:#7a3a36}.tone-card.tone-amical{border-color:#2f6b49}
+.tone-card[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset;background:#14384a}
+/* V11 : fiche de nation — impression sur le dirigeant et curseur de tension. */
+.nation-panel{border:1px solid #3c5868;border-top:4px solid var(--nation);background:#0a2433;border-radius:10px;padding:10px 12px;margin:4px 0 6px}
+.nation-head{display:flex;gap:10px;align-items:flex-start}
+.nation-head .crest{width:36px;height:36px;font-size:1.2rem}
+.nation-head b{display:block;font-size:.92rem}
+.nation-head small{color:#a8bbc4;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+.leader-hint{margin:3px 0 0;font-style:italic;color:#e9dfc6;font-size:.88rem}
+.leader-hint.revealed{font-style:normal;font-weight:800;color:#ffe17d}
+.tension{margin-top:10px}
+.tension-top{display:flex;justify-content:space-between;font-size:.76rem;color:#c9d6dc}
+.tension-top b{color:#fff}
+.tension-track{position:relative;height:10px;border-radius:6px;margin:5px 0 3px;background:linear-gradient(90deg,#2c5a43 0 25%,#6a6532 25% 50%,#7a4a26 50% 75%,#7a2a26 75%);overflow:hidden}
+.tension-track i{position:absolute;inset:0 auto 0 0;border-right:3px solid #fff;background:linear-gradient(90deg,#63e899,#e2bf73 50%,#ff9a3c 75%,#ff3b30);box-shadow:0 0 6px #0008}
+.tension-scale{display:flex;justify-content:space-between;font-size:.62rem;color:#8ea4b0}
+.tension-3 .tension-top b{color:#ffb070}
+.talk-launch{width:100%;margin-top:10px;border:1px solid #4b6878;background:#14384a;color:#fff;border-radius:8px;padding:10px;font-weight:800;min-height:44px}
+.info-chip.tension-chip.tension-1{border-color:#8b7d3c}.info-chip.tension-chip.tension-2{border-color:#b0702f;color:#ffd2a0}.info-chip.tension-chip.tension-3{border-color:#ff9a3c;color:#ffc58a;background:#2c1a0c}
+.info-chip.leader-chip{font-style:italic;color:#e9dfc6}
+/* V11 : liseré orange (pointillé) = nation au bord de la guerre avec moi ; reste distinct du bleu et du rouge. */
+.territory.brink{stroke:#ff9a3c;stroke-dasharray:calc(22px * var(--line,1)) calc(14px * var(--line,1));stroke-width:calc(12px * var(--line,1));filter:drop-shadow(0 0 2px #3a1a00)}
+/* V11 : nouvelles catégories du journal. */
+.journal-entry.talk{border-color:#a7c4d3;background:#0d2a37}
+.journal-entry.betrayal{border-color:#d0457a;background:#2a0f1c}
+.journal-entry.reveal{border-color:#ffe17d;background:#2a2610}
+.journal-entry.tension{border-color:#ff9a3c}
+/* V11 (testeur V10) : la bulle du tutoriel ne couvre plus la fiche de province ; elle passe en haut quand la fiche est ouverte. */
+#tutorialBubble.top{top:calc(70px + env(safe-area-inset-top));bottom:auto;max-height:36dvh;overflow:auto}
+/* V11 (testeur V10) : jeton de convoi décalé le long de la route, relié à sa position réelle. */
+.convoy-tether{stroke:var(--nation);stroke-width:calc(5px * var(--line,1));stroke-dasharray:calc(6px * var(--line,1)) calc(6px * var(--line,1));opacity:.85}
+.convoy-origin{fill:var(--nation);stroke:#071722;stroke-width:3}
+/* V12 : Atouts & missions, boutique de test, publicité de test. */
+.boosts-entry{width:100%;min-height:52px;margin-top:10px;border:1.5px solid var(--gold);background:linear-gradient(180deg,#2a2a1c,#14261f);color:#ffe9b8;border-radius:10px;font-weight:800;font-size:1rem;letter-spacing:.02em}
+.boosts-entry span,.boost-map-btn span{color:var(--gold);font-size:1.15em}
+.boost-map-btn{position:absolute;left:8px;top:8px;z-index:3;min-height:44px;padding:6px 12px;border:1.5px solid var(--gold);border-radius:12px;background:#0a2231ee;color:#ffe9b8;font-weight:800;font-size:.9rem;box-shadow:0 3px 10px #0007}
+#boostDialog h2{margin:2px 0 10px}
+.tokens-head{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;background:#0c2433;border:1px solid #7f6840;border-radius:12px;padding:10px 12px}
+.tokens-head .token-coin{grid-row:span 2;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a8,#c99a45 60%,#7b5a22);color:#3b2a0c;font-size:1.6rem;box-shadow:0 0 0 2px #f6dfa3,0 3px 10px #0008}
+.tokens-head b{font-size:1.9rem;color:var(--gold);line-height:1}.tokens-head small{color:#b8cad3;margin-left:6px}
+.tokens-head p{grid-column:2;margin:0;font-size:.78rem;color:#c9d6dc}
+.v12-h{font:700 1rem Georgia,serif;margin:16px 0 8px;color:#f3e2b5;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.v12-h small{font:600 .74rem system-ui,sans-serif;color:#a8bbc4}
+.boost-list,.mission-list{display:grid;gap:7px}
+.boost-row{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;background:#0c2b3d;border:1px solid #3c5868;border-radius:10px;padding:9px 10px}
+.boost-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:#081c28;border:1px solid #7f6840;color:var(--gold);font-size:1.2rem}
+.boost-main b{display:block;font-size:.95rem}.boost-main em{font-style:normal;color:#62ed99;margin-left:4px}.boost-main small{display:block;color:#9fb1ba;font-size:.74rem;margin:1px 0 5px}
+.boost-pips{display:flex;gap:3px}.boost-pips i{flex:1;height:7px;max-width:16px;border-radius:3px;background:#1d3a4b;border:1px solid #33576a}.boost-pips i.on{background:linear-gradient(180deg,#f0cd7c,#c99a45);border-color:#f6dfa3}
+.boost-up{min-width:76px;min-height:52px;border:1px solid #8a7246;background:#c79b4b;color:#07151d;border-radius:9px;font-weight:900;font-size:1rem;line-height:1.05}.boost-up small{display:block;font-size:.66rem;font-weight:700}
+.boost-up:disabled{opacity:.4}
+.mission{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;background:#0b2939;border-left:4px solid #59798a;border-radius:0 9px 9px 0;padding:9px 10px}
+.mission.done{border-color:#62ed99;background:#0f2f25}.mission.ad{border-color:#c99a45}
+.mission-check{font-size:1.05rem;color:#9fb1ba;text-align:center}.mission.done .mission-check{color:#62ed99}
+.mission-main b{display:block;font-size:.88rem;margin-bottom:5px}.mission-bar{display:block;height:6px;border-radius:3px;background:#1d3a4b;overflow:hidden}.mission-bar i{display:block;height:100%;background:#62ed99}
+.mission-count{font-weight:800;font-variant-numeric:tabular-nums;color:#e3edf1;font-size:.86rem}
+.mission-ad{grid-column:2/4;min-height:44px;border:1px solid #8a7246;background:#14384a;color:#ffe9b8;border-radius:8px;font-weight:800}
+.v12-note{font-size:.76rem;color:#a8bbc4;margin:6px 0}
+.test-badge{font:800 .62rem system-ui,sans-serif;letter-spacing:.06em;background:#5a1f1c;color:#ffd7d3;border:1px solid #e45c56;border-radius:6px;padding:3px 6px}
+.pack{display:grid;gap:4px;background:linear-gradient(155deg,#2b2412,#10242f);border:1.5px solid var(--gold);border-radius:12px;padding:12px}.pack small{color:#d8cfb6}.pack.owned{border-color:#62ed99;background:#0f2f25}
+.buy-test{margin-top:6px;min-height:50px;border:2px dashed #f6dfa3;background:#c79b4b;color:#07151d;border-radius:9px;font-weight:900;font-size:.98rem}
+.token-shop{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.token-buy{min-height:58px;border:1px dashed #8a7246;background:#102f40;color:#fff;border-radius:9px;font-weight:800;font-size:.82rem}.token-buy small{display:block;color:#e2bf73;font-size:.64rem;font-weight:700}
+.profile-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}.profile-tools .welcome-secondary{min-height:48px}
+.profile-export textarea,#restoreText{width:100%;background:#061722;color:#e3edf1;border:1px solid #4f6b7c;border-radius:8px;padding:8px;font:.72rem ui-monospace,monospace;word-break:break-all}
+.boost-extra{color:#62ed99;font-style:normal;font-weight:800}
+dialog.ad-overlay{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0;background:#02090df2;display:grid;place-items:center;padding:16px}
+dialog.ad-overlay::backdrop{background:#000c}
+.ad-card{width:min(92vw,420px);background:repeating-linear-gradient(45deg,#16303f 0 14px,#11283a 14px 28px);border:3px dashed #f0cd7c;border-radius:16px;padding:22px 18px;text-align:center;color:#fff}
+.ad-card h2{font:700 1.8rem Georgia,serif;margin:6px 0}.ad-tag{display:inline-block;margin:0;background:#5a1f1c;color:#ffd7d3;border:1px solid #e45c56;border-radius:6px;padding:4px 8px;font-size:.68rem;font-weight:900;letter-spacing:.06em}
+.ad-note{font-size:.8rem;color:#c9d6dc}.ad-bar{height:8px;border-radius:4px;background:#1d3a4b;overflow:hidden;margin:12px 0 8px}.ad-bar i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;animation:adbar var(--ad-ms,3000ms) linear forwards}
+@keyframes adbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.ad-count{color:#b8cad3}

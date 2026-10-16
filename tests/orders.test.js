@@ -4,13 +4,14 @@ import { legalDestinations, queueMoveOrder, availableForces, resolveInterturn } 
 import { cancelPendingOrder, playerOrderArrows } from '../src/presentation/v5-ux.js';
 import { map, freshState } from './helpers/fixtures.js';
 
-test('destinations légales = voisins terrestres ; mer seulement si les deux ports sont construits', () => {
+test('destinations légales = voisins terrestres ; mer dès que le port de DÉPART est construit (V10 marine)', () => {
   const s = freshState({ allHuman: true });
   assert.deepEqual(legalDestinations(map, s, 'p07'), [{ id: 'p03', type: 'land' }, { id: 'p06', type: 'land' }, { id: 'p08', type: 'land' }]);
   s.provinces.p07.buildings.port = 1;
-  assert.equal(legalDestinations(map, s, 'p07').some(d => d.type === 'sea'), false);
-  s.provinces.p13.buildings.port = 1;
-  assert.deepEqual(legalDestinations(map, s, 'p07').filter(d => d.type === 'sea'), [{ id: 'p13', type: 'sea' }]);
+  // Carte V6 : routes p07-p13 et p07-p17 ; côte d'arrivée = bout de la route + voisines côtières de la même île.
+  const sea = legalDestinations(map, s, 'p07').filter(d => d.type === 'sea').map(d => d.id);
+  assert.ok(sea.includes('p13') && sea.includes('p17'), sea.join(','));
+  assert.ok(!sea.includes('p03'), 'jamais par mer vers un voisin terrestre');
 });
 
 test('déplacement légal vers une province voisine possédée', () => {
@@ -59,12 +60,13 @@ test('flèches d\'ordre du joueur : vert = déplacement, rouge = attaque, ancré
   assert.deepEqual(arrows[0].start, { x: 89, y: 78 });
 });
 
-test('attaque simple : guerre déclarée automatiquement, conquête si ratio > 1,08', () => {
+test('attaque simple (combat V10 à PV) : guerre déclarée automatiquement, capitale prise et pillée', () => {
   const s = freshState({ allHuman: true });
-  s.provinces.p04.units.infantry = 500;
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 500 } });
+  s.provinces.p04.units.infantry = 1000;
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 1000 } });
   resolveInterturn(s, map);
   assert.equal(s.provinces.p05.ownerId, 'valmorne');
-  assert.equal(s.nations.valmorne.treasury, 120 + 30 + 20, 'trésor de guerre (capitale) + revenu de 5 provinces');
+  // Trésor de guerre (30) + pillage de 50 % du trésor de Roc-Épine (60) + revenu de 5 provinces.
+  assert.equal(s.nations.valmorne.treasury, 120 + 30 + 60 + 20);
   assert.ok(s.diplomacy.wars.some(w => w.participants.includes('valmorne') && w.participants.includes('roc-epine')));
 });

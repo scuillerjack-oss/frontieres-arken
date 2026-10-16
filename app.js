@@ -1,13 +1,24 @@
 import { arkenV9Map as map } from './src/map/arken-v9-map.js';
 import { createGameState } from './src/state/create-game-state.js';
 import { encodeSave, decodeSave } from './src/persistence/save-codec.js';
-import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury } from './src/domain/game-engine.js';
+import { eventKnownToPlayer, journalEntry, legalDestinations, nextTurn, queueConstruction, queueDiplomaticOrder, queueMoveOrder, queueRecruitment, availableForces, spendableTreasury, embarkStatus, seaRoutesFrom, gameRanking } from './src/domain/game-engine.js';
 import { compactForces, diplomacyActions, relationWithPlayer, totalArmy } from './src/presentation/v3-ux.js';
-import { forceSelection, provinceBorderPoint, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
+import { forceSelection, SAVE_KEY, TUTORIAL_GUIDE, sanitizeJournalEntry } from './src/presentation/v4-ux.js';
 import { cancelPendingOrder, ceasefireOffers, journalCategoryClass, mapFrameTransform, pinchTransform, playerOrderArrows, orderPath } from './src/presentation/v5-ux.js';
 import { resolveNewGameRequest } from './src/presentation/start-flow.js';
 import { setActiveScreen } from './src/presentation/screen-flow.js';
+import { territoryBorders, outlinePath, trimPolyline, unitPrerequisiteText, buildingUnavailableReason, convoyMarkers, forceHealthRows } from './src/presentation/v5-ux.js';
 import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
+import { talkOptions, queueTalk, tensionLevel, leaderHint } from './src/presentation/v11-talk-ui.js';
+import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, tensionGauge, tensionBorderGroups, convoyTokenPosition } from './src/presentation/v11-ux.js';
+import { nationsAtWarWith, territoryOutline } from './src/presentation/v5-ux.js';
+// V12 : modèle économique (profil hors partie, atouts, missions, pubs et achats de TEST — aucun paiement en bêta).
+import { setPlayerBonuses, recruitPreview } from './src/domain/boosts.js';
+import { upgradeBoost, addMissionProgress, recordAdWatched, missionDeltas, exportProfile, importProfile, BOOST_INFO, productById } from './src/domain/profile.js';
+import { loadProfile, saveProfile, todayLocal } from './src/presentation/profile-storage.js';
+import { showGameStartAd, showRewardedAd } from './src/presentation/ads.js';
+import { purchase } from './src/presentation/store.js';
+import { boostScreenHtml } from './src/presentation/v12-ux.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', balloon:'Ballons', warship:'Navires' };
@@ -18,10 +29,15 @@ const province = id => map.provinces.find(p => p.id === id) || { name:'Province 
 let state, selected = null, moveSource = null, scale = 1, tx = 0, ty = 0, drag = null, toastTimer, tutorialShown = new Set();
 let pointers = new Map(), pinching = false, pinchStart = null, ignoreClickUntil = 0, audioCtx, musicNodes = [], frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, transformFrame=0;
 // V9 : repère de la carte Leonardo (1536 × 1536). Zoom max plus grand que la V6 (2,5) pour viser 20 provinces sur téléphone.
-const FRAME = map.frame, MAX_ZOOM = 3;
+const FRAME = map.frame, MAX_ZOOM = 3, PAN_SLACK = .22;
 // Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
 let minZoom = 1;
 let backgroundImage = null;
+// V12 : profil joueur (clé localStorage dédiée `frontieres-arken-profil`, distincte de la sauvegarde de partie).
+let profile = loadProfile();
+const saveMyProfile = () => saveProfile(profile);
+/** Injecte les atouts du profil dans la partie (joueur humain seulement) : création, chargement, amélioration. */
+const applyBoosts = game => game ? setPlayerBonuses(game, profile.boosts) : game;
 const save = () => { if (state) localStorage.setItem(SAVE_KEY, encodeSave(state)); };
 const load = () => { try { const raw=localStorage.getItem(SAVE_KEY); return raw ? decodeSave(raw) : null; } catch { return null; } };
 const E = (tag, attrs={}) => { const node=document.createElementNS(SVG,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); return node; };
@@ -31,45 +47,81 @@ function tutorial(id,title,text) {
   if(state.tutorial.turn!==state.turn){state.tutorial.turn=state.turn;state.tutorial.shown=[];}
   state.tutorial.shown||=[];if(state.tutorial.shown.length>=2)return;
   state.tutorial.shown.push(id);tutorialShown.add(id);state.tutorial.seen.push(id);state.tutorial.stage=(state.tutorial.stage||0)+1;save();
-  $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;
+  $('#tutorialTitle').textContent=title; $('#tutorialText').textContent=text; $('#tutorialBubble').hidden=false;placeTutorial();
 }
+// V11 (testeur V10) : la bulle du tutoriel ne doit jamais couvrir les boutons de la fiche de province.
+// Fiche ouverte → la bulle passe en haut de l'écran, sous la barre d'état du jeu ; sinon elle reste en bas.
+function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.classList.toggle('top',!$('#provinceSheet').hidden);}
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
-// Route maritime : pointillés d'un port à l'autre en suivant les waypoints ; « open » quand les deux ports sont construits.
+// Route maritime (V10) : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line) ;
+// plus marquée quand un port est construit à l'une des extrémités.
 function seaLane(lane){
-  const a=province(lane.from),b=province(lane.to),open=Boolean(state.provinces[lane.from]?.buildings.port&&state.provinces[lane.to]?.buildings.port);
-  return E('path',{d:pathData([a.port.anchor,...lane.waypoints,b.port.anchor]),class:`route maritime${open?' open':''}`});
+  const a=province(lane.from),b=province(lane.to),built=Boolean(state.provinces[lane.from]?.buildings.port||state.provinces[lane.to]?.buildings.port);
+  const d=pathData([a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor]),g=E('g',{class:`route maritime${built?' open':''}`});
+  g.append(E('path',{d,class:'casing'}),E('path',{d,class:'dash'}));return g;
 }
+// Port (V10) : ancre aux couleurs de la nation propriétaire ; construit = pastille pleine cerclée d'or,
+// non construit = simple emplacement en pointillés.
 function portMarker(d){
-  const built=Boolean(state.provinces[d.id].buildings.port),g=E('g',{class:`port-marker${built?' built':''}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`}),inner=E('g',{class:'ui-scale'});
-  const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:22}),icon);g.append(inner);return g;
+  const p=state.provinces[d.id],built=Boolean(p.buildings.port),color=nation(p.ownerId).color;
+  const g=E('g',{class:`port-marker${built?' built':' site'}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`,'aria-label':`${built?'Port':'Site portuaire'} de ${d.name} (${nation(p.ownerId).short})`}),inner=E('g',{class:'ui-scale'});
+  inner.style.setProperty('--port',color);
+  const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:built?25:21}),icon);g.append(inner);return g;
 }
-// Flèche d'ordre : terre = du cœur de l'origine jusque dans la cible ; mer = suit la route maritime jusqu'à la côte visée.
-function arrowPoints(order){
-  const from=province(order.fromId),to=province(order.toId),path=orderPath(map,order);
-  if(order.routeType==='sea'&&path.length>2){const sea=path.slice(1,-1),last=sea.at(-1),landing=provinceBorderPoint(to,last);return[from.markerAnchor,...sea,{x:landing.x+(to.markerAnchor.x-landing.x)*.25,y:landing.y+(to.markerAnchor.y-landing.y)*.25}];}
-  const exit=provinceBorderPoint(from,to.markerAnchor),entry=provinceBorderPoint(to,from.markerAnchor);
-  const start={x:from.markerAnchor.x+(exit.x-from.markerAnchor.x)*.35,y:from.markerAnchor.y+(exit.y-from.markerAnchor.y)*.35};
-  const end={x:entry.x+(to.markerAnchor.x-entry.x)*.55,y:entry.y+(to.markerAnchor.y-entry.y)*.55};
-  return[start,end];
+// Convoi en mer (V10 marine) : points d'étape sur la route, jeton aux couleurs de la nation avec les tours restants.
+function convoyMarker(m){
+  const color=nation(m.nationId).color,g=E('g',{class:`convoy${m.own?' own':''}${m.returning?' returning':''}`,'data-convoy':m.id,role:'button',tabindex:'0','aria-label':`Convoi de ${nation(m.nationId).short} vers ${province(m.toId).name}, ${m.remaining} tour${m.remaining>1?'s':''} restant${m.remaining>1?'s':''}`});
+  g.style.setProperty('--nation',color);
+  if(m.own){g.append(E('path',{d:pathData([m.position,...m.path.filter((_,i,a)=>i>0&&pathProgress(a,i)>m.stage/m.turns)]),class:'convoy-wake'}));}
+  for(const p of m.stages)g.append(E('circle',{cx:p.x,cy:p.y,r:9,class:'convoy-stage'}));
+  // V11 (testeur V10) : au départ, le jeton glisse le long de la route pour ne pas masquer les ancres de port voisines ;
+  // un petit repère relié au jeton garde la position réelle du convoi.
+  const at=convoyTokenPosition(m,map);
+  if(at.shifted){g.append(E('line',{x1:m.position.x,y1:m.position.y,x2:at.x,y2:at.y,class:'convoy-tether'}),E('circle',{cx:m.position.x,cy:m.position.y,r:7,class:'convoy-origin'}));}
+  const token=E('g',{transform:`translate(${Math.round(at.x)} ${Math.round(at.y)})`}),inner=E('g',{class:'ui-scale'});
+  const ship=E('text',{y:-4,class:'convoy-ship'});ship.textContent='⛵';
+  const left=E('text',{y:30,class:'convoy-turns'});left.textContent=`${m.remaining}`;
+  inner.append(E('rect',{x:-30,y:-34,width:60,height:78,rx:16,class:'convoy-body'}),ship,left);token.append(inner);g.append(token);
+  g.addEventListener('click',event=>{event.stopPropagation();showConvoy(m);});
+  return g;
 }
+function pathProgress(points,i){let total=0,upto=0;for(let k=1;k<points.length;k++){const d=Math.hypot(points[k].x-points[k-1].x,points[k].y-points[k-1].y);total+=d;if(k<=i)upto+=d;}return total?upto/total:1;}
+function showConvoy(m){
+  const what=m.own?[m.troops?`${m.troops} unités terrestres`:'',m.warships?`${m.warships} navire${m.warships>1?'s':''} de guerre`:'sans escorte'].filter(Boolean).join(' · '):'composition inconnue';
+  toast(`${m.returning?'Retour':'Convoi'} de ${nation(m.nationId).short} → ${province(m.toId).name} : ${m.remaining} tour${m.remaining>1?'s':''} restant${m.remaining>1?'s':''} (${what})`);
+}
+// Flèche d'ordre (V10) : part du point de la province de départ et vise le point de la province d'arrivée ;
+// par mer, elle suit la route (port, étapes) puis termine sur le point.
+function arrowPoints(order){return trimPolyline(orderPath(map,order),26,22);}
 // Icônes d'une province, en coordonnées locales autour de son centre ; « ui-scale » les garde lisibles quel que soit le zoom.
 function provinceLabel(d,p){
   const g=E('g',{class:'province-label',transform:`translate(${d.markerAnchor.x} ${d.markerAnchor.y})`}),inner=E('g',{class:'ui-scale'});
-  const name=E('text',{class:'name',y:12});name.textContent=d.name;inner.append(name);
+  inner.style.setProperty('--owner',nation(p.ownerId).color);
   const capital=Object.values(state.nations).some(n=>n.capitalId===d.id),troops=Object.values(p.units).some(Boolean)||p.warships;
-  if(capital){const star=E('text',{x:troops?-20:0,y:-30,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
-  if(troops)inner.append(E('circle',{cx:capital?22:0,cy:-42,r:11,class:'marker'}));
+  // V10 : le « point » de la province (sa ville) est sur l'ancre ; c'est lui que visent les flèches.
+  if(capital){const star=E('text',{y:3,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
+  else inner.append(E('circle',{r:13,class:'city'}));
+  if(troops){const t=E('text',{x:30,y:-22,class:'troops','aria-label':'Troupes présentes'});t.textContent='⚔';inner.append(t);}
+  const name=E('text',{class:'name',y:46});name.textContent=d.name;inner.append(name);
   const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
-  built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:56,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
+  built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:86,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
   g.append(inner);return g;
 }
 function destinations(){return new Set(moveSource?legalDestinations(map,state,moveSource).map(x=>x.id):[]);}
 function render(){
   const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs');
-  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'6',refY:'5',markerUnits:'userSpaceOnUse',markerWidth:'46',markerHeight:'46',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
+  for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',markerHeight:'3.4',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
   backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
-  const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),labelLayer=E('g',{class:'labels'});
-  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer);
+  const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),borderLayer=E('g',{class:'territory-borders'}),labelLayer=E('g',{class:'labels'});
+  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer,borderLayer);
+  // V10 : liseré bleu = mon territoire, liseré rouge = nations en guerre contre moi (au-dessus du voile et de la sélection).
+  // Chaque liseré est découpé à l'intérieur de son territoire : bleu et rouge ne se recouvrent jamais à une frontière commune.
+  const polygonPoints=id=>province(id).geometry.points.map(x=>x.join(',')).join(' ');
+  // V11 : liseré orange discret = nation « au bord de la guerre » avec moi (pas encore en guerre : sinon liseré rouge).
+  const brink=safeEngine(()=>tensionBorderGroups(state,map,id=>tensionLevel(state,state.playerNationId,id),nationsAtWarWith(state)),[]);
+  for(const border of [...brink.map(g=>({...g,segments:territoryOutline(map,g.provinceIds)})),...territoryBorders(state,map)]){const clipId=`clip-${border.kind}-${border.nationId}`,clip=E('clipPath',{id:clipId});border.provinceIds.forEach(id=>clip.append(E('polygon',{points:polygonPoints(id)})));defs.append(clip);
+    const d=outlinePath(border.segments);borderLayer.append(E('path',{d,class:`territory ${border.kind}`,'data-nation':border.nationId,'clip-path':`url(#${clipId})`}));}
+  if(selected&&!moveSource){const clip=E('clipPath',{id:'clip-selected'});clip.append(E('polygon',{points:polygonPoints(selected)}));defs.append(clip);}
   map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
   map.provinces.filter(d=>d.port).forEach(d=>routeLayer.push(portMarker(d)));
   for(const d of map.provinces){
@@ -81,21 +133,22 @@ function render(){
     group.style.setProperty('--owner',nation(p.ownerId).color);group.style.setProperty('--diplo',diploState==='war'?'#e45c56':diploState==='alliance'?'#5da9ff':'#f3f1e9');
     // Le polygone est à la fois le dessin et la zone tactile (plus de chevauchement : B7).
     const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
-    if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id)))highlightLayer.append(E('polygon',{points,class:`outline ${moveSource&&allowed.has(d.id)?'destination':'selected'}`}));
+    if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id))){const kind=moveSource&&allowed.has(d.id)?'destination':'selected',attrs={points,class:`outline ${kind}`};if(kind==='selected'&&selected===d.id&&!moveSource)attrs['clip-path']='url(#clip-selected)';highlightLayer.append(E('polygon',attrs));}
     labelLayer.append(provinceLabel(d,p));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
   }
-  svg.append(...routeLayer,labelLayer);
+  const convoyLayer=E('g',{class:'convoys'});for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
+  svg.append(...routeLayer,labelLayer,convoyLayer);
   for(const order of playerOrderArrows(state,map)){
-    const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?' par mer':''} : ${order.fromName} vers ${order.toName}`});
+    const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`});
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').textContent=state.turn;$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
-  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length; save();
+  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
 }
 function selectProvince(id){
-  if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);return;}
+  if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(embarkStatus(map,state,moveSource).ok?`${province(id).name} n’est pas sur une côte reliée à ce port`:embarkStatus(map,state,moveSource).reason);return;}
   selected=id;render();showProvinceSheet();
   tutorial('province-sheet','Inspecter une province','La fiche indique son propriétaire, les constructions, les forces connues et les actions possibles.');
 }
@@ -104,13 +157,19 @@ function showProvinceSheet(){
   $('#sheetKicker').textContent=`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;
   const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'?` ${n}`:''}`).join(' · ')||'Aucune construction';
-  $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forces.map(f=>`<span class="info-chip ${f.value==='Forces inconnues'?'unknown':''}">${f.label} : ${f.value}</span>`).join('')}`;
-  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie']];
-  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;
-  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId)})[button.dataset.sheetAction]());
+  // V10 : PV / blessures lisibles (« 8 blindés · 92 % PV ») quand les forces sont connues.
+  const known=forces[0]?.value!=='Forces inconnues',health=known?forceHealthRows(p,Object.fromEntries(Object.entries(RULES.combat.units).map(([k,u])=>[k,u.hp]))):[];
+  const healthHtml=health.map(h=>`<span class="info-chip hp${h.wounded?' wounded':''}" style="--hp:${h.hpPct}%"><b>${h.text}</b><i class="hp-bar" aria-hidden="true"><i></i></i></span>`).join('');
+  const convalescence=health.some(h=>h.wounded)?`<span class="info-chip note">En convalescence : +${Math.round(RULES.combat.healRate*100)} % de PV par tour sans combat</span>`:'';
+  const forcesHtml=known?(health.length?healthHtml+convalescence:'<span class="info-chip">Forces : aucune</span>'):forces.map(f=>`<span class="info-chip unknown">${f.label} : ${f.value}</span>`).join('');
+  const naval=mine&&seaRoutesFrom(map,selected).length?(()=>{const st=embarkStatus(map,state,selected);return`<span class="info-chip ${st.ok?'note':'warn'}">${st.ok?'⚓ Port construit : embarquement possible vers les côtes reliées':`⚓ ${st.reason}`}</span>`;})():'';
+  $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forcesHtml}${naval}${mine?'':nationChips(p.ownerId)}`;
+  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie'],['talk','Échanger']];
+  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;placeTutorial();
+  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
   if(!mine&&forces[0]?.value!=='Forces inconnues')tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
 }
-function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;$('#moveBanner').hidden=false;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte`;render();tutorial('move','Ordres de déplacement','Choisissez une destination verte. Votre ordre sera préparé et les forces resteront réservées jusqu’à la résolution.');}
+function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte`;if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Choisissez une destination verte. Votre ordre sera préparé et les forces resteront réservées jusqu’à la résolution.');}
 function cancelMove(){moveSource=null;$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}
 function actionModal(title,kicker,html){const dialog=$('#actionDialog');if(dialog.open)dialog.close();$('#actionTitle').textContent=title;$('#actionKicker').textContent=kicker;$('#actionBody').innerHTML=html;dialog.showModal();}
 function confirmationModal(title,details,onConfirm){actionModal(title,'VÉRIFIE TON ORDRE',`${details}<div class="confirm-actions"><button class="cancel" id="cancelConfirmation">Annuler</button><button class="primary" id="acceptConfirmation">Confirmer</button></div>`);$('#cancelConfirmation').onclick=()=>$('#actionDialog').close();$('#acceptConfirmation').onclick=onConfirm;}
@@ -126,34 +185,37 @@ function openForceSelection(fromId,toId){
   const from=state.provinces[fromId],to=state.provinces[toId],attack=to.ownerId!==state.playerNationId,route=legalDestinations(map,state,fromId).find(x=>x.id===toId),available=availableForces(state,fromId);
   moveSource=null;$('#moveBanner').hidden=true;
   const row=(key,label)=>`<div class="unit-row"><span>${label}</span><b>${available[key]||0}</b><input data-force="${key}" type="number" min="0" max="${available[key]||0}" value="${forceSelection(available,'50')[key]||0}" ${available[key]?'':'disabled'}></div>`;
-  const rows=[...LAND_UNIT_TYPES.map(k=>row(k,unitKeys[k])),row('warships','Navires')].join('');
-  actionModal(attack?'Préparer une attaque':'Préparer un déplacement',`${province(fromId).name} → ${province(toId).name}${route?.type==='sea'?' · par mer':''}`,`<p>Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.</p><div class="force-presets"><button data-preset="50">50 %</button><button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b></div><p id="forceSummary"></p><button id="confirmMove" class="primary">Ajouter cet ordre</button>`);
+  const bySea=route?.type==='sea',rows=[...LAND_UNIT_TYPES.map(k=>row(k,unitKeys[k])),...(bySea?[row('warships','Navires (escorte)')]:[])].join('');
+  const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${route.turns} tours</b> en mer (1 étape par tour)${attack?', puis débarquement (troupes à 70 %)':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>`:'';
+  actionModal(attack?(bySea?'Préparer un débarquement':'Préparer une attaque'):'Préparer un déplacement',`${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${route.turns} tours`:''}`,`${seaNote}<p>Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.</p><div class="force-presets"><button data-preset="50">50 %</button><button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b></div><p id="forceSummary"></p><button id="confirmMove" class="primary">Ajouter cet ordre</button>`);
   const updateSummary=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),ships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0);$('#forceSummary').textContent=`${Object.entries(units).filter(([,n])=>n).map(([k,n])=>`${n} ${unitKeys[k].toLowerCase()}`).concat(ships?[`${ships} navires`]:[]).join(' · ')||'Aucune unité sélectionnée'}`;};
   document.querySelectorAll('[data-force]').forEach(i=>i.oninput=updateSummary);
-  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const mode=b.dataset.preset;if(mode==='manual'){document.querySelector('[data-force]')?.focus();return;}const chosen=forceSelection(available,mode);for(const k of LAND_UNIT_TYPES)document.querySelector(`[data-force="${k}"]`).value=chosen[k];document.querySelector('[data-force="warships"]').value=mode==='100'?available.warships:Math.floor(available.warships/2);updateSummary();});updateSummary();
+  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const mode=b.dataset.preset;if(mode==='manual'){document.querySelector('[data-force]')?.focus();return;}const chosen=forceSelection(available,mode);for(const k of LAND_UNIT_TYPES)document.querySelector(`[data-force="${k}"]`).value=chosen[k];const ws=document.querySelector('[data-force="warships"]');if(ws)ws.value=mode==='100'?available.warships:Math.floor(available.warships/2);updateSummary();});updateSummary();
   $('#confirmMove').onclick=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),warships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0),quantity=Object.values(units).reduce((a,b)=>a+b,0)+warships,description=Object.entries(units).filter(([,n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(warships?[`${warships} navires`]:[]).join(', ')||'Aucune force';
     if(!quantity)return toast('Sélectionne au moins une unité');
-    confirmationModal(attack?'Confirmer l’attaque':'Confirmer le déplacement',`<div class="order-detail"><span>Action : ${attack?'attaquer':'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span><span>Province visée : ${province(toId).name}</span><span>Quantité : ${description}</span><span>Coût : 0 or</span><span>Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span></div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});if(!result.ok)return toast(result.error);$('#actionDialog').close();selected=null;render();toast('Ordre ajouté à la planification');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
+    confirmationModal(attack?'Confirmer l’attaque':'Confirmer le déplacement',`<div class="order-detail"><span>Action : ${attack?'attaquer':'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span><span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${route.turns} tours</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span></div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});if(!result.ok)return toast(result.error);$('#actionDialog').close();selected=null;render();toast('Ordre ajouté à la planification');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
   };
   tutorial(attack?'attack':'move-confirm',attack?'Préparer une attaque':'Préparer un déplacement','Tu peux engager 50 %, toutes tes forces, ou personnaliser les unités. L’affrontement attend la fin du tour.');
   if(route?.type==='sea')tutorial('maritime','Transport maritime',TUTORIAL_GUIDE.find(x=>x.id==='maritime').text);
 }
 function openRecruit(){
-  const p=state.provinces[selected],items=Object.entries(RULES.units).map(([key,r])=>({key,r,blocked:(r.requiresFactory&&!p.buildings.factory)||(r.requiresPort&&!p.buildings.port)}));
-  actionModal('Recrutement',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div>${items.map(({key,r,blocked})=>`<div class="action-card recruit-row"><span><b>${r.label}</b><small>${r.amount} par lot · ${r.cost} or · ${r.turns} tour(s)${blocked?' · Prérequis manquant':''}</small></span><div class="lot-controls"><button data-lot-minus="${key}" ${blocked?'disabled':''}>−</button><b id="lot-count-${key}">0</b><button data-lot-plus="${key}" ${blocked?'disabled':''}>+</button><small id="lot-amount-${key}">0 unité</small></div></div>`).join('')}<div class="total-line"><span>Coût total</span><b id="recruitCost">0</b></div><p id="recruitWarning"></p><button id="confirmRecruit" class="primary">Vérifier la commande</button>`);
+  const p=state.provinces[selected],pendingBuild=Object.fromEntries(state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected).map(o=>[o.type,o.remaining]));
+  for(const o of state.orders)if(o.kind==='construction'&&o.provinceId===selected&&o.status==='pending')pendingBuild[o.type]??=RULES.buildings[o.type]?.turns||1;
+  const items=Object.entries(RULES.units).map(([key,r])=>{const reason=unitPrerequisiteText(r,p.buildings,pendingBuild);return{key,r,reason,blocked:Boolean(reason)};});
+  actionModal('Recrutement',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div>${items.map(({key,r,blocked,reason})=>`<div class="action-card recruit-row${blocked?' blocked':''}"><span><b>${r.label}</b><small>${r.amount} par lot · ${r.cost} or · ${r.turns} tour(s)</small>${blocked?`<small class="prereq">⚠ ${reason}</small>`:''}</span><div class="lot-controls"><button data-lot-minus="${key}" ${blocked?'disabled':''}>−</button><b id="lot-count-${key}">0</b><button data-lot-plus="${key}" ${blocked?'disabled':''}>+</button><small id="lot-amount-${key}">0 unité</small></div></div>`).join('')}<div class="total-line"><span>Coût total</span><b id="recruitCost">0</b></div><p id="recruitWarning"></p><button id="confirmRecruit" class="primary">Vérifier la commande</button>`);
   const lots=Object.fromEntries(items.map(x=>[x.key,0]));
-  const update=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),available=spendableTreasury(state,state.playerNationId);$('#recruitCost').textContent=`${total} or`;$('#recruitWarning').textContent=total>available?'Trésor insuffisant après les sommes réservées.':'';for(const {key,r,blocked} of items){$(`#lot-count-${key}`).textContent=lots[key];$(`#lot-amount-${key}`).textContent=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}`;const plus=document.querySelector(`[data-lot-plus="${key}"]`);if(plus)plus.disabled=blocked||total+r.cost>available;}};
+  const update=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),available=spendableTreasury(state,state.playerNationId);$('#recruitCost').textContent=`${total} or`;$('#recruitWarning').textContent=total>available?'Trésor insuffisant après les sommes réservées.':'';for(const {key,r,blocked} of items){$(`#lot-count-${key}`).textContent=lots[key];const extra=recruitPreview(state,state.playerNationId,key,lots[key]*r.amount)-lots[key]*r.amount;$(`#lot-amount-${key}`).innerHTML=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}${extra>0?` <em class="boost-extra">+${extra} atout</em>`:''}`;const plus=document.querySelector(`[data-lot-plus="${key}"]`);if(plus)plus.disabled=blocked||total+r.cost>available;}};
   for(const {key} of items){document.querySelector(`[data-lot-minus="${key}"]`)?.addEventListener('click',()=>{lots[key]=Math.max(0,lots[key]-1);update();});document.querySelector(`[data-lot-plus="${key}"]`)?.addEventListener('click',()=>{lots[key]++;update();});}update();
   $('#confirmRecruit').onclick=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),quantity=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].amount,0);if(!quantity)return toast('Choisis au moins un lot');if(total>spendableTreasury(state,state.playerNationId))return toast('Trésor insuffisant après les sommes réservées');
-    confirmationModal('Confirmer le recrutement',`<div class="order-detail"><span>Action : recrutement</span><span>Province : ${province(selected).name}</span><span>Quantité : ${quantity} unité(s) en ${Object.values(lots).filter(Boolean).reduce((n,v)=>n+v,0)} lot(s)</span><span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de recrutement ajouté à l’inter-tour');});
+    confirmationModal('Confirmer le recrutement',`<div class="order-detail"><span>Action : recrutement</span><span>Province : ${province(selected).name}</span><span>Quantité : ${quantity} unité(s) en ${Object.values(lots).filter(Boolean).reduce((n,v)=>n+v,0)} lot(s)</span>${(()=>{const extra=recruitPreview(state,state.playerNationId,'infantry',lots.infantry*RULES.units.infantry.amount)-lots.infantry*RULES.units.infantry.amount;return extra>0?`<span class="boost-extra">Atout Recrutement +${profile.boosts.recruit} % : +${extra} fantassins à la livraison</span>`:'';})()}<span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de recrutement ajouté à l’inter-tour');});
   };
   tutorial('recruit','Recruter par lots','Chaque + ajoute un lot réel : 20 fantassins ou 5 cavaliers. Le coût total est recalculé avant validation.');
 }
 function openBuild(){
   const p=state.provinces[selected],orders=state.orders.filter(o=>o.kind==='construction'&&o.provinceId===selected&&o.status==='pending'),active=state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected);
-  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;return{type,cost,turns:rule.turns,count};}).filter(x=>x.type!=='fort'||x.count<3).filter(x=>x.type!=='port'||x.count===0);
-  actionModal('Construction',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span><b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost} or · ${x.turns} tour(s)${x.count?' · déjà en file':''}</small></span><button data-build="${x.type}" ${spendableTreasury(state,state.playerNationId)<x.cost?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
-  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
+  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;return{type,rule,cost,turns:rule.turns,count,built,queued:count-built};}).map(x=>({...x,reason:buildingUnavailableReason({type:x.type,label:buildingNames[x.type],rule:x.rule,count:x.count,portSite:p.portSite,cost:x.cost??0,spendable:spendableTreasury(state,state.playerNationId)})}));
+  actionModal('Construction',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span><b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
+  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
   tutorial('build','Financer une construction','Chaque bâtiment, y compris un port, coûte de l’or et n’apparaît qu’après sa durée de construction.');
 }
 function diplomaticExplanation(id,target){return({war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.`,alliance:`Proposer une alliance à ${nation(target).short}. Elle commencera à l’inter-tour.`,ultimatum:`Proposer un cessez-le-feu payé à ${nation(target).short}. L’offre peut être refusée ; dans ce cas, aucun paiement ne sera prélevé.`})[id]||'Action diplomatique';}
@@ -170,9 +232,55 @@ function confirmDiplomacy(action,target,offerLevel=.5){
 function openDiplomacy(target=null){
   if(!target){actionModal('Diplomatie','CHOISISSEZ UN PAYS',`<div class="action-list">${map.nations.filter(n=>n.id!==state.playerNationId).map(n=>`<button class="nation" data-country="${n.id}" style="--nation:${n.color}"><i></i>${n.name}</button>`).join('')}</div>`);document.querySelectorAll('[data-country]').forEach(b=>b.onclick=()=>{const id=b.dataset.country;$('#actionDialog').close();openDiplomacy(id)});return;}
   const actions=diplomacyActions(state,target),pending=state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
-  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>`);
+  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>`);
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
+  $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
   tutorial('diplomacy','Diplomatie en deux étapes','Choisir affiche d’abord les exigences et conséquences. Tu confirmes ensuite l’action, qui attendra l’inter-tour.');
+}
+// --- V11 : personnalités des dirigeants, fil d'échanges et tension ------------------------------------------
+// Les appels au moteur V11 sont protégés : une erreur ne doit jamais bloquer la carte ni la fin du tour.
+function safeEngine(fn,fallback){try{return fn();}catch(error){console.warn('V11',error);return fallback;}}
+const escapeHtml=text=>String(text??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+function nationBadge(id){const n=nation(id);return`<span class="crest" style="--nation:${n.color||'#888'}" aria-hidden="true">${crestGlyph(n.crest)}</span>`;}
+function tensionWith(id){return tensionGauge(safeEngine(()=>tensionLevel(state,state.playerNationId,id),{value:0,label:'calme'}));}
+function hintFor(id){return safeEngine(()=>leaderHint(state,id),'')||'Dirigeant encore mal connu';}
+function nationChips(id){const t=tensionWith(id);return`<span class="info-chip tension-chip ${t.cls}">Tension ${t.value} · ${t.label}</span><span class="info-chip leader-chip">☉ ${escapeHtml(hintFor(id))}</span>`;}
+function nationPanel(id){const t=tensionWith(id),revealed=Boolean(state.leaders?.[id]?.revealed);
+  return`<div class="nation-panel" style="--nation:${nation(id).color}"><div class="nation-head">${nationBadge(id)}<div><b>${nation(id).name}</b><small>${revealed?'Personnalité révélée':'Impression sur son dirigeant'}</small><p class="leader-hint${revealed?' revealed':''}">${escapeHtml(hintFor(id))}</p></div></div>
+  <div class="tension ${t.cls}" role="meter" aria-label="Tension avec ${nation(id).short}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${t.value}"><div class="tension-top"><span>Tension</span><b>${t.value} / 100 · ${t.label}</b></div><div class="tension-track"><i style="width:${t.pct}%"></i></div><div class="tension-scale"><span>calme</span><span>tendu</span><span>hostile</span><span>guerre</span></div></div>
+  <button id="nationTalk" class="talk-launch">✉ Échanger publiquement</button></div>`;}
+function updateTalkBadge(){const n=safeEngine(()=>talkBadgeCount(state),0),badge=$('#talkBadge');badge.hidden=!n;badge.textContent=n;$('#talkBtn').classList.toggle('has-mail',n>0);}
+function talkLine(item){const tone=toneMeta(item.tone),from=nation(item.from),to=item.to?nation(item.to):null;
+  return`<article class="talk-msg ${tone.cls}${item.toMe?' to-me':''}${item.fromMe?' from-me':''}" style="--nation:${from.color||'#888'}" data-talk-id="${escapeHtml(item.id)}">
+   <div class="talk-head">${nationBadge(item.from)}<b>${from.short}</b><span class="talk-to">${to?`→ ${item.toMe?'vous':to.short}`:'→ à tous'}</span><span class="talk-tone" title="Ton ${tone.label.toLowerCase()}" aria-label="Ton ${tone.label.toLowerCase()}">${tone.icon}</span><small>T${item.turn}</small></div>
+   ${item.replyTo&&item.replyToFrom?`<small class="talk-reply">en réponse à ${item.replyToFrom===state.playerNationId?'vous':nation(item.replyToFrom).short}</small>`:''}
+   <p>${escapeHtml(item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
+function plannedTalk(){return(state.orders||[]).filter(o=>o.kind==='talk'&&o.status==='pending'&&o.nationId===state.playerNationId);}
+function openTalk(){
+  const feed=safeEngine(()=>talkFeed(state),[]),planned=plannedTalk(),others=map.nations.filter(n=>n.id!==state.playerNationId);
+  $('#talkKicker').textContent=`FIL PUBLIC DES DIRIGEANTS · TOUR ${state.turn}`;
+  $('#talkBody').innerHTML=`<div class="talk-start"><small>Lancer un échange avec</small><div class="talk-nations">${others.map(n=>`<button data-talk-nation="${n.id}" style="--nation:${n.color}">${crestGlyph(n.crest)} ${n.short}</button>`).join('')}</div></div>
+   ${planned.length?`<div class="talk-planned">${planned.map(o=>`<div>✉ ${toneMeta(o.tone).icon} Message à ${o.to?nation(o.to).short:'tous'} : part à la fin du tour</div>`).join('')}</div>`:''}
+   <div class="talk-feed">${feed.length?feed.map(talkLine).join(''):'<p class="talk-empty">Aucun échange public pour l’instant. Les dirigeants prendront la parole au fil des tours.</p>'}</div>`;
+  document.querySelectorAll('[data-talk-nation]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.talkNation));
+  document.querySelectorAll('[data-reply]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.to,b.dataset.reply));
+  if(!$('#talkDialog').open)$('#talkDialog').showModal();
+  tutorial('talk','Échanges entre dirigeants','Les dirigeants se parlent en public. Tu n’écris pas : tu choisis un ton (hostile, neutre ou amical). Les messages hostiles font monter la tension et le risque de guerre.');
+}
+function openTalkCompose(to,replyTo=null){
+  const options=safeEngine(()=>talkOptions(state,map,{from:state.playerNationId,to,replyTo}),[]),original=replyTo?(state.talk||[]).find(m=>m.id===replyTo):null,t=tensionWith(to);
+  if($('#talkDialog').open)$('#talkDialog').close();
+  const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
+  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · TENSION ${t.value} (${t.label.toUpperCase()})`,
+   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
+   <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;}).join(''):'<p>Aucun message possible pour l’instant.</p>'}</div>
+   <div class="confirm-actions"><button class="cancel" id="talkBack">Retour</button><button class="primary" id="talkSend" disabled>Envoyer</button></div>`);
+  let chosen=null;
+  document.querySelectorAll('[data-tone]').forEach(b=>b.onclick=()=>{chosen=b.dataset.tone;document.querySelectorAll('[data-tone]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$('#talkSend').disabled=false;$('#talkSend').textContent=`Envoyer (${toneMeta(chosen).label.toLowerCase()})`;});
+  $('#talkBack').onclick=()=>{$('#actionDialog').close();openTalk();};
+  $('#talkSend').onclick=()=>{if(!chosen)return;const before=(state.talk||[]).length,result=safeEngine(()=>queueTalk(state,map,{from:state.playerNationId,to,tone:chosen,replyTo}),{ok:false,error:'Échange impossible pour le moment'});
+    if(!result?.ok)return toast(result?.error||'Échange impossible');
+    $('#actionDialog').close();render();toast((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`);openTalk();};
 }
 function renderJournal(permanent=false){
   const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
@@ -184,11 +292,24 @@ function renderJournal(permanent=false){
 }
 function openHelp(){const entries=TUTORIAL_GUIDE;$('#helpBody').innerHTML=entries.map(x=>`<article class="help-item"><b>${x.title}</b><p>${x.text.replace('{nation}',nation(state.playerNationId).name)}</p></article>`).join('');$('#helpDialog').showModal();}
 function openArmy(){const army=totalArmy(state,state.playerNationId);actionModal('Armée totale',`TOUR ${state.turn}`,Object.entries(army.byType).map(([key,value])=>`<div class="unit-row"><span>${unitKeys[key]}</span><b>${value}</b></div>`).join(''));}
+// --- V10 : fin de partie --------------------------------------------------------------------------------------
+function showEndScreen(){
+  const go=state.gameOver;if(!go)return false;
+  const me=state.playerNationId,mine=go.ranking.find(r=>r.nationId===me),won=go.winnerId===me;
+  const title=go.reason==='player-eliminated'?'Défaite':won?'Victoire !':'Fin de la partie';
+  const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:`Les ${RULES.gameLength} tours sont écoulés.`;
+  const rows=go.ranking.map(r=>`<tr class="${r.nationId===me?'me':''}${r.eliminated?' out':''}"><td>${r.rank}</td><td><i style="--nation:${nation(r.nationId).color}"></i>${nation(r.nationId).short}${r.eliminated?' <small>éliminée</small>':''}</td><td>${r.provinces}</td><td>${r.capitals}</td><td>${r.treasury}</td></tr>`).join('');
+  $('#endKicker').textContent=`TOUR ${go.turn} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':'FIN DES 60 TOURS'}`;
+  $('#endTitle').textContent=title;$('#endDialog').dataset.result=go.reason==='player-eliminated'||!won&&go.reason==='capitals'?'defeat':won?'victory':'end';
+  $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`}</p><table class="ranking"><thead><tr><th>#</th><th>Nation</th><th>Prov.</th><th>Cap.</th><th>Or</th></tr></thead><tbody>${rows}</tbody></table><p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor.</p>`;
+  $('#endDialog').showModal();return true;
+}
 function resolveTurn(){
+  if(showEndScreen())return;
   const count=state.orders.filter(o=>o.status==='pending').length;
-  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${o.action}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
+  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${o.action}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
-  $('#confirmEndTurn').onclick=()=>{ $('#actionDialog').close(); nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();renderJournal(false); };
+  $('#confirmEndTurn').onclick=()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();if(state.gameOver)showEndScreen();else renderJournal(false);trackMissions(state.events.slice(eventStart)); };
 }
 function playSfx(){if(!state.settings.sfx)return;audioCtx ||= new AudioContext();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=330;g.gain.setValueAtTime(.035,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.12);}
 function setMusic(on){if(!on){musicNodes.forEach(n=>n.stop?.());musicNodes=[];return;}audioCtx ||= new AudioContext();if(musicNodes.length)return;[110,146.8,164.8].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.009/(i+1);o.connect(g).connect(audioCtx.destination);o.start();musicNodes.push(o);});}
@@ -198,18 +319,43 @@ function showSaveNotice(raw){const notice=$('#saveNotice');notice.hidden=!savedO
 function hydrateState(value){
   if(!value||value.mapId!==map.id)return null;
   value.turnJournal||=value.journal||[];value.chronicle||=[];value.orders||=[];value.tutorial||={seen:[],stage:0,turn:value.turn,shown:[]};value.tutorial.shown||=[];value.tutorial.turn??=value.turn;
-  value.orderSequence=Math.max(Number(value.orderSequence)||1,1+value.orders.length);value.randomCounter=Math.max(0,Number(value.randomCounter)||0);value.warChestsClaimed||={};
+  value.orderSequence=Math.max(Number(value.orderSequence)||1,1+value.orders.length);value.transports||=[];value.transportSequence=Math.max(1,Number(value.transportSequence)||1);value.randomCounter=Math.max(0,Number(value.randomCounter)||0);value.warChestsClaimed||={};
   for(const n of map.nations)if(value.nations[n.id])value.nations[n.id].capitalId||=map.provinces.find(p=>p.initialOwner===n.id)?.id;
   for(const d of map.provinces)if(value.provinces[d.id])value.provinces[d.id].portSite=Boolean(d.port);
   if(!value.chronicle.length&&value.events?.length)value.chronicle=value.events.filter(e=>eventKnownToPlayer(value,map,e)).map(e=>journalEntry(e,map,value.playerNationId)).filter(Boolean);
-  return value;
+  return applyBoosts(value);
+}
+// --- V12 : atouts, missions du jour, achats de test, profil ------------------------------------------------------
+function trackMissions(events){
+  const r=missionDeltas(events,state.playerNationId),res=addMissionProgress(profile,todayLocal(),r);saveMyProfile();
+  if(res.completed.length)setTimeout(()=>toast(`Mission accomplie : ${res.completed.map(m=>m.label).join(' · ')}${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`),400);
+}
+function openBoosts(){
+  const inGame=!$('#gameScreen').hidden&&Boolean(state);
+  $('#boostBody').innerHTML=boostScreenHtml(profile,todayLocal(),{inGame});
+  document.querySelectorAll('[data-boost]').forEach(b=>b.onclick=()=>{const r=upgradeBoost(profile,b.dataset.boost);if(!r.ok)return toast(r.error);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast(`${BOOST_INFO[b.dataset.boost].label} : +${r.level} %`);});
+  document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=async()=>{b.disabled=true;const r=await purchase(profile,b.dataset.buy,{date:todayLocal()});if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();toast(`Achat de test : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
+  $('[data-watch-ad]')?.addEventListener('click',async()=>{const r=await showRewardedAd();if(!r.rewarded)return toast('Publicité indisponible pour le moment');const res=recordAdWatched(profile,todayLocal());saveMyProfile();openBoosts();toast(`Mission publicité accomplie${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`);});
+  $('#copyProfile').onclick=copyProfile;$('#restoreProfile').onclick=restoreProfileView;
+  if(!$('#boostDialog').open)$('#boostDialog').showModal();
+}
+async function copyProfile(){
+  const text=exportProfile(profile);let copied=false;
+  try{await navigator.clipboard.writeText(text);copied=true;}catch{}
+  $('#boostBody').insertAdjacentHTML('beforeend',`<div class="profile-export"><p>${copied?'Profil copié. Colle-le dans tes notes pour le garder en sécurité.':'Sélectionne et copie ce texte dans tes notes :'}</p><textarea readonly rows="4">${escapeHtml(text)}</textarea></div>`);
+  const area=$('#boostBody .profile-export:last-child textarea');area.focus();area.select();area.scrollIntoView({block:'center'});if(copied)toast('Profil copié');
+}
+function restoreProfileView(){
+  $('#boostBody').innerHTML=`<p>Colle ici le texte copié avec « Copier mon profil ». Il remplacera le profil de cet appareil (jetons, atouts, achats). Ta partie en cours n’est pas touchée.</p><textarea id="restoreText" rows="6" placeholder="ARKEN-PROFIL-1:…"></textarea><div class="confirm-actions"><button class="cancel" id="restoreBack">Retour</button><button class="primary" id="restoreGo">Restaurer</button></div>`;
+  $('#restoreBack').onclick=openBoosts;
+  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);profile=r.profile;saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }
 function showWelcome(){
   setActiveScreen(document,'welcome');const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);$('#tutorialBubble').hidden=true;state=null;history.replaceState({arkenScreen:'home'},'',location.href);
 }
 function showGame(){
   setActiveScreen(document,'game');history.pushState({arkenScreen:'game'},'',location.href);
-  requestAnimationFrame(()=>{measureFrame();render();focusProvince(state.nations[state.playerNationId]?.capitalId||'p01');});
+  requestAnimationFrame(()=>{measureFrame();render();focusProvince(state.nations[state.playerNationId]?.capitalId||'p01');if(state.gameOver)showEndScreen();});
 }
 function continueSavedGame(){state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();}
 function confirmSaveReplacement(){
@@ -232,7 +378,9 @@ function beginNewGame(){
 }
 function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=()=>{state=createGameState({map,playerNationId:b.dataset.nation});$('#nationDialog').close();selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
+    // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
+    await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
 function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');}
@@ -241,12 +389,13 @@ function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={w
   mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
   Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2}px`,top:`${(frameSize.height-mapContentSize.height)/2}px`});clampTransform();}
 // Centre la vue sur une province (capitale du joueur au lancement).
-function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform();}
+function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform(0);}
 // Les icônes et noms rétrécissent un peu quand on zoome (sinon ils deviendraient énormes) : appliqué en fin de geste.
-function updateLabelScale(){$('#map').style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));}
-function clampTransform(){
+function updateLabelScale(){const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
+// edgeSlack : marge de glisse au-delà du bord (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
+function clampTransform(edgeSlack=PAN_SLACK){
   if(!frameSize.width||!frameSize.height)return;
-  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom);
+  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack);
   scale=next.scale;tx=next.x;ty=next.y;
   if(!transformFrame)transformFrame=requestAnimationFrame(()=>{transformFrame=0;$('#map').style.transform=`translate3d(${tx}px,${ty}px,0) scale(${scale})`;});
 }
@@ -269,16 +418,22 @@ viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('poi
 
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#tutorialOk').onclick=()=>$('#tutorialBubble').hidden=true;
-$('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;render();};
-$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#diplomacyBtn').onclick=()=>openDiplomacy();$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
+$('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;placeTutorial();render();};
+$('#talkBtn').onclick=()=>openTalk();
+$('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
+$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
 $('#resetHints').onclick=()=>{state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
-$('#zoomIn').onclick=()=>{scale=Math.min(MAX_ZOOM,scale*1.4);clampTransform();updateLabelScale();};$('#zoomOut').onclick=()=>{scale=Math.max(minZoom,scale/1.4);clampTransform();updateLabelScale();};$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
+$('#endNewGame').onclick=()=>{$('#endDialog').close();beginNewGame();};$('#endJournal').onclick=()=>{$('#endDialog').close();renderJournal(true);};
+// Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
+function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;clampTransform();updateLabelScale();}
+$('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
 $('#mapShell').addEventListener('click',event=>{if(event.target.closest('.order-arrow'))tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
 function handleAppBack(){
+  if(document.querySelector('#adOverlay[open]')){history.pushState({arkenScreen:$('#gameScreen').hidden?'home':'game'},'',location.href);return;} // V12 : la pub de test se ferme seule
   const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);
   if(dialog){dialog.close();if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);return;}
   if($('#gameScreen').hidden)return;

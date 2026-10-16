@@ -8,7 +8,8 @@ test('règles économiques figées', () => {
   assert.equal(RULES.baseIncome, 4);
   assert.equal(RULES.bankIncome, 3);
   assert.equal(RULES.factoryIncome, 3);
-  assert.deepEqual(RULES.buildings, { bank: { cost: 30, turns: 3 }, factory: { cost: 40, turns: 3 }, fort: { costs: [20, 35, 50], turns: 2 }, port: { cost: 40, turns: 3 } });
+  // V10 : plafonds par province (`max`) ajoutés ; coûts et durées inchangés.
+  assert.deepEqual(RULES.buildings, { bank: { cost: 30, turns: 3, max: 1 }, factory: { cost: 40, turns: 3, max: 1 }, fort: { costs: [20, 35, 50], turns: 2, max: 3 }, port: { cost: 40, turns: 3, max: 1 } });
   assert.equal(RULES.warChestAmount, 30);
 });
 
@@ -75,17 +76,20 @@ test('trésor insuffisant refusé ; province étrangère refusée', () => {
   assert.equal(spendableTreasury(s, 'valmorne'), 10);
 });
 
-// BUG CONNU (game-engine.js:215-222) : une production terminée est livrée à la province, quel que soit
-// son propriétaire actuel. Si la province est conquise pendant l'inter-tour, l'ennemi reçoit les unités payées.
-test('BUG CONNU : recrutement livré au conquérant si la province tombe le même tour', () => {
+// B4 CORRIGÉ en V10 (test inversé) : une production dans une province conquise est annulée et remboursée
+// à la nation qui l'a payée ; le conquérant ne reçoit rien.
+test('B4 corrigé : recrutement annulé et remboursé si la province tombe le même tour', () => {
   const s = freshState({ allHuman: true });
   queueRecruitment(s, { nationId: 'valmorne', provinceId: 'p04', type: 'infantry', lots: 1 });
   s.provinces.p06.units.infantry = 300;
   s.orders.push({ id: 'x1', kind: 'move', nationId: 'roc-epine', fromId: 'p06', toId: 'p04', units: { infantry: 300, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
   resolveInterturn(s, map);
   assert.equal(s.provinces.p04.ownerId, 'roc-epine');
-  // Les 20 fantassins payés par Valmorne s'ajoutent à la garnison de Roc-Épine.
-  const conquestSurvivors = s.events.find(e => e.type === 'conquest' && e.provinceId === 'p04');
-  assert.ok(conquestSurvivors);
-  assert.equal(s.provinces.p04.units.infantry, 300 - conquestSurvivors.attackerLosses + 20);
+  const conquest = s.events.find(e => e.type === 'conquest' && e.provinceId === 'p04');
+  assert.ok(conquest);
+  assert.equal(s.provinces.p04.units.infantry, 300 - conquest.attackerLosses, 'aucun renfort offert au conquérant');
+  const lost = s.events.find(e => e.type === 'production-lost');
+  assert.equal(lost.refund, 20);
+  // Valmorne : 120 − 20 (commande) + 20 (remboursement) + 3 provinces × 4.
+  assert.equal(s.nations.valmorne.treasury, 120 + 12);
 });

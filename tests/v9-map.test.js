@@ -84,7 +84,7 @@ test('V9 : chaque paire d\'îles est reliée par une route maritime entre deux s
   assert.equal(map.seaLanes.length, map.maritimeRoutes.length);
 });
 
-test('V9 : la mer s\'ouvre avec les mécaniques V6 (deux ports construits) dans les deux sens', () => {
+test('V9 : la mer s\'ouvre dans les deux sens quand les ports sont construits', () => {
   const s = fresh({ allHuman: true });
   assert.equal(legalDestinations(map, s, 'p03').some(d => d.type === 'sea'), false);
   for (const p of map.provinces) if (p.port) s.provinces[p.id].buildings.port = 1;
@@ -147,8 +147,10 @@ test('V9 résolution simultanée : « j\'attaque X→Y pendant qu\'on attaque X 
   assert.equal(s.turn, 2);
   assert.equal(s.orders.length, 0);
   const fights = s.events.filter(e => e.type === 'battle' || e.type === 'conquest').map(e => [e.type, e.attacker, e.provinceId]);
-  // Comportement V6 conservé (voir AUDIT B1) : cibles traitées par identifiant, p03 avant p04.
-  assert.deepEqual(fights, [['conquest', 'noireflamme', 'p03'], ['battle', 'valmorne', 'p04']]);
+  // V10 (B1 corrigé) : X se défend d'abord avec toute sa garnison ; l'attaque de Valmorne, dont l'origine est tombée,
+  // est annulée sans combat fantôme.
+  assert.deepEqual(fights, [['conquest', 'noireflamme', 'p03']]);
+  assert.ok(s.events.some(e => e.type === 'attack-cancelled' && e.nationId === 'valmorne'));
   assert.equal(s.provinces.p03.ownerId, 'noireflamme');
   assert.equal(s.provinces.p04.ownerId, 'roc-epine');
   assertInvariants(s, 'V9 simultané');
@@ -167,7 +169,8 @@ test('V9 résolution simultanée : un débarquement part le même tour qu\'une a
   const naval = s.events.find(e => e.naval);
   assert.ok(naval, 'combat naval à l\'arrivée');
   assert.equal(naval.provinceId, 'p14');
-  assert.equal(s.transports.length, 0);
+  // V10 marine : débarquement repoussé → les survivants rembarquent et rentrent par la même route.
+  assert.ok(s.transports.every(t => t.returning && t.toId === 'p03'));
   assertInvariants(s, 'V9 débarquement');
 });
 
@@ -203,6 +206,30 @@ test('V9 IA : pas suicidaire — chaque débarquement est escorté et la plupart
   for (const s of Object.values(games)) for (const e of s.events.filter(x => x.naval && (x.type === 'battle' || x.type === 'conquest'))) { landings++; if (e.type === 'conquest') wins++; }
   assert.ok(landings > 0);
   assert.ok(wins / landings >= .6, `${wins}/${landings} débarquements réussis`);
+});
+
+// V10 marine : débarquements escortés vers des côtes sans port, interceptions, et fin de partie mesurée (info).
+test('V10 marine IA : débarquements et interceptions dans les 5 parties de 200 tours', () => {
+  let landings = 0, interceptions = 0, noPortLandings = 0, escorted = 0, departures = 0;
+  const firstVictory = [];
+  for (const s of Object.values(games)) {
+    const ev = s.events;
+    landings += ev.filter(e => e.naval && (e.type === 'battle' || e.type === 'conquest')).length;
+    interceptions += ev.filter(e => e.type === 'interception').length;
+    noPortLandings += ev.filter(e => e.naval && (e.type === 'battle' || e.type === 'conquest') && !byId(e.provinceId).port).length;
+    const dep = ev.filter(e => e.type === 'convoy-departed' && !e.returning);
+    departures += dep.length; escorted += dep.filter(e => e.escort > 0).length;
+    const go = ev.find(e => e.type === 'game-over');
+    assert.ok(go, 'fin de partie enregistrée (tour 60 ou 5 capitales)');
+    assert.ok(go.turn <= 60, `fin au tour ${go.turn}`);
+    firstVictory.push(go.reason === 'capitals' ? go.turn : null);
+  }
+  assert.ok(landings >= 20, `${landings} débarquements`);
+  assert.ok(interceptions >= 1, `${interceptions} interceptions`);
+  assert.ok(noPortLandings >= 1, 'débarquements sur des côtes sans site de port');
+  assert.ok(escorted / departures >= .5, `${escorted}/${departures} convois escortés`);
+  const wins = firstVictory.filter(Boolean);
+  console.log(`# info marine : ${landings} débarquements, ${interceptions} interceptions, ${escorted}/${departures} convois escortés ; victoire anticipée (5 capitales) : ${wins.length ? `${wins.length}/5 parties, tour moyen ${Math.round(wins.reduce((a, b) => a + b, 0) / wins.length)}` : 'aucune en 200 tours'}`);
 });
 
 test('V9 IA : déterministe (deux parties identiques) et sans Math.random', () => {
