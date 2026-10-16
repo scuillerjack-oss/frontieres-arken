@@ -23,8 +23,10 @@ Dans tous les cas, une Pull Request n'est fusionnée (ou présentée comme prêt
 ## Bêta sur téléphone
 L'installation de la PWA par Chrome échoue sur le téléphone de Jack. La bêta passe par l'APK :
 https://github.com/scuillerjack-oss/frontieres-arken/releases/download/beta/frontieres-arken-beta.apk
-(publié automatiquement à chaque fusion dans `main`, signé avec la clé de bêta stable `android-debug/`
-pour que chaque nouvelle bêta s'installe par-dessus la précédente sans perdre la partie).
+(publié automatiquement à chaque fusion dans `main`, signé avec la clé de bêta stable `android-debug/`).
+Depuis la V12.2, cet APK de bêta **charge le jeu depuis le site** (`scripts/apk-beta-config.js`, appliqué
+uniquement par `android-apk.yml`) : chaque fusion dans `main` met à jour l'appli déjà installée au lancement
+suivant, sans retélécharger l'APK. L'AAB Google Play, lui, garde le jeu embarqué.
 
 ## Interdits sans accord explicite de Jack, écrit dans la conversation
 - `git push --force`, `git reset --hard` sur une branche partagée, pousser directement sur `main`.
