@@ -209,7 +209,7 @@ test('migration 6 -> 7 : un transport V10 lot 2 en mer devient un convoi qui arr
   const old = structuredClone(s); old.schemaVersion = 6; delete old.transportSequence;
   old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p19', units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 1, wounds: { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 }, status: 'at-sea', remaining: 1 }];
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 7);
+  assert.equal(m.schemaVersion, 8, '6 -> 7 -> 8 (V11)');
   assert.deepEqual([m.transports[0].id, m.transports[0].via, m.transports[0].stage, m.transports[0].turns], ['c1', 'p19', 1, 2]);
   assert.equal(m.transports[0].status, undefined);
   const before = m.provinces.p19.units.infantry;

@@ -341,7 +341,7 @@ function beginNewGame(){
 }
 function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=()=>{state=createGameState({map,playerNationId:b.dataset.nation});$('#nationDialog').close();selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=()=>{state=createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)});$('#nationDialog').close();selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
 function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');}

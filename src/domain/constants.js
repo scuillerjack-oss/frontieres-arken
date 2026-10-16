@@ -1,4 +1,4 @@
-export const SAVE_SCHEMA_VERSION = 7;
+export const SAVE_SCHEMA_VERSION = 8;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
 export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery', 'balloon']);

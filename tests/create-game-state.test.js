@@ -19,9 +19,13 @@ for (const player of NATIONS) {
       assert.equal(s.controllers[id], id === player ? 'human' : 'ai');
       assert.deepEqual(s.nations[id], { treasury: 120, eliminated: false, capitalId: CAPITALS[id] });
     }
-    // Traits IA attribués dans l'ordre de la carte aux 4 nations non jouées.
+    // V11 : les 4 archétypes sont répartis (cachés) entre les 4 nations non jouées ; anciens traits dérivés (compatibilité).
     const others = NATIONS.filter(id => id !== player);
-    assert.deepEqual(s.ai.traits, Object.fromEntries(others.map((id, i) => [id, ['prudent', 'offensif', 'fidele', 'impulsif'][i]])));
+    assert.deepEqual(Object.keys(s.leaders).sort(), [...others].sort());
+    assert.deepEqual(Object.values(s.leaders).map(l => l.archetype).sort(), ['batisseur', 'conquerant', 'heros', 'traitre']);
+    assert.ok(Object.values(s.leaders).every(l => l.revealed === false));
+    const legacy = { conquerant: 'offensif', heros: 'fidele', batisseur: 'prudent', traitre: 'impulsif' };
+    assert.deepEqual(s.ai.traits, Object.fromEntries(others.map(id => [id, legacy[s.leaders[id].archetype]])));
     assert.equal(Object.keys(s.provinces).length, 20);
     for (const p of map.provinces) {
       const st = s.provinces[p.id], cap = CAPITALS[p.initialOwner] === p.id;

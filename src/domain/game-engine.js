@@ -1,6 +1,9 @@
 import { RULES, LAND_UNIT_TYPES } from './constants.js';
 import { resolveBattle, resolveCombat, provinceForce, writeProvinceForce, legacyForce, toLegacy, splitForce, mergeForce, normalizeForce, healForce, combatValue, scaleForce, hasCombatUnits, emptyCounts, totalHp, maxHp, COMBAT_TYPES } from './combat.js';
 export { resolveBattle, resolveCombat, provinceForce, combatValue } from './combat.js';
+import { ensureLeaders, archetypeOf, reveal, reputation, recordAggression, getTension, setTension, addTension, acceptsAlliance, ceasefireBias,
+  chance, pickFrom, strengthOf, recentAggressions, driftTension, observeLeaders, aliveNations, ARCHETYPE_LABELS } from './leaders.js';
+import { publishTalk, aiTalk, aiOfferTalk, pruneTalkPending, neighbors } from './talk.js';
 
 const sum = units => LAND_UNIT_TYPES.reduce((n, k) => n + (Number(units?.[k]) || 0), 0);
 const provinceDef = (map, id) => map.provinces.find(p => p.id === id);
@@ -168,9 +171,47 @@ export function queueDiplomaticOrder(state, { nationId, target, action, offerLev
 function ensureWar(state, attacker, defender) {
   if (pairWar(state, attacker, defender)) return;
   // V10 : attaquer = guerre automatique, dans les deux sens (une guerre lie les deux participants), traités rompus.
+  openWar(state, attacker, defender, 'combat');
+}
+/**
+ * Ouverture d'une guerre (attaque ou déclaration). V11 : attaquer un allié est une TRAHISON (événement public ;
+ * le Traître est alors révélé) ; l'agression est mémorisée et fait monter la tension (leaders.js).
+ */
+function openWar(state, attacker, defender, reason) {
+  const wasAllied = pairTreaty(state, attacker, defender, 'alliance');
   state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(attacker) && t.parties?.includes(defender)));
+  state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(attacker) && w.participants.includes(defender)));
   state.diplomacy.wars.push({ active: true, participants: [attacker, defender], started: state.turn });
-  state.events.push({ turn: state.turn, type: 'diplomacy', nationId: attacker, target: defender, relation: 'war', reason: 'combat' });
+  dropProposals(state, attacker, defender);
+  if (reason === 'combat') state.events.push({ turn: state.turn, type: 'diplomacy', nationId: attacker, target: defender, relation: 'war', reason: 'combat' });
+  if (wasAllied) {
+    state.events.push({ turn: state.turn, type: 'betrayal', nationId: attacker, target: defender });
+    reputation(state, attacker).betrayals++;
+    if (state.controllers?.[attacker] === 'ai' && archetypeOf(state, attacker) === 'traitre') reveal(state, attacker, 'betrayal');
+  }
+  recordAggression(state, attacker, defender, reason);
+}
+// Propositions des IA au joueur (alliance, cessez-le-feu) : il répond par un échange (amical = accepte).
+const PROPOSAL_TURNS = 6;
+function dropProposals(state, a, b) {
+  state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => !([p.from, p.to].includes(a) && [p.from, p.to].includes(b)));
+}
+export function activeProposal(state, from, to, action) {
+  return (state.diplomacy.proposals || []).find(p => p.from === from && p.to === to && (!action || p.action === action) && p.turn > state.turn - PROPOSAL_TURNS) || null;
+}
+function makeAlliance(state, a, b) {
+  state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(a) && w.participants.includes(b)));
+  state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(a) && t.parties?.includes(b)));
+  state.diplomacy.treaties.push({ active: true, type: 'alliance', parties: [a, b], started: state.turn });
+  setTension(state, a, b, Math.min(getTension(state, a, b), 5), 'alliance');
+  dropProposals(state, a, b);
+}
+function makeCeasefire(state, a, b) {
+  state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(a) && w.participants.includes(b)));
+  state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(a) && t.parties?.includes(b)));
+  state.diplomacy.treaties.push({ active: true, type: 'ceasefire', parties: [a, b], started: state.turn });
+  setTension(state, a, b, Math.min(getTension(state, a, b), 40), 'ceasefire');
+  dropProposals(state, a, b);
 }
 
 // --- V10 : déplacements et combats simultanés ------------------------------------------------------------
@@ -337,8 +378,9 @@ function aggregateMoves(state, map, orders, fought) {
 }
 const emptyForceLocal = () => normalizeForce({});
 
-function resolveDiplomacy(state, orders, random) {
+function resolveDiplomacy(state, orders, random, map = null) {
   for (const o of orders.filter(x => x.kind === 'diplomacy').sort((a,b)=>a.nationId.localeCompare(b.nationId)||a.target.localeCompare(b.target)||a.action.localeCompare(b.action))) {
+    if (state.nations[o.nationId]?.eliminated || state.nations[o.target]?.eliminated) continue;
     const atWar = pairWar(state, o.nationId, o.target);
     if(o.action==='tribute'){
       // Complete an already-confirmed V4 transfer; new V5 orders cannot create one.
@@ -347,27 +389,57 @@ function resolveDiplomacy(state, orders, random) {
       state.messages.push({turn:state.turn,nationId:o.nationId,target:o.target,action:'tribute',amount:o.amount||0,status:'resolved'});
       continue;
     }
+    // V11 (B9) : une IA qui propose une alliance ou une trêve au joueur humain attend sa réponse (échange public :
+    // amical = accepte, hostile = refuse ; ou action diplomatique du joueur).
+    if (state.controllers?.[o.nationId] === 'ai' && state.controllers?.[o.target] === 'human' && (o.action === 'alliance' || o.action === 'ceasefire')) {
+      if ((o.action === 'ceasefire') !== atWar || pairTreaty(state, o.nationId, o.target, 'alliance')) continue;
+      dropProposals(state, o.nationId, o.target);
+      const msg = aiOfferTalk(state, map, o.nationId, o.target, o.action);
+      state.diplomacy.proposals ||= [];
+      state.diplomacy.proposals.push({ from: o.nationId, to: o.target, action: o.action, turn: state.turn, talkId: msg.id });
+      state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: o.nationId, target: o.target, action: o.action, proposal: true, amount: 0 });
+      continue;
+    }
     if (o.action === 'ceasefire') {
-      const accepted = atWar && (o.legacyFree || random() < o.acceptanceProbability) && state.nations[o.nationId].treasury >= o.amount;
+      // V11 : la personnalité de la nation qui reçoit l'offre déplace la probabilité d'accepter (leaders.js).
+      // Une trêve proposée par l'IA elle-même au joueur ne passe pas ici ; une IA qui a déjà proposé la trêve accepte.
+      const proposed = activeProposal(state, o.target, o.nationId, 'ceasefire');
+      const p = Math.max(0, Math.min(1, (o.acceptanceProbability ?? 0) + ceasefireBias(state, o.target, o.nationId)));
+      const accepted = atWar && (o.legacyFree || proposed || random() < p) && state.nations[o.nationId].treasury >= o.amount;
       if (accepted) {
         state.nations[o.nationId].treasury -= o.amount;
         state.nations[o.target].treasury += o.amount; // B3 corrigé : la somme est versée à la nation qui accepte
-        state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(o.nationId) && w.participants.includes(o.target)));
-        state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(o.nationId) && t.parties?.includes(o.target)));
-        state.diplomacy.treaties.push({ active:true,type:'ceasefire',parties:[o.nationId,o.target],started:state.turn });
+        makeCeasefire(state, o.nationId, o.target);
       }
       state.events.push({turn:state.turn,type:'ceasefire-offer',nationId:o.nationId,target:o.target,amount:o.amount||0,offerLevel:o.offerLevel,acceptanceProbability:o.acceptanceProbability,accepted});
       state.messages.push({turn:state.turn,nationId:o.nationId,target:o.target,action:'ceasefire',amount:o.amount||0,status:accepted?'accepted':'refused'});
       continue;
     }
-    if ((o.action === 'alliance' && !atWar) || (o.action === 'war' && !atWar)) {
-      state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(o.nationId) && w.participants.includes(o.target)));
-      state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(o.nationId) && t.parties?.includes(o.target)));
-      if (o.action === 'war') state.diplomacy.wars.push({ active: true, participants: [o.nationId, o.target], started: state.turn });
-      if (o.action === 'alliance') state.diplomacy.treaties.push({ active: true, type: o.action, parties: [o.nationId, o.target], started: state.turn });
-    }
-    state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0 });
-    state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0, status: 'resolved' });
+    let accepted = true;
+    if (o.action === 'war' && !atWar) openWar(state, o.nationId, o.target, 'declaration');
+    else if (o.action === 'alliance' && !atWar) {
+      // V11 (B9) : l'IA accepte ou refuse selon sa personnalité et la tension (le Traître accepte tout).
+      accepted = Boolean(activeProposal(state, o.target, o.nationId, 'alliance')) || acceptsAlliance(state, o.target, o.nationId);
+      if (accepted) makeAlliance(state, o.nationId, o.target);
+      else addTension(state, o.nationId, o.target, 5, 'refusal');
+    } else accepted = false;
+    state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0, accepted });
+    state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0, status: o.action === 'alliance' ? (accepted ? 'accepted' : 'refused') : 'resolved' });
+  }
+}
+/** Réponse du joueur à une proposition d'une IA : amical = accepte, hostile = refuse. */
+function answerProposals(state, msg) {
+  if (!msg.replyTo || !msg.to) return;
+  const p = (state.diplomacy.proposals || []).find(x => x.talkId === msg.replyTo && x.from === msg.to && x.to === msg.from);
+  if (!p) return;
+  if (msg.tone === 'amical') {
+    if (p.action === 'alliance' && !pairWar(state, p.from, p.to)) makeAlliance(state, p.from, p.to);
+    else if (p.action === 'ceasefire' && pairWar(state, p.from, p.to)) makeCeasefire(state, p.from, p.to);
+    else return;
+    state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: p.to, target: p.from, action: p.action, accepted: true, amount: 0, viaTalk: true });
+  } else if (msg.tone === 'hostile') {
+    dropProposals(state, p.from, p.to);
+    state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: p.to, target: p.from, action: p.action, accepted: false, refusedProposal: true, amount: 0, viaTalk: true });
   }
 }
 
@@ -569,24 +641,24 @@ function navalBase(map, state, owned) {
   return owned.filter(p => state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0)
     .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || a.id.localeCompare(b.id))[0] || null;
 }
-function aiNavalOrders(state, map, nationId, owned, base, threshold) {
+function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null) {
   const treasury = () => state.nations[nationId].treasury;
   if (!base) return;
   const baseState = state.provinces[base.id];
   // 1. Port puis usine sur la base navale (les navires exigent les deux au même endroit).
   if (!hasOrQueued(state, base.id, 'port') && treasury() >= RULES.buildings.port.cost) queueConstruction(state, { nationId, provinceId: base.id, type: 'port' });
-  if (!hasOrQueued(state, base.id, 'factory') && treasury() >= RULES.buildings.factory.cost + 60) queueConstruction(state, { nationId, provinceId: base.id, type: 'factory' });
+  if (!hasOrQueued(state, base.id, 'factory') && treasury() >= RULES.buildings.factory.cost + (arch === 'conquerant' ? 0 : 60)) queueConstruction(state, { nationId, provinceId: base.id, type: 'factory' });
   // 2. Flotte : un navire par tour (deux si le trésor déborde), plafond qui grandit avec la partie.
   if (baseState.buildings.port && baseState.buildings.factory) {
     const queuedShips = (state.productionQueue || []).filter(q => q.kind === 'unit' && q.type === 'warship' && q.nationId === nationId).reduce((n, q) => n + q.amount, 0)
       + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
     const fleet = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + queuedShips;
-    const cap = Math.min(30, 4 + Math.floor(state.turn / 8));
+    const cap = Math.min(30, (arch === 'batisseur' ? 2 : 4) + Math.floor(state.turn / 8));
     const lots = treasury() >= 400 ? 2 : 1;
-    if (fleet < cap && treasury() >= RULES.units.warship.cost * lots + 20) queueRecruitment(state, { nationId, provinceId: base.id, type: 'warship', lots });
+    if (fleet < cap && treasury() >= RULES.units.warship.cost * lots + (arch === 'conquerant' ? 0 : 20)) queueRecruitment(state, { nationId, provinceId: base.id, type: 'warship', lots });
   }
   // 3. Ports secondaires quand le trésor le permet (plus de routes ouvertes = plus d'options).
-  if (baseState.buildings.port && treasury() >= RULES.buildings.port.cost + 20) {
+  if (baseState.buildings.port && treasury() >= RULES.buildings.port.cost + 20 && (arch !== 'conquerant' || (baseState.warships || 0) >= 3)) {
     const site = owned.find(p => p.id !== base.id && state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0 && !hasOrQueued(state, p.id, 'port'));
     if (site) queueConstruction(state, { nationId, provinceId: site.id, type: 'port' });
   }
@@ -596,7 +668,7 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold) {
   // 4. Débarquement escorté : au plus un nouveau par tour, et au plus RULES-libre 2 invasions en mer à la fois.
   const invasionsAtSea = (state.transports || []).filter(t => t.nationId === nationId && !t.returning && state.provinces[t.toId]?.ownerId !== nationId).length;
   if (invasionsAtSea < 2) {
-    const targets = seaLinks.filter(x => hostileTo(state, nationId, x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
+    const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
     targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to) - defenseOf(state, b.to) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
     // Marge plus prudente que sur terre : la cible a plusieurs tours pour se renforcer pendant la traversée.
@@ -655,30 +727,158 @@ function navalThreat(state, nationId, fromId, via) {
   for (const t of state.transports || []) if (laneKeyOf(t) === key && t.nationId !== nationId && pairWar(state, nationId, t.nationId)) n += t.warships || 0;
   return n;
 }
+// --- V11 : personnalités (docs/V11-contrat.md, src/domain/leaders.js) ----------------------------------------
+// Marge de sécurité exigée avant d'attaquer (garnison simulée × marge), par archétype.
+const ARCH_MARGIN = { conquerant: 1.0, traitre: 1.05, heros: 1.15, batisseur: 1.4 };
+// Risque de guerre par tour au-delà du seuil « au bord de la guerre » (75), par archétype (le Conquérant n'attend pas).
+const WAR_RISK = { heros: .12, traitre: .08, batisseur: .04, conquerant: 0 };
+const aiMemory = (state, id) => { state.ai.plans ||= {}; return state.ai.plans[id] ||= {}; };
+const reachable = (state, map, a, b) => neighbors(state, map, a, b);
+/** Nations que ce dirigeant est prêt à attaquer ce tour-ci. */
+function warTargets(state, map, id, arch) {
+  const out = new Set(), mem = aiMemory(state, id), alive = aliveNations(state).filter(n => n !== id);
+  for (const n of alive) if (pairWar(state, id, n)) out.add(n);
+  if (arch === 'batisseur') return out; // ne se bat que menacé (déjà en guerre)
+  if (arch === 'conquerant') {
+    // Domination : il choisit tôt une proie (la plus faible qu'il peut atteindre), sans attendre la tension,
+    // et ne respecte une trêve que quelques tours.
+    const startTurn = 2 + Math.floor(chance(state, 'conq-start', id) * 3);
+    // Proie atteignable depuis sa base navale (là où sont sa flotte et son armée) ou par la terre.
+    const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === id), base = navalBase(map, state, owned);
+    const coast = new Set([...(base ? seaDestinations(map, base.id).map(d => d.id) : []), ...owned.flatMap(p => p.landConnections || [])]);
+    const fromBase = n => [...coast].some(pid => state.provinces[pid]?.ownerId === n);
+    if (state.turn >= startTurn) {
+      const prey = alive.filter(n => !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n))
+        .filter(n => { const t = state.diplomacy.treaties.find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n)); return !t || state.turn - t.started >= 5; })
+        .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || strengthOf(state, a) - strengthOf(state, b) || a.localeCompare(b));
+      if (prey.length && !out.size) out.add(prey[0]);
+      // Assez fort : une deuxième proie.
+      if (prey.length > 1 && strengthOf(state, id) > 1.5 * strengthOf(state, prey[1])) out.add(prey[1]);
+    }
+  }
+  if (arch === 'heros') {
+    // Punir les agresseurs récents (sauf ses alliés : il est fidèle).
+    for (const a of recentAggressions(state, 10)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id, a.attacker)) out.add(a.attacker);
+  }
+  if (arch === 'traitre') {
+    const t = traitorState(state, map, id);
+    if (t.mark && state.turn >= t.strikeTurn && pairTreaty(state, id, t.mark, 'alliance')) out.add(t.mark);
+    else if (t.mark && !pairTreaty(state, id, t.mark, 'alliance') && state.turn >= t.strikeTurn + 4) out.add(t.mark);
+  }
+  // Tension « au bord de la guerre » : risque de guerre chaque tour (décision mémorisée : rancune).
+  mem.grudges ||= [];
+  for (const n of alive) {
+    if (out.has(n) || pairTreaty(state, id, n, 'alliance') || !reachable(state, map, id, n)) continue;
+    const t = getTension(state, id, n);
+    if (mem.grudges.includes(n)) { if (t >= 50) out.add(n); else mem.grudges = mem.grudges.filter(x => x !== n); continue; }
+    if (t >= 75 && chance(state, 'war-risk', state.turn, id, n) < (WAR_RISK[arch] ?? .08) * (1 + (t - 75) / 25)) { mem.grudges.push(n); out.add(n); }
+  }
+  return out;
+}
+/** Le Traître choisit une cible (« marque »), la courtise, puis la frappe au moment opportun. */
+function traitorState(state, map, id) {
+  const mem = aiMemory(state, id);
+  if (mem.mark && (state.nations[mem.mark]?.eliminated || (state.turn > (mem.strikeTurn || 0) + 12 && !pairTreaty(state, id, mem.mark, 'alliance')))) { mem.mark = null; }
+  if (!mem.mark) {
+    const cand = aliveNations(state).filter(n => n !== id && reachable(state, map, id, n) && !pairWar(state, id, n));
+    if (cand.length) {
+      mem.mark = pickFrom(state, cand.sort(), 'traitor-mark', id, state.turn);
+      mem.strikeTurn = state.turn + 7 + Math.floor(chance(state, 'traitor-strike', id, state.turn) * 6);
+    }
+  }
+  state.ai.traitorMark ||= {};
+  state.ai.traitorMark[id] = mem.mark || null;
+  // Moment opportun : la cible est déjà occupée par une autre guerre.
+  if (mem.mark && pairTreaty(state, id, mem.mark, 'alliance') && aliveNations(state).some(n => n !== id && pairWar(state, mem.mark, n)) && state.turn >= mem.strikeTurn - 3) mem.strikeTurn = Math.min(mem.strikeTurn, state.turn);
+  return mem;
+}
+const pendingDiplo = (state, id, target) => (state.orders || []).some(o => o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === id && o.target === target);
+/** Diplomatie IA (B9) : alliances et trêves proposées selon la personnalité. */
+function aiDiplomacy(state, map, id, arch, targets) {
+  const alive = aliveNations(state).filter(n => n !== id), mem = aiMemory(state, id);
+  const propose = (target, action, level = .25) => {
+    if (pendingDiplo(state, id, target) || state.nations[target]?.eliminated) return;
+    const key = `${action}:${target}`; mem.lastOffer ||= {};
+    if (state.turn - (mem.lastOffer[key] ?? -99) < 5) return;
+    const r = queueDiplomaticOrder(state, { nationId: id, target, action, ...(action === 'ceasefire' ? { offerLevel: level } : {}) });
+    if (r.ok) { mem.lastOffer[key] = state.turn; reputation(state, id).offers++; }
+  };
+  for (const n of alive) {
+    const war = pairWar(state, id, n), ally = pairTreaty(state, id, n, 'alliance');
+    if (war) {
+      const losing = strengthOf(state, id) < .7 * strengthOf(state, n), since = state.turn - (state.diplomacy.wars.find(w => w.participants.includes(id) && w.participants.includes(n))?.started ?? state.turn);
+      if (arch === 'batisseur' && since >= 2) propose(n, 'ceasefire', .25);
+      else if (arch === 'conquerant' && losing && since >= 4) propose(n, 'ceasefire', .25);
+      else if (arch === 'heros' && since >= 6 && !recentAggressions(state, 8).some(a => a.attacker === n)) propose(n, 'ceasefire', .25);
+      else if (arch === 'traitre' && losing && since >= 3) propose(n, 'ceasefire', .25);
+      continue;
+    }
+    if (ally) continue;
+    if (arch === 'traitre') { const t = traitorState(state, map, id); if (n === t.mark && state.turn >= 2 && state.turn < t.strikeTurn) propose(n, 'alliance'); }
+    if (arch === 'heros' && recentAggressions(state, 6).some(a => a.victim === n && a.attacker !== id) && getTension(state, id, n) < 40) propose(n, 'alliance');
+    if (arch === 'batisseur' && state.turn >= 6 && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
+  }
+}
 function aiPlan(state, map, nationId) {
   const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === nationId);
   if (!owned.length) return;
+  const arch = archetypeOf(state, nationId) || 'batisseur';
   const base = navalBase(map, state, owned);
+  const targets = warTargets(state, map, nationId, arch);
+  aiDiplomacy(state, map, nationId, arch, targets);
+  const treasury = () => spendableTreasury(state, nationId);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
-  if (!factory && state.nations[nationId].treasury >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
-  const bankProvince = owned.find(p => !state.provinces[p.id].buildings.bank && p.id !== source.id);
-  if (bankProvince && state.nations[nationId].treasury >= RULES.buildings.bank.cost) queueConstruction(state, { nationId, provinceId:bankProvince.id, type:'bank' });
-  if (state.nations[nationId].treasury >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
-  const trait=state.ai.traits?.[nationId]||'prudent';
-  const threshold=({offensif:1.08,impulsif:.92,prudent:1.3,fidele:1.45})[trait]||1.25;
-  aiNavalOrders(state, map, nationId, owned, base, threshold);
+  // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
+  const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
+  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch);
+  // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
+  // n'achète ni infanterie ni banque (sinon le trésor ne permet jamais d'armer un navire : IA passive de la V10).
+  const ships = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + (state.transports || []).filter(t => t.nationId === nationId).reduce((n, t) => n + (t.warships || 0), 0)
+    + (state.productionQueue || []).filter(q => q.kind === 'unit' && q.type === 'warship' && q.nationId === nationId).reduce((n, q) => n + q.amount, 0)
+    + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
+  const saving = warlike && base && ships < (arch === 'conquerant' ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0);
+  if (!factory && treasury() >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
+  const banks = arch === 'batisseur' ? owned : owned.filter(p => p.id !== source.id);
+  const bankProvince = banks.find(p => !hasOrQueued(state, p.id, 'bank'));
+  if (bankProvince && !saving && treasury() >= RULES.buildings.bank.cost + (warlike ? 40 : 0)) { if (queueConstruction(state, { nationId, provinceId:bankProvince.id, type:'bank' }).ok) reputation(state, nationId).builds++; }
+  if (arch === 'batisseur' || arch === 'heros') {
+    // Défense : fortifie la capitale puis la base navale quand la tension monte ou à mesure que le trésor grossit.
+    const worry = aliveNations(state).some(n => n !== nationId && getTension(state, nationId, n) >= 50);
+    for (const p of [owned.find(x => state.nations[nationId].capitalId === x.id), base].filter(Boolean)) {
+      const lvl = buildingCount(state, p.id, 'fort');
+      if (lvl < 3 && (worry || arch === 'batisseur') && treasury() >= RULES.buildings.fort.costs[lvl] + 40) { if (queueConstruction(state, { nationId, provinceId: p.id, type: 'fort' }).ok) reputation(state, nationId).builds++; break; }
+    }
+  }
+  if (!saving && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
+  if (arch === 'conquerant' && !saving && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
+  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
-    return owner&&owner!==nationId&&d.type==='land'&&!pairTreaty(state,nationId,owner,'alliance')&&!pairTreaty(state,nationId,owner,'ceasefire');
+    return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||arch==='conquerant')&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
-  attacks.sort((a,b)=>Number(b.atWar)-Number(a.atWar)||Number(a.owner===state.playerNationId)-Number(b.owner===state.playerNationId)||a.to.localeCompare(b.to));
+  attacks.sort((a,b)=>Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to)-defenseOf(state,b.to)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
-  // selon son trait ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
+  // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
+  const threshold = ARCH_MARGIN[arch];
   for (const x of attacks) {
     const margin = x.atWar ? Math.max(.85, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
     if (units) { queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }); break; }
+  }
+  if (arch === 'traitre') traitorStrike(state, nationId);
+}
+/**
+ * Le coup du Traître : une invasion part vers son allié (ou le délai est largement dépassé) → il rompt l'alliance
+ * par une déclaration de guerre résolue dans le même inter-tour (TRAHISON publique, Traître révélé).
+ */
+function traitorStrike(state, nationId) {
+  const mem = aiMemory(state, nationId), mark = mem.mark;
+  if (!mark || !pairTreaty(state, nationId, mark, 'alliance') || state.turn < mem.strikeTurn) return;
+  const invading = (state.orders || []).some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && state.provinces[o.toId]?.ownerId === mark);
+  if (invading || state.turn >= mem.strikeTurn + 6) {
+    state.orders = state.orders.filter(o => !(o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === nationId && o.target === mark));
+    queueDiplomaticOrder(state, { nationId, target: mark, action: 'war' });
   }
 }
 /** Plus petite part (35 %, 50 %, 70 %) des forces disponibles qui prend la cible en simulation, ou null. */
@@ -712,6 +912,7 @@ function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, warship
 const holds = (garrison, threat, fortLevel) => !resolveCombat({ attacker: scaleForce(threat, .9), defender: garrison, fortLevel }).captured;
 export function planAIOrders(state, map) {
   state.ai ||= { memories:{}, replay:[], traits:{} };
+  ensureLeaders(state);
   if (state.ai.plannedTurn === state.turn) return state.orders.filter(o => o.nationId !== state.playerNationId);
   for (const id of Object.keys(state.nations).sort()) if (state.controllers[id] === 'ai' && !state.nations[id].eliminated) aiPlan(state,map,id);
   state.ai.plannedTurn=state.turn;
@@ -745,7 +946,9 @@ export function eventKnownToPlayer(state, map, event) {
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over'].includes(event.type)) return true;
+  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal'].includes(event.type)) return true;
+  // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
+  if (event.type === 'tension') return false;
   if ((event.attackers || []).includes(player)) return true;
   if (event.provinceId && state.provinces[event.provinceId]?.ownerId === player) return true;
   if (!event.provinceId) return event.type === 'diplomatic-action' && [event.nationId,event.target].includes(player);
@@ -807,6 +1010,18 @@ export function journalEntry(event, map, playerNationId = null) {
       ? `Débarquement repoussé à ${where} : ${safeNum(event.amount)} survivants rembarquent et rentrent à ${provinceDef(map,event.toId)?.name || 'leur port'} (${safeNum(event.turns)} tours).`
       : event.reason === 'ally' ? `Le convoi rentre à ${provinceDef(map,event.toId)?.name || 'son port'} (${safeNum(event.turns)} tours).`
       : `Plus de troupes à débarquer devant ${where} : les navires font demi-tour vers ${provinceDef(map,event.toId)?.name || 'leur port'}.` };
+    // V11 : personnalités, échanges publics, tension.
+    case 'talk': return { priority: event.target === playerNationId ? 3 : 1, type:'ÉCHANGE', category:'talk', public:true, tone: event.tone,
+      text:`${nationName(map,event.nationId)} → ${event.target ? (event.target === playerNationId ? 'vous' : nationName(map,event.target)) : 'à tous'} : « ${event.text || '…'} »` };
+    case 'betrayal': return { priority:5, type:'TRAHISON', category:'betrayal', public:true,
+      text:`Trahison : ${nationName(map,event.nationId)} attaque ${event.target === playerNationId ? 'votre nation, son alliée' : `${nationName(map,event.target)}, son allié`}. L’alliance est rompue.` };
+    case 'reveal': return { priority:4, type:'RÉVÉLATION', category:'reveal', public:true,
+      text:`${nationName(map,event.nationId)} se révèle : ${ARCHETYPE_LABELS[event.archetype] || 'un dirigeant'}${({ betrayal:' — il a trahi son allié', conquest:' — ses conquêtes ne laissent aucun doute', defense:' — il prend les armes pour défendre les nations attaquées', builder:' — il bâtit et ne cherche pas la guerre' })[event.revealedBy || event.reason] || ''}.` };
+    case 'tension': {
+      const other = event.nationId === playerNationId ? event.target : event.nationId;
+      return { priority: event.label === 'au bord de la guerre' ? 3 : 2, type:'TENSION', category:'tension',
+        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)}/100).${event.label === 'au bord de la guerre' ? ' Le risque de guerre est élevé.' : ''}` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)}/100).` };
+    }
     case 'game-over': return { priority:5, type:'FIN DE PARTIE', category: event.winnerId===playerNationId?'conquest':'foreign-conflict', public:true,
       text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,event.winnerId)} mène le classement.` : `Fin de la partie au tour ${safeNum(event.turn)} : ${nationName(map,event.winnerId)} termine en tête du classement.` };
     case 'attack-cancelled': if (event.reason === 'ally') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : la province appartient à un allié. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
@@ -817,7 +1032,10 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'ceasefire-offer': return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,event.target)}.`:`Cessez-le-feu refusé par ${nationName(map,event.target)} ; aucun paiement n’a été débité.`};
     case 'war-chest': return { priority:2,type:'économie',category:'neutral',text:`Trésor de guerre reçu après la prise de ${where} : +${safeNum(event.amount)}.` };
     case 'diplomacy': return { priority:2,type:'diplomatie',category:'blue',text:event.relation==='war'?(event.reason==='combat'?`${nationName(map,event.nationId)} attaque ${nationName(map,event.target)} : les deux nations sont désormais en guerre.`:`${nationName(map,event.nationId)} et ${nationName(map,event.target)} sont désormais en guerre.`):`Relation modifiée entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` };
-    case 'diplomatic-action': return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'})[event.action] || 'Action diplomatique'} résolue avec ${nationName(map,event.target)}.` };
+    case 'diplomatic-action': if (event.proposal) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${nationName(map,event.nationId)} ${event.target===playerNationId?'vous ':''}propose ${event.action==='alliance'?'une alliance':'un cessez-le-feu'}${event.target===playerNationId?' : répondez dans les Échanges (amical = accepter, hostile = refuser).':` à ${nationName(map,event.target)}.`}` };
+      if (event.viaTalk) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${event.action==='alliance'?'Alliance':'Cessez-le-feu'} ${event.accepted?'conclu':'refusé'} entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` };
+      if (event.action==='alliance' && event.accepted!==undefined) return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.accepted ? `Alliance conclue entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` : `${nationName(map,event.target)} refuse l’alliance proposée par ${nationName(map,event.nationId)}.` };
+      return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'})[event.action] || 'Action diplomatique'} résolue avec ${nationName(map,event.target)}.` };
     case 'production-complete': return { priority:1,type:'production',category:'neutral',text:`${safeNum(event.amount)} ${RULES.units[event.productionType]?.label || (event.productionType==='bank'?'banque':event.productionType==='factory'?'usine':event.productionType==='fort'?'forteresse':event.productionType==='port'?'port':'élément')} terminé(s) à ${where}.` };
     case 'project-started': return { priority:1,type:'production',category:'neutral',text:`Projet lancé : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'construction'} à ${where}.` };
     case 'movement': return { priority:1,type:'déplacement',category:'neutral',text:`Mouvement vers ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} effectué.` };
@@ -836,7 +1054,7 @@ function aggregateEntries(entries) {
   return [...merged.values()];
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
-  const priority = new Set(['battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over']);
+  const priority = new Set(['battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;
@@ -898,13 +1116,15 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   state.lockedOrders = locked;
   state.turnPhase='resolving-inter-turn';
   const fought = new Set(); // provinces où un combat a eu lieu ce tour (pas de guérison)
+  const eventStart = state.events.length;
   aggregateMoves(state,map,locked,fought);
-  resolveDiplomacy(state,locked,random);
+  resolveDiplomacy(state,locked,random,map);
   resolveProjects(state,locked);
   resolveTransports(state,map,fought);
   healProvinces(state,fought);
   updateEliminations(state);
   for (const id of Object.keys(state.nations)) state.nations[id].treasury += incomeFor(state,id);
+  resolveTalk(state,map,locked,eventStart);
   checkGameOver(state);
   state.orders = []; state.lockedOrders = [];
   buildPermanentJournal(state,map,fromIndex);
@@ -915,4 +1135,26 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   return state;
 }
 export const nextTurn = resolveInterturn;
+/**
+ * V11 : échanges publics à la fin de l'inter-tour. 1) messages commandés (ordres `talk`, joueur compris) publiés
+ * dans l'ordre des nations ; une réponse amicale/hostile à une proposition d'IA l'accepte/la refuse ; 2) les
+ * dirigeants IA répondent et parlent selon leur personnalité ; 3) dérive de la tension, observation des dirigeants.
+ */
+function resolveTalk(state, map, locked, eventStart) {
+  state.talk ||= []; state.talkPending ||= {}; state.tension ||= {};
+  const published = [];
+  const talkOrders = locked.filter(o => o.kind === 'talk').sort((a, b) => a.nationId.localeCompare(b.nationId) || String(a.to ?? '').localeCompare(String(b.to ?? '')) || String(a.id).localeCompare(String(b.id)));
+  for (const o of talkOrders) {
+    if (state.nations[o.nationId]?.eliminated || (o.to && state.nations[o.to]?.eliminated)) continue;
+    const msg = publishTalk(state, { from: o.nationId, to: o.to ?? null, tone: o.tone, text: o.text, replyTo: o.replyTo ?? null });
+    answerProposals(state, msg);
+    published.push(msg);
+  }
+  aiTalk(state, map, { published, turnEvents: state.events.slice(eventStart) });
+  // Propositions des IA expirées.
+  state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => p.turn > state.turn - PROPOSAL_TURNS && !state.nations[p.from]?.eliminated);
+  driftTension(state);
+  observeLeaders(state);
+  pruneTalkPending(state);
+}
 export const adviserText = (state, role) => role==='finance' ? (state.nations[state.playerNationId].treasury<40?'Nos caisses sont basses.':'Le trésor reste disponible pour investir.') : 'Les frontières doivent être surveillées.';
