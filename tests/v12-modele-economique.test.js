@@ -312,5 +312,5 @@ test('V12 interface : écran Atouts & missions (jetons, 5 atouts, missions du jo
   for (const id of ['welcomeBoosts', 'boostBtn', 'boostDialog', 'settingsBoosts']) assert.match(index, new RegExp(`id="${id}"`));
   for (const f of ['./src/domain/boosts.js', './src/domain/profile.js', './src/presentation/ads.js', './src/presentation/store.js', './src/presentation/profile-storage.js', './src/presentation/v12-ux.js'])
     assert.ok(read('sw.js').includes(`'${f}'`), f);
-  assert.equal(JSON.parse(read('package.json')).version, '12.0.0');
+  assert.match(JSON.parse(read('package.json')).version, /^12\./);
 });

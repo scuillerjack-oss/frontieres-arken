@@ -302,3 +302,10 @@ dialog.ad-overlay::backdrop{background:#000c}
 .ad-note{font-size:.8rem;color:#c9d6dc}.ad-bar{height:8px;border-radius:4px;background:#1d3a4b;overflow:hidden;margin:12px 0 8px}.ad-bar i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;animation:adbar var(--ad-ms,3000ms) linear forwards}
 @keyframes adbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .ad-count{color:#b8cad3}
+/* V12.1 : version visible dans l'en-tête et bandeau « nouvelle bêta » (APK) */
+.brand small #hud-version{letter-spacing:.05em;opacity:.85}
+#updateBanner{position:fixed;z-index:40;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 72px);display:flex;align-items:center;gap:10px;background:#f4e8c9;color:#10202a;border:2px solid var(--gold);border-radius:12px;padding:10px 12px;box-shadow:0 10px 30px #000a;font-size:.9rem}
+#updateBanner[hidden]{display:none}
+#updateBanner span{flex:1}
+#updateBanner a{background:#173d51;color:#fff;border-radius:8px;padding:9px 12px;text-decoration:none;font-weight:800}
+#updateBanner button{border:0;background:none;font-size:1.4rem;color:#10202a;min-width:36px;min-height:36px}
