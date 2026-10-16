@@ -4,6 +4,8 @@ export { resolveBattle, resolveCombat, provinceForce, combatValue } from './comb
 import { ensureLeaders, archetypeOf, reveal, reputation, recordAggression, getTension, setTension, addTension, acceptsAlliance, ceasefireBias,
   chance, pickFrom, strengthOf, recentAggressions, driftTension, observeLeaders, aliveNations, ARCHETYPE_LABELS } from './leaders.js';
 import { publishTalk, aiTalk, aiOfferTalk, pruneTalkPending, neighbors } from './talk.js';
+// V12 : atouts du joueur humain (injectés dans state.bonuses par l'interface ; jamais pour les IA).
+import { goldBonus, recruitAmount, buildTurnsGained, fortBonusFactor, navalBonusFactor } from './boosts.js';
 
 const sum = units => LAND_UNIT_TYPES.reduce((n, k) => n + (Number(units?.[k]) || 0), 0);
 const provinceDef = (map, id) => map.provinces.find(p => p.id === id);
@@ -262,7 +264,8 @@ function fight(state, toId, groups, fought, { naval = false } = {}) {
   if (!groups.length) return [];
   for (const g of groups) ensureWar(state, g.nationId, defender);
   const before = provinceForce(target);
-  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode })), fortLevel: target.buildings.fort || 0 });
+  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode, warshipFactor: navalBonusFactor(state, g.nationId) })), fortLevel: target.buildings.fort || 0,
+    fortBonus: fortBonusFactor(state, defender), defenderWarshipFactor: navalBonusFactor(state, defender) });
   fought.add(toId);
   const retreats = [];
   res.attackers.forEach((a, i) => { if (a.id !== res.winnerId && !isEmptyForce(a.force)) retreats.push({ nationId: a.id, force: a.force, to: groups[i].retreatTo || groups[i].originIds }); });
@@ -451,6 +454,14 @@ function resolveProjects(state, orders) {
     state.events.push({ turn: state.turn, type: 'project-started', kind: o.kind, productionType: o.type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1 });
   }
   for (const q of state.productionQueue) q.remaining--;
+  // V12 : atout « construction » (+N % de vitesse) — le joueur gagne un tour de chantier supplémentaire chaque fois
+  // que le crédit cumulé (N % par chantier actif et par tour) atteint un tour entier ; le chantier le plus avancé d'abord.
+  for (const nationId of Object.keys(state.bonuses || {})) {
+    const sites = state.productionQueue.filter(q => q.kind === 'building' && q.nationId === nationId && q.remaining > 0)
+      .sort((a, b) => a.remaining - b.remaining || String(a.provinceId).localeCompare(String(b.provinceId)) || String(a.type).localeCompare(String(b.type)));
+    let gained = buildTurnsGained(state, nationId, sites.length);
+    for (const q of sites) { if (!gained) break; q.remaining--; q.boosted = (q.boosted || 0) + 1; gained--; }
+  }
   for (const q of state.productionQueue.filter(x => x.remaining <= 0)) {
     const p = state.provinces[q.provinceId];
     // B4 (filet de sécurité) : jamais de livraison à un autre propriétaire que celui qui a payé.
@@ -458,8 +469,13 @@ function resolveProjects(state, orders) {
     if (p) {
       if (q.kind === 'building') p.buildings[q.type] = Math.min((p.buildings[q.type] || 0) + 1, RULES.buildings[q.type]?.max ?? Infinity);
       else if (q.type === 'warship') p.warships = (p.warships || 0) + q.amount;
-      else p.units[q.type] = (p.units[q.type] || 0) + q.amount;
-      state.events.push({ turn: state.turn, type: 'production-complete', kind: q.kind, productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1 });
+      else {
+        // V12 : atout « recrutement » (+N % d'infanterie livrée, joueur humain seulement).
+        const delivered = q.kind === 'unit' ? recruitAmount(state, q.nationId, q.type, q.amount) : q.amount;
+        p.units[q.type] = (p.units[q.type] || 0) + delivered;
+        if (delivered !== q.amount) { q.bonus = delivered - q.amount; q.amount = delivered; }
+      }
+      state.events.push({ turn: state.turn, type: 'production-complete', kind: q.kind, productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1, ...(q.bonus ? { bonus: q.bonus } : {}) });
     }
   }
   state.productionQueue = state.productionQueue.filter(q => q.remaining > 0);
@@ -480,7 +496,7 @@ const convoyAlive = t => COMBAT_TYPES.some(k => (k === 'warship' ? t.warships : 
 const writeConvoy = (t, force) => Object.assign(t, toLegacy(force));
 /** Combat naval : `attacker` (flotte ou convoi) contre le convoi `t`. Seuls les navires tirent ; la cargaison encaisse ×1,5. */
 function navalClash(state, { attackerId, attackerForce, t, kind, provinceId }) {
-  const res = resolveBattle({ defender: legacyForce(t), attackers: [{ id: attackerId, force: attackerForce }], naval: true });
+  const res = resolveBattle({ defender: legacyForce(t), attackers: [{ id: attackerId, force: attackerForce, warshipFactor: navalBonusFactor(state, attackerId) }], naval: true, defenderWarshipFactor: navalBonusFactor(state, t.nationId) });
   const a = res.attackers[0];
   writeConvoy(t, res.defender);
   const destroyed = !convoyAlive(t);
@@ -1036,7 +1052,7 @@ export function journalEntry(event, map, playerNationId = null) {
       if (event.viaTalk) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${event.action==='alliance'?(event.accepted?'Alliance conclue':'Alliance refusée'):(event.accepted?'Cessez-le-feu conclu':'Cessez-le-feu refusé')} entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` };
       if (event.action==='alliance' && event.accepted!==undefined) return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.accepted ? `Alliance conclue entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` : `${nationName(map,event.target)} refuse l’alliance proposée par ${nationName(map,event.nationId)}.` };
       return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'})[event.action] || 'Action diplomatique'} résolue avec ${nationName(map,event.target)}.` };
-    case 'production-complete': return { priority:1,type:'production',category:'neutral',text:`${safeNum(event.amount)} ${RULES.units[event.productionType]?.label || (event.productionType==='bank'?'banque':event.productionType==='factory'?'usine':event.productionType==='fort'?'forteresse':event.productionType==='port'?'port':'élément')} terminé(s) à ${where}.` };
+    case 'production-complete': return { priority:1,type:'production',category:'neutral',text:`${safeNum(event.amount)}${event.bonus ? ` (dont +${safeNum(event.bonus)} grâce à l’atout Recrutement)` : ''} ${RULES.units[event.productionType]?.label || (event.productionType==='bank'?'banque':event.productionType==='factory'?'usine':event.productionType==='fort'?'forteresse':event.productionType==='port'?'port':'élément')} terminé(s) à ${where}.` };
     case 'project-started': return { priority:1,type:'production',category:'neutral',text:`Projet lancé : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'construction'} à ${where}.` };
     case 'movement': return { priority:1,type:'déplacement',category:'neutral',text:`Mouvement vers ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} effectué.` };
     default: return null;
@@ -1123,7 +1139,11 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   resolveTransports(state,map,fought);
   healProvinces(state,fought);
   updateEliminations(state);
-  for (const id of Object.keys(state.nations)) state.nations[id].treasury += incomeFor(state,id);
+  for (const id of Object.keys(state.nations)) {
+    const base = incomeFor(state,id), extra = goldBonus(state, id, base); // V12 : atout « or » (joueur humain seulement)
+    state.nations[id].treasury += base + extra;
+    if (extra) state.events.push({ turn: state.turn, type: 'boost-gold', nationId: id, amount: extra });
+  }
   resolveTalk(state,map,locked,eventStart);
   checkGameOver(state);
   state.orders = []; state.lockedOrders = [];

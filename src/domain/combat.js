@@ -94,28 +94,33 @@ export function combatValue(force, { naval = false } = {}) {
  * @returns {{defender, attackers:Array<{id,force,lossesByType,hpLost}>, passes, captured, winnerId,
  *            defenderLossesByType, defenderHpLost}}
  */
-export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes }) {
+export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes, fortBonus = 1, defenderWarshipFactor = 1 }) {
   let d = normalizeForce(defender);
-  let atk = attackers.map(a => ({ id: a.id, mode: naval ? 'naval' : (a.mode || 'land'), force: normalizeForce(a.force) }));
+  let atk = attackers.map(a => ({ id: a.id, mode: naval ? 'naval' : (a.mode || 'land'), force: normalizeForce(a.force), warshipFactor: Number(a.warshipFactor) > 0 ? Number(a.warshipFactor) : 1 }));
   const start = { d: normalizeForce(d), atk: atk.map(a => normalizeForce(a.force)) };
-  const fort = naval ? 1 : (RULES.fortDefense[Math.max(0, Math.min(3, int(fortLevel)))] || 1);
+  const level = Math.max(0, Math.min(3, int(fortLevel)));
+  // V12 : atout « défense des forts » du joueur (fortBonus = 1 + N %) : multiplie l'effet d'un fort construit.
+  const fort = naval ? 1 : (RULES.fortDefense[level] || 1) * (level > 0 && Number(fortBonus) > 0 ? Number(fortBonus) : 1);
+  const dWarship = Number(defenderWarshipFactor) > 0 ? Number(defenderWarshipFactor) : 1;
   const fires = (k, mode) => (mode === 'naval' || naval) ? !isLand(k) : true;
-  const output = (force, k, mode) => {
+  // warshipFactor (V12, atout « marine » du joueur) : multiplie les dégâts des navires de guerre de ce camp.
+  const output = (force, k, mode, warshipFactor = 1) => {
     if (!fires(k, mode) || !stat(k).damage) return 0;
     let dmg = poolOf(force, k) / stat(k).hp * stat(k).damage;
+    if (k === 'warship') dmg *= warshipFactor;
     if (poolOf(force, 'balloon') > 0) dmg *= 1 + C().balloonAccuracyBonus;
     if (mode === 'landing' && isLand(k)) dmg *= C().landingPenalty;
     return dmg;
   };
   const canFight = (force, mode) => COMBAT_TYPES.some(k => output(force, k, mode) > 0);
   // Feu d'une force vers une liste de forces cibles ; renvoie, pour chaque cible, les dégâts par type.
-  const fire = (shooter, mode, targets, defenderTargets) => {
+  const fire = (shooter, mode, targets, defenderTargets, warshipFactor = 1) => {
     const out = targets.map(() => emptyCounts());
     const weights = targets.map(t => Object.fromEntries(COMBAT_TYPES.map(k => [k, poolOf(t, k) * (stat(k).targetWeight ?? 1)])));
     const total = weights.reduce((n, w) => n + Object.values(w).reduce((a, b) => a + b, 0), 0);
     if (!total) return out;
     for (const s of COMBAT_TYPES) {
-      const shot = output(shooter, s, mode);
+      const shot = output(shooter, s, mode, warshipFactor);
       if (!shot) continue;
       targets.forEach((_, i) => { for (const t of COMBAT_TYPES) if (weights[i][t]) out[i][t] += shot * weights[i][t] / total * mult(s, t); });
     }
@@ -136,8 +141,8 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
     if (!alive.length || totalHp(d) <= 0) break;
     if (!canFight(d, naval ? 'naval' : 'land') && !alive.some(a => canFight(a.force, a.mode))) break;
     const toD = emptyCounts();
-    for (const a of alive) { const [x] = fire(a.force, a.mode, [d], true); for (const k of COMBAT_TYPES) toD[k] += x[k]; }
-    const toA = fire(d, naval ? 'naval' : 'land', alive.map(a => a.force), false);
+    for (const a of alive) { const [x] = fire(a.force, a.mode, [d], true, a.warshipFactor); for (const k of COMBAT_TYPES) toD[k] += x[k]; }
+    const toA = fire(d, naval ? 'naval' : 'land', alive.map(a => a.force), false, dWarship);
     alive.forEach((a, j) => { a.force = apply(a.force, toA[j]); });
     d = apply(d, toD);
     log.push({ pass: i + 1, defenderHp: totalHp(d), attackersHp: atk.map(a => totalHp(a.force)) });
