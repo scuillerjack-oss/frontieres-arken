@@ -9,6 +9,7 @@ import { resolveNewGameRequest } from './src/presentation/start-flow.js';
 import { setActiveScreen } from './src/presentation/screen-flow.js';
 import { territoryBorders, outlinePath, trimPolyline, unitPrerequisiteText, buildingUnavailableReason, convoyMarkers, forceHealthRows } from './src/presentation/v5-ux.js';
 import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
+import { seaMoveRefusal, isPortPoint } from './src/domain/game-engine.js'; // V13 : mer en anneau, points de port
 import { talkOptions, queueTalk, tensionLevel, leaderHint } from './src/presentation/v11-talk-ui.js';
 import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, tensionGauge, tensionBorderGroups, convoyTokenPosition } from './src/presentation/v11-ux.js';
 import { nationsAtWarWith, territoryOutline } from './src/presentation/v5-ux.js';
@@ -53,18 +54,18 @@ function tutorial(id,title,text) {
 // Fiche ouverte → la bulle passe en haut de l'écran, sous la barre d'état du jeu ; sinon elle reste en bas.
 function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.classList.toggle('top',!$('#provinceSheet').hidden);}
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
-// Route maritime (V10) : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line) ;
-// plus marquée quand un port est construit à l'une des extrémités.
+// Route maritime : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line).
+// V13 : routes neutres, une seule couleur (plus d'état jaune « open » hérité de la V9).
 function seaLane(lane){
-  const a=province(lane.from),b=province(lane.to),built=Boolean(state.provinces[lane.from]?.buildings.port||state.provinces[lane.to]?.buildings.port);
-  const d=pathData([a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor]),g=E('g',{class:`route maritime${built?' open':''}`});
+  const a=province(lane.from),b=province(lane.to);
+  const d=pathData([a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor]),g=E('g',{class:'route maritime','data-lane':`${lane.from}-${lane.to}`});
   g.append(E('path',{d,class:'casing'}),E('path',{d,class:'dash'}));return g;
 }
-// Port (V10) : ancre aux couleurs de la nation propriétaire ; construit = pastille pleine cerclée d'or,
-// non construit = simple emplacement en pointillés.
+// Port : ancre aux couleurs de la nation propriétaire de la province (V13 : construit ou non).
+// Non construit = « point d'embarquement » (pastille en pointillés) ; construit = pastille pleine cerclée d'or.
 function portMarker(d){
   const p=state.provinces[d.id],built=Boolean(p.buildings.port),color=nation(p.ownerId).color;
-  const g=E('g',{class:`port-marker${built?' built':' site'}`,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`,'aria-label':`${built?'Port':'Site portuaire'} de ${d.name} (${nation(p.ownerId).short})`}),inner=E('g',{class:'ui-scale'});
+  const g=E('g',{class:`port-marker${built?' built':' site'}`,'data-port':d.id,'data-owner':p.ownerId,transform:`translate(${d.port.anchor.x} ${d.port.anchor.y})`,'aria-label':`${built?'Port':'Point d’embarquement'} de ${d.name} (${nation(p.ownerId).short})`}),inner=E('g',{class:'ui-scale'});
   inner.style.setProperty('--port',color);
   const icon=E('text',{y:1});icon.textContent='⚓';inner.append(E('circle',{r:built?25:21}),icon);g.append(inner);return g;
 }
@@ -148,7 +149,7 @@ function render(){
   $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
 }
 function selectProvince(id){
-  if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(embarkStatus(map,state,moveSource).ok?`${province(id).name} n’est pas sur une côte reliée à ce port`:embarkStatus(map,state,moveSource).reason);return;}
+  if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
   selected=id;render();showProvinceSheet();
   tutorial('province-sheet','Inspecter une province','La fiche indique son propriétaire, les constructions, les forces connues et les actions possibles.');
 }
@@ -162,7 +163,8 @@ function showProvinceSheet(){
   const healthHtml=health.map(h=>`<span class="info-chip hp${h.wounded?' wounded':''}" style="--hp:${h.hpPct}%"><b>${h.text}</b><i class="hp-bar" aria-hidden="true"><i></i></i></span>`).join('');
   const convalescence=health.some(h=>h.wounded)?`<span class="info-chip note">En convalescence : +${Math.round(RULES.combat.healRate*100)} % de PV par tour sans combat</span>`:'';
   const forcesHtml=known?(health.length?healthHtml+convalescence:'<span class="info-chip">Forces : aucune</span>'):forces.map(f=>`<span class="info-chip unknown">${f.label} : ${f.value}</span>`).join('');
-  const naval=mine&&seaRoutesFrom(map,selected).length?(()=>{const st=embarkStatus(map,state,selected);return`<span class="info-chip ${st.ok?'note':'warn'}">${st.ok?'⚓ Port construit : embarquement possible vers les côtes reliées':`⚓ ${st.reason}`}</span>`;})():'';
+  // V13 : point de port (construit ou non) → destinations par mer ; sinon, rien (le refus s'explique au déplacement).
+  const naval=mine&&isPortPoint(map,selected)?`<span class="info-chip note">⚓ Point de port : embarquement vers ${legalDestinations(map,state,selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port?'':' (port à construire pour les navires de guerre)'}</span>`:'';
   $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forcesHtml}${naval}${mine?'':nationChips(p.ownerId)}`;
   const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie'],['talk','Échanger']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;placeTutorial();
@@ -186,7 +188,7 @@ function openForceSelection(fromId,toId){
   moveSource=null;$('#moveBanner').hidden=true;
   const row=(key,label)=>`<div class="unit-row"><span>${label}</span><b>${available[key]||0}</b><input data-force="${key}" type="number" min="0" max="${available[key]||0}" value="${forceSelection(available,'50')[key]||0}" ${available[key]?'':'disabled'}></div>`;
   const bySea=route?.type==='sea',rows=[...LAND_UNIT_TYPES.map(k=>row(k,unitKeys[k])),...(bySea?[row('warships','Navires (escorte)')]:[])].join('');
-  const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${route.turns} tours</b> en mer (1 étape par tour)${attack?', puis débarquement (troupes à 70 %)':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>`:'';
+  const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le point de port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${route.turns} tours</b> en mer (1 étape par tour)${attack?', puis débarquement (troupes à 70 %)':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>`:'';
   actionModal(attack?(bySea?'Préparer un débarquement':'Préparer une attaque'):'Préparer un déplacement',`${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${route.turns} tours`:''}`,`${seaNote}<p>Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.</p><div class="force-presets"><button data-preset="50">50 %</button><button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b></div><p id="forceSummary"></p><button id="confirmMove" class="primary">Ajouter cet ordre</button>`);
   const updateSummary=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),ships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0);$('#forceSummary').textContent=`${Object.entries(units).filter(([,n])=>n).map(([k,n])=>`${n} ${unitKeys[k].toLowerCase()}`).concat(ships?[`${ships} navires`]:[]).join(' · ')||'Aucune unité sélectionnée'}`;};
   document.querySelectorAll('[data-force]').forEach(i=>i.oninput=updateSummary);

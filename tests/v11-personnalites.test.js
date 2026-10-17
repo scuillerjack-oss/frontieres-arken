@@ -235,7 +235,9 @@ test('talkOptions : exactement 3 propositions (hostile, neutre, amical), textes 
   for (const o of base) { assert.ok(o.text.length > 10); assert.match(o.text, /Aurel/); assert.ok(o.preview); }
   assert.notEqual(new Set(base.map(o => o.text)).size, 1);
   const situation = () => talkOptions(s, map, { from: 'valmorne', to: 'aurel' })[0].situation;
-  assert.equal(situation(), 'neighbor', 'route maritime Branvale–Lunémont');
+  // V13 (anneau maritime) : Valmorne est voisine d'Oroël (route Branvale–Nordhème), plus d'Aurel.
+  assert.equal(talkOptions(s, map, { from: 'valmorne', to: 'oroel' })[0].situation, 'neighbor', 'route maritime Branvale–Nordhème');
+  assert.equal(situation(), 'default', 'Aurel : pas de route directe');
   assert.equal(talkOptions(s, map, { from: 'valmorne', to: null })[0].situation, 'default', 'message à tous');
   assert.match(talkOptions(s, map, { from: 'valmorne', to: null })[2].text, /peuples d’Arken/);
   setRelation(s, { nationId: 'valmorne', target: 'aurel', type: 'alliance' }); assert.equal(situation(), 'ally');
