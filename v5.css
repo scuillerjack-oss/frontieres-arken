@@ -309,3 +309,10 @@ dialog.ad-overlay::backdrop{background:#000c}
 #updateBanner span{flex:1}
 #updateBanner a{background:#173d51;color:#fff;border-radius:8px;padding:9px 12px;text-decoration:none;font-weight:800}
 #updateBanner button{border:0;background:none;font-size:1.4rem;color:#10202a;min-width:36px;min-height:36px}
+/* V13 : régiment en une ligne (PV · dégâts par assaut) et troupes inconnues (brouillard de guerre). */
+.info-chip.regiment{display:inline-flex;flex-direction:column;gap:2px;min-width:160px}
+.info-chip.regiment b{font-weight:800}
+.info-chip.regiment small{color:#b9cad2;font-size:.66rem;font-style:normal}
+.info-chip.regiment.wounded{border-color:#8b7449}
+.info-chip.regiment.unknown b{color:#d8e2e6}
+.province-label .troops.unknown{fill:#c9d4da;opacity:.85}

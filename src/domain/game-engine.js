@@ -6,6 +6,9 @@ import { ensureLeaders, archetypeOf, reveal, reputation, recordAggression, getTe
 import { publishTalk, aiTalk, aiOfferTalk, pruneTalkPending, neighbors } from './talk.js';
 // V12 : atouts du joueur humain (injectés dans state.bonuses par l'interface ; jamais pour les IA).
 import { goldBonus, recruitAmount, buildTurnsGained, fortBonusFactor, navalBonusFactor } from './boosts.js';
+// V13 : vision (brouillard de guerre) partagée par l'interface et l'IA (docs/V13-vision.md).
+import { visibleProvinces, perceivedForce, perceivedStrength } from './vision.js';
+export { visibleProvinces, provinceIntel, perceivedForce, perceivedStrength, prudentEstimate, visionSharers } from './vision.js';
 
 const sum = units => LAND_UNIT_TYPES.reduce((n, k) => n + (Number(units?.[k]) || 0), 0);
 const provinceDef = (map, id) => map.provinces.find(p => p.id === id);
@@ -641,14 +644,17 @@ const seaRouteCount = (map, id) => (map.maritimeRoutes || []).filter(([a, b]) =>
 const hasOrQueued = (state, provinceId, type) => (state.provinces[provinceId]?.buildings?.[type] || 0) > 0
   || (state.productionQueue || []).some(q => q.kind === 'building' && q.provinceId === provinceId && q.type === type)
   || (state.orders || []).some(o => o.kind === 'construction' && o.status === 'pending' && o.provinceId === provinceId && o.type === type);
-const defenseOf = (state, id) => { const p = state.provinces[id]; return combatValue(provinceForce(p)) * RULES.fortDefense[p.buildings.fort || 0]; };
+// V13 : l'IA ne lit que ce qu'elle voit (garnison réelle si visible, sinon estimation prudente : vision.js).
+const defenseOf = (state, id, map, viewer) => { const p = state.provinces[id]; return combatValue(perceivedForce(state, map, viewer, id)) * RULES.fortDefense[p.buildings.fort || 0]; };
 const hostileTo = (state, nationId, owner) => owner && owner !== nationId && !pairTreaty(state, nationId, owner, 'alliance') && !pairTreaty(state, nationId, owner, 'ceasefire');
 // Plus forte menace terrestre immédiate sur une province (forces des voisins hostiles).
 const landThreat = (map, state, nationId, id) => combatValue(landThreatForce(map, state, nationId, id) || normalizeForce({}));
-/** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat). */
+/** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat).
+ *  V13 : telle que `nationId` la voit (troupes invisibles ou retranchées : estimation prudente). */
 function landThreatForce(map, state, nationId, id) {
+  const seen = visibleProvinces(state, map, nationId);
   const forces = (provinceDef(map, id)?.landConnections || []).filter(n => hostileTo(state, nationId, state.provinces[n]?.ownerId))
-    .map(n => { const f = provinceForce(state.provinces[n]); f.units.warship = 0; f.wounds.warship = 0; return f; });
+    .map(n => { const f = perceivedForce(state, map, nationId, n, seen); f.units.warship = 0; f.wounds.warship = 0; return f; });
   return forces.sort((a, b) => combatValue(b) - combatValue(a))[0] || null;
 }
 // Base navale : site portuaire possédé, de préférence déjà équipé, puis celui qui ouvre le plus de routes.
@@ -686,7 +692,7 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
   if (invasionsAtSea < 2) {
     const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
-    targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to) - defenseOf(state, b.to) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
+    targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to, map, nationId) - defenseOf(state, b.to, map, nationId) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
     // Marge plus prudente que sur terre : la cible a plusieurs tours pour se renforcer pendant la traversée.
     const margin = (x) => (x.atWar ? Math.max(1.1, threshold - .2) : threshold) + RULES.ai.landingExtraMargin + .05 * (x.turns - RULES.naval.minTurns);
     for (const x of targets) {
@@ -710,7 +716,7 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
     const threat = landThreatForce(map, state, nationId, x.from.id);
     if (threat && !holds(normalizeForce({ units: kept }), threat, state.provinces[x.from.id].buildings.fort || 0)) continue;
     // Escorte si la route est menacée par des navires ennemis (port au bout de la route ou convoi ennemi armé).
-    const risky = navalThreat(state, nationId, x.from.id, x.via) > 0;
+    const risky = navalThreat(state, nationId, x.from.id, x.via, map) > 0;
     const warships = risky ? Math.floor(available.warships / 2) : 0;
     if (risky && !warships) continue;
     queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships });
@@ -736,10 +742,12 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
 }
 const laneKeyOf = t => t.lane || [t.fromId, t.via].sort().join('|');
 /** Menace navale sur une route : navires ennemis (en guerre) à quai au bout de la route, ou convois armés en guerre sur la route. */
-function navalThreat(state, nationId, fromId, via) {
+function navalThreat(state, nationId, fromId, via, map = null) {
   const key = [fromId, via].sort().join('|');
   const harbor = state.provinces[via];
-  let n = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && pairWar(state, nationId, harbor.ownerId) ? harbor.warships || 0 : 0;
+  // V13 : navires à quai tels que l'IA les voit (port lointain non visible : estimation prudente).
+  const docked = () => map ? perceivedForce(state, map, nationId, via).units.warship : harbor.warships || 0;
+  let n = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && pairWar(state, nationId, harbor.ownerId) ? docked() : 0;
   for (const t of state.transports || []) if (laneKeyOf(t) === key && t.nationId !== nationId && pairWar(state, nationId, t.nationId)) n += t.warships || 0;
   return n;
 }
@@ -766,10 +774,10 @@ function warTargets(state, map, id, arch) {
     if (state.turn >= startTurn) {
       const prey = alive.filter(n => !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n))
         .filter(n => { const t = state.diplomacy.treaties.find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n)); return !t || state.turn - t.started >= 5; })
-        .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || strengthOf(state, a) - strengthOf(state, b) || a.localeCompare(b));
+        .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
       if (prey.length && !out.size) out.add(prey[0]);
       // Assez fort : une deuxième proie.
-      if (prey.length > 1 && strengthOf(state, id) > 1.5 * strengthOf(state, prey[1])) out.add(prey[1]);
+      if (prey.length > 1 && strengthOf(state, id) > 1.5 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
     }
   }
   if (arch === 'heros') {
@@ -822,7 +830,7 @@ function aiDiplomacy(state, map, id, arch, targets) {
   for (const n of alive) {
     const war = pairWar(state, id, n), ally = pairTreaty(state, id, n, 'alliance');
     if (war) {
-      const losing = strengthOf(state, id) < .7 * strengthOf(state, n), since = state.turn - (state.diplomacy.wars.find(w => w.participants.includes(id) && w.participants.includes(n))?.started ?? state.turn);
+      const losing = strengthOf(state, id) < .7 * perceivedStrength(state, map, id, n), since = state.turn - (state.diplomacy.wars.find(w => w.participants.includes(id) && w.participants.includes(n))?.started ?? state.turn);
       if (arch === 'batisseur' && since >= 2) propose(n, 'ceasefire', .25);
       else if (arch === 'conquerant' && losing && since >= 4) propose(n, 'ceasefire', .25);
       else if (arch === 'heros' && since >= 6 && !recentAggressions(state, 8).some(a => a.attacker === n)) propose(n, 'ceasefire', .25);
@@ -873,7 +881,7 @@ function aiPlan(state, map, nationId) {
     const target=state.provinces[d.id],owner=target?.ownerId;
     return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||arch==='conquerant')&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
-  attacks.sort((a,b)=>Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to)-defenseOf(state,b.to)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
+  attacks.sort((a,b)=>Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
   const threshold = ARCH_MARGIN[arch];
@@ -902,13 +910,16 @@ function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, warship
   const available = availableForces(state, fromId), target = state.provinces[toId];
   // Débarquement : flotte ennemie qui peut intercepter au port d'arrivée (navires à quai, en guerre ou cible du débarquement).
   const harbor = via ? state.provinces[via] : null;
-  const interceptors = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && harbor.warships > 0 && (pairWar(state, nationId, harbor.ownerId) || harbor.ownerId === target.ownerId)
-    ? scaleForce(legacyForce({ warships: harbor.warships }), Math.max(1, margin)) : null;
-  const defense = scaleForce(provinceForce(target), Math.max(1, margin));
+  // V13 : l'IA ne voit que ce que sa vision lui montre (vision.js) ; sinon elle suppose une garnison prudente.
+  const seen = visibleProvinces(state, map, nationId);
+  const harborShips = harbor ? perceivedForce(state, map, nationId, via, seen).units.warship : 0;
+  const interceptors = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && harborShips > 0 && (pairWar(state, nationId, harbor.ownerId) || harbor.ownerId === target.ownerId)
+    ? scaleForce(legacyForce({ warships: harborShips }), Math.max(1, margin)) : null;
+  const defense = scaleForce(perceivedForce(state, map, nationId, toId, seen), Math.max(1, margin));
   const home = provinceForce(state.provinces[fromId]);
   for (const share of RULES.ai.attackShares) {
     const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * share)]));
-    if (!LAND_UNIT_TYPES.some(k => units[k] && k !== 'balloon')) continue;
+    if (!LAND_UNIT_TYPES.some(k => units[k])) continue;
     let { taken, rest } = splitForce(home, { ...units, warship: warships });
     if (interceptors) {
       const sea = resolveBattle({ defender: taken, attackers: [{ id: 'x', force: interceptors }], naval: true });
@@ -968,13 +979,15 @@ export function eventKnownToPlayer(state, map, event) {
   if ((event.attackers || []).includes(player)) return true;
   if (event.provinceId && state.provinces[event.provinceId]?.ownerId === player) return true;
   if (!event.provinceId) return event.type === 'diplomatic-action' && [event.nationId,event.target].includes(player);
-  return map.provinces.some(p => state.provinces[p.id].ownerId === player && (state.provinces[p.id].units.balloon || 0) > 0 && p.landConnections.includes(event.provinceId));
+  // V13 : la règle « ballon » est remplacée par la vision (province visible du joueur ou de ses alliés).
+  return visibleProvinces(state, map, player).has(event.provinceId);
 }
 /** Le joueur est-il partie prenante de l'événement (attaquant, défenseur, cible…) ? */
 export function eventInvolvesNation(event, nationId) {
   if (!nationId) return false;
   return [event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.attackers||[])].includes(nationId);
 }
+// `balloon` : seulement pour relire les événements d'anciennes parties (le ballon est supprimé en V13).
 const LABELS_LOSS = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'canons', balloon:'ballons', warship:'navires' };
 const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${LABELS_LOSS[k] || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
 /**

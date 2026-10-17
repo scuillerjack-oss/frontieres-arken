@@ -94,7 +94,9 @@ test('îles proches : 2 tours minimum (embarquement + traversée, puis débarque
   assert.equal(s.provinces.p05.ownerId, 'roc-epine', 'pas encore arrivé après 1 inter-tour');
   assert.equal(s.transports.length, 1);
   resolveInterturn(s, map);
-  assert.equal(s.transports.length, 0);
+  // V13 : sans le +15 % du ballon de la capitale, des survivants peuvent rembarquer (convoi de retour) : seul compte
+  // qu'aucun convoi ne soit encore en route VERS p05 après le 2e inter-tour.
+  assert.equal(s.transports.filter(t => !t.returning).length, 0);
   assert.ok(s.events.some(e => e.naval && e.provinceId === 'p05' && (e.type === 'conquest' || e.type === 'battle')));
 });
 
@@ -207,9 +209,9 @@ test('migration 6 -> 7 : un transport V10 lot 2 en mer devient un convoi qui arr
   const s = fresh();
   s.provinces.p19.ownerId = 'valmorne';
   const old = structuredClone(s); old.schemaVersion = 6; delete old.transportSequence;
-  old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p19', units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 1, wounds: { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 }, status: 'at-sea', remaining: 1 }];
+  old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p19', units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0 }, warships: 1, wounds: { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 }, status: 'at-sea', remaining: 1 }];
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 8, '6 -> 7 -> 8 (V11)');
+  assert.equal(m.schemaVersion, 9, '6 -> 7 -> 8 (V11) -> 9 (V13)');
   assert.deepEqual([m.transports[0].id, m.transports[0].via, m.transports[0].stage, m.transports[0].turns], ['c1', 'p19', 1, 2]);
   assert.equal(m.transports[0].status, undefined);
   const before = m.provinces.p19.units.infantry;

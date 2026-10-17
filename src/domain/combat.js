@@ -2,7 +2,7 @@
 // Module PUR : aucune dépendance au DOM ni à l'état de partie, aucun hasard. Toutes les valeurs sont dans
 // RULES.combat (constants.js). Documentation complète et API : docs/V10-moteur.md.
 //
-// Une « force » = { units: { infantry, cavalry, armor, artillery, balloon, warship }, wounds: { mêmes clés } }.
+// Une « force » = { units: { infantry, cavalry, armor, artillery, warship }, wounds: { mêmes clés } }.
 //   units[k]  = nombre d'unités du type k (l'infanterie se compte par soldats, 20 par lot, comme depuis la V6) ;
 //   wounds[k] = PV perdus (blessures) portés par la pile du type k.
 // Réserve de PV d'un type : pool = units × pv − wounds. La puissance de feu est proportionnelle à cette réserve :
@@ -80,6 +80,34 @@ export function combatValue(force, { naval = false } = {}) {
 }
 
 /**
+ * Feu d'une pile pendant UNE passe (avant répartition entre cibles, multiplicateurs et forteresse adverse).
+ * mode 'naval' : seuls les navires tirent ; 'landing' : troupes à RULES.combat.landingPenalty.
+ * warshipFactor (V12, atout « marine » du joueur) : multiplie les dégâts des navires de guerre de ce camp.
+ * C'est EXACTEMENT la valeur utilisée par resolveBattle.
+ */
+function typeFire(force, k, mode = 'land', warshipFactor = 1) {
+  if ((mode === 'naval' && isLand(k)) || !stat(k).damage) return 0;
+  let dmg = poolOf(force, k) / stat(k).hp * stat(k).damage;
+  if (k === 'warship') dmg *= warshipFactor;
+  if (mode === 'landing' && isLand(k)) dmg *= C().landingPenalty;
+  return dmg;
+}
+/** Feu total d'une force pendant une passe (un « assaut »), mêmes règles que resolveBattle. */
+export const firePower = (force, { mode = 'land', warshipFactor = 1 } = {}) => { const f = normalizeForce(force); return COMBAT_TYPES.reduce((n, k) => n + typeFire(f, k, mode, warshipFactor), 0); };
+/**
+ * V13 — PV lisibles : le « régiment » d'une province = toutes ses unités (navires à quai compris, ils défendent).
+ *   hp     = PV restants (blessures déduites) = totalHp ;
+ *   damage = dégâts infligés par assaut (une passe de combat, en défense ou en attaque terrestre), arrondis,
+ *            avant multiplicateurs contre la cible et avant la forteresse de l'adversaire.
+ * Affichage : « Régiment : {hp} PV · {damage} dégâts par assaut ».
+ */
+export function regimentStats(force, { warshipFactor = 1 } = {}) {
+  const f = normalizeForce(force);
+  return { hp: totalHp(f), maxHp: maxHp(f), damage: Math.round(firePower(f, { warshipFactor })), wounded: totalHp(f) < maxHp(f) };
+}
+export const regimentText = stats => stats ? `Régiment : ${stats.hp} PV · ${stats.damage} dégâts par assaut` : 'Régiment : effectif inconnu';
+
+/**
  * Bataille générale, en RULES.combat.passes passes (3). À chaque passe, tout le monde tire EN MÊME TEMPS.
  *   - chaque attaquant tire sur le défenseur (les attaquants ne se battent pas entre eux) ;
  *   - le défenseur répartit son feu entre les attaquants au prorata de leurs PV (pondérés par targetWeight) ;
@@ -102,16 +130,7 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
   // V12 : atout « défense des forts » du joueur (fortBonus = 1 + N %) : multiplie l'effet d'un fort construit.
   const fort = naval ? 1 : (RULES.fortDefense[level] || 1) * (level > 0 && Number(fortBonus) > 0 ? Number(fortBonus) : 1);
   const dWarship = Number(defenderWarshipFactor) > 0 ? Number(defenderWarshipFactor) : 1;
-  const fires = (k, mode) => (mode === 'naval' || naval) ? !isLand(k) : true;
-  // warshipFactor (V12, atout « marine » du joueur) : multiplie les dégâts des navires de guerre de ce camp.
-  const output = (force, k, mode, warshipFactor = 1) => {
-    if (!fires(k, mode) || !stat(k).damage) return 0;
-    let dmg = poolOf(force, k) / stat(k).hp * stat(k).damage;
-    if (k === 'warship') dmg *= warshipFactor;
-    if (poolOf(force, 'balloon') > 0) dmg *= 1 + C().balloonAccuracyBonus;
-    if (mode === 'landing' && isLand(k)) dmg *= C().landingPenalty;
-    return dmg;
-  };
+  const output = (force, k, mode, warshipFactor = 1) => typeFire(force, k, naval ? 'naval' : mode, warshipFactor);
   const canFight = (force, mode) => COMBAT_TYPES.some(k => output(force, k, mode) > 0);
   // Feu d'une force vers une liste de forces cibles ; renvoie, pour chaque cible, les dégâts par type.
   const fire = (shooter, mode, targets, defenderTargets, warshipFactor = 1) => {
@@ -147,7 +166,7 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
     d = apply(d, toD);
     log.push({ pass: i + 1, defenderHp: totalHp(d), attackersHp: atk.map(a => totalHp(a.force)) });
   }
-  // Prise : plus aucun défenseur combattant (des ballons seuls sont capturés) et au moins un attaquant terrestre
+  // Prise : plus aucun défenseur combattant et au moins un attaquant terrestre
   // combattant. Plusieurs attaquants survivants : celui qui garde le plus de PV prend la province (égalité :
   // identifiant de nation le plus petit). Les autres ne prennent rien.
   let winnerId = null;

@@ -59,7 +59,7 @@ export function convoyMarkers(state,map,playerNationId=state.playerNationId){
 }
 
 // --- V10 : PV et blessures dans la fiche d'une province (docs/V10-moteur.md §6) -----------------------------
-const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['canon','canons'],balloon:['ballon','ballons'],warship:['navire','navires']};
+const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['canon','canons'],warship:['navire','navires']};
 /** Lignes « 8 blindés · 92 % PV » d'une province : par type présent, nombre, PV restants / PV max (blessures). */
 export function forceHealthRows(p,unitHp){
   const counts={...(p?.units||{}),warship:p?.warships||0};

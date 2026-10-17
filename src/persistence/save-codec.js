@@ -55,13 +55,28 @@ function migrate7to8(copy) {
   return copy;
 }
 
+/** V8 (V12) -> V9 (V13) : le ballon d'observation est supprimé. Les ballons disparaissent partout (provinces,
+ *  blessures, convois, ordres de déplacement, production et recrutements en attente), SANS remboursement
+ *  (décision de Jack : il recommence une partie à chaque bêta). Le reste de la partie est inchangé. */
+const dropBalloon = obj => { if (obj && typeof obj === 'object') delete obj.balloon; };
+function migrate8to9(copy) {
+  for (const p of Object.values(copy.provinces || {})) { dropBalloon(p.units); dropBalloon(p.wounds); }
+  for (const t of copy.transports || []) { dropBalloon(t.units); dropBalloon(t.wounds); }
+  for (const o of copy.orders || []) { dropBalloon(o.units); dropBalloon(o.wounds); }
+  copy.orders = (copy.orders || []).filter(o => !(o.kind === 'recruitment' && o.type === 'balloon'));
+  copy.productionQueue = (copy.productionQueue || []).filter(q => !(q.kind === 'unit' && q.type === 'balloon'));
+  copy.schemaVersion = 9;
+  return copy;
+}
+
 export function migrateSave(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
   if (copy.schemaVersion === SAVE_SCHEMA_VERSION) return copy;
-  if (copy.schemaVersion === 7) return migrate7to8(copy);
-  if (copy.schemaVersion === 6) return migrate7to8(migrate6to7(copy));
-  if (copy.schemaVersion === 5) return migrate7to8(migrate6to7(migrate5to6(copy)));
+  if (copy.schemaVersion === 8) return migrate8to9(copy);
+  if (copy.schemaVersion === 7) return migrate8to9(migrate7to8(copy));
+  if (copy.schemaVersion === 6) return migrate8to9(migrate7to8(migrate6to7(copy)));
+  if (copy.schemaVersion === 5) return migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))));
   if ([1, 2, 3, 4].includes(copy.schemaVersion)) {
     const previous = copy.schemaVersion;
     copy.schemaVersion=5; copy.settings={music:true,sfx:true,hints:true,...copy.settings};
@@ -75,7 +90,7 @@ export function migrateSave(raw) {
     if(previous===4)for(const order of copy.orders)if(order.kind==='diplomacy'&&order.action==='ceasefire'&&order.status==='pending'&&order.offerLevel==null){order.legacyFree=true;order.amount=0;order.acceptanceProbability=1;}
     // Existing buildings and active projects survive migration; only new games omit free setup.
     if (previous < 4) for (const province of Object.values(copy.provinces||{})) province.portSite ??= Boolean(province.buildings?.port);
-    return migrate7to8(migrate6to7(migrate5to6(copy)));
+    return migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))));
   }
   throw new Error(`unsupported_save_schema:${copy.schemaVersion}`);
 }

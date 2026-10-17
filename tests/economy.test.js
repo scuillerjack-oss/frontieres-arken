@@ -16,7 +16,7 @@ test('règles économiques figées', () => {
 test('coûts des unités figés', () => {
   const u = RULES.units;
   assert.deepEqual(Object.fromEntries(Object.entries(u).map(([k, r]) => [k, [r.amount, r.cost, r.turns, r.power]])), {
-    infantry: [20, 20, 1, 1], cavalry: [5, 20, 1, 3], armor: [1, 30, 2, 12], artillery: [1, 25, 2, 8], balloon: [1, 20, 2, 1], warship: [1, 65, 3, 30]
+    infantry: [20, 20, 1, 1], cavalry: [5, 20, 1, 3], armor: [1, 30, 2, 12], artillery: [1, 25, 2, 8], warship: [1, 65, 3, 30] // V13 : ballon supprimé
   });
 });
 
@@ -82,7 +82,7 @@ test('B4 corrigé : recrutement annulé et remboursé si la province tombe le m�
   const s = freshState({ allHuman: true });
   queueRecruitment(s, { nationId: 'valmorne', provinceId: 'p04', type: 'infantry', lots: 1 });
   s.provinces.p06.units.infantry = 300;
-  s.orders.push({ id: 'x1', kind: 'move', nationId: 'roc-epine', fromId: 'p06', toId: 'p04', units: { infantry: 300, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
+  s.orders.push({ id: 'x1', kind: 'move', nationId: 'roc-epine', fromId: 'p06', toId: 'p04', units: { infantry: 300, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
   resolveInterturn(s, map);
   assert.equal(s.provinces.p04.ownerId, 'roc-epine');
   const conquest = s.events.find(e => e.type === 'conquest' && e.provinceId === 'p04');

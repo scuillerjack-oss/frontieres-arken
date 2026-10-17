@@ -37,7 +37,7 @@ test('déplacements illégaux refusés', () => {
 test('réservation des forces : un second ordre ne peut pas réutiliser les mêmes unités', () => {
   const s = freshState({ allHuman: true });
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p01', toId: 'p02', units: { infantry: 150, armor: 6 } }).ok, true);
-  assert.deepEqual(availableForces(s, 'p01'), { infantry: 50, cavalry: 10, armor: 0, artillery: 2, balloon: 1, warships: 0 });
+  assert.deepEqual(availableForces(s, 'p01'), { infantry: 50, cavalry: 10, armor: 0, artillery: 2, warships: 0 });
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p01', toId: 'p04', units: { infantry: 51 } }).error, 'Ces unités sont déjà réservées dans un autre ordre');
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p01', toId: 'p04', units: { infantry: 50 } }).ok, true);
   assert.equal(availableForces(s, 'p01').infantry, 0);
