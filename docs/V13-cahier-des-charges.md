@@ -75,7 +75,15 @@ Détails : `docs/V13-marine.md`, `docs/V13-vision.md`, `docs/V13-alliances-echan
 - **Écran** : la grille ne dépasse plus la largeur du téléphone (débordait de 11 px à 393 px) ; version toujours visible ;
   liseré bleu 28 px au lieu de 16.
 
+### Corrections après relecture indépendante
+- Un cessez-le-feu accepté (Oui) pendant qu'un convoi ennemi est en mer : le convoi fait demi-tour (avant : il débarquait
+  et rouvrait la guerre). Un convoi parti alors que la trêve existait déjà reste une violation et débarque.
+- « Attaque X avec moi » ne propose que les nations que l'allié peut atteindre par l'anneau ; sinon refus motivé.
+- L'IA marine ne lit plus les navires réels d'un port qu'elle ne voit pas ; marge de débarquement 0,25 (60 % de réussite).
+
 ### À surveiller en bêta
 - L'IA prend moins la mer (brouillard + anneau) : environ 50 débarquements sur 60 tours contre 105 en V12.
 - 4 capitales sur 5 sont des points de port ; Glacenoire ↔ Noireflamme relie deux capitales.
 - Deux bases navales face à face peuvent s'accumuler sans s'attaquer.
+- « Défends-moi » : l'allié renforce sa propre base navale et combat l'agresseur, mais ne peut pas poster de troupes chez toi.
+- Au lancement, sur un écran de 393 px, la carte montre l'ouest (ta capitale) : l'est se voit en glissant ou en dézoomant.
