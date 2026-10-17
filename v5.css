@@ -309,3 +309,9 @@ dialog.ad-overlay::backdrop{background:#000c}
 #updateBanner span{flex:1}
 #updateBanner a{background:#173d51;color:#fff;border-radius:8px;padding:9px 12px;text-decoration:none;font-weight:800}
 #updateBanner button{border:0;background:none;font-size:1.4rem;color:#10202a;min-width:36px;min-height:36px}
+/* V13 — écran : la grille du jeu ne dépasse jamais la largeur de l'écran (carte coupée à droite sur ~393 px). */
+#gameScreen:not([hidden]){grid-template-columns:minmax(0,1fr)}
+.hud,nav.bottom-bar,.map-shell{min-width:0;max-width:100vw}
+@media(max-width:420px){.hud{gap:5px}.hud-stat{min-width:52px}.brand{flex:1 1 0;min-width:0;overflow:hidden}.brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand small{white-space:normal;letter-spacing:.02em;font-size:.58rem;line-height:1.15}.brand small #hud-version{display:block;letter-spacing:0}}
+/* V13 — liseré bleu de mon territoire plus épais, visible au premier coup d'œil. */
+.territory.player{stroke-width:calc(28px * var(--line,1));filter:drop-shadow(0 0 3px #001a3a)}
