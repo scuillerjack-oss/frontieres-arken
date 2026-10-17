@@ -6,8 +6,11 @@ export function clampMapTransform({scale,x,y,viewportWidth,viewportHeight,mapWid
 }
 export function totalArmy(state,nationId){const out=Object.fromEntries([...LAND_UNIT_TYPES,'warship'].map(k=>[k,0]));for(const p of Object.values(state.provinces))if(p.ownerId===nationId){for(const k of LAND_UNIT_TYPES)out[k]+=p.units[k]||0;out.warship+=p.warships||0}for(const t of state.transports||[])if(t.nationId===nationId){for(const k of LAND_UNIT_TYPES)out[k]+=t.units[k]||0;out.warship+=t.warships||0}return{byType:out,total:Object.values(out).reduce((a,b)=>a+b,0)}}
 export function relationWithPlayer(state,nationId){if(nationId===state.playerNationId)return'own';if(state.diplomacy.wars.some(w=>w.active!==false&&w.participants.includes(nationId)&&w.participants.includes(state.playerNationId)))return'war';if(state.diplomacy.treaties.some(t=>t.active!==false&&t.type==='alliance'&&t.parties.includes(nationId)&&t.parties.includes(state.playerNationId)))return'alliance';if(state.diplomacy.treaties.some(t=>t.active!==false&&t.type==='ceasefire'&&t.parties.includes(nationId)&&t.parties.includes(state.playerNationId)))return'ceasefire';return'neutral'}
+// V13 : pas de guerre entre alliés — « Déclarer la guerre » est bloqué tant que l'alliance tient ; « Rompre l'alliance »
+// n'apparaît qu'avec un allié.
 export function diplomacyActions(state,target){const r=relationWithPlayer(state,target);return[
- {id:'war',label:'Déclarer la guerre',enabled:r!=='war'&&r!=='own',reason:r==='war'?'Déjà en guerre':''},
+ {id:'war',label:'Déclarer la guerre',enabled:r!=='war'&&r!=='own'&&r!=='alliance',reason:r==='war'?'Déjà en guerre':r==='alliance'?'Vous êtes alliés : rompez d’abord l’alliance':''},
+ ...(r==='alliance'?[{id:'break',label:'Rompre l’alliance',enabled:true,reason:''}]:[]),
  {id:'alliance',label:'Proposer une alliance',enabled:r==='neutral'||r==='ceasefire',reason:r==='war'?'Concluez d’abord un cessez-le-feu':r==='alliance'?'Alliance déjà active':''},
  {id:'ultimatum',label:'Cessez-le-feu / ultimatum avec paiement',enabled:r==='war',reason:r!=='war'?'Disponible uniquement en guerre':''}];}
 export function canKnowProvinceForces(state,map,provinceId){const target=state.provinces[provinceId];if(target.ownerId===state.playerNationId)return true;return map.provinces.some(p=>state.provinces[p.id].ownerId===state.playerNationId&&(state.provinces[p.id].units.balloon||0)>0&&p.landConnections.includes(provinceId));}

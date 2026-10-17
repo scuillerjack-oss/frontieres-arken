@@ -69,7 +69,10 @@ export const TENSION_THRESHOLDS = Object.freeze([
   Object.freeze({ min: 50, label: 'hostile' }), Object.freeze({ min: 75, label: 'au bord de la guerre' })
 ]);
 // Effet d'un message public sur la tension entre l'émetteur et le destinataire.
-export const TALK_TENSION = Object.freeze({ hostile: 12, neutre: -2, amical: -7 });
+// V13 : une menace ou une provocation fait nettement bondir la tension (+20 au lieu de +12 en V11).
+export const TALK_TENSION = Object.freeze({ hostile: 20, neutre: -2, amical: -7 });
+/** V13 : libellé affiché à la place du palier quand les deux nations sont en guerre. */
+export const WAR_LABEL = 'en guerre';
 export const tensionRank = value => TENSION_THRESHOLDS.reduce((r, t, i) => value >= t.min ? i : r, 0);
 export const tensionLabel = value => TENSION_THRESHOLDS[tensionRank(value)].label;
 export function getTension(state, a, b) {
@@ -77,10 +80,13 @@ export function getTension(state, a, b) {
   const v = state.tension?.[a]?.[b];
   return Number.isFinite(v) ? v : TENSION_START;
 }
-/** { value, label } — label parmi 'calme' | 'tendu' | 'hostile' | 'au bord de la guerre'. */
+/**
+ * { value, label } — value en % (0..100) ; label parmi 'calme' | 'tendu' | 'hostile' | 'au bord de la guerre',
+ * ou 'en guerre' (V13) dès que les deux nations sont en guerre : jamais « au bord de la guerre » après un combat.
+ */
 export function tensionLevel(state, a, b) {
   const value = getTension(state, a, b);
-  return { value, label: tensionLabel(value) };
+  return { value, label: a && b && a !== b && atWar(state, a, b) ? WAR_LABEL : tensionLabel(value) };
 }
 /** Écrit la tension (bornée, entière, symétrique) ; un changement de palier crée un événement TENSION. */
 export function setTension(state, a, b, value, reason = null) {
@@ -89,7 +95,8 @@ export function setTension(state, a, b, value, reason = null) {
   state.tension ||= {};
   (state.tension[a] ||= {})[b] = v; (state.tension[b] ||= {})[a] = v;
   const r0 = tensionRank(before), r1 = tensionRank(v);
-  if (r0 !== r1) state.events?.push({ turn: state.turn, type: 'tension', nationId: a, target: b, value: v, label: TENSION_THRESHOLDS[r1].label, previous: TENSION_THRESHOLDS[r0].label, rising: r1 > r0, reason });
+  // V13 : en guerre, plus d'événement de palier (« au bord de la guerre » n'a plus de sens : le journal dit déjà la guerre).
+  if (r0 !== r1 && !atWar(state, a, b)) state.events?.push({ turn: state.turn, type: 'tension', nationId: a, target: b, value: v, label: TENSION_THRESHOLDS[r1].label, previous: TENSION_THRESHOLDS[r0].label, rising: r1 > r0, reason });
   return v;
 }
 export const addTension = (state, a, b, delta, reason = null) => setTension(state, a, b, getTension(state, a, b) + delta, reason);
@@ -170,6 +177,7 @@ export function leaderHint(state, nationId) {
   if (l.revealed) return `${ARCHETYPE_LABELS[l.archetype]} : ${ARCHETYPE_DESCRIPTIONS[l.archetype]}`;
   const r = state.ai?.reputation?.[nationId] || {};
   if ((r.victims?.length || 0) >= 2) return 'Dirigeant belliqueux, avide de terres';
+  if (r.brokenPromises > 0) return 'Promet volontiers son aide… sans jamais venir'; // V13 : aide promise non tenue
   if (r.defended > 0) return 'Semble prendre la défense des nations attaquées';
   if (r.attacks > 0) return 'A déjà frappé une fois : à surveiller';
   if (r.offers >= 2 && !r.hostile) return 'Très avenant… peut-être trop';

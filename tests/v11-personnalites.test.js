@@ -315,7 +315,9 @@ test('Sauvegarde : migration 7 (V10) -> 8 (V11) depuis les anciens traits, puis 
   assert.equal(m.schemaVersion, 8);
   assert.deepEqual(Object.fromEntries(Object.entries(m.leaders).map(([k, v]) => [k, v.archetype])), { 'roc-epine': 'batisseur', noireflamme: 'conquerant', oroel: 'heros', aurel: 'traitre' });
   assert.ok(Object.values(m.leaders).every(l => !l.revealed));
-  assert.equal(tensionLevel(m, 'valmorne', 'aurel').label, 'au bord de la guerre', 'guerre en cours');
+  // V13 : en guerre, le libellé est « en guerre » (la valeur reste celle de la migration : 80).
+  assert.equal(tensionLevel(m, 'valmorne', 'aurel').label, 'en guerre', 'guerre en cours');
+  assert.equal(tensionLevel(m, 'valmorne', 'aurel').value, 80);
   assert.equal(tensionLevel(m, 'valmorne', 'oroel').label, 'calme');
   assert.deepEqual(m.talk, []); assert.deepEqual(m.talkPending, {});
   for (let i = 0; i < 12; i++) { queueTalk(m, map, { from: 'valmorne', to: 'oroel', tone: 'hostile' }); resolveInterturn(m, map); }
