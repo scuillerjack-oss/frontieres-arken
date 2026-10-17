@@ -76,7 +76,6 @@ nav #nextTurn{flex:1.2;min-width:0;background:#24323a;border-color:#8c7449;borde
 .province-label .building{fill:#fff4d6;font-size:34px;stroke:#06121a;stroke-width:7px}
 .province-label .marker{fill:#131f26;stroke:#f5d88a;stroke-width:5}
 .route.maritime{fill:none;stroke:#e9f8ff;stroke-width:5;stroke-dasharray:18 14;stroke-linecap:round;opacity:.55}
-.route.maritime.open{opacity:.95;stroke-width:6}
 .port-marker circle{fill:#0d2230;stroke:#e9f8ff;stroke-width:4;opacity:.75}
 .port-marker text{fill:#e9f8ff;font:700 26px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;opacity:.75}
 .port-marker.built circle{stroke:#ffe17d;opacity:1}
@@ -137,11 +136,10 @@ nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
 .route.maritime path{fill:none;stroke-linecap:round;stroke-linejoin:round}
 .route.maritime .casing{stroke:#04131d;stroke-opacity:.7;stroke-width:calc(13px * var(--line,1))}
 .route.maritime .dash{stroke:#f2fbff;stroke-width:calc(6px * var(--line,1));stroke-dasharray:calc(22px * var(--line,1)) calc(13px * var(--line,1))}
-.route.maritime.open .casing{stroke:#1a1203;stroke-opacity:.8;stroke-width:calc(15px * var(--line,1))}
-.route.maritime.open .dash{stroke:#ffe17d;stroke-width:calc(7px * var(--line,1))}
+/* V13 : routes neutres (plus d'état jaune « open ») ; point d'embarquement = pastille pointillée aux couleurs du propriétaire. */
 .port-marker circle{fill:var(--port,#0d2230);stroke:#071722;stroke-width:5;opacity:1}
 .port-marker text{fill:#fff;font:800 28px system-ui,sans-serif;opacity:1;paint-order:stroke;stroke:#071722;stroke-width:4px}
-.port-marker.site circle{fill:#0d2230;fill-opacity:.82;stroke:var(--port,#e9f8ff);stroke-width:5;stroke-dasharray:7 6}
+.port-marker.site circle{fill:#0d2230;fill-opacity:.82;stroke:var(--port,#e9f8ff);stroke-width:6;stroke-dasharray:9 5}
 .port-marker.site text{fill:var(--port,#e9f8ff);stroke:#071722;font-size:24px}
 .port-marker.built circle{stroke:#ffe17d;stroke-width:6}
 .port-marker.built text{fill:#fff}
@@ -309,3 +307,45 @@ dialog.ad-overlay::backdrop{background:#000c}
 #updateBanner span{flex:1}
 #updateBanner a{background:#173d51;color:#fff;border-radius:8px;padding:9px 12px;text-decoration:none;font-weight:800}
 #updateBanner button{border:0;background:none;font-size:1.4rem;color:#10202a;min-width:36px;min-height:36px}
+/* V13 — écran : la grille du jeu ne dépasse jamais la largeur de l'écran (carte coupée à droite sur ~393 px). */
+#gameScreen:not([hidden]){grid-template-columns:minmax(0,1fr)}
+.hud,nav.bottom-bar,.map-shell{min-width:0;max-width:100vw}
+@media(max-width:420px){.hud{gap:5px}.hud-stat{min-width:52px}.brand{flex:1 1 0;min-width:0;overflow:hidden}.brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand small{white-space:normal;letter-spacing:.02em;font-size:.58rem;line-height:1.15}.brand small #hud-version{display:block;letter-spacing:0}}
+/* V13 — liseré bleu de mon territoire plus épais, visible au premier coup d'œil. */
+.territory.player{stroke-width:calc(28px * var(--line,1));filter:drop-shadow(0 0 3px #001a3a)}
+/* V13 : régiment en une ligne (PV · dégâts par assaut) et troupes inconnues (brouillard de guerre). */
+.info-chip.regiment{display:inline-flex;flex-direction:column;gap:2px;min-width:160px}
+.info-chip.regiment b{font-weight:800}
+.info-chip.regiment small{color:#b9cad2;font-size:.66rem;font-style:normal}
+.info-chip.regiment.wounded{border-color:#8b7449}
+.info-chip.regiment.unknown b{color:#d8e2e6}
+.province-label .troops.unknown{fill:#c9d4da;opacity:.85}
+/* V13 : alliances (demandes d'aide), fenêtres d'événements (récit, capitale, propositions), tension « en guerre ». */
+.help-launch{width:100%;margin-top:10px;border:1px solid #5da9ff;background:#123a57;color:#fff;border-radius:8px;padding:11px;font-weight:800;min-height:46px}
+.help-intro{font-size:.82rem;color:#d6e2e7;margin:10px 0 6px}
+.help-h{font:700 .95rem Georgia,serif;margin:14px 0 6px;color:var(--gold)}
+.help-sub{display:block;color:#a8bbc4;font-size:.74rem;margin:8px 0 4px}
+.help-grid{display:flex;flex-wrap:wrap;gap:6px}
+.help-grid button{flex:1 1 44%;min-height:44px;border:1px solid #4b6878;border-left:5px solid var(--nation,#5da9ff);background:#0c2b3d;color:#fff;border-radius:9px;padding:8px 10px;font-weight:700;font-size:.82rem;text-align:left}
+.help-grid button small{color:#ffb070;font-weight:400}
+.help-pact{background:#10324a;border:1px solid #5da9ff;border-radius:9px;padding:7px 10px;font-size:.8rem;margin:6px 0}
+.journal-entry.help{border-color:#5da9ff;background:#0d2840}
+.info-chip.tension-chip.tension-4,.tension-4 .tension-top b{border-color:#e45c56;color:#ff8a80}
+#eventDialog{width:min(92vw,460px);text-align:center}
+#eventDialog h2{font:700 1.45rem Georgia,serif;margin:6px 0 10px}
+#eventDialog p{line-height:1.45}
+#eventDialog .confirm-actions{display:flex;gap:8px}
+#eventDialog .confirm-actions button{flex:1;min-height:48px;margin-top:12px;font-size:1rem}
+#eventDialog .confirm-actions .cancel{border:1px solid #7a3a36;background:#2a1414;color:#fff;border-radius:8px;font-weight:800}
+#eventDialog.intro{border-color:var(--gold);background:radial-gradient(circle at 50% 0,#2b3d2c,#0b1f2c 55%,#061722)}
+#eventDialog.intro p{font:1rem/1.5 Georgia,serif;color:#f4ead2}
+.intro-masks{display:flex;justify-content:center;gap:14px;font-size:2rem;margin:4px 0 6px}
+.intro-masks span{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;border:2px solid var(--gold);background:#0b2636;box-shadow:0 0 14px #e2bf7355}
+#eventDialog.capital.won{border:2px solid #ffd867;background:radial-gradient(circle at 50% 10%,#5a4310,#1d1606 60%,#061722);box-shadow:0 0 40px #ffd86766}
+#eventDialog.capital.lost{border:2px solid #e45c56;background:radial-gradient(circle at 50% 10%,#4a1412,#1a0807 60%,#061722)}
+.capital-lead{font:700 1.1rem Georgia,serif;margin:4px 0}
+.capital-gold{font:800 2.4rem Georgia,serif;color:#ffd867;margin:6px 0;text-shadow:0 2px 12px #000}
+.capital-gold.lost{color:#ff8a80}
+#eventDialog.proposal{border-color:#5da9ff}
+#eventDialog.proposal .talk-quote{text-align:left}
+.proposal-facts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-size:.74rem}

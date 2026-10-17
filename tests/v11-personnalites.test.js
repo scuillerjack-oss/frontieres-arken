@@ -25,7 +25,9 @@ const replan = s => { s.ai.plannedTurn = null; s.orders = []; planAIOrders(s, ma
 const atWar = (s, a, b) => s.diplomacy.wars.some(w => w.participants.includes(a) && w.participants.includes(b));
 const allied = (s, a, b) => s.diplomacy.treaties.some(t => t.type === 'alliance' && t.parties.includes(a) && t.parties.includes(b));
 /** Donne un port, une usine et une flotte à une nation (prête à débarquer). */
-function arm(s, provinceId, ships = 4) { const p = s.provinces[provinceId]; p.buildings.port = 1; p.buildings.factory = 1; p.warships = ships; p.units.infantry += 200; p.units.armor += 4; }
+// V13 : sous le brouillard, l'IA ne voit pas la côte d'en face (estimation prudente, capitale incluse) : la flotte
+// de test est assez forte pour oser débarquer sur une capitale estimée.
+function arm(s, provinceId, ships = 4) { const p = s.provinces[provinceId]; p.buildings.port = 1; p.buildings.factory = 1; p.warships = ships; p.units.infantry += 600; p.units.armor += 12; }
 
 // --- Attribution des personnalités ---------------------------------------------------------------------------
 test('V11 : 4 archétypes distincts, cachés, attribués aux 4 nations IA ; déterministes par graine, redistribués entre parties', () => {
@@ -54,7 +56,7 @@ test('Conquérant : attaque tôt le plus faible qu\'il peut atteindre, sans atte
   const s = scenario({ 'roc-epine': 'conquerant' });
   arm(s, 'p07'); // port de Belrivage : route vers Aurorelle (Aurel)
   // Aurel (côte de Belrivage, p07) affaibli : la proie la plus faible atteignable.
-  for (const id of ['p17', 'p18', 'p19', 'p20']) { s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }; }
+  for (const id of ['p17', 'p18', 'p19', 'p20']) { s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0 }; }
   s.turn = 5;
   assert.equal(tensionLevel(s, 'roc-epine', 'aurel').label, 'calme');
   planAIOrders(s, map);
@@ -68,7 +70,7 @@ test('Conquérant : attaque tôt le plus faible qu\'il peut atteindre, sans atte
 test('Bâtisseur : construit, ne se bat pas sans menace même avec une flotte et une cible faible', () => {
   const s = scenario({ 'roc-epine': 'batisseur' });
   arm(s, 'p07');
-  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 };
+  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0 };
   s.nations['roc-epine'].treasury = 300;
   s.turn = 2; replan(s);
   assert.ok(ordersOf(s, 'roc-epine').some(o => o.kind === 'construction'), 'il construit');
@@ -83,7 +85,7 @@ test('Bâtisseur : construit, ne se bat pas sans menace même avec une flotte et
 test('Héros : punit l\'agresseur d\'une autre nation, est révélé en défendant, refuse l\'alliance d\'un agresseur', () => {
   const s = scenario({ 'roc-epine': 'heros', aurel: 'conquerant' });
   arm(s, 'p07');
-  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 };
+  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0 };
   s.turn = 4; replan(s);
   assert.ok(!ordersOf(s, 'roc-epine').some(o => o.kind === 'move' && s.provinces[o.toId].ownerId === 'aurel'), 'pas d\'attaque gratuite');
   // Aurel agresse Noireflamme : le Héros la prend pour cible.
@@ -106,7 +108,7 @@ test('Héros : fidèle à ses alliances (n\'attaque jamais son allié, même à 
   arm(s, 'p07');
   setRelation(s, { nationId: 'roc-epine', target: 'aurel', type: 'alliance' });
   setTension(s, 'roc-epine', 'aurel', 100);
-  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 };
+  for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0 };
   for (let t = 2; t < 40; t++) { s.turn = t; replan(s); assert.ok(!ordersOf(s, 'roc-epine').some(o => (o.kind === 'move' && s.provinces[o.toId].ownerId === 'aurel') || (o.kind === 'diplomacy' && o.action === 'war')), `tour ${t}`); }
 });
 
@@ -235,7 +237,9 @@ test('talkOptions : exactement 3 propositions (hostile, neutre, amical), textes 
   for (const o of base) { assert.ok(o.text.length > 10); assert.match(o.text, /Aurel/); assert.ok(o.preview); }
   assert.notEqual(new Set(base.map(o => o.text)).size, 1);
   const situation = () => talkOptions(s, map, { from: 'valmorne', to: 'aurel' })[0].situation;
-  assert.equal(situation(), 'neighbor', 'route maritime Branvale–Lunémont');
+  // V13 (anneau maritime) : Valmorne est voisine d'Oroël (route Branvale–Nordhème), plus d'Aurel.
+  assert.equal(talkOptions(s, map, { from: 'valmorne', to: 'oroel' })[0].situation, 'neighbor', 'route maritime Branvale–Nordhème');
+  assert.equal(situation(), 'default', 'Aurel : pas de route directe');
   assert.equal(talkOptions(s, map, { from: 'valmorne', to: null })[0].situation, 'default', 'message à tous');
   assert.match(talkOptions(s, map, { from: 'valmorne', to: null })[2].text, /peuples d’Arken/);
   setRelation(s, { nationId: 'valmorne', target: 'aurel', type: 'alliance' }); assert.equal(situation(), 'ally');
@@ -305,17 +309,19 @@ test('leaderHint : impression vague tant que le dirigeant n\'est pas révélé',
 });
 
 // --- Sauvegarde --------------------------------------------------------------------------------------------------
-test('Sauvegarde : migration 7 (V10) -> 8 (V11) depuis les anciens traits, puis aller-retour sans perte', () => {
+test('Sauvegarde : migration 7 (V10) -> 8 (V11) -> 9 (V13) depuis les anciens traits, puis aller-retour sans perte', () => {
   const s = createGameState({ map, playerNationId: 'valmorne' });
   const old = structuredClone(s); old.schemaVersion = 7;
   delete old.leaders; delete old.tension; delete old.talk; delete old.talkPending; delete old.talkSequence;
   old.ai.traits = { 'roc-epine': 'prudent', noireflamme: 'offensif', oroel: 'fidele', aurel: 'impulsif' };
   old.diplomacy.wars.push({ active: true, participants: ['valmorne', 'aurel'], started: 1 });
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 8);
+  assert.equal(m.schemaVersion, 9);
   assert.deepEqual(Object.fromEntries(Object.entries(m.leaders).map(([k, v]) => [k, v.archetype])), { 'roc-epine': 'batisseur', noireflamme: 'conquerant', oroel: 'heros', aurel: 'traitre' });
   assert.ok(Object.values(m.leaders).every(l => !l.revealed));
-  assert.equal(tensionLevel(m, 'valmorne', 'aurel').label, 'au bord de la guerre', 'guerre en cours');
+  // V13 : en guerre, le libellé est « en guerre » (la valeur reste celle de la migration : 80).
+  assert.equal(tensionLevel(m, 'valmorne', 'aurel').label, 'en guerre', 'guerre en cours');
+  assert.equal(tensionLevel(m, 'valmorne', 'aurel').value, 80);
   assert.equal(tensionLevel(m, 'valmorne', 'oroel').label, 'calme');
   assert.deepEqual(m.talk, []); assert.deepEqual(m.talkPending, {});
   for (let i = 0; i < 12; i++) { queueTalk(m, map, { from: 'valmorne', to: 'oroel', tone: 'hostile' }); resolveInterturn(m, map); }

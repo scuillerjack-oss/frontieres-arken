@@ -4,7 +4,10 @@ Jack est le propriétaire et le décideur. Il pilote depuis son téléphone Andr
 un chantier : messages courts, en français, livrables prêts à l'emploi.
 
 ## Documents de référence (`docs/`)
-- `V9-cahier-des-charges.md` … `V12-cahier-des-charges.md` : feuille de route validée avec Jack.
+- `V9-cahier-des-charges.md` … `V13-cahier-des-charges.md` : feuille de route validée avec Jack (section « Réalisé » à la fin).
+- Règles détaillées par thème : `V10-moteur.md`, `V13-marine.md` (mer en anneau), `V13-vision.md` (brouillard),
+  `V13-alliances-echanges.md`, `V11-contrat.md`.
+- Un cahier en préparation peut n'exister que sur une branche `mission/…` : toujours regarder les branches non fusionnées.
 - `AUDIT-V6.md` : inventaire de la V6.0.2 et bugs connus (B1 à B12).
 - `assets/carte-leonardo.jpg` : la carte de référence. `V8-cahier-des-charges-original.pdf` : cahier d'origine.
 - Le commit « V6.0.2 telle que récupérée » est la référence intouchable de départ.

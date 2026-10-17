@@ -30,7 +30,7 @@ for (const player of NATIONS) {
     for (const p of map.provinces) {
       const st = s.provinces[p.id], cap = CAPITALS[p.initialOwner] === p.id;
       assert.equal(st.ownerId, p.initialOwner);
-      assert.deepEqual(st.units, cap ? { infantry: 200, cavalry: 10, armor: 6, artillery: 2, balloon: 1 } : { infantry: 40, cavalry: 0, armor: 0, artillery: 0, balloon: 0 });
+      assert.deepEqual(st.units, cap ? { infantry: 200, cavalry: 10, armor: 6, artillery: 2 } : { infantry: 40, cavalry: 0, armor: 0, artillery: 0 }); // V13 : plus de ballon
       assert.equal(st.warships, 0);
       assert.deepEqual(st.buildings, { bank: 0, factory: 0, fort: 0, port: 0 });
       assert.equal(st.portSite, Boolean(p.port));

@@ -6,7 +6,7 @@ import cv2
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 data = json.load(open(os.path.join(HERE, 'arken-v9-carte.json'), encoding='utf-8'))
-img = cv2.imread(os.path.join(HERE, '..', 'assets', 'carte-leonardo.jpg'))
+img = cv2.imread(os.path.join(HERE, '..', '..', 'assets', 'carte-leonardo.jpg'))
 W, H = data['imageSize']
 errors, notes = [], []
 ok = lambda cond, msg: None if cond else errors.append(msg)
@@ -85,7 +85,8 @@ def seg_land(a, b, mask):
 
 
 routes = data['seaRoutes']
-ok(len(routes) == 10, f'{len(routes)} routes au lieu de 10')
+# V13 : anneau de 5 routes (chaque île reliée à ses 2 voisines uniquement)
+ok(len(routes) == 5, f'{len(routes)} routes au lieu de 5 (anneau V13)')
 pairs = set()
 islet_hits = 0
 for r in routes:
@@ -109,7 +110,12 @@ for r in routes:
         n = seg_land(pts[k], pts[k + 1], big_land)
         ok(n == 0, f'route {r["from"]}-{r["to"]} : le segment {pts[k]}→{pts[k + 1]} coupe une grande île')
         islet_hits += seg_land(pts[k], pts[k + 1], land_img & ~big_land)
-ok(len(pairs) == 10, f'{len(pairs)} paires d\'îles reliées au lieu de 10 (graphe complet)')
+ok(len(pairs) == 5, f'{len(pairs)} paires d\'îles reliées au lieu de 5 (anneau)')
+RING = ['ile-nord-ouest', 'ile-nord-est', 'ile-est', 'ile-sud', 'ile-sud-ouest']
+for i, isl in enumerate(RING):
+    ok(frozenset((isl, RING[(i + 1) % 5])) in pairs, f'anneau : pas de route {isl} ↔ {RING[(i + 1) % 5]}')
+    deg = sum(1 for k in pairs if isl in k)
+    ok(deg == 2, f'{isl} : {deg} voisines maritimes au lieu de 2')
 if islet_hits:
     notes.append(f'routes : {islet_hits} échantillons sur îlots décoratifs')
 else:
@@ -118,6 +124,8 @@ used = {r['from'] for r in routes} | {r['to'] for r in routes}
 for p in P:
     if p['port']:
         ok(p['id'] in used, f'{p["id"]} : port sans route')
+        n = sum(1 for r in routes if p['id'] in (r['from'], r['to']))
+        ok(n == 1, f'{p["id"]} : site de port utilisé par {n} routes (1 attendue)')
 for isl in isl_nat:
     ps = sorted(p['id'] for p in P if p['island'] == isl and p['port'])
     notes.append(f'{isl} : ports {ps}')
@@ -204,7 +212,15 @@ areas = {isl: [p['area'] for p in P if p['island'] == isl] for isl in isl_nat}
 for isl, a in areas.items():
     notes.append(f'{isl} : aires {sorted(a)} (max/min = {max(a) / min(a):.2f})')
 
-print('AUTO-CONTRÔLE carte V9')
+# V13 : aucune route n'en croise une autre
+def lane_pts(r):
+    return [byid[r['from']]['port']['anchor']] + r.get('waypoints', []) + [byid[r['to']]['port']['anchor']]
+for r1, r2 in itertools.combinations(routes, 2):
+    A, B = lane_pts(r1), lane_pts(r2)
+    hit = any(seg_inter(A[i], A[i + 1], B[j], B[j + 1]) for i in range(len(A) - 1) for j in range(len(B) - 1))
+    ok(not hit, f'routes {r1["from"]}-{r1["to"]} et {r2["from"]}-{r2["to"]} : croisement')
+
+print('AUTO-CONTRÔLE carte V9 (anneau maritime V13)')
 print(f'  provinces : {len(P)} ; routes maritimes : {len(data["seaRoutes"])} ; ports : {sum(1 for p in P if p["port"])}')
 for r in data['seaRoutes']:
     print(f'  route {r["from"]} ↔ {r["to"]} : {r["length"]} px, {len(r.get("waypoints", []))} point(s) de passage')

@@ -4,12 +4,19 @@ export { resolveBattle, resolveCombat, provinceForce, combatValue } from './comb
 import { ensureLeaders, archetypeOf, reveal, reputation, recordAggression, getTension, setTension, addTension, acceptsAlliance, ceasefireBias,
   chance, pickFrom, strengthOf, recentAggressions, driftTension, observeLeaders, aliveNations, ARCHETYPE_LABELS } from './leaders.js';
 import { publishTalk, aiTalk, aiOfferTalk, pruneTalkPending, neighbors } from './talk.js';
+// V13 : demandes d'aide entre alliés (docs/V13-alliances-echanges.md).
+import { resolveHelpRequests, expireHelpPacts, helpWarTargets, activeHelpPacts, helpJournalText } from './alliances.js';
 // V12 : atouts du joueur humain (injectés dans state.bonuses par l'interface ; jamais pour les IA).
 import { goldBonus, recruitAmount, buildTurnsGained, fortBonusFactor, navalBonusFactor } from './boosts.js';
+// V13 : vision (brouillard de guerre) partagée par l'interface et l'IA (docs/V13-vision.md).
+import { visibleProvinces, perceivedForce, perceivedStrength } from './vision.js';
+export { visibleProvinces, provinceIntel, perceivedForce, perceivedStrength, prudentEstimate, visionSharers } from './vision.js';
 
 const sum = units => LAND_UNIT_TYPES.reduce((n, k) => n + (Number(units?.[k]) || 0), 0);
 const provinceDef = (map, id) => map.provinces.find(p => p.id === id);
 const safeNum = n => Number.isFinite(Number(n)) ? Number(n) : 0;
+// V13 : élision (« d’Oroël », « d’Aurel », « de Valmorne »).
+const deName = name => /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂaeiouyéèêîïôöûüàâ]/.test(name) ? `d’${name}` : `de ${name}`;
 const nationName = (map, id) => map.nations.find(n => n.id === id)?.short || 'Nation inconnue';
 const pairWar = (state, a, b) => state.diplomacy.wars.some(w => w.active !== false && w.participants.includes(a) && w.participants.includes(b));
 const pairTreaty = (state, a, b, type) => state.diplomacy.treaties.some(t => t.active !== false && t.type === type && t.parties.includes(a) && t.parties.includes(b));
@@ -26,15 +33,14 @@ const laneOf = (map, a, b) => (map.seaLanes || []).find(l => (l.from === a && l.
 /** Durée d'une traversée en tours (= nombre d'étapes en mer) : max(minTurns, ⌈longueur / stageLength⌉). */
 export const seaTravelTurns = length => Math.max(RULES.naval.minTurns, Math.ceil((Number(length) || 0) / RULES.naval.stageLength));
 /**
- * Côte d'arrivée d'une route : la province au bout de la route (son site de port) et ses voisines terrestres
- * côtières de la même île. Le port d'arrivée n'a PAS besoin d'être construit.
+ * V13 (docs/V13-marine.md) : côte d'arrivée d'une route = UNIQUEMENT le point de port au bout de la route
+ * (construit ou non). Plus aucun débarquement sur les provinces voisines.
  */
 export function landingCoast(map, endId) {
   const end = provinceDef(map, endId);
-  if (!end) return [];
-  return [end.id, ...(end.landConnections || []).filter(id => { const d = provinceDef(map, id); return d && d.coastal !== false && d.landmassId === end.landmassId; })];
+  return end ? [end.id] : [];
 }
-/** Routes maritimes au départ d'une province (qu'un port y soit construit ou non). */
+/** Routes maritimes au départ d'une province (qu'un port y soit construit ou non), toujours dans les deux sens. */
 export function seaRoutesFrom(map, fromId) {
   return (map.maritimeRoutes || []).filter(([a, b]) => a === fromId || b === fromId).map(([a, b]) => {
     const via = a === fromId ? b : a, lane = laneOf(map, fromId, via);
@@ -51,20 +57,39 @@ function seaDestinations(map, fromId) {
   }
   return [...out.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
-/** Peut-on embarquer depuis cette province ? { ok, reason } — message clair pour l'interface. */
+/** V13 : point de port = province qui a un emplacement de port sur la carte et une route (construit ou non). */
+export const isPortPoint = (map, id) => Boolean(provinceDef(map, id)?.port) && seaRoutesFrom(map, id).length > 0;
+const ownedPortPoints = (map, state, nationId) => map.provinces.filter(d => state.provinces[d.id]?.ownerId === nationId && isPortPoint(map, d.id));
+/**
+ * Peut-on embarquer depuis cette province ? { ok, reason } — message clair pour l'interface.
+ * V13 : depuis n'importe quel point de port, construit ou non, dès le tour 1 (la possession est vérifiée par l'ordre).
+ */
 export function embarkStatus(map, state, fromId) {
   const d = provinceDef(map, fromId), p = state.provinces[fromId];
   if (!d || !p) return { ok: false, reason: 'Province inconnue' };
-  if (!seaRoutesFrom(map, fromId).length) return { ok: false, reason: `${d.name} n’a pas de route maritime : embarquez depuis une province qui a un port construit.` };
-  if (!p.buildings?.port) return { ok: false, reason: `Pas de port construit à ${d.name} : construisez un port pour embarquer (aucun port n’est nécessaire à l’arrivée).` };
+  if (!isPortPoint(map, fromId)) {
+    const points = ownedPortPoints(map, state, p.ownerId).map(x => x.name);
+    return { ok: false, reason: points.length
+      ? `${d.name} n’a pas de point de port. Embarquez depuis un point de port : ${points.join(', ')}.`
+      : `${d.name} n’a pas de point de port et vous n’en possédez aucun : conquérez un point de port pour prendre la mer.` };
+  }
   return { ok: true, reason: '' };
+}
+/** V13 : explication d'un refus vers une autre île (pas de point de port au départ, ou pas le port d'arrivée) ; '' sinon. */
+export function seaMoveRefusal(map, state, fromId, toId) {
+  const from = provinceDef(map, fromId), to = provinceDef(map, toId);
+  if (!from || !to || from.landmassId === to.landmassId) return '';
+  const st = embarkStatus(map, state, fromId);
+  if (!st.ok) return st.reason;
+  const ends = seaDestinations(map, fromId).map(x => provinceDef(map, x.id)?.name).filter(Boolean);
+  return `On ne débarque qu’au point de port au bout de la route : depuis ${from.name}, la route mène à ${ends.join(', ')}.`;
 }
 
 export function legalDestinations(map, state, fromId) {
-  const p = provinceDef(map, fromId), current = state.provinces[fromId];
+  const p = provinceDef(map, fromId);
   const out = (p?.landConnections || []).map(id => ({ id, type: 'land' }));
-  // V10 : on embarque depuis SON port construit vers toute la côte d'arrivée d'une route partant de ce port.
-  if (current?.buildings?.port) out.push(...seaDestinations(map, fromId).filter(x => !out.some(y => y.id === x.id)));
+  // V13 : depuis un point de port (construit ou non) vers le point de port au bout de chaque route.
+  if (state.provinces[fromId] && embarkStatus(map, state, fromId).ok) out.push(...seaDestinations(map, fromId).filter(x => !out.some(y => y.id === x.id)));
   return out.filter(x => state.provinces[x.id]);
 }
 
@@ -121,6 +146,8 @@ export function queueRecruitment(state, { nationId, provinceId, type, lots = 1 }
   const p = state.provinces[provinceId], r = RULES.units[type], count = Math.max(1, Math.floor(safeNum(lots)));
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
   if (!r) return { ok: false, error: 'Unité inconnue' };
+  // V13 : un navire de guerre exige un port CONSTRUIT et une usine dans la même province (le point de port ne suffit pas).
+  if (r.requiresPort && r.requiresFactory && (!p.buildings.port || !p.buildings.factory)) return { ok: false, error: `Navire de guerre : il faut un port construit et une usine dans cette province (manque : ${[!p.buildings.port && 'port', !p.buildings.factory && 'usine'].filter(Boolean).join(' et ')})` };
   if (r.requiresFactory && !p.buildings.factory) return { ok: false, error: 'Usine requise' };
   if (r.requiresPort && !p.buildings.port) return { ok: false, error: 'Port requis' };
   const cost = r.cost * count;
@@ -133,10 +160,15 @@ export function queueMoveOrder(state, map, { nationId, fromId, toId, units = {},
   const from = state.provinces[fromId], route = legalDestinations(map, state, fromId).find(x => x.id === toId);
   if (!from || from.ownerId !== nationId) return { ok: false, error: 'Origine non contrôlée' };
   if (!route) {
-    // V10 : message clair quand la destination n'est atteignable que par mer depuis une province sans port construit.
-    if (seaDestinations(map, fromId).some(x => x.id === toId)) return { ok: false, error: embarkStatus(map, state, fromId).reason };
+    // V13 : message clair pour une destination sur une autre île (pas de point de port, ou pas le port d'arrivée).
+    const refusal = seaMoveRefusal(map, state, fromId, toId);
+    if (refusal) return { ok: false, error: refusal };
     return { ok: false, error: 'Aucune route visible ou aucun port opérationnel' };
   }
+  // V13 : on n'attaque pas un allié (sauf si la rupture de l'alliance est déjà ordonnée pour cet inter-tour).
+  const targetOwner = state.provinces[toId]?.ownerId;
+  if (targetOwner && targetOwner !== nationId && pairTreaty(state, nationId, targetOwner, 'alliance') && !pendingBreak(state, nationId, targetOwner))
+    return { ok: false, error: 'Province d’un allié : pas d’attaque entre alliés (rompez d’abord l’alliance)' };
   const available = availableForces(state, fromId), committed = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.max(0, Math.floor(safeNum(units[k])))]));
   if (LAND_UNIT_TYPES.some(k => committed[k] > available[k])) return { ok: false, error: 'Ces unités sont déjà réservées dans un autre ordre' };
   const ships = Math.max(0, Math.floor(safeNum(warships)));
@@ -146,18 +178,23 @@ export function queueMoveOrder(state, map, { nationId, fromId, toId, units = {},
   if (ships && route.type !== 'sea') return { ok: false, error: 'Les navires de guerre ne se déplacent que par mer' };
   return queuedOrder(state, { kind: 'move', nationId, fromId, toId, units: committed, warships: ships, routeType: route.type, ...(route.type === 'sea' ? { via: route.via, turns: route.turns } : {}) });
 }
+const pendingBreak = (state, nationId, target) => (state.orders || []).some(o => o.kind === 'diplomacy' && o.action === 'break' && o.status === 'pending' && o.nationId === nationId && o.target === target);
 // Kept as a compatibility name; since V4 this only queues an order.
 export const moveForce = queueMoveOrder;
 
 export function queueDiplomaticOrder(state, { nationId, target, action, offerLevel = .5 }) {
   if(action==='ultimatum')action='ceasefire';
   if (!state.nations[target] || nationId === target) return { ok: false, error: 'Cible invalide' };
-  if (!['war', 'alliance', 'ceasefire'].includes(action)) return { ok: false, error: 'Action indisponible en V5' };
+  if (!['war', 'alliance', 'ceasefire', 'break'].includes(action)) return { ok: false, error: 'Action indisponible en V5' };
   if ((state.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === nationId && o.target === target && o.status === 'pending')) return { ok: false, error: 'Une action envers ce pays est déjà prévue pour l’inter-tour' };
   const atWar = pairWar(state, nationId, target), relation = (state.diplomacy.treaties || []).find(t => t.active !== false && t.parties.includes(nationId) && t.parties.includes(target))?.type || 'neutral';
   if (action === 'ceasefire' && !atWar) return { ok: false, error: 'Aucune guerre active' };
   if (action === 'alliance' && (atWar || relation === 'alliance')) return { ok: false, error: 'Un cessez-le-feu est requis et une alliance existe déjà' };
   if (action === 'war' && atWar) return { ok: false, error: 'Déjà en guerre' };
+  // V13 : pas de guerre entre alliés — il faut d'abord rompre l'alliance (action 'break', résolue en tout début
+  // d'inter-tour ; rompre ET attaquer dans le même tour est une TRAHISON publique).
+  if (action === 'war' && relation === 'alliance') return { ok: false, error: 'Vous êtes alliés : rompez d’abord l’alliance' };
+  if (action === 'break' && relation !== 'alliance') return { ok: false, error: 'Aucune alliance à rompre' };
   let offer = {};
   if (action === 'ceasefire') {
     const level = Number(offerLevel);
@@ -237,10 +274,15 @@ const queueItemCost = q => Number.isFinite(q.cost) ? q.cost : q.kind === 'buildi
 function onCapture(state, provinceId, newOwner, oldOwner) {
   const capital = state.nations[oldOwner]?.capitalId === provinceId;
   if (capital) {
-    if (!state.warChestsClaimed[provinceId]) { state.warChestsClaimed[provinceId] = true; state.nations[newOwner].treasury += RULES.warChestAmount; state.events.push({ turn: state.turn, type: 'war-chest', attacker: newOwner, defender: oldOwner, provinceId, amount: RULES.warChestAmount }); }
-    const amount = Math.floor(Math.max(0, state.nations[oldOwner].treasury) * RULES.capitalPlunderRate);
-    state.nations[oldOwner].treasury -= amount; state.nations[newOwner].treasury += amount;
-    state.events.push({ turn: state.turn, type: 'capital-plunder', attacker: newOwner, defender: oldOwner, provinceId, amount, rate: RULES.capitalPlunderRate });
+    let chest = 0;
+    if (!state.warChestsClaimed[provinceId]) { state.warChestsClaimed[provinceId] = true; chest = RULES.warChestAmount; state.nations[newOwner].treasury += RULES.warChestAmount; state.events.push({ turn: state.turn, type: 'war-chest', attacker: newOwner, defender: oldOwner, provinceId, amount: RULES.warChestAmount }); }
+    // V13 : un minimum garanti (RULES.capitalPlunderMin) — payé même si la victime est pauvre : elle donne ce
+    // qu'elle a, le reste est le butin de la ville (jamais de trésor négatif).
+    const treasury = Math.max(0, state.nations[oldOwner].treasury), share = Math.floor(treasury * RULES.capitalPlunderRate);
+    const amount = Math.max(share, RULES.capitalPlunderMin ?? 0), fromTreasury = Math.min(amount, treasury), loot = amount - fromTreasury;
+    state.nations[oldOwner].treasury -= fromTreasury; state.nations[newOwner].treasury += amount;
+    state.events.push({ turn: state.turn, type: 'capital-plunder', attacker: newOwner, defender: oldOwner, provinceId, amount, fromTreasury, loot, rate: RULES.capitalPlunderRate,
+      warChest: chest });
   }
   // B4 : la production en cours dans la province perdue est annulée et remboursée intégralement à celui qui l'a payée.
   const lost = (state.productionQueue || []).filter(q => q.provinceId === provinceId && q.nationId !== newOwner);
@@ -313,7 +355,10 @@ function aggregateMoves(state, map, orders, fought) {
     else addToProvince(state.provinces[o.toId], force);
     if (owner0[o.toId] === o.nationId) state.events.push({ turn: state.turn, type: 'movement', nationId: o.nationId, fromId: o.fromId, toId: o.toId, amount: unitCount(force) });
   }
-  const attacks = moves.filter(x => owner0[x.toId] !== x.nationId && x.routeType !== 'sea');
+  // V13 : pas d'attaque entre alliés (filet de sécurité : ordre ancien ou injecté) — annulée sans combat.
+  const allyBlocked = moves.filter(x => owner0[x.toId] !== x.nationId && x.routeType !== 'sea' && pairTreaty(state, x.nationId, owner0[x.toId], 'alliance'));
+  for (const o of allyBlocked) state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'ally-land' });
+  const attacks = moves.filter(x => owner0[x.toId] !== x.nationId && x.routeType !== 'sea' && !allyBlocked.includes(x));
   const underAttack = new Set(attacks.map(o => o.toId));
   const group = list => {
     const byNation = new Map();
@@ -381,8 +426,23 @@ function aggregateMoves(state, map, orders, fought) {
 }
 const emptyForceLocal = () => normalizeForce({});
 
+/**
+ * V13 : ruptures d'alliance, résolues AVANT les déplacements. Une rupture accompagnée d'une attaque contre l'ancien
+ * allié dans le même inter-tour (ou d'une déclaration : `war`) est une TRAHISON : guerre ouverte, événement public,
+ * Traître révélé (comportement V11 conservé). Sinon, simple rupture publique (tension +15).
+ */
+function resolveAllianceBreaks(state, orders) {
+  for (const o of orders.filter(x => x.kind === 'diplomacy' && x.action === 'break').sort((a, b) => a.nationId.localeCompare(b.nationId) || a.target.localeCompare(b.target))) {
+    if (state.nations[o.nationId]?.eliminated || state.nations[o.target]?.eliminated || !pairTreaty(state, o.nationId, o.target, 'alliance')) continue;
+    const strikes = o.war || orders.some(m => m.kind === 'move' && m.nationId === o.nationId && state.provinces[m.toId]?.ownerId === o.target);
+    if (strikes) { openWar(state, o.nationId, o.target, 'betrayal'); continue; }
+    state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.type === 'alliance' && t.parties?.includes(o.nationId) && t.parties?.includes(o.target)));
+    addTension(state, o.nationId, o.target, 15, 'alliance-broken');
+    state.events.push({ turn: state.turn, type: 'alliance-broken', nationId: o.nationId, target: o.target });
+  }
+}
 function resolveDiplomacy(state, orders, random, map = null) {
-  for (const o of orders.filter(x => x.kind === 'diplomacy').sort((a,b)=>a.nationId.localeCompare(b.nationId)||a.target.localeCompare(b.target)||a.action.localeCompare(b.action))) {
+  for (const o of orders.filter(x => x.kind === 'diplomacy' && x.action !== 'break').sort((a,b)=>a.nationId.localeCompare(b.nationId)||a.target.localeCompare(b.target)||a.action.localeCompare(b.action))) {
     if (state.nations[o.nationId]?.eliminated || state.nations[o.target]?.eliminated) continue;
     const atWar = pairWar(state, o.nationId, o.target);
     if(o.action==='tribute'){
@@ -429,6 +489,26 @@ function resolveDiplomacy(state, orders, random, map = null) {
     state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0, accepted });
     state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: o.action, amount: o.amount || 0, status: o.action === 'alliance' ? (accepted ? 'accepted' : 'refused') : 'resolved' });
   }
+}
+/**
+ * V13 : propositions d'IA auxquelles `nationId` peut encore répondre (fenêtre Oui / Non après le journal).
+ * Jamais d'alliance proposée par une nation déjà alliée, jamais de trêve hors guerre. `fresh` : seulement celles
+ * reçues à l'inter-tour qui vient d'être résolu.
+ */
+export function proposalsToAnswer(state, nationId = state.playerNationId, { fresh = false } = {}) {
+  return (state.diplomacy?.proposals || []).filter(p => p.to === nationId && p.turn > state.turn - PROPOSAL_TURNS && (!fresh || p.turn === state.turn - 1)
+    && !state.nations[p.from]?.eliminated
+    && (p.action === 'alliance' ? !pairTreaty(state, p.from, nationId, 'alliance') && !pairWar(state, p.from, nationId) : pairWar(state, p.from, nationId)));
+}
+/** V13 : réponse Oui / Non du joueur à une proposition (effet immédiat ; le message n'attend plus de réponse). */
+export function respondToProposal(state, { nationId = state.playerNationId, from, accept } = {}) {
+  const p = proposalsToAnswer(state, nationId).find(x => x.from === from);
+  if (!p) { dropProposals(state, from, nationId); return { ok: false, error: 'Cette proposition n’est plus valable' }; }
+  if (accept) (p.action === 'alliance' ? makeAlliance : makeCeasefire)(state, from, nationId);
+  else { dropProposals(state, from, nationId); addTension(state, nationId, from, 5, 'refusal'); }
+  if (p.talkId && state.talkPending?.[nationId]) state.talkPending[nationId] = state.talkPending[nationId].filter(id => id !== p.talkId);
+  state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId, target: from, action: p.action, accepted: Boolean(accept), amount: 0, viaTalk: true, ...(accept ? {} : { refusedProposal: true }) });
+  return { ok: true, action: p.action, accepted: Boolean(accept) };
 }
 /** Réponse du joueur à une proposition d'une IA : amical = accepte, hostile = refuse. */
 function answerProposals(state, msg) {
@@ -488,7 +568,7 @@ function embark(state, map, o, force) {
     || { via: o.via || o.toId, turns: o.turns || seaTravelTurns(laneOf(map, o.fromId, o.via || o.toId)?.length) };
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   const id = `c${state.transportSequence++}`;
-  state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns: route.turns, ...toLegacy(force) });
+  state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns: route.turns, departed: state.turn, ...toLegacy(force) });
   state.events.push({ turn: state.turn, type: 'convoy-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, convoyId: id, turns: route.turns, escort: force.units.warship, amount: unitCount(force) });
 }
 const laneKey = t => t.lane || [t.fromId, t.via].sort().join('|');
@@ -599,6 +679,14 @@ function resolveTransports(state, map, fought) {
         turnBack(state, t, force, 'ally');
         continue;
       }
+      const truce = (state.diplomacy.treaties || []).find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(t.nationId) && x.parties.includes(target.ownerId));
+      if (truce && (Number.isFinite(t.departed) ? t.departed : -Infinity) < (truce.started ?? 0)) {
+        // V13 : cessez-le-feu conclu APRÈS le départ du convoi (ex. fenêtre Oui / Non) : pas de débarquement, le convoi
+        // rentre. Un convoi parti alors que la trêve existait déjà est une violation délibérée : il débarque (guerre).
+        state.events.push({ turn: state.turn, type: 'attack-cancelled', reason: 'ceasefire', nationId: t.nationId, fromId: t.fromId, provinceId: toId, naval: true });
+        turnBack(state, t, force, 'ceasefire');
+        continue;
+      }
       const g = groups.get(t.nationId) || { nationId: t.nationId, force: emptyForceLocal(), originIds: [], retreatTo: [], mode: 'landing', convoys: [] };
       g.force = mergeForce(g.force, force); g.convoys.push(t);
       if (!g.originIds.includes(t.fromId)) { g.originIds.push(t.fromId); g.retreatTo.push(t.fromId); }
@@ -641,23 +729,29 @@ const seaRouteCount = (map, id) => (map.maritimeRoutes || []).filter(([a, b]) =>
 const hasOrQueued = (state, provinceId, type) => (state.provinces[provinceId]?.buildings?.[type] || 0) > 0
   || (state.productionQueue || []).some(q => q.kind === 'building' && q.provinceId === provinceId && q.type === type)
   || (state.orders || []).some(o => o.kind === 'construction' && o.status === 'pending' && o.provinceId === provinceId && o.type === type);
-const defenseOf = (state, id) => { const p = state.provinces[id]; return combatValue(provinceForce(p)) * RULES.fortDefense[p.buildings.fort || 0]; };
+// V13 : l'IA ne lit que ce qu'elle voit (garnison réelle si visible, sinon estimation prudente : vision.js).
+const defenseOf = (state, id, map, viewer) => { const p = state.provinces[id]; return combatValue(perceivedForce(state, map, viewer, id)) * RULES.fortDefense[p.buildings.fort || 0]; };
 const hostileTo = (state, nationId, owner) => owner && owner !== nationId && !pairTreaty(state, nationId, owner, 'alliance') && !pairTreaty(state, nationId, owner, 'ceasefire');
 // Plus forte menace terrestre immédiate sur une province (forces des voisins hostiles).
 const landThreat = (map, state, nationId, id) => combatValue(landThreatForce(map, state, nationId, id) || normalizeForce({}));
-/** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat). */
+/** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat).
+ *  V13 : telle que `nationId` la voit (troupes invisibles ou retranchées : estimation prudente). */
 function landThreatForce(map, state, nationId, id) {
+  const seen = visibleProvinces(state, map, nationId);
   const forces = (provinceDef(map, id)?.landConnections || []).filter(n => hostileTo(state, nationId, state.provinces[n]?.ownerId))
-    .map(n => { const f = provinceForce(state.provinces[n]); f.units.warship = 0; f.wounds.warship = 0; return f; });
+    .map(n => { const f = perceivedForce(state, map, nationId, n, seen); f.units.warship = 0; f.wounds.warship = 0; return f; });
   return forces.sort((a, b) => combatValue(b) - combatValue(a))[0] || null;
 }
-// Base navale : site portuaire possédé, de préférence déjà équipé, puis celui qui ouvre le plus de routes.
+// Base navale : point de port possédé, de préférence déjà équipé (construit ou en chantier : choix stable),
+// puis (V13, une seule route par point de port) celui dont la route mène à la côte la plus faible.
 function navalBase(map, state, owned) {
-  const score = p => { const b = state.provinces[p.id].buildings; return (b.port ? 2 : 0) + (b.factory ? 1 : 0); };
-  return owned.filter(p => state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0)
-    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || a.id.localeCompare(b.id))[0] || null;
+  const score = p => (hasOrQueued(state, p.id, 'port') ? 2 : 0) + (hasOrQueued(state, p.id, 'factory') ? 1 : 0);
+  const nationId = state.provinces[owned[0]?.id]?.ownerId;
+  const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
+  return owned.filter(p => isPortPoint(map, p.id))
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
 }
-function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null) {
+function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null, focus = new Set()) {
   const treasury = () => state.nations[nationId].treasury;
   if (!base) return;
   const baseState = state.provinces[base.id];
@@ -679,22 +773,49 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
     if (site) queueConstruction(state, { nationId, provinceId: site.id, type: 'port' });
   }
   const ports = owned.filter(p => state.provinces[p.id].buildings.port);
-  // V10 : plus besoin d'un port en face ; toute la côte d'arrivée d'une route partant d'un port construit.
-  const seaLinks = ports.flatMap(p => seaDestinations(map, p.id).map(d => ({ from: p, to: d.id, via: d.via, turns: d.turns, owner: state.provinces[d.id].ownerId })));
+  // V13 : on embarque depuis tout point de port possédé (construit ou non) vers le point de port au bout de la route.
+  const seaLinks = owned.filter(p => isPortPoint(map, p.id)).flatMap(p => seaDestinations(map, p.id).map(d => ({ from: p, to: d.id, via: d.via, turns: d.turns, owner: state.provinces[d.id].ownerId })));
   // 4. Débarquement escorté : au plus un nouveau par tour, et au plus RULES-libre 2 invasions en mer à la fois.
   const invasionsAtSea = (state.transports || []).filter(t => t.nationId === nationId && !t.returning && state.provinces[t.toId]?.ownerId !== nationId).length;
   if (invasionsAtSea < 2) {
     const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
-    targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to) - defenseOf(state, b.to) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
+    // V13 : les nations visées au titre d'une aide promise à un allié passent en premier.
+    targets.sort((a, b) => Number(focus.has(b.owner)) - Number(focus.has(a.owner)) || Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to, map, nationId) - defenseOf(state, b.to, map, nationId) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
     // Marge plus prudente que sur terre : la cible a plusieurs tours pour se renforcer pendant la traversée.
     const margin = (x) => (x.atWar ? Math.max(1.1, threshold - .2) : threshold) + RULES.ai.landingExtraMargin + .05 * (x.turns - RULES.naval.minTurns);
+    let launched = false;
     for (const x of targets) {
       const warships = availableForces(state, x.from.id).warships;
-      if (!warships) continue; // pas d'invasion sans escorte
+      // Pas d'invasion sans escorte… sauf (V13) depuis un point de port sans flotte quand aucun navire ennemi
+      // ne peut intercepter sur la route ni au port d'arrivée.
+      if (!warships && navalThreat(state, nationId, x.from.id, x.via, map) > 0) continue;
       // V10 : simulation de l'interception éventuelle au port d'arrivée, puis du débarquement (mode 'landing').
       const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin(x), 'landing', warships, x.via);
-      if (units) { queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }); break; }
+      if (units) { launched = queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }).ok; break; }
+    }
+    // V13 : rassemblement. On ne débarque qu'au point de port au bout de la route : quand l'armée (souvent sur la
+    // base navale) est sur un autre point de port, elle rejoint par la terre le point de port d'où partira l'invasion,
+    // si la simulation montre qu'avec ce renfort le débarquement réussirait. Embarquement au tour suivant.
+    if (!launched && !(state.orders || []).some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && o.staging)) {
+      for (const x of targets) {
+        if (!availableForces(state, x.from.id).warships && navalThreat(state, nationId, x.from.id, x.via, map) > 0) continue;
+        const donors = (x.from.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId)
+          .sort((a, b) => combatValue(provinceForce(state.provinces[b])) - combatValue(provinceForce(state.provinces[a])) || a.localeCompare(b));
+        const donor = donors[0];
+        if (!donor) continue;
+        const avail = availableForces(state, donor), units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((avail[k] || 0) * .6)]));
+        if (!LAND_UNIT_TYPES.some(k => units[k])) continue;
+        const kept = normalizeForce({ units: Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, (state.provinces[donor].units[k] || 0) - units[k]])) });
+        const threat = landThreatForce(map, state, nationId, donor);
+        if (threat && !holds(kept, threat, state.provinces[donor].buildings.fort || 0)) continue;
+        const here = availableForces(state, x.from.id);
+        const attacker = normalizeForce({ units: Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((here[k] || 0) * .7) + units[k]])) });
+        const target = state.provinces[x.to];
+        if (!resolveCombat({ attacker, defender: scaleForce(perceivedForce(state, map, nationId, x.to), Math.max(1, margin(x))), fortLevel: target.buildings.fort || 0, mode: 'landing' }).captured) continue;
+        const r = queueMoveOrder(state, map, { nationId, fromId: donor, toId: x.from.id, units });
+        if (r.ok) { state.orders.find(o => o.id === r.orderId).staging = x.to; break; }
+      }
     }
   }
   // 5. Renfort par mer d'une tête de pont menacée ou en première ligne (au plus un par tour), escorté si possible.
@@ -710,7 +831,7 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
     const threat = landThreatForce(map, state, nationId, x.from.id);
     if (threat && !holds(normalizeForce({ units: kept }), threat, state.provinces[x.from.id].buildings.fort || 0)) continue;
     // Escorte si la route est menacée par des navires ennemis (port au bout de la route ou convoi ennemi armé).
-    const risky = navalThreat(state, nationId, x.from.id, x.via) > 0;
+    const risky = navalThreat(state, nationId, x.from.id, x.via, map) > 0;
     const warships = risky ? Math.floor(available.warships / 2) : 0;
     if (risky && !warships) continue;
     queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships });
@@ -736,10 +857,12 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
 }
 const laneKeyOf = t => t.lane || [t.fromId, t.via].sort().join('|');
 /** Menace navale sur une route : navires ennemis (en guerre) à quai au bout de la route, ou convois armés en guerre sur la route. */
-function navalThreat(state, nationId, fromId, via) {
+function navalThreat(state, nationId, fromId, via, map = null) {
   const key = [fromId, via].sort().join('|');
   const harbor = state.provinces[via];
-  let n = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && pairWar(state, nationId, harbor.ownerId) ? harbor.warships || 0 : 0;
+  // V13 : navires à quai tels que l'IA les voit (port lointain non visible : estimation prudente).
+  const docked = () => map ? perceivedForce(state, map, nationId, via).units.warship : harbor.warships || 0;
+  let n = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && pairWar(state, nationId, harbor.ownerId) ? docked() : 0;
   for (const t of state.transports || []) if (laneKeyOf(t) === key && t.nationId !== nationId && pairWar(state, nationId, t.nationId)) n += t.warships || 0;
   return n;
 }
@@ -766,10 +889,10 @@ function warTargets(state, map, id, arch) {
     if (state.turn >= startTurn) {
       const prey = alive.filter(n => !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n))
         .filter(n => { const t = state.diplomacy.treaties.find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n)); return !t || state.turn - t.started >= 5; })
-        .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || strengthOf(state, a) - strengthOf(state, b) || a.localeCompare(b));
+        .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
       if (prey.length && !out.size) out.add(prey[0]);
       // Assez fort : une deuxième proie.
-      if (prey.length > 1 && strengthOf(state, id) > 1.5 * strengthOf(state, prey[1])) out.add(prey[1]);
+      if (prey.length > 1 && strengthOf(state, id) > 1.5 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
     }
   }
   if (arch === 'heros') {
@@ -810,7 +933,7 @@ function traitorState(state, map, id) {
 }
 const pendingDiplo = (state, id, target) => (state.orders || []).some(o => o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === id && o.target === target);
 /** Diplomatie IA (B9) : alliances et trêves proposées selon la personnalité. */
-function aiDiplomacy(state, map, id, arch, targets) {
+function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
   const alive = aliveNations(state).filter(n => n !== id), mem = aiMemory(state, id);
   const propose = (target, action, level = .25) => {
     if (pendingDiplo(state, id, target) || state.nations[target]?.eliminated) return;
@@ -822,7 +945,8 @@ function aiDiplomacy(state, map, id, arch, targets) {
   for (const n of alive) {
     const war = pairWar(state, id, n), ally = pairTreaty(state, id, n, 'alliance');
     if (war) {
-      const losing = strengthOf(state, id) < .7 * strengthOf(state, n), since = state.turn - (state.diplomacy.wars.find(w => w.participants.includes(id) && w.participants.includes(n))?.started ?? state.turn);
+      if (helpTargets.has(n)) continue; // V13 : engagé aux côtés d'un allié, il ne demande pas la paix
+      const losing = strengthOf(state, id) < .7 * perceivedStrength(state, map, id, n), since = state.turn - (state.diplomacy.wars.find(w => w.participants.includes(id) && w.participants.includes(n))?.started ?? state.turn);
       if (arch === 'batisseur' && since >= 2) propose(n, 'ceasefire', .25);
       else if (arch === 'conquerant' && losing && since >= 4) propose(n, 'ceasefire', .25);
       else if (arch === 'heros' && since >= 6 && !recentAggressions(state, 8).some(a => a.attacker === n)) propose(n, 'ceasefire', .25);
@@ -841,13 +965,20 @@ function aiPlan(state, map, nationId) {
   const arch = archetypeOf(state, nationId) || 'batisseur';
   const base = navalBase(map, state, owned);
   const targets = warTargets(state, map, nationId, arch);
-  aiDiplomacy(state, map, nationId, arch, targets);
+  // V13 : engagements pris auprès d'un allié (demande d'aide acceptée) : guerre déclarée et attaques contre X.
+  const helpTargets = helpWarTargets(state, map, nationId);
+  for (const x of helpTargets) {
+    targets.add(x);
+    if (!pairWar(state, nationId, x) && !pendingDiplo(state, nationId, x)) queueDiplomaticOrder(state, { nationId, target: x, action: 'war' });
+  }
+  aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
+  if (arch === 'traitre') traitorPrepare(state, nationId);
   const treasury = () => spendableTreasury(state, nationId);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
   const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
-  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch);
+  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
   // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
   // n'achète ni infanterie ni banque (sinon le trésor ne permet jamais d'armer un navire : IA passive de la V10).
   const ships = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + (state.transports || []).filter(t => t.nationId === nationId).reduce((n, t) => n + (t.warships || 0), 0)
@@ -868,12 +999,12 @@ function aiPlan(state, map, nationId) {
   }
   if (!saving && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
   if (arch === 'conquerant' && !saving && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
-  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch);
+  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
     return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||arch==='conquerant')&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
-  attacks.sort((a,b)=>Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to)-defenseOf(state,b.to)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
+  attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
   const threshold = ARCH_MARGIN[arch];
@@ -882,33 +1013,62 @@ function aiPlan(state, map, nationId) {
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
     if (units) { queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }); break; }
   }
+  if (activeHelpPacts(state, nationId).some(p => p.kind === 'defend')) helpReinforce(state, map, nationId, owned, base);
   if (arch === 'traitre') traitorStrike(state, nationId);
+}
+/**
+ * V13 : un allié engagé à défendre masse ses renforts sur sa base navale (le point de départ vers la frontière
+ * menacée : sur Arken, toutes les frontières entre nations passent par la mer) : 40 % des troupes disponibles de sa
+ * province la mieux garnie, sans dégarnir une province menacée. Au plus un renfort par tour.
+ */
+function helpReinforce(state, map, nationId, owned, base) {
+  if (!base) return;
+  const value = id => combatValue({ units: availableForces(state, id) });
+  const from = owned.filter(p => p.id !== base.id && (p.landConnections || []).includes(base.id) && !landThreat(map, state, nationId, p.id))
+    .sort((a, b) => value(b.id) - value(a.id) || a.id.localeCompare(b.id))[0];
+  if (!from || value(from.id) < combatValue({ units: { infantry: 40 } })) return;
+  const available = availableForces(state, from.id), units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * .4)]));
+  if (!LAND_UNIT_TYPES.some(k => units[k])) return;
+  const r = queueMoveOrder(state, map, { nationId, fromId: from.id, toId: base.id, units });
+  if (r.ok) state.orders.find(o => o.id === r.orderId).help = true;
 }
 /**
  * Le coup du Traître : une invasion part vers son allié (ou le délai est largement dépassé) → il rompt l'alliance
  * par une déclaration de guerre résolue dans le même inter-tour (TRAHISON publique, Traître révélé).
  */
-function traitorStrike(state, nationId) {
+// V13 : pas de guerre entre alliés — le Traître ROMPT d'abord l'alliance (ordre 'break' préparé avant ses attaques,
+// pour qu'il puisse viser son allié), puis frappe dans le même inter-tour : c'est la trahison (V11 conservé).
+function traitorPrepare(state, nationId) {
   const mem = aiMemory(state, nationId), mark = mem.mark;
   if (!mark || !pairTreaty(state, nationId, mark, 'alliance') || state.turn < mem.strikeTurn) return;
-  const invading = (state.orders || []).some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && state.provinces[o.toId]?.ownerId === mark);
-  if (invading || state.turn >= mem.strikeTurn + 6) {
-    state.orders = state.orders.filter(o => !(o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === nationId && o.target === mark));
-    queueDiplomaticOrder(state, { nationId, target: mark, action: 'war' });
-  }
+  state.orders = state.orders.filter(o => !(o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === nationId && o.target === mark));
+  // Délai largement dépassé : rupture + déclaration de guerre, même sans invasion prête.
+  const r = queueDiplomaticOrder(state, { nationId, target: mark, action: 'break' });
+  if (r.ok && state.turn >= mem.strikeTurn + 6) state.orders.find(o => o.id === r.orderId).war = true;
+}
+/** Sans invasion lancée contre son allié (et avant la limite), le Traître garde son masque : rupture annulée. */
+function traitorStrike(state, nationId) {
+  const mem = aiMemory(state, nationId), mark = mem.mark;
+  const brk = (state.orders || []).find(o => o.kind === 'diplomacy' && o.action === 'break' && o.status === 'pending' && o.nationId === nationId && o.target === mark);
+  if (!brk || brk.war) return;
+  const invading = state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && state.provinces[o.toId]?.ownerId === mark);
+  if (!invading) state.orders.splice(state.orders.indexOf(brk), 1);
 }
 /** Plus petite part (35 %, 50 %, 70 %) des forces disponibles qui prend la cible en simulation, ou null. */
 function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, warships = 0, via = null) {
   const available = availableForces(state, fromId), target = state.provinces[toId];
   // Débarquement : flotte ennemie qui peut intercepter au port d'arrivée (navires à quai, en guerre ou cible du débarquement).
   const harbor = via ? state.provinces[via] : null;
-  const interceptors = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && harbor.warships > 0 && (pairWar(state, nationId, harbor.ownerId) || harbor.ownerId === target.ownerId)
-    ? scaleForce(legacyForce({ warships: harbor.warships }), Math.max(1, margin)) : null;
-  const defense = scaleForce(provinceForce(target), Math.max(1, margin));
+  // V13 : l'IA ne voit que ce que sa vision lui montre (vision.js) ; sinon elle suppose une garnison prudente.
+  const seen = visibleProvinces(state, map, nationId);
+  const harborShips = harbor ? perceivedForce(state, map, nationId, via, seen).units.warship : 0;
+  const interceptors = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && harborShips > 0 && (pairWar(state, nationId, harbor.ownerId) || harbor.ownerId === target.ownerId)
+    ? scaleForce(legacyForce({ warships: harborShips }), Math.max(1, margin)) : null;
+  const defense = scaleForce(perceivedForce(state, map, nationId, toId, seen), Math.max(1, margin));
   const home = provinceForce(state.provinces[fromId]);
   for (const share of RULES.ai.attackShares) {
     const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * share)]));
-    if (!LAND_UNIT_TYPES.some(k => units[k] && k !== 'balloon')) continue;
+    if (!LAND_UNIT_TYPES.some(k => units[k])) continue;
     let { taken, rest } = splitForce(home, { ...units, warship: warships });
     if (interceptors) {
       const sea = resolveBattle({ defender: taken, attackers: [{ id: 'x', force: interceptors }], naval: true });
@@ -962,19 +1122,21 @@ export function eventKnownToPlayer(state, map, event) {
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal'].includes(event.type)) return true;
+  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken'].includes(event.type)) return true;
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
   if (event.type === 'tension') return false;
   if ((event.attackers || []).includes(player)) return true;
   if (event.provinceId && state.provinces[event.provinceId]?.ownerId === player) return true;
   if (!event.provinceId) return event.type === 'diplomatic-action' && [event.nationId,event.target].includes(player);
-  return map.provinces.some(p => state.provinces[p.id].ownerId === player && (state.provinces[p.id].units.balloon || 0) > 0 && p.landConnections.includes(event.provinceId));
+  // V13 : la règle « ballon » est remplacée par la vision (province visible du joueur ou de ses alliés).
+  return visibleProvinces(state, map, player).has(event.provinceId);
 }
 /** Le joueur est-il partie prenante de l'événement (attaquant, défenseur, cible…) ? */
 export function eventInvolvesNation(event, nationId) {
   if (!nationId) return false;
   return [event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.attackers||[])].includes(nationId);
 }
+// `balloon` : seulement pour relire les événements d'anciennes parties (le ballon est supprimé en V13).
 const LABELS_LOSS = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'canons', balloon:'ballons', warship:'navires' };
 const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${LABELS_LOSS[k] || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
 /**
@@ -1006,7 +1168,11 @@ export function journalEntry(event, map, playerNationId = null) {
         text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,winner)} prend la province.${lossDetails()}` };
     }
     case 'capital-plunder': return { priority:4, type:'PILLAGE', category: event.attacker===playerNationId?'conquest':event.defender===playerNationId?'lost':'foreign-conflict', public:true,
-      text:`Capitale prise : ${nationName(map,event.attacker)} s’empare de ${where} et pille ${safeNum(event.amount)} or du trésor de ${nationName(map,event.defender)} (${Math.round((event.rate ?? RULES.capitalPlunderRate)*100)} %).` };
+      text: event.loot > 0 && !(event.fromTreasury > 0)
+        ? `Capitale prise : ${nationName(map,event.attacker)} s’empare de ${where} et pille ${safeNum(event.amount)} or de butin (trésor ${deName(nationName(map,event.defender))} vide : minimum garanti).`
+        : event.loot > 0
+        ? `Capitale prise : ${nationName(map,event.attacker)} s’empare de ${where} et pille ${safeNum(event.amount)} or (minimum garanti : ${safeNum(event.fromTreasury)} or du trésor ${deName(nationName(map,event.defender))}, ${safeNum(event.loot)} or de butin).`
+        : `Capitale prise : ${nationName(map,event.attacker)} s’empare de ${where} et pille ${safeNum(event.amount)} or du trésor ${deName(nationName(map,event.defender))} (${Math.round((event.rate ?? RULES.capitalPlunderRate)*100)} %).` };
     case 'elimination': return { priority:4, type:'ÉLIMINATION', category: event.nationId===playerNationId?'lost':'foreign-conflict', public:true, text:`${nationName(map,event.nationId)} n’a plus aucune province : la nation est éliminée.` };
     case 'field-battle': return { priority:3, type: involved && playerNationId !== null ? 'COMBAT' : 'AFFRONTEMENT', category: involved && playerNationId !== null ? 'combat' : 'foreign-conflict', public:true,
       text:`Affrontement en rase campagne entre ${nationName(map,event.attacker)} et ${nationName(map,event.defender)}, entre ${provinceDef(map,event.fromId)?.name || '?'} et ${where} : les deux armées se sont croisées.${lossDetails()}` };
@@ -1036,11 +1202,17 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'tension': {
       const other = event.nationId === playerNationId ? event.target : event.nationId;
       return { priority: event.label === 'au bord de la guerre' ? 3 : 2, type:'TENSION', category:'tension',
-        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)}/100).${event.label === 'au bord de la guerre' ? ' Le risque de guerre est élevé.' : ''}` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)}/100).` };
+        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).${event.label === 'au bord de la guerre' ? ' Le risque de guerre est élevé.' : ''}` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` };
     }
+    // V13 : alliances (rupture, demandes d'aide).
+    case 'alliance-broken': return { priority:4, type:'DIPLOMATIE', category:'blue', public:true,
+      text:`${nationName(map,event.nationId)} rompt son alliance avec ${event.target === playerNationId ? 'vous' : nationName(map,event.target)}.` };
+    case 'help-answer': case 'help-broken': case 'help-ended': return { priority: event.type === 'help-ended' ? 2 : 4, type:'AIDE', category: event.type === 'help-broken' || (event.type === 'help-answer' && !event.accepted) ? 'help-refused' : 'help', text: helpJournalText(event, map, playerNationId) };
     case 'game-over': return { priority:5, type:'FIN DE PARTIE', category: event.winnerId===playerNationId?'conquest':'foreign-conflict', public:true,
       text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,event.winnerId)} mène le classement.` : `Fin de la partie au tour ${safeNum(event.turn)} : ${nationName(map,event.winnerId)} termine en tête du classement.` };
-    case 'attack-cancelled': if (event.reason === 'ally') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : la province appartient à un allié. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
+    case 'attack-cancelled': if (event.reason === 'ally-land') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Attaque vers ${where} annulée : pas de guerre entre alliés.` };
+      if (event.reason === 'ceasefire') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : un cessez-le-feu a été conclu pendant la traversée. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
+      if (event.reason === 'ally') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : la province appartient à un allié. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
       return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
     case 'production-lost': return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
     case 'retreat-lost': if (event.naval) return { priority:2, type:'MARINE', category:'lost', text:`Des navires n’ont plus de port où rentrer (${where} perdue) : ${safeNum(event.amount)} unités perdues en mer.` };
@@ -1048,7 +1220,7 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'ceasefire-offer': return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,event.target)}.`:`Cessez-le-feu refusé par ${nationName(map,event.target)} ; aucun paiement n’a été débité.`};
     case 'war-chest': return { priority:2,type:'économie',category:'neutral',text:`Trésor de guerre reçu après la prise de ${where} : +${safeNum(event.amount)}.` };
     case 'diplomacy': return { priority:2,type:'diplomatie',category:'blue',text:event.relation==='war'?(event.reason==='combat'?`${nationName(map,event.nationId)} attaque ${nationName(map,event.target)} : les deux nations sont désormais en guerre.`:`${nationName(map,event.nationId)} et ${nationName(map,event.target)} sont désormais en guerre.`):`Relation modifiée entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` };
-    case 'diplomatic-action': if (event.proposal) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${nationName(map,event.nationId)} ${event.target===playerNationId?'vous ':''}propose ${event.action==='alliance'?'une alliance':'un cessez-le-feu'}${event.target===playerNationId?' : répondez dans les Échanges (amical = accepter, hostile = refuser).':` à ${nationName(map,event.target)}.`}` };
+    case 'diplomatic-action': if (event.proposal) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${nationName(map,event.nationId)} ${event.target===playerNationId?'vous ':''}propose ${event.action==='alliance'?'une alliance':'un cessez-le-feu'}${event.target===playerNationId?' : répondez Oui ou Non dans la fenêtre qui suit ce journal.':` à ${nationName(map,event.target)}.`}` };
       if (event.viaTalk) return { priority:3, type:'DIPLOMATIE', category:'blue', text:`${event.action==='alliance'?(event.accepted?'Alliance conclue':'Alliance refusée'):(event.accepted?'Cessez-le-feu conclu':'Cessez-le-feu refusé')} entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` };
       if (event.action==='alliance' && event.accepted!==undefined) return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.accepted ? `Alliance conclue entre ${nationName(map,event.nationId)} et ${nationName(map,event.target)}.` : `${nationName(map,event.target)} refuse l’alliance proposée par ${nationName(map,event.nationId)}.` };
       return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'})[event.action] || 'Action diplomatique'} résolue avec ${nationName(map,event.target)}.` };
@@ -1070,7 +1242,7 @@ function aggregateEntries(entries) {
   return [...merged.values()];
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
-  const priority = new Set(['battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension']);
+  const priority = new Set(['battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;
@@ -1133,6 +1305,7 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   state.turnPhase='resolving-inter-turn';
   const fought = new Set(); // provinces où un combat a eu lieu ce tour (pas de guérison)
   const eventStart = state.events.length;
+  resolveAllianceBreaks(state,locked);
   aggregateMoves(state,map,locked,fought);
   resolveDiplomacy(state,locked,random,map);
   resolveProjects(state,locked);
@@ -1170,7 +1343,10 @@ function resolveTalk(state, map, locked, eventStart) {
     answerProposals(state, msg);
     published.push(msg);
   }
+  // V13 : réponses des alliés aux demandes d'aide (avant les paroles des IA : elles comptent dans le quota).
+  resolveHelpRequests(state, map, locked);
   aiTalk(state, map, { published, turnEvents: state.events.slice(eventStart) });
+  expireHelpPacts(state);
   // Propositions des IA expirées.
   state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => p.turn > state.turn - PROPOSAL_TURNS && !state.nations[p.from]?.eliminated);
   driftTension(state);

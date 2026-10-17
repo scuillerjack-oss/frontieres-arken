@@ -15,11 +15,19 @@ export function toneMeta(tone) { return TONES[tone] || TONES.neutre; }
 const CRESTS = Object.freeze({ stag: '🦌', lion: '🦁', serpent: '🐍', wolf: '🐺', sun: '☀' });
 export function crestGlyph(crest) { return CRESTS[crest] || '✦'; }
 
-/** Ids des échanges adressés au joueur et en attente de réponse (state.talkPending, quelle que soit sa clé). */
+/**
+ * Ids des échanges adressés au joueur et en attente de réponse (state.talkPending, quelle que soit sa clé).
+ * V13 : une conversation se termine — un message auquel le joueur a déjà répondu (réponse publiée ou réponse
+ * prête à partir à la fin du tour) n'attend plus rien : plus de bouton « Répondre », badge effacé.
+ */
 export function pendingTalkIds(state, playerNationId = state.playerNationId) {
   const talk = state.talk || [], ids = new Set();
   for (const list of Object.values(state.talkPending || {})) for (const id of list || []) ids.add(id);
-  return new Set(talk.filter(m => ids.has(m.id) && m.to === playerNationId && m.from !== playerNationId).map(m => m.id));
+  const answered = new Set([
+    ...talk.filter(m => m.from === playerNationId && m.replyTo).map(m => m.replyTo),
+    ...(state.orders || []).filter(o => o.kind === 'talk' && o.status === 'pending' && o.nationId === playerNationId && o.replyTo).map(o => o.replyTo)
+  ]);
+  return new Set(talk.filter(m => ids.has(m.id) && !answered.has(m.id) && m.to === playerNationId && m.from !== playerNationId).map(m => m.id));
 }
 /** Nombre affiché sur le badge du bouton « Échanges ». */
 export function talkBadgeCount(state, playerNationId = state.playerNationId) {
@@ -40,8 +48,9 @@ export function talkFeed(state, playerNationId = state.playerNationId, { limit =
 }
 
 // Libellés de tension du contrat, du plus calme au plus dangereux.
-export const TENSION_LABELS = Object.freeze(['calme', 'tendu', 'hostile', 'au bord de la guerre']);
-/** Jauge 0–100 : pourcentage borné, rang du libellé (0..3) et classe CSS. */
+// V13 : « en guerre » (rang 4) remplace le palier dès que les deux nations sont en guerre.
+export const TENSION_LABELS = Object.freeze(['calme', 'tendu', 'hostile', 'au bord de la guerre', 'en guerre']);
+/** Jauge 0–100 : pourcentage borné, rang du libellé (0..4) et classe CSS. */
 export function tensionGauge(level) {
   const value = Math.max(0, Math.min(100, Math.round(Number(level?.value) || 0)));
   const rank = Math.max(0, TENSION_LABELS.indexOf(level?.label));

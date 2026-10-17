@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { queueDiplomaticOrder, setRelation, resolveInterturn, spendableTreasury, queueRecruitment } from '../src/domain/game-engine.js';
+import { queueDiplomaticOrder, setRelation, resolveInterturn, spendableTreasury, queueRecruitment, queueMoveOrder } from '../src/domain/game-engine.js';
 import { diplomacyActions, relationWithPlayer } from '../src/presentation/v3-ux.js';
 import { ceasefireOffers } from '../src/presentation/v5-ux.js';
 import { map, freshState } from './helpers/fixtures.js';
@@ -85,12 +85,20 @@ test('aléa de la diplomatie déterministe : seededRandom dépend de state.seed 
   assert.equal(run()[0], 1);
 });
 
-test('attaquer une nation alliée rompt l\'alliance et déclare la guerre', () => {
+// V13 (changement voulu, décision de Jack) : pas de guerre entre alliés. Une attaque contre un allié est annulée
+// sans combat ; pour attaquer, il faut rompre l'alliance (rompre + attaquer dans le même tour = trahison).
+test('V13 : attaquer une nation alliée est impossible ; rompre puis attaquer = trahison et guerre', () => {
   const s = freshState({ allHuman: true });
   setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
-  s.orders.push({ id: 'z', kind: 'move', nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
+  s.orders.push({ id: 'z', kind: 'move', nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
+  resolveInterturn(s, map);
+  assert.equal(relationWithPlayer(s, 'roc-epine'), 'alliance', 'l\'alliance tient');
+  assert.ok(s.events.some(e => e.type === 'attack-cancelled' && e.reason === 'ally-land'));
+  assert.equal(queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'roc-epine', action: 'break' }).ok, true);
+  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10 } }).ok, true, 'rupture ordonnée : l\'attaque devient possible');
   resolveInterturn(s, map);
   assert.equal(relationWithPlayer(s, 'roc-epine'), 'war');
+  assert.ok(s.events.some(e => e.type === 'betrayal' && e.nationId === 'valmorne'));
 });
 
 test('B3 corrigé : le journal indique à qui la somme du cessez-le-feu est versée', async () => {
