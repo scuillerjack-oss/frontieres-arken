@@ -50,3 +50,32 @@
 
 ## Hors périmètre
 Pas de remboursement des ballons dans les anciennes parties (Jack recommence une partie à chaque bêta).
+
+## Réalisé (V13.0.0, 17/10/2026)
+Travail en 3 équipes parallèles (une branche chacune), fusionnées sur `mission/V13-mer-vision-alliances`.
+Détails : `docs/V13-marine.md`, `docs/V13-vision.md`, `docs/V13-alliances-echanges.md`.
+
+- **Mer** : anneau de 5 routes droites, toutes en 2 tours : Branvale p03 ↔ Nordhème p14, Glacenoire p13 ↔ Noireflamme p09,
+  Grèsrouge p11 ↔ Lunémont p19, Aurorelle p17 ↔ Belrivage p07, Roc-Épine p05 ↔ Sylvaren p02. Ancres de port déplacées pour
+  traverser les détroits ; aucun croisement (vérifié par test géométrique). Embarquement depuis tout point de port possédé
+  dès le tour 1, débarquement uniquement au point de port d'en face ; un point de port conquis permet de rembarquer.
+  Navire de guerre = port construit + usine. Ports aux couleurs du propriétaire (pointillés = point d'embarquement,
+  plein cerclé d'or = port construit) ; routes neutres, plus de jaune.
+- **Vision** : ballon supprimé (schéma de sauvegarde 9, ballons retirés sans remboursement). Une troupe terrestre révèle
+  les provinces voisines par la terre ; jamais par la mer. Forteresse ennemie = troupes cachées, bâtiments visibles.
+  Alliés : vision partagée. L'IA utilise le même brouillard (estimation prudente `RULES.vision` quand elle ne voit pas).
+- **PV** : une ligne « Régiment : X PV · Y dégâts par assaut », avec la composition en petit dessous.
+- **Alliances** : pas de guerre ni d'attaque entre alliés (action « Rompre l'alliance » ; rompre puis attaquer = trahison).
+  Demandes d'aide « Défends-moi » / « Attaque X avec moi », réponse selon le caractère, effet réel 5 tours.
+  Propositions (alliance, cessez-le-feu) dans une fenêtre Oui / Non après le journal ; plus de proposition d'un allié.
+- **Échanges** : plus de 150 répliques, hostiles piquantes sans insulte ; conversation close (plus de « Répondre »,
+  badge effacé, pas d'écho) ; tension en % ; « En guerre » dès qu'il y a guerre ; menace +20.
+- **Début de partie** : récit « Quatre masques ». **Capitale** : fenêtre « 👑 Capitale conquise ! Vous pillez X or »
+  avec minimum garanti `RULES.capitalPlunderMin = 60`, et « Votre capitale est tombée ».
+- **Écran** : la grille ne dépasse plus la largeur du téléphone (débordait de 11 px à 393 px) ; version toujours visible ;
+  liseré bleu 28 px au lieu de 16.
+
+### À surveiller en bêta
+- L'IA prend moins la mer (brouillard + anneau) : environ 50 débarquements sur 60 tours contre 105 en V12.
+- 4 capitales sur 5 sont des points de port ; Glacenoire ↔ Noireflamme relie deux capitales.
+- Deux bases navales face à face peuvent s'accumuler sans s'attaquer.
