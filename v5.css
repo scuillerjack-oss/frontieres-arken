@@ -76,7 +76,6 @@ nav #nextTurn{flex:1.2;min-width:0;background:#24323a;border-color:#8c7449;borde
 .province-label .building{fill:#fff4d6;font-size:34px;stroke:#06121a;stroke-width:7px}
 .province-label .marker{fill:#131f26;stroke:#f5d88a;stroke-width:5}
 .route.maritime{fill:none;stroke:#e9f8ff;stroke-width:5;stroke-dasharray:18 14;stroke-linecap:round;opacity:.55}
-.route.maritime.open{opacity:.95;stroke-width:6}
 .port-marker circle{fill:#0d2230;stroke:#e9f8ff;stroke-width:4;opacity:.75}
 .port-marker text{fill:#e9f8ff;font:700 26px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;opacity:.75}
 .port-marker.built circle{stroke:#ffe17d;opacity:1}
@@ -137,11 +136,10 @@ nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
 .route.maritime path{fill:none;stroke-linecap:round;stroke-linejoin:round}
 .route.maritime .casing{stroke:#04131d;stroke-opacity:.7;stroke-width:calc(13px * var(--line,1))}
 .route.maritime .dash{stroke:#f2fbff;stroke-width:calc(6px * var(--line,1));stroke-dasharray:calc(22px * var(--line,1)) calc(13px * var(--line,1))}
-.route.maritime.open .casing{stroke:#1a1203;stroke-opacity:.8;stroke-width:calc(15px * var(--line,1))}
-.route.maritime.open .dash{stroke:#ffe17d;stroke-width:calc(7px * var(--line,1))}
+/* V13 : routes neutres (plus d'état jaune « open ») ; point d'embarquement = pastille pointillée aux couleurs du propriétaire. */
 .port-marker circle{fill:var(--port,#0d2230);stroke:#071722;stroke-width:5;opacity:1}
 .port-marker text{fill:#fff;font:800 28px system-ui,sans-serif;opacity:1;paint-order:stroke;stroke:#071722;stroke-width:4px}
-.port-marker.site circle{fill:#0d2230;fill-opacity:.82;stroke:var(--port,#e9f8ff);stroke-width:5;stroke-dasharray:7 6}
+.port-marker.site circle{fill:#0d2230;fill-opacity:.82;stroke:var(--port,#e9f8ff);stroke-width:6;stroke-dasharray:9 5}
 .port-marker.site text{fill:var(--port,#e9f8ff);stroke:#071722;font-size:24px}
 .port-marker.built circle{stroke:#ffe17d;stroke-width:6}
 .port-marker.built text{fill:#fff}

@@ -64,13 +64,16 @@ test('V10 point 5 : la flèche part du point de départ et pointe sur le point (
 });
 
 test('V10 point 5 : par mer, la flèche suit la route puis termine sur le point, même sans port à l\'arrivée', () => {
-  const lane = map.seaLanes.find(l => l.waypoints.length >= 2);
+  // V13 : les routes de l'anneau sont droites ; on ajoute 2 points de passage à une route pour tester le tracé.
+  const base = map.seaLanes[0], A = map.provinces.find(p => p.id === base.from).port.anchor, B = map.provinces.find(p => p.id === base.to).port.anchor;
+  const lane = { ...base, waypoints: [{ x: A.x + (B.x - A.x) / 3, y: A.y + (B.y - A.y) / 3 + 5 }, { x: A.x + 2 * (B.x - A.x) / 3, y: A.y + 2 * (B.y - A.y) / 3 - 5 }] };
+  const wmap = { ...map, seaLanes: [lane, ...map.seaLanes.slice(1)] };
   const to = map.provinces.find(p => p.id === lane.to);
-  const path = orderPath(map, { fromId: lane.from, toId: lane.to, routeType: 'sea' });
+  const path = orderPath(wmap, { fromId: lane.from, toId: lane.to, routeType: 'sea' });
   assert.deepEqual(path.at(-1), to.markerAnchor);
   for (const w of lane.waypoints) assert.ok(path.includes(w));
   // Province d'arrivée sans port : la route existe quand même (bloquant bêta V9, point 14).
-  const noPort = { ...map, provinces: map.provinces.map(p => p.id === lane.to ? { ...p, port: null } : p) };
+  const noPort = { ...wmap, provinces: map.provinces.map(p => p.id === lane.to ? { ...p, port: null } : p) };
   const path2 = orderPath(noPort, { fromId: lane.from, toId: lane.to, routeType: 'sea' });
   assert.deepEqual(path2.at(-1), to.markerAnchor);
   assert.ok(path2.length >= lane.waypoints.length + 2);
@@ -137,10 +140,13 @@ test('V10 : nouvelles catégories du journal stylées (pillage, élimination, af
   for (const e of events) assert.notEqual(journalCategoryClass(journalEntry(e, map, 'valmorne').type), 'neutral', e.type);
 });
 
-test('V10 marine : aide « maritime » à jour (un seul port au départ, durée, interception, escorte)', () => {
+test('V13 marine : aide « maritime » à jour (anneau, points de port, durée, interception, escorte)', () => {
   const text = TUTORIAL_GUIDE.find(x => x.id === 'maritime').text;
-  assert.match(text, /port construit dans la province de départ/);
-  assert.match(text, /aucun port n’est nécessaire en face/);
+  assert.match(text, /anneau/);
+  assert.match(text, /point de port ⚓ que l’on possède \(construit ou non, dès le tour 1\)/);
+  assert.match(text, /débarque uniquement au point de port au bout de la route/);
+  assert.match(text, /port construit \+ une usine/);
+  assert.doesNotMatch(text, /voisines côtières/);
   assert.match(text, /2 tours au minimum/);
   assert.match(text, /intercepter/);
   assert.match(text, /escorter/);

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { RULES } from '../src/domain/constants.js';
-import { legalDestinations, queueMoveOrder, resolveInterturn, seaTravelTurns, landingCoast, embarkStatus, journalEntry, checkGameOver, gameRanking, capitalsVictor, setRelation } from '../src/domain/game-engine.js';
+import { legalDestinations, queueMoveOrder, resolveInterturn, seaTravelTurns, landingCoast, journalEntry, checkGameOver, gameRanking, capitalsVictor, setRelation } from '../src/domain/game-engine.js';
 import { migrateSave, encodeSave, decodeSave } from '../src/persistence/save-codec.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
@@ -18,35 +18,18 @@ const war = (s, a, b) => s.diplomacy.wars.push({ active: true, participants: [a,
 const check = (s, label) => assertInvariants(s, label);
 
 // --- Embarquement -----------------------------------------------------------------------------------------------
-test('embarquement : impossible sans port construit au départ, avec un message clair', () => {
+// V13 : les règles d'embarquement / débarquement de la V10 (port CONSTRUIT au départ, débarquement sur les voisines
+// côtières) sont remplacées par les points de port de l'anneau : voir tests/marine-v13.test.js.
+test('embarquement : aucun port à l\'arrivée n\'est nécessaire (V13 : ni au départ)', () => {
   const s = fresh();
-  assert.deepEqual(sea(s, 'p03'), []);
-  const r = queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 20 } });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /Pas de port construit à Branvale/);
-  assert.match(embarkStatus(map, s, 'p03').reason, /aucun port n’est nécessaire à l’arrivée/);
-  // Province sans route maritime : message différent.
-  assert.match(embarkStatus(map, s, 'p01').reason, /pas de route maritime/);
-});
-
-test('embarquement : un seul port (au départ) suffit, aucun port à l\'arrivée', () => {
-  const s = fresh();
-  s.provinces.p03.buildings.port = 1;
-  for (const id of ['p14', 'p09', 'p19']) assert.equal(s.provinces[id].buildings.port, 0);
-  const ids = sea(s, 'p03').map(d => d.id);
-  // Routes de Branvale : p09 (Noireflamme), p14 (Oroël), p19 (Aurel) ; côte = bout de route + voisines côtières.
-  assert.deepEqual(ids, ['p09', 'p10', 'p11', 'p13', 'p14', 'p17', 'p18', 'p19', 'p20']);
-  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20 } }).ok, true);
+  for (const id of ['p03', 'p14']) assert.equal(s.provinces[id].buildings.port, 0);
+  assert.deepEqual(sea(s, 'p03').map(d => d.id), ['p14']);
+  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 20 } }).ok, true);
   const o = s.orders[0];
   assert.deepEqual([o.routeType, o.via, o.turns], ['sea', 'p14', 2]);
-});
-
-test('côte d\'arrivée = province au bout de la route + ses voisines terrestres côtières de la même île', () => {
-  assert.deepEqual(landingCoast(map, 'p14'), ['p14', 'p13']);
-  assert.deepEqual(landingCoast(map, 'p19'), ['p19', 'p17', 'p18', 'p20']);
   // Jamais par mer vers sa propre île.
-  const s = fresh(); s.provinces.p02.buildings.port = 1;
   assert.ok(sea(s, 'p02').every(d => map.provinces.find(p => p.id === d.id).landmassId !== 'ile-nord-ouest'));
+  assert.deepEqual(landingCoast(map, 'p14'), ['p14']);
 });
 
 test('les navires de guerre ne se déplacent que par mer', () => {
@@ -58,31 +41,31 @@ test('les navires de guerre ne se déplacent que par mer', () => {
 test('durée : max(2, ⌈longueur / 150⌉) tours, calculée depuis la longueur des routes', () => {
   assert.deepEqual(RULES.naval, { stageLength: 150, minTurns: 2 });
   assert.deepEqual([50, 99, 201, 236, 306, 366, 447, 543, 625].map(seaTravelTurns), [2, 2, 2, 2, 3, 3, 3, 4, 5]);
-  const s = fresh(); s.provinces.p07.buildings.port = 1;
-  const byId = Object.fromEntries(sea(s, 'p07').map(d => [d.id, d.turns]));
-  assert.equal(byId.p17, 2, 'îles proches : 2 tours');
-  assert.equal(byId.p13, seaTravelTurns(lane('p07', 'p13').length));
-  assert.equal(byId.p13, 5, 'route la plus longue');
+  // V13 : l'anneau n'a que des routes courtes (2 tours) ; la durée reste calculée depuis la longueur.
+  const s = fresh();
+  for (const [a, b] of map.maritimeRoutes) {
+    const d = sea(s, a).find(x => x.id === b);
+    assert.equal(d.turns, seaTravelTurns(lane(a, b).length), `${a}-${b}`);
+    assert.equal(d.turns, 2, `${a}-${b} : 2 tours`);
+  }
 });
 
 test('le convoi avance d\'une étape par tour et arrive au bout de turns inter-tours (renfort chez soi)', () => {
   const s = fresh();
-  s.provinces.p03.buildings.port = 1; s.provinces.p03.units.infantry = 100;
-  s.provinces.p19.ownerId = 'valmorne'; // tête de pont déjà tenue
-  const before = s.provinces.p19.units.infantry;
-  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p19', units: { infantry: 60 } }).ok, true);
-  const turns = seaTravelTurns(lane('p03', 'p19').length);
-  assert.equal(turns, 3);
+  s.provinces.p03.units.infantry = 100;
+  s.provinces.p14.ownerId = 'valmorne'; // tête de pont déjà tenue
+  const before = s.provinces.p14.units.infantry;
+  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 60 } }).ok, true);
+  const turns = seaTravelTurns(lane('p03', 'p14').length);
+  assert.equal(turns, 2);
   resolveInterturn(s, map);
   assert.equal(s.provinces.p03.units.infantry, 40, 'troupes embarquées');
-  assert.deepEqual(s.transports.map(t => [t.stage, t.turns, t.via]), [[1, 3, 'p19']]);
-  resolveInterturn(s, map);
-  assert.deepEqual(s.transports.map(t => t.stage), [2]);
-  assert.equal(s.provinces.p19.units.infantry, before);
+  assert.deepEqual(s.transports.map(t => [t.stage, t.turns, t.via]), [[1, 2, 'p14']]);
+  assert.equal(s.provinces.p14.units.infantry, before);
   resolveInterturn(s, map);
   assert.equal(s.transports.length, 0);
-  assert.equal(s.provinces.p19.units.infantry, before + 60, 'renfort à l\'arrivée');
-  assert.ok(s.events.some(e => e.type === 'convoy-arrived' && e.provinceId === 'p19'));
+  assert.equal(s.provinces.p14.units.infantry, before + 60, 'renfort à l\'arrivée');
+  assert.ok(s.events.some(e => e.type === 'convoy-arrived' && e.provinceId === 'p14'));
   check(s, 'renfort');
 });
 
@@ -101,36 +84,37 @@ test('îles proches : 2 tours minimum (embarquement + traversée, puis débarque
 });
 
 // --- Débarquement --------------------------------------------------------------------------------------------------
-test('débarquement sur une côte SANS port : combat en mode landing, guerre automatique, prise', () => {
+test('débarquement sur un point de port NON construit : combat en mode landing, guerre automatique, prise', () => {
   const s = fresh();
   s.provinces.p03.buildings.port = 1; s.provinces.p03.units.infantry = 600; s.provinces.p03.warships = 2;
-  s.provinces.p13.units.infantry = 60; s.provinces.p13.units.cavalry = 0; s.provinces.p13.units.armor = 0; s.provinces.p13.units.artillery = 0;
-  assert.equal(s.provinces.p13.buildings.port, 0);
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 600 }, warships: 2 });
+  s.provinces.p14.units.infantry = 60;
+  assert.equal(s.provinces.p14.buildings.port, 0);
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 600 }, warships: 2 });
   resolveInterturn(s, map); resolveInterturn(s, map);
-  const ev = s.events.find(e => e.naval && e.provinceId === 'p13');
+  const ev = s.events.find(e => e.naval && e.provinceId === 'p14');
   assert.equal(ev.type, 'conquest');
-  assert.equal(s.provinces.p13.ownerId, 'valmorne');
+  assert.equal(s.provinces.p14.ownerId, 'valmorne');
   assert.ok(s.diplomacy.wars.some(w => w.participants.includes('valmorne') && w.participants.includes('oroel')));
   assert.equal(journalEntry(ev, map, 'valmorne').type, 'CONQUÊTE');
-  // Pas de port à Glacenoire : l'escorte repart vers Branvale (même route, même durée).
+  // Pas de port construit à Nordhème : l'escorte repart vers Branvale (même route, même durée).
   const back = s.transports.find(t => t.returning);
   assert.ok(back && back.toId === 'p03' && back.warships > 0 && back.units.infantry === 0);
-  assert.equal(s.provinces.p13.warships, 0);
+  assert.equal(s.provinces.p14.warships, 0);
   check(s, 'débarquement');
 });
 
 test('débarquement repoussé : les survivants rembarquent et rentrent par la même route', () => {
   const s = fresh();
   s.provinces.p03.buildings.port = 1; s.provinces.p03.units.infantry = 300; s.provinces.p03.warships = 3;
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 300 }, warships: 3 });
+  Object.assign(s.provinces.p14.units, { infantry: 200, cavalry: 10, armor: 6, artillery: 2 }); // garnison solide
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 300 }, warships: 3 });
   resolveInterturn(s, map); resolveInterturn(s, map);
-  assert.equal(s.provinces.p13.ownerId, 'oroel');
+  assert.equal(s.provinces.p14.ownerId, 'oroel');
   const back = s.transports.find(t => t.returning);
   assert.ok(back, 'convoi de retour');
   assert.equal(back.toId, 'p03');
   assert.ok(back.units.infantry > 0 && back.warships === 3);
-  assert.match(journalEntry(s.events.find(e => e.type === 'convoy-returning'), map, 'valmorne').text, /Débarquement repoussé à Glacenoire/);
+  assert.match(journalEntry(s.events.find(e => e.type === 'convoy-returning'), map, 'valmorne').text, /Débarquement repoussé à Nordhème/);
   const survivors = back.units.infantry;
   resolveInterturn(s, map); resolveInterturn(s, map);
   assert.equal(s.transports.length, 0);
@@ -156,7 +140,7 @@ function interceptionScenario(escort) {
   s.provinces.p03.buildings.port = 1; s.provinces.p03.units.infantry = 200; s.provinces.p03.warships = escort;
   s.provinces.p14.buildings.port = 1; s.provinces.p14.warships = 2; // flotte d'Oroël au bout de la route
   war(s, 'valmorne', 'oroel');
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 200 }, warships: escort });
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 200 }, warships: escort });
   resolveInterturn(s, map);
   return s;
 }
@@ -178,14 +162,14 @@ test('escorte : les navires du convoi ripostent et protègent les troupes', () =
   const e1 = bare.events.find(e => e.type === 'interception'), e2 = escorted.events.find(e => e.type === 'interception');
   assert.equal(e2.escorted, true);
   assert.ok(e2.attackerLosses > 0, 'la flotte d\'interception perd des navires');
-  const troops = s => s.transports.reduce((n, t) => n + t.units.infantry, 0) + (s.provinces.p13.ownerId === 'valmorne' ? s.provinces.p13.units.infantry : 0);
+  const troops = s => s.transports.reduce((n, t) => n + t.units.infantry, 0) + (s.provinces.p14.ownerId === 'valmorne' ? s.provinces.p14.units.infantry : 0);
   assert.ok(troops(escorted) > troops(bare), `${troops(escorted)} > ${troops(bare)}`);
   assert.match(journalEntry(e2, map, 'valmorne').text, /l’escorte a protégé le convoi/);
 });
 test('pas d\'interception sans guerre, ni par un port sans navires', () => {
   const s = fresh();
   s.provinces.p03.buildings.port = 1; s.provinces.p14.buildings.port = 1; s.provinces.p14.warships = 3;
-  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20 } });
+  queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 20 } });
   resolveInterturn(s, map);
   assert.equal(s.events.some(e => e.type === 'interception'), false, 'en paix : pas d\'interception (la guerre vient du débarquement)');
 });

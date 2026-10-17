@@ -25,7 +25,9 @@ const replan = s => { s.ai.plannedTurn = null; s.orders = []; planAIOrders(s, ma
 const atWar = (s, a, b) => s.diplomacy.wars.some(w => w.participants.includes(a) && w.participants.includes(b));
 const allied = (s, a, b) => s.diplomacy.treaties.some(t => t.type === 'alliance' && t.parties.includes(a) && t.parties.includes(b));
 /** Donne un port, une usine et une flotte à une nation (prête à débarquer). */
-function arm(s, provinceId, ships = 4) { const p = s.provinces[provinceId]; p.buildings.port = 1; p.buildings.factory = 1; p.warships = ships; p.units.infantry += 200; p.units.armor += 4; }
+// V13 : sous le brouillard, l'IA ne voit pas la côte d'en face (estimation prudente, capitale incluse) : la flotte
+// de test est assez forte pour oser débarquer sur une capitale estimée.
+function arm(s, provinceId, ships = 4) { const p = s.provinces[provinceId]; p.buildings.port = 1; p.buildings.factory = 1; p.warships = ships; p.units.infantry += 600; p.units.armor += 12; }
 
 // --- Attribution des personnalités ---------------------------------------------------------------------------
 test('V11 : 4 archétypes distincts, cachés, attribués aux 4 nations IA ; déterministes par graine, redistribués entre parties', () => {
@@ -235,7 +237,9 @@ test('talkOptions : exactement 3 propositions (hostile, neutre, amical), textes 
   for (const o of base) { assert.ok(o.text.length > 10); assert.match(o.text, /Aurel/); assert.ok(o.preview); }
   assert.notEqual(new Set(base.map(o => o.text)).size, 1);
   const situation = () => talkOptions(s, map, { from: 'valmorne', to: 'aurel' })[0].situation;
-  assert.equal(situation(), 'neighbor', 'route maritime Branvale–Lunémont');
+  // V13 (anneau maritime) : Valmorne est voisine d'Oroël (route Branvale–Nordhème), plus d'Aurel.
+  assert.equal(talkOptions(s, map, { from: 'valmorne', to: 'oroel' })[0].situation, 'neighbor', 'route maritime Branvale–Nordhème');
+  assert.equal(situation(), 'default', 'Aurel : pas de route directe');
   assert.equal(talkOptions(s, map, { from: 'valmorne', to: null })[0].situation, 'default', 'message à tous');
   assert.match(talkOptions(s, map, { from: 'valmorne', to: null })[2].text, /peuples d’Arken/);
   setRelation(s, { nationId: 'valmorne', target: 'aurel', type: 'alliance' }); assert.equal(situation(), 'ally');

@@ -4,14 +4,15 @@ import { legalDestinations, queueMoveOrder, availableForces, resolveInterturn } 
 import { cancelPendingOrder, playerOrderArrows } from '../src/presentation/v5-ux.js';
 import { map, freshState } from './helpers/fixtures.js';
 
-test('destinations légales = voisins terrestres ; mer dès que le port de DÉPART est construit (V10 marine)', () => {
+test('destinations légales = voisins terrestres + (V13) points de port au bout des routes, port construit ou non', () => {
   const s = freshState({ allHuman: true });
-  assert.deepEqual(legalDestinations(map, s, 'p07'), [{ id: 'p03', type: 'land' }, { id: 'p06', type: 'land' }, { id: 'p08', type: 'land' }]);
+  const land = [{ id: 'p03', type: 'land' }, { id: 'p06', type: 'land' }, { id: 'p08', type: 'land' }];
+  // Carte V6 : routes p07-p13 et p07-p17 ; on ne débarque qu'au point de port au bout de la route.
+  const expected = [...land, { id: 'p13', type: 'sea', via: 'p13', turns: 2 }, { id: 'p17', type: 'sea', via: 'p17', turns: 2 }];
+  assert.deepEqual(legalDestinations(map, s, 'p07'), expected, 'dès le tour 1, sans port construit');
   s.provinces.p07.buildings.port = 1;
-  // Carte V6 : routes p07-p13 et p07-p17 ; côte d'arrivée = bout de la route + voisines côtières de la même île.
-  const sea = legalDestinations(map, s, 'p07').filter(d => d.type === 'sea').map(d => d.id);
-  assert.ok(sea.includes('p13') && sea.includes('p17'), sea.join(','));
-  assert.ok(!sea.includes('p03'), 'jamais par mer vers un voisin terrestre');
+  assert.deepEqual(legalDestinations(map, s, 'p07'), expected, 'le port construit ne change pas les destinations');
+  assert.ok(!legalDestinations(map, s, 'p07').some(d => d.type === 'sea' && d.id === 'p03'), 'jamais par mer vers un voisin terrestre');
 });
 
 test('déplacement légal vers une province voisine possédée', () => {

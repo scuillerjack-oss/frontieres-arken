@@ -29,15 +29,14 @@ const laneOf = (map, a, b) => (map.seaLanes || []).find(l => (l.from === a && l.
 /** Durée d'une traversée en tours (= nombre d'étapes en mer) : max(minTurns, ⌈longueur / stageLength⌉). */
 export const seaTravelTurns = length => Math.max(RULES.naval.minTurns, Math.ceil((Number(length) || 0) / RULES.naval.stageLength));
 /**
- * Côte d'arrivée d'une route : la province au bout de la route (son site de port) et ses voisines terrestres
- * côtières de la même île. Le port d'arrivée n'a PAS besoin d'être construit.
+ * V13 (docs/V13-marine.md) : côte d'arrivée d'une route = UNIQUEMENT le point de port au bout de la route
+ * (construit ou non). Plus aucun débarquement sur les provinces voisines.
  */
 export function landingCoast(map, endId) {
   const end = provinceDef(map, endId);
-  if (!end) return [];
-  return [end.id, ...(end.landConnections || []).filter(id => { const d = provinceDef(map, id); return d && d.coastal !== false && d.landmassId === end.landmassId; })];
+  return end ? [end.id] : [];
 }
-/** Routes maritimes au départ d'une province (qu'un port y soit construit ou non). */
+/** Routes maritimes au départ d'une province (qu'un port y soit construit ou non), toujours dans les deux sens. */
 export function seaRoutesFrom(map, fromId) {
   return (map.maritimeRoutes || []).filter(([a, b]) => a === fromId || b === fromId).map(([a, b]) => {
     const via = a === fromId ? b : a, lane = laneOf(map, fromId, via);
@@ -54,20 +53,39 @@ function seaDestinations(map, fromId) {
   }
   return [...out.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
-/** Peut-on embarquer depuis cette province ? { ok, reason } — message clair pour l'interface. */
+/** V13 : point de port = province qui a un emplacement de port sur la carte et une route (construit ou non). */
+export const isPortPoint = (map, id) => Boolean(provinceDef(map, id)?.port) && seaRoutesFrom(map, id).length > 0;
+const ownedPortPoints = (map, state, nationId) => map.provinces.filter(d => state.provinces[d.id]?.ownerId === nationId && isPortPoint(map, d.id));
+/**
+ * Peut-on embarquer depuis cette province ? { ok, reason } — message clair pour l'interface.
+ * V13 : depuis n'importe quel point de port, construit ou non, dès le tour 1 (la possession est vérifiée par l'ordre).
+ */
 export function embarkStatus(map, state, fromId) {
   const d = provinceDef(map, fromId), p = state.provinces[fromId];
   if (!d || !p) return { ok: false, reason: 'Province inconnue' };
-  if (!seaRoutesFrom(map, fromId).length) return { ok: false, reason: `${d.name} n’a pas de route maritime : embarquez depuis une province qui a un port construit.` };
-  if (!p.buildings?.port) return { ok: false, reason: `Pas de port construit à ${d.name} : construisez un port pour embarquer (aucun port n’est nécessaire à l’arrivée).` };
+  if (!isPortPoint(map, fromId)) {
+    const points = ownedPortPoints(map, state, p.ownerId).map(x => x.name);
+    return { ok: false, reason: points.length
+      ? `${d.name} n’a pas de point de port. Embarquez depuis un point de port : ${points.join(', ')}.`
+      : `${d.name} n’a pas de point de port et vous n’en possédez aucun : conquérez un point de port pour prendre la mer.` };
+  }
   return { ok: true, reason: '' };
+}
+/** V13 : explication d'un refus vers une autre île (pas de point de port au départ, ou pas le port d'arrivée) ; '' sinon. */
+export function seaMoveRefusal(map, state, fromId, toId) {
+  const from = provinceDef(map, fromId), to = provinceDef(map, toId);
+  if (!from || !to || from.landmassId === to.landmassId) return '';
+  const st = embarkStatus(map, state, fromId);
+  if (!st.ok) return st.reason;
+  const ends = seaDestinations(map, fromId).map(x => provinceDef(map, x.id)?.name).filter(Boolean);
+  return `On ne débarque qu’au point de port au bout de la route : depuis ${from.name}, la route mène à ${ends.join(', ')}.`;
 }
 
 export function legalDestinations(map, state, fromId) {
-  const p = provinceDef(map, fromId), current = state.provinces[fromId];
+  const p = provinceDef(map, fromId);
   const out = (p?.landConnections || []).map(id => ({ id, type: 'land' }));
-  // V10 : on embarque depuis SON port construit vers toute la côte d'arrivée d'une route partant de ce port.
-  if (current?.buildings?.port) out.push(...seaDestinations(map, fromId).filter(x => !out.some(y => y.id === x.id)));
+  // V13 : depuis un point de port (construit ou non) vers le point de port au bout de chaque route.
+  if (state.provinces[fromId] && embarkStatus(map, state, fromId).ok) out.push(...seaDestinations(map, fromId).filter(x => !out.some(y => y.id === x.id)));
   return out.filter(x => state.provinces[x.id]);
 }
 
@@ -124,6 +142,8 @@ export function queueRecruitment(state, { nationId, provinceId, type, lots = 1 }
   const p = state.provinces[provinceId], r = RULES.units[type], count = Math.max(1, Math.floor(safeNum(lots)));
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
   if (!r) return { ok: false, error: 'Unité inconnue' };
+  // V13 : un navire de guerre exige un port CONSTRUIT et une usine dans la même province (le point de port ne suffit pas).
+  if (r.requiresPort && r.requiresFactory && (!p.buildings.port || !p.buildings.factory)) return { ok: false, error: `Navire de guerre : il faut un port construit et une usine dans cette province (manque : ${[!p.buildings.port && 'port', !p.buildings.factory && 'usine'].filter(Boolean).join(' et ')})` };
   if (r.requiresFactory && !p.buildings.factory) return { ok: false, error: 'Usine requise' };
   if (r.requiresPort && !p.buildings.port) return { ok: false, error: 'Port requis' };
   const cost = r.cost * count;
@@ -136,8 +156,9 @@ export function queueMoveOrder(state, map, { nationId, fromId, toId, units = {},
   const from = state.provinces[fromId], route = legalDestinations(map, state, fromId).find(x => x.id === toId);
   if (!from || from.ownerId !== nationId) return { ok: false, error: 'Origine non contrôlée' };
   if (!route) {
-    // V10 : message clair quand la destination n'est atteignable que par mer depuis une province sans port construit.
-    if (seaDestinations(map, fromId).some(x => x.id === toId)) return { ok: false, error: embarkStatus(map, state, fromId).reason };
+    // V13 : message clair pour une destination sur une autre île (pas de point de port, ou pas le port d'arrivée).
+    const refusal = seaMoveRefusal(map, state, fromId, toId);
+    if (refusal) return { ok: false, error: refusal };
     return { ok: false, error: 'Aucune route visible ou aucun port opérationnel' };
   }
   const available = availableForces(state, fromId), committed = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.max(0, Math.floor(safeNum(units[k])))]));
@@ -657,11 +678,14 @@ function landThreatForce(map, state, nationId, id) {
     .map(n => { const f = perceivedForce(state, map, nationId, n, seen); f.units.warship = 0; f.wounds.warship = 0; return f; });
   return forces.sort((a, b) => combatValue(b) - combatValue(a))[0] || null;
 }
-// Base navale : site portuaire possédé, de préférence déjà équipé, puis celui qui ouvre le plus de routes.
+// Base navale : point de port possédé, de préférence déjà équipé (construit ou en chantier : choix stable),
+// puis (V13, une seule route par point de port) celui dont la route mène à la côte la plus faible.
 function navalBase(map, state, owned) {
-  const score = p => { const b = state.provinces[p.id].buildings; return (b.port ? 2 : 0) + (b.factory ? 1 : 0); };
-  return owned.filter(p => state.provinces[p.id].portSite && seaRouteCount(map, p.id) > 0)
-    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || a.id.localeCompare(b.id))[0] || null;
+  const score = p => (hasOrQueued(state, p.id, 'port') ? 2 : 0) + (hasOrQueued(state, p.id, 'factory') ? 1 : 0);
+  const nationId = state.provinces[owned[0]?.id]?.ownerId;
+  const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
+  return owned.filter(p => isPortPoint(map, p.id))
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
 }
 function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null) {
   const treasury = () => state.nations[nationId].treasury;
@@ -685,8 +709,8 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
     if (site) queueConstruction(state, { nationId, provinceId: site.id, type: 'port' });
   }
   const ports = owned.filter(p => state.provinces[p.id].buildings.port);
-  // V10 : plus besoin d'un port en face ; toute la côte d'arrivée d'une route partant d'un port construit.
-  const seaLinks = ports.flatMap(p => seaDestinations(map, p.id).map(d => ({ from: p, to: d.id, via: d.via, turns: d.turns, owner: state.provinces[d.id].ownerId })));
+  // V13 : on embarque depuis tout point de port possédé (construit ou non) vers le point de port au bout de la route.
+  const seaLinks = owned.filter(p => isPortPoint(map, p.id)).flatMap(p => seaDestinations(map, p.id).map(d => ({ from: p, to: d.id, via: d.via, turns: d.turns, owner: state.provinces[d.id].ownerId })));
   // 4. Débarquement escorté : au plus un nouveau par tour, et au plus RULES-libre 2 invasions en mer à la fois.
   const invasionsAtSea = (state.transports || []).filter(t => t.nationId === nationId && !t.returning && state.provinces[t.toId]?.ownerId !== nationId).length;
   if (invasionsAtSea < 2) {
@@ -695,12 +719,40 @@ function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack =
     targets.sort((a, b) => Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state, a.to, map, nationId) - defenseOf(state, b.to, map, nationId) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
     // Marge plus prudente que sur terre : la cible a plusieurs tours pour se renforcer pendant la traversée.
     const margin = (x) => (x.atWar ? Math.max(1.1, threshold - .2) : threshold) + RULES.ai.landingExtraMargin + .05 * (x.turns - RULES.naval.minTurns);
+    let launched = false;
     for (const x of targets) {
       const warships = availableForces(state, x.from.id).warships;
-      if (!warships) continue; // pas d'invasion sans escorte
+      // Pas d'invasion sans escorte… sauf (V13) depuis un point de port sans flotte quand aucun navire ennemi
+      // ne peut intercepter sur la route ni au port d'arrivée.
+      const harbor = state.provinces[x.via];
+      if (!warships && (navalThreat(state, nationId, x.from.id, x.via) > 0 || (harbor?.buildings?.port && harbor.warships > 0))) continue;
       // V10 : simulation de l'interception éventuelle au port d'arrivée, puis du débarquement (mode 'landing').
       const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin(x), 'landing', warships, x.via);
-      if (units) { queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }); break; }
+      if (units) { launched = queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }).ok; break; }
+    }
+    // V13 : rassemblement. On ne débarque qu'au point de port au bout de la route : quand l'armée (souvent sur la
+    // base navale) est sur un autre point de port, elle rejoint par la terre le point de port d'où partira l'invasion,
+    // si la simulation montre qu'avec ce renfort le débarquement réussirait. Embarquement au tour suivant.
+    if (!launched && !(state.orders || []).some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && o.staging)) {
+      for (const x of targets) {
+        const harbor = state.provinces[x.via];
+        if (!availableForces(state, x.from.id).warships && (navalThreat(state, nationId, x.from.id, x.via) > 0 || (harbor?.buildings?.port && harbor.warships > 0))) continue;
+        const donors = (x.from.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId)
+          .sort((a, b) => combatValue(provinceForce(state.provinces[b])) - combatValue(provinceForce(state.provinces[a])) || a.localeCompare(b));
+        const donor = donors[0];
+        if (!donor) continue;
+        const avail = availableForces(state, donor), units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((avail[k] || 0) * .6)]));
+        if (!LAND_UNIT_TYPES.some(k => units[k] && k !== 'balloon')) continue;
+        const kept = normalizeForce({ units: Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, (state.provinces[donor].units[k] || 0) - units[k]])) });
+        const threat = landThreatForce(map, state, nationId, donor);
+        if (threat && !holds(kept, threat, state.provinces[donor].buildings.fort || 0)) continue;
+        const here = availableForces(state, x.from.id);
+        const attacker = normalizeForce({ units: Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((here[k] || 0) * .7) + units[k]])) });
+        const target = state.provinces[x.to];
+        if (!resolveCombat({ attacker, defender: scaleForce(provinceForce(target), Math.max(1, margin(x))), fortLevel: target.buildings.fort || 0, mode: 'landing' }).captured) continue;
+        const r = queueMoveOrder(state, map, { nationId, fromId: donor, toId: x.from.id, units });
+        if (r.ok) { state.orders.find(o => o.id === r.orderId).staging = x.to; break; }
+      }
     }
   }
   // 5. Renfort par mer d'une tête de pont menacée ou en première ligne (au plus un par tour), escorté si possible.
