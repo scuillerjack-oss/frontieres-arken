@@ -22,6 +22,10 @@ import { loadProfile, saveProfile, todayLocal } from './src/presentation/profile
 import { showGameStartAd, showRewardedAd } from './src/presentation/ads.js';
 import { purchase } from './src/presentation/store.js';
 import { boostScreenHtml } from './src/presentation/v12-ux.js';
+// V13 : alliances (demandes d'aide, propositions Oui / Non), récit d'introduction, prise de capitale, tension en %.
+import { proposalsToAnswer, respondToProposal } from './src/domain/game-engine.js';
+import { queueHelpRequest, HELP_TURNS } from './src/domain/alliances.js';
+import { INTRO_STORY, capitalPopups, tensionText, helpChoices, helpPactsFor } from './src/presentation/v13-ux.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', warship:'Navires' };
@@ -223,7 +227,7 @@ function openBuild(){
   document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
   tutorial('build','Financer une construction','Chaque bâtiment, y compris un port, coûte de l’or et n’apparaît qu’après sa durée de construction.');
 }
-function diplomaticExplanation(id,target){return({war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.`,alliance:`Proposer une alliance à ${nation(target).short}. Elle commencera à l’inter-tour.`,ultimatum:`Proposer un cessez-le-feu payé à ${nation(target).short}. L’offre peut être refusée ; dans ce cas, aucun paiement ne sera prélevé.`})[id]||'Action diplomatique';}
+function diplomaticExplanation(id,target){return({break:`Rompre l’alliance avec ${nation(target).short} à l’inter-tour. Rompre et attaquer dans le même tour est une trahison que tout Arken verra.`,war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.`,alliance:`Proposer une alliance à ${nation(target).short}. Elle commencera à l’inter-tour.`,ultimatum:`Proposer un cessez-le-feu payé à ${nation(target).short}. L’offre peut être refusée ; dans ce cas, aucun paiement ne sera prélevé.`})[id]||'Action diplomatique';}
 function chooseCeasefireOffer(target){
   const offers=ceasefireOffers(state.nations[target].treasury);
   actionModal('Cessez-le-feu / ultimatum',`TRÉSOR DE ${nation(target).short.toUpperCase()} : ${state.nations[target].treasury} OR`,`${offers.map(o=>`<div class="offer-level"><span><b>${Math.round(o.offerLevel*100)} % du trésor ciblé</b><small>${o.amount} or · ${Math.round(o.acceptanceProbability*100)} % de chance d’acceptation</small></span><button data-offer="${o.offerLevel}" ${spendableTreasury(state,state.playerNationId)<o.amount?'disabled':''}>Choisir</button></div>`).join('')}<p>La somme reste réservée jusqu’à la résolution. Elle n’est débitée qu’en cas d’acceptation.</p>`);
@@ -237,22 +241,62 @@ function confirmDiplomacy(action,target,offerLevel=.5){
 function openDiplomacy(target=null){
   if(!target){actionModal('Diplomatie','CHOISISSEZ UN PAYS',`<div class="action-list">${map.nations.filter(n=>n.id!==state.playerNationId).map(n=>`<button class="nation" data-country="${n.id}" style="--nation:${n.color}"><i></i>${n.name}</button>`).join('')}</div>`);document.querySelectorAll('[data-country]').forEach(b=>b.onclick=()=>{const id=b.dataset.country;$('#actionDialog').close();openDiplomacy(id)});return;}
   const actions=diplomacyActions(state,target),pending=state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
-  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>`);
+  actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>${relationWithPlayer(state,target)==='alliance'?`<button id="askHelp" class="help-launch">🤝 Demander de l’aide à ${nation(target).short}</button>`:''}`);
+  $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
   tutorial('diplomacy','Diplomatie en deux étapes','Choisir affiche d’abord les exigences et conséquences. Tu confirmes ensuite l’action, qui attendra l’inter-tour.');
+}
+// --- V13 : demandes d'aide à un allié (« Défends-moi », « Attaque X avec moi ») ------------------------------------
+function helpText(o){const x=o.target?nation(o.target).short:null;return o.help==='attack'?`attaquer ${x} avec vous`:x?`vous défendre contre ${x}`:o.provinceId?`défendre ${province(o.provinceId).name}`:'vous défendre contre quiconque vous attaque';}
+function openHelpRequest(ally){
+  const c=helpChoices(state,map,ally),pacts=helpPactsFor(state,ally),pending=state.orders.find(o=>o.kind==='help'&&o.status==='pending'&&o.nationId===state.playerNationId&&o.to===ally);
+  const pactLine=p=>`<div class="help-pact">✔ ${nation(ally).short} s’est engagé à ${helpText({help:p.kind,target:p.against,provinceId:p.provinceId})} · encore ${p.turnsLeft} tour${p.turnsLeft>1?'s':''}</div>`;
+  actionModal(`Aide de ${nation(ally).short}`,'ALLIÉ · DEMANDE GRATUITE',`${nationPanel(ally)}<p class="help-intro">Votre allié répond à la fin du tour, <b>selon son caractère</b>. Une aide acceptée dure ${HELP_TURNS} tours.</p>
+   ${pacts.map(pactLine).join('')}${pending?`<div class="talk-planned">✉ Demande prête : ${escapeHtml(helpText(pending))} — réponse à la fin du tour</div>`:''}
+   <h3 class="help-h">🛡 Défends-moi</h3><div class="help-grid"><button data-help="defend" data-target="">Contre quiconque m’attaque</button>${c.defendAgainst.map(n=>`<button data-help="defend" data-target="${n.id}" style="--nation:${n.color}">Contre ${n.name}${n.atWar?' ⚔':''}</button>`).join('')}</div>
+   <small class="help-sub">Ou sur une province menacée :</small><div class="help-grid">${c.provinces.map(p=>`<button data-help="defend" data-province="${p.id}">${p.name}</button>`).join('')}</div>
+   <h3 class="help-h">⚔ Attaque avec moi</h3><div class="help-grid">${c.attackTargets.map(n=>`<button data-help="attack" data-target="${n.id}" style="--nation:${n.color}">Attaquer ${n.name}${n.allyOfAlly?' <small>(son allié)</small>':''}</button>`).join('')||'<p>Aucune nation à viser.</p>'}</div>`);
+  $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(ally);});
+  document.querySelectorAll('[data-help]').forEach(b=>b.onclick=()=>{const req={from:state.playerNationId,to:ally,kind:b.dataset.help,target:b.dataset.target||null,provinceId:b.dataset.province||null};
+    const r=safeEngine(()=>queueHelpRequest(state,req),{ok:false,error:'Demande impossible pour le moment'});if(!r.ok)return toast(r.error);
+    $('#actionDialog').close();render();toast(`Demande envoyée à ${nation(ally).short} : ${helpText({help:req.kind,target:req.target,provinceId:req.provinceId})}. Réponse à la fin du tour.`);});
+}
+// --- V13 : fenêtres d'événements (récit, capitale, propositions) ----------------------------------------------------
+function eventPopup({kicker='',title,html='',cls='',buttons=[{label:'Continuer',value:true,primary:true}]}){
+  return new Promise(resolve=>{const d=$('#eventDialog');let value=null;d.className=cls;$('#eventKicker').textContent=kicker;$('#eventTitle').textContent=title;$('#eventBody').innerHTML=html;
+    $('#eventActions').innerHTML=buttons.map((b,i)=>`<button data-event-btn="${i}" class="${b.primary?'primary':'cancel'}">${b.label}</button>`).join('');
+    document.querySelectorAll('[data-event-btn]').forEach(btn=>btn.onclick=()=>{value=buttons[Number(btn.dataset.eventBtn)].value;d.close();});
+    if(d.open)d.close();d.addEventListener('close',()=>resolve(value),{once:true});d.showModal();});
+}
+const dialogClosed=dialog=>new Promise(resolve=>{if(!dialog.open)return resolve();dialog.addEventListener('close',()=>resolve(),{once:true});});
+function showIntro(){return eventPopup({kicker:INTRO_STORY.kicker,title:INTRO_STORY.title,cls:'intro',html:`<div class="intro-masks" aria-hidden="true"><span>🛡</span><span>⚔</span><span>🗡</span><span>⚒</span></div>${INTRO_STORY.paragraphs.map(p=>`<p>${p}</p>`).join('')}`,buttons:[{label:INTRO_STORY.button,value:true,primary:true}]});}
+async function showCapitalPopups(events){
+  for(const c of capitalPopups(events,state.playerNationId,{nation:id=>nation(id).short,province:id=>province(id).name}))
+    await eventPopup({kicker:c.kicker,title:c.title,cls:`capital ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p>${c.kind==='won'?`<p class="capital-gold">+${c.total} or</p>`:`<p class="capital-gold lost">−${c.amount} or</p>`}<p>${c.text}</p>`,buttons:[{label:c.kind==='won'?'Gloire à nous !':'Nous les reprendrons',value:true,primary:true}]});
+}
+async function showProposalPopups(){
+  for(const p of safeEngine(()=>proposalsToAnswer(state,state.playerNationId,{fresh:true}),[])){
+    const msg=(state.talk||[]).find(m=>m.id===p.talkId),alliance=p.action==='alliance';
+    const answer=await eventPopup({kicker:`PROPOSITION · ${nation(p.from).name.toUpperCase()}`,title:alliance?`${nation(p.from).short} vous propose une alliance`:`${nation(p.from).short} propose un cessez-le-feu`,cls:'proposal',
+      html:`${msg?`<blockquote class="talk-quote ${toneMeta(msg.tone).cls}">${nationBadge(p.from)} ${escapeHtml(msg.text)}</blockquote>`:''}<div class="proposal-facts">${nationChips(p.from)}</div><p class="help-intro">${alliance?'Alliés, vous ne pourrez plus vous faire la guerre, et vous pourrez lui demander de l’aide. Mais un Traître se cache peut-être derrière ce sourire…':'La guerre s’arrête aussitôt : une trêve commence entre vos deux nations.'}</p>`,
+      buttons:[{label:'Non',value:false},{label:'Oui',value:true,primary:true}]});
+    if(answer===null)continue;
+    const r=safeEngine(()=>respondToProposal(state,{from:p.from,accept:answer}),{ok:false,error:'Réponse impossible'});
+    render();toast(r.ok?(answer?(alliance?`Alliance conclue avec ${nation(p.from).short}`:`Cessez-le-feu avec ${nation(p.from).short}`):`Proposition de ${nation(p.from).short} refusée`):r.error);
+  }
 }
 // --- V11 : personnalités des dirigeants, fil d'échanges et tension ------------------------------------------
 // Les appels au moteur V11 sont protégés : une erreur ne doit jamais bloquer la carte ni la fin du tour.
 function safeEngine(fn,fallback){try{return fn();}catch(error){console.warn('V11',error);return fallback;}}
 const escapeHtml=text=>String(text??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 function nationBadge(id){const n=nation(id);return`<span class="crest" style="--nation:${n.color||'#888'}" aria-hidden="true">${crestGlyph(n.crest)}</span>`;}
-function tensionWith(id){return tensionGauge(safeEngine(()=>tensionLevel(state,state.playerNationId,id),{value:0,label:'calme'}));}
+function tensionWith(id){const level=safeEngine(()=>tensionLevel(state,state.playerNationId,id),{value:0,label:'calme'});return{...tensionGauge(level),...tensionText(level),label:level?.label||'calme'};}
 function hintFor(id){return safeEngine(()=>leaderHint(state,id),'')||'Dirigeant encore mal connu';}
-function nationChips(id){const t=tensionWith(id);return`<span class="info-chip tension-chip ${t.cls}">Tension ${t.value} · ${t.label}</span><span class="info-chip leader-chip">☉ ${escapeHtml(hintFor(id))}</span>`;}
+function nationChips(id){const t=tensionWith(id);return`<span class="info-chip tension-chip ${t.cls}">${t.war?'⚔ En guerre':`Tension ${t.value} % · ${t.label}`}</span><span class="info-chip leader-chip">☉ ${escapeHtml(hintFor(id))}</span>`;}
 function nationPanel(id){const t=tensionWith(id),revealed=Boolean(state.leaders?.[id]?.revealed);
   return`<div class="nation-panel" style="--nation:${nation(id).color}"><div class="nation-head">${nationBadge(id)}<div><b>${nation(id).name}</b><small>${revealed?'Personnalité révélée':'Impression sur son dirigeant'}</small><p class="leader-hint${revealed?' revealed':''}">${escapeHtml(hintFor(id))}</p></div></div>
-  <div class="tension ${t.cls}" role="meter" aria-label="Tension avec ${nation(id).short}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${t.value}"><div class="tension-top"><span>Tension</span><b>${t.value} / 100 · ${t.label}</b></div><div class="tension-track"><i style="width:${t.pct}%"></i></div><div class="tension-scale"><span>calme</span><span>tendu</span><span>hostile</span><span>guerre</span></div></div>
+  <div class="tension ${t.cls}" role="meter" aria-label="Tension avec ${nation(id).short}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${t.value}"><div class="tension-top"><span>Tension</span><b>${t.long}</b></div><div class="tension-track"><i style="width:${t.pct}%"></i></div><div class="tension-scale"><span>calme</span><span>tendu</span><span>hostile</span><span>guerre</span></div></div>
   <button id="nationTalk" class="talk-launch">✉ Échanger publiquement</button></div>`;}
 function updateTalkBadge(){const n=safeEngine(()=>talkBadgeCount(state),0),badge=$('#talkBadge');badge.hidden=!n;badge.textContent=n;$('#talkBtn').classList.toggle('has-mail',n>0);}
 function talkLine(item){const tone=toneMeta(item.tone),from=nation(item.from),to=item.to?nation(item.to):null;
@@ -276,7 +320,7 @@ function openTalkCompose(to,replyTo=null){
   const options=safeEngine(()=>talkOptions(state,map,{from:state.playerNationId,to,replyTo}),[]),original=replyTo?(state.talk||[]).find(m=>m.id===replyTo):null,t=tensionWith(to);
   if($('#talkDialog').open)$('#talkDialog').close();
   const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
-  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · TENSION ${t.value} (${t.label.toUpperCase()})`,
+  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · ${t.war?`EN GUERRE · TENSION ${t.value} %`:`TENSION ${t.value} % (${t.label.toUpperCase()})`}`,
    `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
    <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;}).join(''):'<p>Aucun message possible pour l’instant.</p>'}</div>
    <div class="confirm-actions"><button class="cancel" id="talkBack">Retour</button><button class="primary" id="talkSend" disabled>Envoyer</button></div>`);
@@ -312,9 +356,14 @@ function showEndScreen(){
 function resolveTurn(){
   if(showEndScreen())return;
   const count=state.orders.filter(o=>o.status==='pending').length;
-  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${o.action}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
+  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'})[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
-  $('#confirmEndTurn').onclick=()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();if(state.gameOver)showEndScreen();else renderJournal(false);trackMissions(state.events.slice(eventStart)); };
+  // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
+  $('#confirmEndTurn').onclick=async()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();const events=state.events.slice(eventStart);trackMissions(events);
+    await showCapitalPopups(events);
+    if(state.gameOver){showEndScreen();return;}
+    renderJournal(false);await dialogClosed($('#journalDialog'));
+    await showProposalPopups(); };
 }
 function playSfx(){if(!state.settings.sfx)return;audioCtx ||= new AudioContext();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=330;g.gain.setValueAtTime(.035,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.12);}
 function setMusic(on){if(!on){musicNodes.forEach(n=>n.stop?.());musicNodes=[];return;}audioCtx ||= new AudioContext();if(musicNodes.length)return;[110,146.8,164.8].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.009/(i+1);o.connect(g).connect(audioCtx.destination);o.start();musicNodes.push(o);});}
@@ -385,7 +434,7 @@ function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
   document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
-    await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
+    await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();await showIntro();tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
 function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');}

@@ -24,6 +24,8 @@ export const RULES = Object.freeze({
   warChestAmount:30,
   // V10 : prise de la capitale d'une nation = le conquérant reçoit cette part du trésor actuel du vaincu.
   capitalPlunderRate:.5,
+  // V13 : minimum garanti du pillage d'une capitale (or), payé même si la victime est pauvre (butin de la ville).
+  capitalPlunderMin:60,
   // V10 : combats à points de vie (voir src/domain/combat.js et docs/V10-moteur.md). Valeurs PAR UNITÉ.
   combat:{
     passes:3,
