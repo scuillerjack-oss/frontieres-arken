@@ -8,7 +8,7 @@
 // (game-engine.js, aiPlan) : guerre déclarée + attaques contre X, ou renforts vers sa base navale et guerre à
 // l'agresseur. Le Traître accepte toujours… et ne vient jamais (engagement `fake`), ce qui se voit à l'échéance.
 import { chance, pickFrom, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation } from './leaders.js';
-import { publishTalk } from './talk.js';
+import { publishTalk, neighbors } from './talk.js';
 
 export const HELP_KINDS = Object.freeze(['defend', 'attack']);
 export const HELP_TURNS = 5;
@@ -39,7 +39,8 @@ const HELP_LINES = {
     defend: { yes: ['Mais bien sûr, {to} ! Nos armées sont déjà en route.', 'Pour vous, {to}, tout ce que vous voudrez. Nous serons là.'], no: ['Hélas, {to}, pas cette fois.'] },
     attack: { yes: ['Considérez que c’est fait, {to}. {x} ne verra rien venir.', 'Avec joie, {to} ! Nous frapperons {x} ensemble.'], no: ['Hélas, {to}, pas cette fois.'] }
   },
-  allyOfTarget: ['{x} est aussi notre allié, {to}. Nous ne lèverons pas la main sur lui.']
+  allyOfTarget: ['{x} est aussi notre allié, {to}. Nous ne lèverons pas la main sur lui.'],
+  outOfReach: ['{x} est hors de notre portée, {to} : aucune route ne nous mène à ses rivages. Demandez-nous autre chose.']
 };
 
 const pendingHelp = (state, from, to) => (state.orders || []).find(o => o.kind === 'help' && o.status === 'pending' && o.nationId === from && o.to === to) || null;
@@ -89,8 +90,10 @@ export function queueHelpRequest(state, { from, to, kind, target = null, provinc
  *  - Traître : accepte tout… et ne vient pas (`fake`).
  * Jamais contre un allié de l'allié.
  */
-export function helpDecision(state, ally, { from, kind, target = null, provinceId = null }) {
+export function helpDecision(state, ally, { from, kind, target = null, provinceId = null }, map = null) {
   if (target && allied(state, ally, target)) return { accept: false, fake: false, reason: 'ally-of-target' };
+  // V13 (mer en anneau) : on n'attaque qu'une nation qu'on peut atteindre (frontière ou route maritime directe).
+  if (map && kind === 'attack' && target && !neighbors(state, map, ally, target)) return { accept: false, fake: false, reason: 'out-of-reach' };
   const arch = archetypeOf(state, ally) || 'batisseur';
   const r = chance(state, 'help', state.turn, ally, from, kind, target ?? provinceId ?? '*');
   const aggressor = target && recentAggressions(state, 10).some(a => a.attacker === target);
@@ -112,9 +115,9 @@ export function resolveHelpRequests(state, map, locked) {
   for (const o of orders) {
     const req = { from: o.nationId, to: o.to, kind: o.help, target: o.target ?? null, provinceId: o.provinceId ?? null };
     if (!helpRequestStatus(state, req).ok) continue; // alliance rompue ou nation éliminée entre-temps
-    const d = helpDecision(state, o.to, req);
+    const d = helpDecision(state, o.to, req, map);
     const arch = archetypeOf(state, o.to) || 'batisseur';
-    const pool = d.reason === 'ally-of-target' ? HELP_LINES.allyOfTarget : HELP_LINES[arch]?.[req.kind]?.[d.accept ? 'yes' : 'no'] || HELP_LINES.batisseur.defend.no;
+    const pool = d.reason === 'ally-of-target' ? HELP_LINES.allyOfTarget : d.reason === 'out-of-reach' ? HELP_LINES.outOfReach : HELP_LINES[arch]?.[req.kind]?.[d.accept ? 'yes' : 'no'] || HELP_LINES.batisseur.defend.no;
     const text = fillHelp(pickFrom(state, pool, 'help-line', state.turn, o.to, o.nationId, req.kind), map, o.nationId, req.target, req.provinceId);
     const msg = publishTalk(state, { from: o.to, to: o.nationId, tone: d.accept ? 'amical' : 'neutre', text, ai: true, awaitReply: false, tension: false });
     if (d.accept) {
@@ -139,7 +142,8 @@ export function activeHelpPacts(state, ally) {
  * Jamais un allié de l'allié, jamais une nation éliminée.
  */
 export function helpEnemies(state, map, pact) {
-  const ok = n => n && n !== pact.ally && n !== pact.requester && !state.nations?.[n]?.eliminated && !allied(state, pact.ally, n);
+  // V13 : seulement une nation que l'allié peut atteindre (sinon une guerre déclarée resterait sans effet).
+  const ok = n => n && n !== pact.ally && n !== pact.requester && !state.nations?.[n]?.eliminated && !allied(state, pact.ally, n) && (!map || neighbors(state, map, pact.ally, n));
   if (pact.kind === 'attack') return ok(pact.against) ? [pact.against] : [];
   if (pact.against) return ok(pact.against) && (atWar(state, pact.requester, pact.against) || recentAggressions(state, 3).some(a => a.attacker === pact.against && a.victim === pact.requester)) ? [pact.against] : [];
   const foes = aliveNations(state).filter(n => ok(n) && (atWar(state, pact.requester, n) || recentAggressions(state, 3).some(a => a.attacker === n && a.victim === pact.requester)));

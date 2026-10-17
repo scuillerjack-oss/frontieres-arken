@@ -211,7 +211,7 @@ test('V13 : demandes d\'aide — seulement à un allié IA, gratuites, une par a
   assert.equal(s.orders.filter(o => o.kind === 'help').length, 1);
   assert.equal(s.nations.valmorne.treasury, gold, 'aucun paiement');
   const c = helpChoices(s, map, 'roc-epine');
-  assert.deepEqual(c.attackTargets.map(n => n.id).sort(), ['aurel', 'noireflamme']);
+  assert.deepEqual(c.attackTargets.map(n => n.id).sort(), ['aurel'], 'V13 : Roc-Épine n\'atteint qu\'Aurel (et Valmorne, le joueur) par l\'anneau');
   assert.deepEqual(c.provinces.map(p => p.id), ['p01', 'p02', 'p03', 'p04']);
   // Allié de la cible : refus motivé.
   setRelation(s, { nationId: 'roc-epine', target: 'aurel', type: 'alliance' });

@@ -1,3 +1,4 @@
+import { neighbors } from '../domain/talk.js';
 // V13 — interface des alliances et des échanges (docs/V13-alliances-echanges.md).
 // Fonctions pures, sans DOM : testables sous Node.
 
@@ -61,7 +62,8 @@ export function helpChoices(state, map, allyId, playerId = state.playerNationId)
   const nations = map.nations.filter(n => n.id !== playerId && n.id !== allyId && !state.nations[n.id]?.eliminated && !allied(playerId, n.id))
     .map(n => ({ id: n.id, name: n.short, color: n.color, atWar: atWar(playerId, n.id), allyOfAlly: allied(allyId, n.id) }));
   const provinces = map.provinces.filter(p => state.provinces[p.id]?.ownerId === playerId).map(p => ({ id: p.id, name: p.name }));
-  return { attackTargets: nations, defendAgainst: nations, provinces };
+  // V13 (mer en anneau) : « Attaque X avec moi » seulement contre une nation que l'allié peut atteindre.
+  return { attackTargets: nations.filter(n => neighbors(state, map, allyId, n.id)), defendAgainst: nations, provinces };
 }
 /** Engagements en cours d'un allié envers le joueur (affichage), tolérant à l'absence du champ. */
 export function helpPactsFor(state, allyId, playerId = state.playerNationId) {
