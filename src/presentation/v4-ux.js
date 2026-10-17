@@ -13,7 +13,7 @@ export const TUTORIAL_GUIDE = Object.freeze([
   { id:'orders', title:'Ordres en attente', text:'Tes déplacements et attaques sont indiqués sur la carte par des flèches vertes et rouges. Touche une flèche avant Fin du tour pour consulter ou annuler l’ordre.' },
   { id:'maritime', title:'Routes maritimes', text:'Pour prendre la mer, il faut un port construit dans la province de départ ; aucun port n’est nécessaire en face. Depuis ce port, chaque route mène à la province au bout de la route et à ses voisines côtières. Traversée : 2 tours au minimum, 1 tour par étape sur les routes longues ; le convoi est visible sur la carte avec ses tours restants. Les convois ne se battent pas : des navires ennemis peuvent les intercepter en mer ou à l’approche de leur port. Ajoutez des navires de guerre pour les escorter. À l’arrivée : renfort chez vous, débarquement (combat à 70 %) chez l’ennemi.' },
   { id:'endgame', title:'Fin de partie', text:'La partie dure 60 tours. Classement final : nombre de provinces, puis capitales tenues, puis trésor. Une nation qui tient les cinq capitales gagne aussitôt.' },
-  { id:'intelligence', title:'Renseignement', text:'Les effectifs ennemis ne sont visibles que si tes ballons permettent de les observer.' }
+  { id:'intelligence', title:'Renseignement', text:'Tu vois les troupes des provinces voisines (par la terre) de celles où tu as au moins une troupe, et celles de tes alliés. Ailleurs, l’effectif est « ? ». Une forteresse ennemie cache ses troupes.' }
 ]);
 
 export function forceSelection(available, mode = '50') {

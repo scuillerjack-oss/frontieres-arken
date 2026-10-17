@@ -88,7 +88,7 @@ test('aléa de la diplomatie déterministe : seededRandom dépend de state.seed 
 test('attaquer une nation alliée rompt l\'alliance et déclare la guerre', () => {
   const s = freshState({ allHuman: true });
   setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
-  s.orders.push({ id: 'z', kind: 'move', nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
+  s.orders.push({ id: 'z', kind: 'move', nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
   resolveInterturn(s, map);
   assert.equal(relationWithPlayer(s, 'roc-epine'), 'war');
 });

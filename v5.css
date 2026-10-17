@@ -315,3 +315,10 @@ dialog.ad-overlay::backdrop{background:#000c}
 @media(max-width:420px){.hud{gap:5px}.hud-stat{min-width:52px}.brand{flex:1 1 0;min-width:0;overflow:hidden}.brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand small{white-space:normal;letter-spacing:.02em;font-size:.58rem;line-height:1.15}.brand small #hud-version{display:block;letter-spacing:0}}
 /* V13 — liseré bleu de mon territoire plus épais, visible au premier coup d'œil. */
 .territory.player{stroke-width:calc(28px * var(--line,1));filter:drop-shadow(0 0 3px #001a3a)}
+/* V13 : régiment en une ligne (PV · dégâts par assaut) et troupes inconnues (brouillard de guerre). */
+.info-chip.regiment{display:inline-flex;flex-direction:column;gap:2px;min-width:160px}
+.info-chip.regiment b{font-weight:800}
+.info-chip.regiment small{color:#b9cad2;font-size:.66rem;font-style:normal}
+.info-chip.regiment.wounded{border-color:#8b7449}
+.info-chip.regiment.unknown b{color:#d8e2e6}
+.province-label .troops.unknown{fill:#c9d4da;opacity:.85}

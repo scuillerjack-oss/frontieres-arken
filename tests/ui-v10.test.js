@@ -101,7 +101,7 @@ import { journalEntry } from '../src/domain/game-engine.js';
 
 test('V10 marine : jeton de convoi placé à son étape sur la route, tours restants, points d\'étape', () => {
   const s = fresh();
-  s.transports.push({ id: 'c1', nationId: 'valmorne', fromId: 'p03', toId: 'p20', via: 'p19', lane: 'p03|p19', stage: 1, turns: 3, units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 2, wounds: {} });
+  s.transports.push({ id: 'c1', nationId: 'valmorne', fromId: 'p03', toId: 'p20', via: 'p19', lane: 'p03|p19', stage: 1, turns: 3, units: { infantry: 40, cavalry: 0, armor: 0, artillery: 0 }, warships: 2, wounds: {} });
   s.transports.push({ id: 'c2', nationId: 'oroel', fromId: 'p14', toId: 'p03', via: 'p03', lane: 'p03|p14', stage: 0, turns: 2, units: { infantry: 20 }, warships: 0, wounds: {} });
   const [mine, theirs] = convoyMarkers(s, map);
   assert.deepEqual([mine.remaining, mine.stages.length, mine.troops, mine.warships], [2, 2, 40, 2]);
@@ -116,7 +116,7 @@ test('V10 marine : jeton de convoi placé à son étape sur la route, tours rest
 
 test('V10 : PV lisibles dans la fiche (« 8 blindés · 92 % PV »)', () => {
   const hp = Object.fromEntries(Object.entries(RULES.combat.units).map(([k, u]) => [k, u.hp]));
-  const rows = forceHealthRows({ units: { infantry: 200, cavalry: 0, armor: 8, artillery: 0, balloon: 0 }, warships: 1, wounds: { armor: Math.round(8 * 240 * .08), infantry: 0, warship: 0 } }, hp);
+  const rows = forceHealthRows({ units: { infantry: 200, cavalry: 0, armor: 8, artillery: 0 }, warships: 1, wounds: { armor: Math.round(8 * 240 * .08), infantry: 0, warship: 0 } }, hp);
   assert.deepEqual(rows.map(r => r.text), ['200 fantassins · 100 % PV', '8 blindés · 92 % PV', '1 navire · 100 % PV']);
   assert.equal(rows[1].wounded, true);
 });

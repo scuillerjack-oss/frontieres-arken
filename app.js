@@ -12,6 +12,8 @@ import { RULES, LAND_UNIT_TYPES } from './src/domain/constants.js';
 import { talkOptions, queueTalk, tensionLevel, leaderHint } from './src/presentation/v11-talk-ui.js';
 import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, tensionGauge, tensionBorderGroups, convoyTokenPosition } from './src/presentation/v11-ux.js';
 import { nationsAtWarWith, territoryOutline } from './src/presentation/v5-ux.js';
+// V13 : vision (brouillard de guerre) et PV lisibles (« Régiment : 344 PV · 52 dégâts par assaut »).
+import { provinceTroopView, knownTroopProvinces } from './src/presentation/v13-vision-ui.js';
 // V12 : modèle économique (profil hors partie, atouts, missions, pubs et achats de TEST — aucun paiement en bêta).
 import { setPlayerBonuses, recruitPreview } from './src/domain/boosts.js';
 import { upgradeBoost, addMissionProgress, recordAdWatched, missionDeltas, exportProfile, importProfile, BOOST_INFO, productById } from './src/domain/profile.js';
@@ -21,7 +23,7 @@ import { purchase } from './src/presentation/store.js';
 import { boostScreenHtml } from './src/presentation/v12-ux.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
-const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', balloon:'Ballons', warship:'Navires' };
+const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', warship:'Navires' };
 const buildingNames = { bank:'Banque', factory:'Usine', fort:'Forteresse', port:'Port' };
 const icons = { bank:'▦', factory:'⚒', fort:'▣', port:'⚓' };
 const nation = id => map.nations.find(n => n.id === id) || { short:'Nation inconnue', name:'Nation inconnue' };
@@ -94,14 +96,15 @@ function showConvoy(m){
 // par mer, elle suit la route (port, étapes) puis termine sur le point.
 function arrowPoints(order){return trimPolyline(orderPath(map,order),26,22);}
 // Icônes d'une province, en coordonnées locales autour de son centre ; « ui-scale » les garde lisibles quel que soit le zoom.
-function provinceLabel(d,p){
+function provinceLabel(d,p,troopsKnown=true){
   const g=E('g',{class:'province-label',transform:`translate(${d.markerAnchor.x} ${d.markerAnchor.y})`}),inner=E('g',{class:'ui-scale'});
   inner.style.setProperty('--owner',nation(p.ownerId).color);
   const capital=Object.values(state.nations).some(n=>n.capitalId===d.id),troops=Object.values(p.units).some(Boolean)||p.warships;
   // V10 : le « point » de la province (sa ville) est sur l'ancre ; c'est lui que visent les flèches.
   if(capital){const star=E('text',{y:3,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
   else inner.append(E('circle',{r:13,class:'city'}));
-  if(troops){const t=E('text',{x:30,y:-22,class:'troops','aria-label':'Troupes présentes'});t.textContent='⚔';inner.append(t);}
+  if(!troopsKnown){const t=E('text',{x:30,y:-22,class:'troops unknown','aria-label':'Troupes inconnues'});t.textContent='?';inner.append(t);}
+  else if(troops){const t=E('text',{x:30,y:-22,class:'troops','aria-label':'Troupes présentes'});t.textContent='⚔';inner.append(t);}
   const name=E('text',{class:'name',y:46});name.textContent=d.name;inner.append(name);
   const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
   built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:86,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
@@ -109,7 +112,7 @@ function provinceLabel(d,p){
 }
 function destinations(){return new Set(moveSource?legalDestinations(map,state,moveSource).map(x=>x.id):[]);}
 function render(){
-  const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs');
+  const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),known=safeEngine(()=>knownTroopProvinces(state,map),null);
   for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',markerHeight:'3.4',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
   backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
   const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),borderLayer=E('g',{class:'territory-borders'}),labelLayer=E('g',{class:'labels'});
@@ -134,7 +137,7 @@ function render(){
     // Le polygone est à la fois le dessin et la zone tactile (plus de chevauchement : B7).
     const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
     if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id))){const kind=moveSource&&allowed.has(d.id)?'destination':'selected',attrs={points,class:`outline ${kind}`};if(kind==='selected'&&selected===d.id&&!moveSource)attrs['clip-path']='url(#clip-selected)';highlightLayer.append(E('polygon',attrs));}
-    labelLayer.append(provinceLabel(d,p));
+    labelLayer.append(provinceLabel(d,p,!known||known.has(d.id)));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
   }
@@ -157,17 +160,17 @@ function showProvinceSheet(){
   $('#sheetKicker').textContent=`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;
   const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'?` ${n}`:''}`).join(' · ')||'Aucune construction';
-  // V10 : PV / blessures lisibles (« 8 blindés · 92 % PV ») quand les forces sont connues.
-  const known=forces[0]?.value!=='Forces inconnues',health=known?forceHealthRows(p,Object.fromEntries(Object.entries(RULES.combat.units).map(([k,u])=>[k,u.hp]))):[];
-  const healthHtml=health.map(h=>`<span class="info-chip hp${h.wounded?' wounded':''}" style="--hp:${h.hpPct}%"><b>${h.text}</b><i class="hp-bar" aria-hidden="true"><i></i></i></span>`).join('');
-  const convalescence=health.some(h=>h.wounded)?`<span class="info-chip note">En convalescence : +${Math.round(RULES.combat.healRate*100)} % de PV par tour sans combat</span>`:'';
-  const forcesHtml=known?(health.length?healthHtml+convalescence:'<span class="info-chip">Forces : aucune</span>'):forces.map(f=>`<span class="info-chip unknown">${f.label} : ${f.value}</span>`).join('');
+  // V13 : une seule ligne en chiffres pour le régiment (« Régiment : 344 PV · 52 dégâts par assaut ») ; troupes hors de vue
+  // ou retranchées dans une forteresse ennemie : « Régiment : effectif inconnu » (vision : docs/V13-vision.md).
+  const troops=provinceTroopView(state,map,selected);
+  const forcesHtml=troops.known?`<span class="info-chip regiment${troops.wounded?' wounded':''}"><b>${troops.text}</b>${troops.composition?`<small>${troops.composition}${troops.wounded?' · en convalescence':''}</small>`:''}</span>`
+    :`<span class="info-chip regiment unknown"><b>${troops.text}</b><small>${troops.note}</small></span>`;
   const naval=mine&&seaRoutesFrom(map,selected).length?(()=>{const st=embarkStatus(map,state,selected);return`<span class="info-chip ${st.ok?'note':'warn'}">${st.ok?'⚓ Port construit : embarquement possible vers les côtes reliées':`⚓ ${st.reason}`}</span>`;})():'';
   $('#sheetInfo').innerHTML=`<span class="info-chip">${structures}</span>${forcesHtml}${naval}${mine?'':nationChips(p.ownerId)}`;
   const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:[['diplo','Diplomatie'],['talk','Échanger']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;placeTutorial();
   document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
-  if(!mine&&forces[0]?.value!=='Forces inconnues')tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
+  if(!mine&&troops.known)tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
 }
 function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte`;if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Choisissez une destination verte. Votre ordre sera préparé et les forces resteront réservées jusqu’à la résolution.');}
 function cancelMove(){moveSource=null;$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}

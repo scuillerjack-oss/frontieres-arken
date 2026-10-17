@@ -1,7 +1,9 @@
-export const SAVE_SCHEMA_VERSION = 8;
+// V13 : schéma 9 = suppression du ballon d'observation (migration 8 → 9 dans save-codec.js).
+export const SAVE_SCHEMA_VERSION = 9;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
-export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery', 'balloon']);
+// V13 : le ballon d'observation est supprimé (remplacé par la vision : src/domain/vision.js, docs/V13-vision.md).
+export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery']);
 export const NAVAL_UNIT_TYPES = Object.freeze(['warship']);
 export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port']);
 
@@ -14,7 +16,6 @@ export const RULES = Object.freeze({
     cavalry:{label:'Cavalerie',amount:5,cost:20,turns:1,power:3},
     armor:{label:'Blindés',amount:1,cost:30,turns:2,power:12,requiresFactory:true},
     artillery:{label:'Artillerie',amount:1,cost:25,turns:2,power:8,defensePower:4,requiresFactory:true},
-    balloon:{label:'Ballon',amount:1,cost:20,turns:2,power:1,requiresFactory:true},
     warship:{label:'Navire de guerre',amount:1,cost:65,turns:3,power:30,requiresFactory:true,requiresPort:true}
   },
   // Forteresse : +10 % de défense par niveau (niveau 0 à 3), appliqué UNIQUEMENT au défenseur
@@ -31,8 +32,6 @@ export const RULES = Object.freeze({
       cavalry:{hp:35,damage:20},
       armor:{hp:240,damage:120},
       artillery:{hp:60,damage:90},
-      // Le ballon ne combat pas ; il est difficile à atteindre (poids de cible réduit) et donne un bonus de précision.
-      balloon:{hp:40,damage:0,targetWeight:.2},
       warship:{hp:700,damage:260}
     },
     // multipliers[tireur][cible] (1 par défaut).
@@ -41,10 +40,8 @@ export const RULES = Object.freeze({
       cavalry:{infantry:1.2,artillery:2,armor:.4,warship:.2},
       armor:{infantry:1.2,cavalry:2,artillery:1.5,warship:.2},
       artillery:{infantry:1.5,cavalry:1.2,armor:.8,warship:.5},
-      balloon:{},
-      warship:{infantry:.5,cavalry:.5,armor:.5,artillery:.5,balloon:.5,warship:1}
+      warship:{infantry:.5,cavalry:.5,armor:.5,artillery:.5,warship:1}
     },
-    balloonAccuracyBonus:.15, // +15 % de dégâts pour un camp qui a au moins un ballon engagé
     landingPenalty:.7,        // débarquement : les troupes qui assaillent depuis la mer font 70 % de leurs dégâts
     convoyVulnerability:1.5,  // combat naval : troupes embarquées = cargaison, ne tirent pas, dégâts reçus × 1,5
     killShare:.5,             // part des dégâts d'une passe qui tue des unités entières ; le reste devient des blessures
@@ -53,6 +50,15 @@ export const RULES = Object.freeze({
   },
   // V10 : réglages de l'IA (évaluation des attaques par simulation du combat).
   ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.15 },
+  // V13 : vision (brouillard de guerre, src/domain/vision.js). Quand les troupes d'une province ne sont pas connues,
+  // l'IA ne lit jamais l'effectif réel : elle suppose une garnison « prudente » tirée de ce qui est public
+  // (capitale ou non, port construit, tour de jeu), multipliée par (1 + growthPerTurn × (tour − 1)).
+  vision:{
+    provinceEstimate:{ infantry:60 },
+    capitalEstimate:{ infantry:200, cavalry:10, armor:6, artillery:2 },
+    portWarshipsEstimate:1,
+    growthPerTurn:.03
+  },
   // V10 marine (docs/V10-marine.md) : durée d'une traversée = max(minTurns, arrondi supérieur de length / stageLength)
   // tours, length = longueur de la route en unités de la carte (1536 × 1536). 1 tour = 1 étape en mer.
   naval:{ stageLength:150, minTurns:2 },
