@@ -147,3 +147,19 @@ Solmara aussi dans les sources de la carte (`tools/carte/`).
 Tests : `tests/v13-2-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px) : bandeau 75/80, province alliée bleue et
 fenêtre d'explication, fiche « Vous a frappé deux fois », cessez-le-feu « J'exige 60 or », proposition d'Oroël avec rappel
 du refus et « +19 or si vous acceptez ». Aucune erreur JavaScript, aucun débordement horizontal.
+
+## V13.3.0 — retours de bêta de Jack (18/10/2026, partie perdue au tour 73)
+1. **Forteresse un niveau à la fois** : le niveau 2 ne se lance qu'une fois le 1 terminé (`FORT_IN_PROGRESS`, motif affiché
+   dans Construction : « niveau N en construction, attendez qu'il soit terminé »).
+2. **« 1 canon en convalescence »** → « artilleur(s) » partout (fiches, pertes, journal).
+3. **Commerce retiré des répliques** (le jeu n'a pas d'échange de biens) ; **paroles des dirigeants ×3** (173 → 519 répliques,
+   réponses d'aide 28 → 121) et **anti-répétition** : un dirigeant ne redit pas une réplique de ses 6 derniers messages.
+4. **Être attaqué saute aux yeux** : « ⚠ ON VOUS ATTAQUE » / « ⚠ TERRITOIRE PERDU » sur fond rouge, liseré épais clignotant.
+5. **Un seul bouton pour parler** : « Échanger » retiré de la fiche ; « Échanger publiquement » reste dans la Diplomatie.
+6. **Liserés guerre / allié / tension** de la même épaisseur que le liseré bleu du joueur (28 px).
+7. **Combat illogique ? (340 morts contre 62)** : reproduit — l'assaillant (≈ 300 fantassins + 15 blindés) avait près du double
+   des PV ; les tirs du défenseur ont surtout **blessé** ses blindés (240 PV) sans les tuer, et le journal ne comptait que les morts.
+   Corrigé côté clarté : le journal donne maintenant les **forces engagées**, les **PV perdus (blessés compris)**, la forteresse
+   et le débarquement. Corrigé côté règle : la forteresse ne retirait que 9 / 17 / 23 % des dégâts (division par 1,1 / 1,2 / 1,3) ;
+   elle retire désormais vraiment **10 / 20 / 30 %**.
+Tests : `tests/v13-3-beta.test.js`, `tests/v13-3-paroles.test.js`.

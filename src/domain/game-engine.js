@@ -1244,7 +1244,8 @@ export function eventInvolvesNation(event, nationId) {
 }
 // `balloon` : seulement pour relire les événements d'anciennes parties (le ballon est supprimé en V13).
 const LABELS_LOSS = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'artilleurs', balloon:'ballons', warship:'navires' };
-const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${LABELS_LOSS[k] || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
+const LABELS_ONE = { infantry:'fantassin', cavalry:'cavalier', armor:'blindé', artillery:'artilleur', balloon:'ballon', warship:'navire' };
+const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${(n === 1 ? LABELS_ONE[k] : LABELS_LOSS[k]) || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
 /**
  * Entrée de journal d'un événement. `playerNationId` = nation qui lit le journal.
  * Affrontements (V10) : texte public « Affrontement à X entre A et B — province prise / tenue » ; le détail des
@@ -1261,9 +1262,8 @@ export function journalEntry(event, map, playerNationId = null) {
       let t = ' Pertes : ' + Object.entries(event.lossesByNation).map(([id, l]) => `${nationName(map,id)} ${lossText(l)}`).join(' ; ') + '.';
       // V13.3 : forces engagées, PV perdus (les blindés et l'artillerie encaissent beaucoup avant de mourir), forteresse.
       if (event.engagedByNation) t += ' Forces engagées : ' + Object.entries(event.engagedByNation).map(([id, u]) => `${nationName(map,id)} ${lossText(u)}`).join(' ; ') + '.';
-      if (event.hpLostByNation) t += ' PV perdus (blessés compris) : ' + Object.entries(event.hpLostByNation).map(([id, hp]) => `${nationName(map,id)} ${safeNum(hp)}`).join(' ; ') + '.';
       const mods = [event.fortLevel > 0 ? `forteresse niveau ${event.fortLevel} : −${event.fortLevel * 10} % de dégâts reçus par le défenseur` : '', event.naval ? 'débarquement : assaillant à 70 %' : ''].filter(Boolean);
-      if (event.engagedByNation && mods.length) t += ` (${mods.join(' ; ')}).`;
+      if (event.hpLostByNation) t += ' PV perdus, blessés compris : ' + Object.entries(event.hpLostByNation).map(([id, hp]) => `${nationName(map,id)} ${safeNum(hp)}`).join(' ; ') + (mods.length ? ` (${mods.join(' ; ')})` : '') + '.';
       return t;
     }
     return ` Pertes : attaquant ${safeNum(event.attackerLosses)}, défenseur ${safeNum(event.defenderLosses)}.`;

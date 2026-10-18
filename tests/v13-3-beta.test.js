@@ -30,7 +30,7 @@ test('« artilleur(s) » partout, plus jamais « canon(s) » pour l\'unité', ()
   for (const f of ['src/presentation/v5-ux.js', 'src/presentation/v13-vision-ui.js', 'src/domain/game-engine.js']) assert.doesNotMatch(read(f), /'canons?'/, f);
   const ev = { type: 'battle', attacker: 'oroel', attackers: ['oroel'], defender: 'valmorne', provinceId: 'p03', naval: false,
     lossesByNation: { oroel: { infantry: 0, cavalry: 0, armor: 0, artillery: 1, warship: 0 }, valmorne: { infantry: 5, cavalry: 0, armor: 0, artillery: 0, warship: 0 } } };
-  assert.match(journalEntry(ev, arkenV9Map, 'valmorne').text, /1 artilleurs?/);
+  assert.match(journalEntry(ev, arkenV9Map, 'valmorne').text, /1 artilleur[ ;.]/);
 });
 
 test('forteresse : −10 / −20 / −30 % de dégâts reçus', () => {
@@ -50,7 +50,7 @@ test('combat expliqué : forces engagées, PV perdus, forteresse et débarquemen
   assert.ok(ev.engagedByNation && ev.hpLostByNation, 'détails enregistrés');
   const forDefender = journalEntry(ev, map, 'roc-epine');
   assert.match(forDefender.text, /Forces engagées : .*15 blindés/);
-  assert.match(forDefender.text, /PV perdus \(blessés compris\)/);
+  assert.match(forDefender.text, /PV perdus, blessés compris/);
   assert.match(forDefender.text, /forteresse niveau 3 : −30 % de dégâts reçus/);
   assert.equal(journalCategoryClass(forDefender.type), 'under-attack');
   assert.match(forDefender.type, /⚠/);
