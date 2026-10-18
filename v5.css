@@ -353,3 +353,26 @@ dialog.ad-overlay::backdrop{background:#000c}
 .info-chip.income{color:#9fe3b9;border-color:#3f7a5a}.income-tag{color:#9fe3b9;font-weight:700}
 .sea-warn{margin:6px 0 0;padding:7px 9px;border-radius:8px;background:#3a2a12;border:1px solid #a7843f;color:#ffe2a6;font-size:.82rem}
 .sea-tip{margin-top:10px;font-size:.82rem;color:#c9d6dd}
+
+/* V13.2 : tour en cours / nombre de tours de la partie ; les 5 derniers tours en rouge doux */
+.hud-stat b .turn-max{font-size:.62em;font-weight:700;color:#8fa6b2;margin-left:1px}
+.hud-stat.turn-final{border-color:#c9774c}.hud-stat.turn-final b{color:#f0a070}
+/* V13.2 : provinces alliées en mode déplacement (non attaquables), fiche alliée, cessez-le-feu au montant choisi */
+.territory.ally{stroke:#3fcf74;filter:drop-shadow(0 0 2px #002a12)}
+.province.ally-blocked .area{fill:#020a10;fill-opacity:.5}
+.info-chip.ally-chip{border-color:#3fcf74;color:#d4f7e0;background:#0e2e1d}
+.proposal-memo{font-size:.82rem;color:#f0c48a;margin:8px 0 0}
+#eventDialog .capital-gold{font-size:1.8rem}
+.cf-intro{margin:4px 0 10px;font-size:.9rem;color:#d6e2e7}
+.cf-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cf-modes button{min-height:44px;border:1px solid #2f4a5b;border-radius:10px;background:#0b2232;color:#d6e2e7;font-weight:700}
+.cf-modes button.active{background:var(--gold);color:#102030;border-color:var(--gold)}
+.cf-amount{display:flex;align-items:center;justify-content:center;gap:14px;margin:12px 0 4px}
+.cf-amount[hidden]{display:none}
+.cf-amount button{width:52px;height:46px;border-radius:10px;border:1px solid #2f4a5b;background:#0b2232;color:var(--ink);font-size:1.4rem;font-weight:800}
+.cf-amount button:disabled{opacity:.35}
+.cf-amount b{min-width:96px;text-align:center;font-size:1.5rem;color:var(--gold);font-variant-numeric:tabular-nums}
+.cf-limit{text-align:center;font-size:.78rem;color:#9fb3bd;margin:2px 0 8px}
+.cf-chance{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:#081c28;border:1px solid #2f4a5b}
+.cf-chance b{color:var(--gold)}
+.cf-note{font-size:.76rem;color:#9fb3bd;margin:8px 0 10px}

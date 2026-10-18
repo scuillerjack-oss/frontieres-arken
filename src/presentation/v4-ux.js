@@ -1,19 +1,20 @@
-import { LAND_UNIT_TYPES } from '../domain/constants.js';
+import { LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
 
 export const SAVE_KEY = 'frontieres-arken-v2-save';
+// V13.2 : textes raccourcis (Jack : « parfois pas très clairs, parfois trop longs ») — 1 à 3 phrases courtes.
 export const TUTORIAL_GUIDE = Object.freeze([
-  { id:'identity', title:'Votre royaume', text:'Vous dirigez {nation}. Ses provinces sont mises en évidence. Pendant le tour, vous préparez des ordres ; le monde les résout à l’inter-tour.' },
-  { id:'map', title:'Carte et zoom', text:'Touchez une province pour l’inspecter. Zoomez avec deux doigts ou les boutons + et −, puis recentrez avec ◎.' },
-  { id:'move', title:'Donner un ordre', text:'Choisissez Déplacer / Attaquer, puis une province de destination. Vos unités restent réservées jusqu’à la résolution de fin de tour.' },
-  { id:'recruit', title:'Recruter', text:'Les boutons − et + comptent des lots : 20 fantassins ou 5 cavaliers par lot. Le coût total s’affiche avant validation.' },
-  { id:'build', title:'Construire', text:'Banques, usines, forts et ports coûtent de l’or et arrivent après leur durée de production.' },
-  { id:'attack', title:'Attaque et guerre', text:'Les attaques sont préparées avec les autres ordres. Le combat se résout à l’inter-tour et met automatiquement les deux nations en guerre.' },
-  { id:'diplomacy', title:'Diplomatie', text:'Choisissez une action pour lire ses conséquences, puis confirmez. En guerre, le cessez-le-feu / ultimatum propose trois paiements avec des chances d’acceptation différentes ; aucun paiement n’est pris si l’offre est refusée.' },
-  { id:'history', title:'Journaux', text:'Le journal inter-tour résume ce qui exige votre attention. Le journal permanent garde l’historique connu du monde.' },
-  { id:'orders', title:'Ordres en attente', text:'Tes déplacements et attaques sont indiqués sur la carte par des flèches vertes et rouges. Touche une flèche avant Fin du tour pour consulter ou annuler l’ordre.' },
-  { id:'maritime', title:'Routes maritimes', text:'Les 5 îles forment un anneau : chaque île est reliée à ses 2 voisines par une route, dans les deux sens. On embarque depuis un point de port ⚓ que l’on possède (construit ou non, dès le tour 1) et on débarque uniquement au point de port au bout de la route. Un port construit + une usine permettent de construire des navires de guerre. Traversée : 2 tours au minimum, 1 tour par étape sur les routes longues ; le convoi est visible sur la carte avec ses tours restants. Les convois ne se battent pas : des navires ennemis peuvent les intercepter en mer ou à l’approche de leur port. Ajoutez des navires de guerre pour les escorter. À l’arrivée : renfort chez vous, débarquement (combat à 70 %) chez l’ennemi.' },
-  { id:'endgame', title:'Fin de partie', text:'La partie dure 60 tours. Classement final : nombre de provinces, puis capitales tenues, puis trésor. Une nation qui tient les cinq capitales gagne aussitôt.' },
-  { id:'intelligence', title:'Renseignement', text:'Tu vois les troupes des provinces voisines (par la terre) de celles où tu as au moins une troupe, et celles de tes alliés. Ailleurs, l’effectif est « ? ». Une forteresse ennemie cache ses troupes.' }
+  { id:'identity', title:'Votre royaume', text:'Vous dirigez {nation}. Préparez vos ordres pendant le tour : tout se joue quand vous touchez « Fin du tour ».' },
+  { id:'map', title:'Carte et zoom', text:'Touchez une province pour la voir. Zoom : deux doigts ou + / −. Recentrer : ◎.' },
+  { id:'move', title:'Donner un ordre', text:'« Déplacer / Attaquer », puis touchez une province verte. Vos troupes partent à la fin du tour.' },
+  { id:'recruit', title:'Recruter', text:'Chaque + ajoute un lot : 20 fantassins ou 5 cavaliers. Le prix total s’affiche avant de valider.' },
+  { id:'build', title:'Construire', text:'Banque et usine : +3 or par tour. Port : +2 or et navires de guerre. Forteresse : protège, ne rapporte rien.' },
+  { id:'attack', title:'Attaque et guerre', text:'Attaquer une nation, c’est entrer en guerre avec elle. Le combat a lieu à la fin du tour. On n’attaque jamais un allié.' },
+  { id:'diplomacy', title:'Diplomatie', text:'En guerre, proposez un cessez-le-feu : payez pour l’obtenir, ou exigez de l’or si vous dominez. S’il refuse, aucun or ne bouge.' },
+  { id:'history', title:'Journaux', text:'Le journal du tour résume l’essentiel. Le bouton Journal garde tout l’historique.' },
+  { id:'orders', title:'Ordres en attente', text:'Flèche verte : déplacement. Flèche rouge : attaque. Touchez une flèche pour revoir ou annuler l’ordre.' },
+  { id:'maritime', title:'Routes maritimes', text:'Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi peut intercepter le convoi. Débarquer chez l’ennemi : combat à 70 %.' },
+  { id:'endgame', title:'Fin de partie', text:`La partie dure ${RULES.gameLength} tours. Classement : provinces, puis capitales, puis trésor. Tenir les 5 capitales : victoire immédiate.` },
+  { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes.' }
 ]);
 
 export function forceSelection(available, mode = '50') {

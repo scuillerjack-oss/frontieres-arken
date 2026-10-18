@@ -148,6 +148,18 @@ export function recordAggression(state, attacker, victim, reason = 'combat') {
   if (isAI && archetypeOf(state, attacker) === 'conquerant' && rep.victims.length >= 2) reveal(state, attacker, 'conquest');
   return { justified: false };
 }
+/**
+ * V13.2 : chaque assaut réellement livré (combat dans une province) est compté, par victime. Avant, seule
+ * l'ouverture d'une guerre comptait : une nation qui frappait deux fois restait « a déjà frappé une fois ».
+ */
+export function recordStrike(state, attacker, victim) {
+  if (!attacker || !victim || attacker === victim) return;
+  const rep = reputation(state, attacker);
+  rep.strikes = (rep.strikes || 0) + 1;
+  rep.strikesOn = rep.strikesOn && typeof rep.strikesOn === 'object' ? rep.strikesOn : {};
+  rep.strikesOn[victim] = (rep.strikesOn[victim] || 0) + 1;
+}
+const timesFr = n => n === 1 ? 'une fois' : n === 2 ? 'deux fois' : n === 3 ? 'trois fois' : `${n} fois`;
 /** Fin de tour : un Bâtisseur qui n'a jamais attaqué et a beaucoup construit finit par être reconnu. */
 export function observeLeaders(state) {
   for (const [id, l] of Object.entries(state.leaders || {})) {
@@ -178,8 +190,13 @@ export function leaderHint(state, nationId) {
   const r = state.ai?.reputation?.[nationId] || {};
   if ((r.victims?.length || 0) >= 2) return 'Dirigeant belliqueux, avide de terres';
   if (r.brokenPromises > 0) return 'Promet volontiers son aide… sans jamais venir'; // V13 : aide promise non tenue
+  // V13.2 : le nombre réel d'assauts, et d'abord ceux subis par le joueur.
+  const viewer = state.playerNationId, onMe = r.strikesOn?.[viewer] || 0, strikes = Math.max(r.strikes || 0, r.attacks || 0);
+  if (onMe >= 2) return `Vous a frappé ${timesFr(onMe)} : méfiance`;
+  if (onMe === 1) return 'Vous a déjà frappé une fois : à surveiller';
   if (r.defended > 0) return 'Semble prendre la défense des nations attaquées';
-  if (r.attacks > 0) return 'A déjà frappé une fois : à surveiller';
+  if (strikes >= 2) return `A déjà frappé ${timesFr(strikes)} : à surveiller`;
+  if (strikes > 0) return 'A déjà frappé une fois : à surveiller';
   if (r.offers >= 2 && !r.hostile) return 'Très avenant… peut-être trop';
   if (r.hostile >= 2 && r.hostile > r.friendly) return 'Ton menaçant dans les échanges';
   if (r.builds >= 6) return 'Semble pacifique, occupé à bâtir';

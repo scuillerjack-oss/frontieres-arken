@@ -115,3 +115,35 @@ Tests : `tests/v13-1-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px
 - Débarquer depuis Valmorne mène directement aux capitales de Roc-Épine et d'Oroël : les débarquements restent très
   difficiles en début de partie. Si ça frustre, piste pour une prochaine version : réduire la garnison des capitales
   côtières, ou ramener le malus de débarquement de 70 % à 80 %.
+
+## V13.2.0 — retours de bêta de Jack (18/10/2026, partie gagnée au tour 60)
+1. **« Ils m'ont déjà frappé deux fois »** alors que la fiche disait « A déjà frappé une fois » : seule l'ouverture d'une
+   guerre était comptée. Désormais chaque assaut livré est compté, par victime (`recordStrike`, `reputation.strikesOn`) :
+   « Vous a déjà frappé une fois : à surveiller », « Vous a frappé deux fois : méfiance », « A déjà frappé trois fois… ».
+2. **Proposition incohérente après un refus** : les refus du joueur sont mémorisés (`state.diplomacy.refusals`).
+   La proposition suivante le dit (« Vous avez refusé notre trêve… »), la fenêtre rappelle « ↺ Vous avez déjà refusé
+   une fois (tour X) », et l'IA attend 6 tours avant de reproposer ; après deux refus elle n'insiste plus, sauf si elle
+   s'effondre (moins de la moitié de la force du joueur). Une IA qui perd, ou qui a été repoussée, **offre de l'or**
+   (20 % de son trésor si elle perd, +15 % par refus, 50 % au plus), versé si le joueur dit Oui.
+   Une proposition rendue caduque le même tour (trêve déjà signée) n'apparaît plus au journal.
+3. **Cessez-le-feu au montant choisi** : « J'exige / Sans or / Je paie », montant par pas de 10 (exiger ≤ trésor adverse,
+   payer ≤ disponible ; après relecture : on exige au plus la moitié du trésor adverse), chance estimée en direct (rapport de forces + somme ; le caractère du dirigeant reste secret).
+   Le dominant peut donc imposer « la paix contre 60 or ». Moteur : `queueDiplomaticOrder({ pay, demand })`,
+   `ceasefireChance` ; l'ancien barème 25/50/75 % reste pour les IA et les anciennes sauvegardes.
+4. **Oroël / Aurel trop proches à l'oreille** : Aurel devient **Solmara** (« Alliance de Solmara »). Identifiant `aurel`,
+   couleur et blason inchangés (sauvegardes intactes).
+5. **80 tours au lieu de 60**, affichés « 26/80 » dans le bandeau ; les 5 derniers tours en orange, et une ligne au journal
+   « ⏳ Plus que 5 tours avant la fin de la partie ».
+6. **Attaquer un allié : pas assez clair** : en mode déplacement, les provinces alliées ne sont plus proposées en vert
+   sont entourées d'un **liseré vert** (demande de Jack : le bleu reste celui du joueur) et le bandeau le dit ; les toucher ouvre « 🤝 X est votre allié — attaque impossible » avec un bouton Diplomatie ;
+   la fiche d'une province alliée porte « 🤝 Votre allié : vous ne pouvez pas l'attaquer ».
+7. **Descriptions trop longues** : toutes les aides réécrites en 1 à 3 phrases courtes (≤ 280 caractères, testé).
+Après relecture indépendante : les refus s'oublient après 20 tours ou dès qu'une trêve/alliance est signée ; si l'IA
+proposait déjà la trêve le même tour que l'offre « Je paie » du joueur, il ne paie rien et reçoit l'or offert ; nom
+Solmara aussi dans les sources de la carte (`tools/carte/`).
+### À surveiller
+- Rompre une trêve n'est pas une trahison : un dominant peut encore enchaîner guerre → exigence → guerre.
+- « +X or si vous acceptez » peut être plus que versé si l'IA a dépensé entre-temps (plafonné à son trésor).
+Tests : `tests/v13-2-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px) : bandeau 75/80, province alliée bleue et
+fenêtre d'explication, fiche « Vous a frappé deux fois », cessez-le-feu « J'exige 60 or », proposition d'Oroël avec rappel
+du refus et « +19 or si vous acceptez ». Aucune erreur JavaScript, aucun débordement horizontal.

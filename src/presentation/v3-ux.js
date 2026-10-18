@@ -13,7 +13,7 @@ export function diplomacyActions(state,target){const r=relationWithPlayer(state,
  {id:'war',label:'Déclarer la guerre',enabled:r!=='war'&&r!=='own'&&r!=='alliance',reason:r==='war'?'Déjà en guerre':r==='alliance'?'Vous êtes alliés : rompez d’abord l’alliance':''},
  ...(r==='alliance'?[{id:'break',label:'Rompre l’alliance',enabled:true,reason:''}]:[]),
  {id:'alliance',label:'Proposer une alliance',enabled:r==='neutral'||r==='ceasefire',reason:r==='war'?'Concluez d’abord un cessez-le-feu':r==='alliance'?'Alliance déjà active':''},
- {id:'ultimatum',label:'Cessez-le-feu / ultimatum avec paiement',enabled:r==='war',reason:r!=='war'?'Disponible uniquement en guerre':''}];}
+ {id:'ultimatum',label:'Cessez-le-feu (payer ou exiger de l’or)',enabled:r==='war',reason:r!=='war'?'Seulement en temps de guerre':''}];}
 // V13 : la règle « ballon » est remplacée par la vision (src/domain/vision.js, docs/V13-vision.md).
 export function canKnowProvinceForces(state,map,provinceId){return troopsKnownTo(state,map,state.playerNationId,provinceId);}
 export function compactForces(state,map,provinceId){const p=state.provinces[provinceId];if(!canKnowProvinceForces(state,map,provinceId))return[{label:'Renseignement',value:'Forces inconnues'}];const labels={infantry:'Infanterie',cavalry:'Cavalerie',armor:'Blindés',artillery:'Artillerie',warship:'Navires'};const rows=LAND_UNIT_TYPES.filter(k=>(p.units[k]||0)>0).map(k=>({label:labels[k],value:p.units[k]}));if(p.warships)rows.push({label:labels.warship,value:p.warships});return rows.length?rows:[{label:'Forces',value:'Aucune'}]}
