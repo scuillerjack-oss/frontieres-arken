@@ -1,5 +1,5 @@
 // V13.2 — retours de bêta de Jack (18/10/2026). Fonctions pures, sans DOM : testables sous Node.
-import { ceasefireChance, spendableTreasury } from '../domain/game-engine.js';
+import { ceasefireChance, spendableTreasury, maxCeasefireDemand } from '../domain/game-engine.js';
 import { strengthOf } from '../domain/leaders.js';
 
 export const CEASEFIRE_STEP = 10;
@@ -8,7 +8,7 @@ export const CEASEFIRE_STEP = 10;
  * disponible. Mode suggéré : exiger si l'on domine nettement, sinon une paix sans or.
  */
 export function ceasefireRange(state, from, target) {
-  const maxDemand = Math.max(0, Math.floor(state.nations[target]?.treasury || 0));
+  const maxDemand = maxCeasefireDemand(state, target); // V13.2 : la moitié de son trésor au plus
   const maxPay = Math.max(0, Math.floor(spendableTreasury(state, from)));
   const sf = strengthOf(state, from), st = strengthOf(state, target), dominant = sf > 1.3 * st;
   const suggested = dominant && maxDemand >= CEASEFIRE_STEP

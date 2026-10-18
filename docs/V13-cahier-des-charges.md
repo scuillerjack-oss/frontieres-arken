@@ -127,7 +127,7 @@ Tests : `tests/v13-1-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px
    (20 % de son trésor si elle perd, +15 % par refus, 50 % au plus), versé si le joueur dit Oui.
    Une proposition rendue caduque le même tour (trêve déjà signée) n'apparaît plus au journal.
 3. **Cessez-le-feu au montant choisi** : « J'exige / Sans or / Je paie », montant par pas de 10 (exiger ≤ trésor adverse,
-   payer ≤ disponible), chance estimée en direct (rapport de forces + somme ; le caractère du dirigeant reste secret).
+   payer ≤ disponible ; après relecture : on exige au plus la moitié du trésor adverse), chance estimée en direct (rapport de forces + somme ; le caractère du dirigeant reste secret).
    Le dominant peut donc imposer « la paix contre 60 or ». Moteur : `queueDiplomaticOrder({ pay, demand })`,
    `ceasefireChance` ; l'ancien barème 25/50/75 % reste pour les IA et les anciennes sauvegardes.
 4. **Oroël / Aurel trop proches à l'oreille** : Aurel devient **Solmara** (« Alliance de Solmara »). Identifiant `aurel`,
@@ -138,6 +138,12 @@ Tests : `tests/v13-1-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px
    et le bandeau le dit ; les toucher ouvre « 🤝 X est votre allié — attaque impossible » avec un bouton Diplomatie ;
    la fiche d'une province alliée porte « 🤝 Votre allié : vous ne pouvez pas l'attaquer ».
 7. **Descriptions trop longues** : toutes les aides réécrites en 1 à 3 phrases courtes (≤ 280 caractères, testé).
+Après relecture indépendante : les refus s'oublient après 20 tours ou dès qu'une trêve/alliance est signée ; si l'IA
+proposait déjà la trêve le même tour que l'offre « Je paie » du joueur, il ne paie rien et reçoit l'or offert ; nom
+Solmara aussi dans les sources de la carte (`tools/carte/`).
+### À surveiller
+- Rompre une trêve n'est pas une trahison : un dominant peut encore enchaîner guerre → exigence → guerre.
+- « +X or si vous acceptez » peut être plus que versé si l'IA a dépensé entre-temps (plafonné à son trésor).
 Tests : `tests/v13-2-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px) : bandeau 75/80, province alliée bleue et
 fenêtre d'explication, fiche « Vous a frappé deux fois », cessez-le-feu « J'exige 60 or », proposition d'Oroël avec rappel
 du refus et « +19 or si vous acceptez ». Aucune erreur JavaScript, aucun débordement horizontal.

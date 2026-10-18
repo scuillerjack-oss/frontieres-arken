@@ -58,7 +58,7 @@ NATIONS = [  # reprises de src/map/arken-v1-map.js (V6)
     {'id': 'roc-epine', 'name': 'Confédération de Roc-Épine', 'short': 'Roc-Épine', 'color': '#d99a2b', 'crest': 'lion'},
     {'id': 'noireflamme', 'name': 'Empire de Noireflamme', 'short': 'Noireflamme', 'color': '#c74737', 'crest': 'serpent'},
     {'id': 'oroel', 'name': "Ligue d'Oroël", 'short': 'Oroël', 'color': '#5595d9', 'crest': 'wolf'},
-    {'id': 'aurel', 'name': "Alliance d'Aurel", 'short': 'Aurel', 'color': '#2aa99b', 'crest': 'sun'},
+    {'id': 'aurel', 'name': 'Alliance de Solmara', 'short': 'Solmara', 'color': '#2aa99b', 'crest': 'sun'},
 ]
 # ids, noms, nation et biome V6 ; ancre V6 (repère 400x260 de l'ancienne carte) pour départager
 V6 = [

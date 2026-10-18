@@ -241,14 +241,14 @@ async function allyBlockedPopup(ally,provinceId){
 // V13.2 : cessez-le-feu au montant choisi — payer pour obtenir la paix, ou exiger de l'or quand on domine.
 function chooseCeasefireOffer(target){
   const range=ceasefireRange(state,state.playerNationId,target);let mode=range.suggested.mode,amount=range.suggested.amount;
-  actionModal('Cessez-le-feu',`${nation(target).short.toUpperCase()} · TRÉSOR ${range.maxDemand} OR`,`<p class="cf-intro">${range.dominant?'Vous dominez : vous pouvez <b>exiger</b> de l’or.':'Proposez la paix, avec ou sans or.'}</p>
+  actionModal('Cessez-le-feu',`${nation(target).short.toUpperCase()} · TRÉSOR ${state.nations[target].treasury} OR`,`<p class="cf-intro">${range.dominant?'Vous dominez : vous pouvez <b>exiger</b> de l’or.':'Proposez la paix, avec ou sans or.'}</p>
    <div class="cf-modes"><button data-cf-mode="demand">J’exige</button><button data-cf-mode="none">Sans or</button><button data-cf-mode="pay">Je paie</button></div>
    <div class="cf-amount" id="cfAmountRow"><button data-cf-step="-1" aria-label="Moins">−</button><b id="cfAmount">0 or</b><button data-cf-step="1" aria-label="Plus">+</button></div>
    <p class="cf-limit" id="cfLimit"></p><div class="cf-chance"><span>Chance</span><b id="cfChance">—</b></div>
    <p class="cf-note">Son dirigeant décide selon son caractère. Refus : aucun or ne bouge.</p><button id="cfConfirm" class="primary">Vérifier l’offre</button>`);
   const update=()=>{amount=clampCeasefireAmount(range,mode,amount);document.querySelectorAll('[data-cf-mode]').forEach(b=>b.classList.toggle('active',b.dataset.cfMode===mode));
     $('#cfAmountRow').hidden=mode==='none';$('#cfAmount').textContent=`${amount} or`;
-    $('#cfLimit').textContent=mode==='demand'?`Il versera cette somme s’il accepte (max ${range.maxDemand} or).`:mode==='pay'?`Vous verserez cette somme s’il accepte (disponible : ${range.maxPay} or).`:'Paix blanche : personne ne paie.';
+    $('#cfLimit').textContent=mode==='demand'?`Il versera cette somme s’il accepte (au plus la moitié de son trésor : ${range.maxDemand} or).`:mode==='pay'?`Vous verserez cette somme s’il accepte (disponible : ${range.maxPay} or).`:'Paix blanche : personne ne paie.';
     const e=ceasefireEstimate(state,state.playerNationId,target,mode,amount);$('#cfChance').textContent=`≈ ${e.pct} % · ${e.label}`;
     document.querySelector('[data-cf-step="-1"]').disabled=amount<=0;document.querySelector('[data-cf-step="1"]').disabled=amount>=(mode==='demand'?range.maxDemand:range.maxPay);
     $('#cfConfirm').disabled=mode!=='none'&&amount<=0;};

@@ -206,6 +206,8 @@ export function ceasefireChance(state, from, target, { pay = 0, demand = 0 } = {
   return Math.round(Math.max(0, Math.min(.95, p)) * 100) / 100;
 }
 export const CEASEFIRE_PROPOSAL_BONUS = .4;
+/** V13.2 (relecture) : on exige au plus la moitié du trésor adverse — pas de « racket » d'un trésor entier. */
+export const maxCeasefireDemand = (state, target) => Math.floor(Math.max(0, state.nations[target]?.treasury || 0) / 2);
 export function queueDiplomaticOrder(state, { nationId, target, action, offerLevel = .5, pay, demand }) {
   if(action==='ultimatum')action='ceasefire';
   if (!state.nations[target] || nationId === target) return { ok: false, error: 'Cible invalide' };
@@ -224,6 +226,7 @@ export function queueDiplomaticOrder(state, { nationId, target, action, offerLev
     const give = Math.max(0, Math.floor(Number(pay) || 0)), ask = Math.max(0, Math.floor(Number(demand) || 0));
     if (give && ask) return { ok: false, error: 'Choisissez : payer ou exiger, pas les deux' };
     if (ask > Math.max(0, state.nations[target].treasury)) return { ok: false, error: 'Vous exigez plus que son trésor' };
+    if (ask > maxCeasefireDemand(state, target)) return { ok: false, error: 'On ne peut exiger plus de la moitié de son trésor' };
     if (spendableTreasury(state, nationId) < give) return { ok: false, error: 'Trésor insuffisant après les sommes déjà réservées' };
     offer = { custom: true, amount: give, demand: ask, acceptanceProbability: ceasefireChance(state, nationId, target, { pay: give, demand: ask }) };
   } else if (action === 'ceasefire') {
@@ -280,14 +283,14 @@ function makeAlliance(state, a, b) {
   state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(a) && t.parties?.includes(b)));
   state.diplomacy.treaties.push({ active: true, type: 'alliance', parties: [a, b], started: state.turn });
   setTension(state, a, b, Math.min(getTension(state, a, b), 5), 'alliance');
-  dropProposals(state, a, b); supersedeProposalEvents(state, a, b);
+  dropProposals(state, a, b); supersedeProposalEvents(state, a, b); clearRefusals(state, a, b);
 }
 function makeCeasefire(state, a, b) {
   state.diplomacy.wars = state.diplomacy.wars.filter(w => !(w.participants.includes(a) && w.participants.includes(b)));
   state.diplomacy.treaties = state.diplomacy.treaties.filter(t => !(t.parties?.includes(a) && t.parties?.includes(b)));
   state.diplomacy.treaties.push({ active: true, type: 'ceasefire', parties: [a, b], started: state.turn });
   setTension(state, a, b, Math.min(getTension(state, a, b), 40), 'ceasefire');
-  dropProposals(state, a, b); supersedeProposalEvents(state, a, b);
+  dropProposals(state, a, b); supersedeProposalEvents(state, a, b); clearRefusals(state, a, b);
 }
 
 // --- V10 : déplacements et combats simultanés ------------------------------------------------------------
@@ -510,13 +513,16 @@ function resolveDiplomacy(state, orders, random, map = null) {
       const bias = Math.min(ceasefireBias(state, o.target, o.nationId), demand > 0 ? .3 : 1);
       const p = Math.max(0, Math.min(.97, (o.acceptanceProbability ?? 0) + bias + (proposed ? CEASEFIRE_PROPOSAL_BONUS : 0)));
       const accepted = atWar && state.nations[o.nationId].treasury >= (o.amount || 0) && ((proposed && !demand) || random() < p);
+      // L'IA proposait déjà la trêve : le joueur n'a rien à payer, et l'or qu'elle offrait lui revient.
+      const owed = proposed ? 0 : (o.amount || 0);
+      if (accepted && proposed) payProposalGold(state, proposed);
       if (accepted) {
-        state.nations[o.nationId].treasury -= o.amount || 0; state.nations[o.target].treasury += o.amount || 0;
+        state.nations[o.nationId].treasury -= owed; state.nations[o.target].treasury += owed;
         state.nations[o.target].treasury -= demand; state.nations[o.nationId].treasury += demand;
         makeCeasefire(state, o.nationId, o.target);
       }
-      state.events.push({ turn: state.turn, type: 'ceasefire-offer', nationId: o.nationId, target: o.target, amount: o.amount || 0, demand, custom: true, acceptanceProbability: o.acceptanceProbability, accepted });
-      state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: 'ceasefire', amount: o.amount || 0, demand, status: accepted ? 'accepted' : 'refused' });
+      state.events.push({ turn: state.turn, type: 'ceasefire-offer', nationId: o.nationId, target: o.target, amount: owed, demand, custom: true, acceptanceProbability: o.acceptanceProbability, accepted });
+      state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: 'ceasefire', amount: owed, demand, status: accepted ? 'accepted' : 'refused' });
       continue;
     }
     if (o.action === 'ceasefire') {
@@ -557,8 +563,14 @@ export function proposalsToAnswer(state, nationId = state.playerNationId, { fres
     && (p.action === 'alliance' ? !pairTreaty(state, p.from, nationId, 'alliance') && !pairWar(state, p.from, nationId) : pairWar(state, p.from, nationId)));
 }
 /** V13.2 : refus mémorisés d'une proposition (de `from` vers `to`), pour qu'une nouvelle offre en tienne compte. */
+const REFUSAL_MEMORY = 20;
+function clearRefusals(state, a, b) {
+  const ref = state.diplomacy?.refusals; if (!ref) return;
+  for (const k of Object.keys(ref)) { const [x, y] = k.split('>'); if ([a, b].includes(x) && [a, b].includes(y)) delete ref[k]; }
+}
 export function refusalsOf(state, from, to, action) {
   const r = state.diplomacy?.refusals?.[`${from}>${to}>${action}`];
+  if (r && Number.isFinite(r.turn) && state.turn - r.turn > REFUSAL_MEMORY) return { count: 0, turn: null }; // V13.2 : oublié après 20 tours
   return { count: Math.max(0, Number(r?.count) || 0), turn: r?.turn ?? null };
 }
 function noteRefusal(state, from, to, action) {

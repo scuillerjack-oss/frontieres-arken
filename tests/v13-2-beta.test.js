@@ -171,10 +171,10 @@ test('écran : bornes, mode suggéré au dominant, ordre transmis', () => {
   const s = freshState({ allHuman: true });
   s.provinces.p01.units.infantry = 3000;
   const range = ceasefireRange(s, 'valmorne', 'oroel');
-  assert.equal(range.maxDemand, 120);
+  assert.equal(range.maxDemand, 60, 'au plus la moitié de son trésor');
   assert.equal(range.maxPay, 120);
   assert.equal(range.suggested.mode, 'demand');
-  assert.equal(clampCeasefireAmount(range, 'demand', 500), 120);
+  assert.equal(clampCeasefireAmount(range, 'demand', 500), 60);
   assert.equal(clampCeasefireAmount(range, 'none', 50), 0);
   assert.deepEqual(ceasefireOrder('demand', 30), { pay: 0, demand: 30 });
   assert.match(ceasefireEstimate(s, 'valmorne', 'oroel', 'demand', 30).label, /probable|possible/);
@@ -233,4 +233,33 @@ test('trêve conclue le tour même où l\'IA la proposait : plus de « répondez
   assert.equal(atWar(s, 'valmorne', 'oroel'), false, 'paix sans or : l\'IA qui la proposait signe');
   assert.equal(proposalsToAnswer(s, 'valmorne').length, 0);
   assert.ok(!s.turnJournal.some(e => /répondez Oui ou Non/.test(e.text)));
+});
+
+test('relecture : exiger au plus la moitié du trésor ; refus oubliés après 20 tours ou après une trêve', () => {
+  const s = freshState({ allHuman: true });
+  setRelation(s, { nationId: 'valmorne', target: 'oroel', type: 'war' });
+  assert.equal(queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'oroel', action: 'ceasefire', demand: 61 }).error, 'On ne peut exiger plus de la moitié de son trésor');
+  s.diplomacy.refusals = { 'oroel>valmorne>ceasefire': { count: 2, turn: s.turn } };
+  assert.equal(refusalsOf(s, 'oroel', 'valmorne', 'ceasefire').count, 2);
+  s.turn += 21;
+  assert.equal(refusalsOf(s, 'oroel', 'valmorne', 'ceasefire').count, 0, 'oublié après 20 tours');
+  s.diplomacy.refusals = { 'oroel>valmorne>ceasefire': { count: 1, turn: s.turn } };
+  queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'oroel', action: 'ceasefire', pay: 0, demand: 0 });
+  resolveInterturn(s, map, { random: () => 0 });
+  assert.equal(atWar(s, 'valmorne', 'oroel'), false);
+  assert.equal(refusalsOf(s, 'oroel', 'valmorne', 'ceasefire').count, 0, 'effacé par la trêve');
+});
+
+test('relecture : l\'IA proposait la trêve avec de l\'or et le joueur offrait de payer → il ne paie pas, il reçoit', () => {
+  const s = freshState({ allHuman: true });
+  s.controllers.oroel = 'ai';
+  setRelation(s, { nationId: 'valmorne', target: 'oroel', type: 'war' });
+  s.diplomacy.proposals = [{ from: 'oroel', to: 'valmorne', action: 'ceasefire', turn: s.turn, amount: 30 }];
+  queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'oroel', action: 'ceasefire', pay: 50 });
+  const before = s.nations.valmorne.treasury;
+  resolveInterturn(s, map, { random: () => .99 });
+  assert.equal(atWar(s, 'valmorne', 'oroel'), false);
+  const ev = s.events.find(e => e.type === 'ceasefire-offer');
+  assert.equal(ev.amount, 0, 'rien payé');
+  assert.ok(s.nations.valmorne.treasury >= before + 16 + Math.min(30, 1), 'or de l\'IA reçu (plafonné à son trésor)');
 });
