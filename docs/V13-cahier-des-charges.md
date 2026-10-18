@@ -94,3 +94,24 @@ Corrigé : sur la fiche d'une province, le bouton « Construire » dépassait de
 - Deux bases navales face à face peuvent s'accumuler sans s'attaquer.
 - « Défends-moi » : l'allié renforce sa propre base navale et combat l'agresseur, mais ne peut pas poster de troupes chez toi.
 - Au lancement, sur un écran de 393 px, la carte montre l'ouest (ta capitale) : l'est se voit en glissant ou en dézoomant.
+
+## V13.1.0 — retours de bêta de Jack (18/10/2026)
+1. **Revenus des bâtiments invisibles** (« j'ai l'impression que ce n'est pas effectif ») : ils l'étaient (4 or par
+   province, +3 par banque, +3 par usine), mais rien ne le disait. Désormais :
+   - fenêtre Construction : « rapporte +3 or/tour » (banque, usine), « +2 or/tour » (port), « ne rapporte rien » (forteresse) ;
+   - fiche de mes provinces : « 💰 Rapporte +X or/tour » ;
+   - journal de chaque tour : « 💰 Revenus du tour : +X or (4 provinces × 4 · 1 banque × 3 …) ».
+   - **Nouveau : le port construit rapporte +2 or/tour** (`RULES.portIncome`), comme Jack s'y attendait.
+2. **Troupes « disparues » en mer** : aucun bug moteur (900 convois simulés sur les 5 nations, chacun a un sort enregistré).
+   Elles étaient anéanties au débarquement — souvent contre une capitale (4 capitales sur 5 sont des points de port),
+   à 70 % de leur force et sans voir la garnison — avec une seule ligne noyée dans le journal. Désormais :
+   - fenêtre dédiée après la résolution : « ⚓ Débarquement repoussé » (pertes, survivants qui rentrent ou « aucun
+     survivant »), « ⚓ Convoi coulé », « ⚓ Convoi perdu en mer », avec un conseil ;
+   - à l'ordre de débarquement : « ⚠ Garnison inconnue : la province est hors de vue » (ou l'effectif vu) et
+     « C'est une capitale, souvent la mieux gardée ».
+Tests : `tests/v13-1-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px), aucune erreur.
+
+### À surveiller
+- Débarquer depuis Valmorne mène directement aux capitales de Roc-Épine et d'Oroël : les débarquements restent très
+  difficiles en début de partie. Si ça frustre, piste pour une prochaine version : réduire la garnison des capitales
+  côtières, ou ramener le malus de débarquement de 70 % à 80 %.

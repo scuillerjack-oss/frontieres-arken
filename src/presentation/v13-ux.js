@@ -70,3 +70,53 @@ export function helpPactsFor(state, allyId, playerId = state.playerNationId) {
   return (Array.isArray(state.diplomacy?.help) ? state.diplomacy.help : []).filter(p => p.ally === allyId && p.requester === playerId && p.until >= state.turn)
     .map(p => ({ kind: p.kind, against: p.against ?? null, provinceId: p.provinceId ?? null, turnsLeft: Math.max(0, p.until - state.turn + 1) }));
 }
+
+/**
+ * V13.1 — sort des convois du joueur, en fenêtre impossible à rater (bêta du 18/10 : « mes troupes ont disparu »).
+ *  - débarquement repoussé (combat naval perdu par le joueur attaquant) : pertes, survivants qui rentrent ou aucun ;
+ *  - convoi coulé en mer ou devant un port ennemi ;
+ *  - convoi perdu faute de port où rentrer.
+ * names = { nation(id) → nom court, province(id) → nom }.
+ */
+const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+export function seaFatePopups(events, playerId, names) {
+  const out = [], list = events || [], merged = new Set();
+  const num = n => Math.max(0, Math.floor(Number(n) || 0));
+  const lossOf = (e, id) => { const l = e.lossesByNation?.[id]; return l ? Object.values(l).reduce((a, b) => a + num(b), 0) : null; };
+  for (const e of list) {
+    if (e.type === 'battle' && e.naval && (e.attackers || [e.attacker]).includes(playerId) && e.defender !== playerId) {
+      const lost = lossOf(e, playerId) ?? num(e.attackerLosses), killed = lossOf(e, e.defender) ?? num(e.defenderLosses);
+      const back = list.find(x => x.type === 'convoy-returning' && x.nationId === playerId && x.provinceId === e.provinceId && x.reason === 'repelled');
+      const home = back ? names.province(back.toId) : null;
+      // Port de départ tombé entre-temps : les survivants n'ont nulle part où rentrer (une seule fenêtre, exacte).
+      const stranded = back ? null : list.find(x => x.type === 'retreat-lost' && x.naval && x.nationId === playerId && (e.originIds || []).includes(x.provinceId) && !merged.has(x));
+      if (stranded) merged.add(stranded);
+      out.push({
+        kind: back ? 'repelled' : 'wiped', provinceId: e.provinceId, lost, killed, survivors: back ? num(back.amount) : 0,
+        kicker: `${names.nation(e.defender).toUpperCase()} · DÉBARQUEMENT`, title: '⚓ Débarquement repoussé',
+        lead: back || stranded ? `${plural(lost, 'unité')} perdue${lost > 1 ? 's' : ''} à ${names.province(e.provinceId)}` : `Tout le convoi a péri à ${names.province(e.provinceId)}`,
+        text: `${names.nation(e.defender)} tient la province et perd ${plural(killed, 'unité')}. ` +
+          (stranded ? `${plural(num(stranded.amount), 'survivant')} n’${num(stranded.amount) > 1 ? 'ont' : 'a'} plus de port où rentrer (${names.province(stranded.provinceId)} est tombée) : perdu${num(stranded.amount) > 1 ? 's' : ''} en mer.` : back ? `${plural(num(back.amount), 'survivant')} rembarque${num(back.amount) > 1 ? 'nt' : ''} et rentre${num(back.amount) > 1 ? 'nt' : ''} à ${home} (${plural(num(back.turns) || 2, 'tour')}).`
+                : 'Aucun survivant : tes troupes sont tombées sur la plage.'),
+        tip: 'Un débarquement se bat à 70 % de sa force, souvent sans voir la garnison d’en face. Débarque en nombre, escorté de navires de guerre, ou envoie d’abord une troupe voisine pour voir.'
+      });
+    } else if (e.type === 'interception' && e.defender === playerId && e.convoyDestroyed) {
+      const lost = lossOf(e, playerId) ?? num(e.defenderLosses);
+      out.push({
+        kind: 'sunk', provinceId: e.provinceId, lost,
+        kicker: `${names.nation(e.attacker).toUpperCase()} · INTERCEPTION`, title: '⚓ Convoi coulé',
+        lead: `${names.province(e.fromId)} → ${names.province(e.toId)} : ${plural(lost, 'unité')} perdue${lost > 1 ? 's' : ''}`,
+        text: e.kind === 'port' ? `La flotte du port de ${names.province(e.provinceId)} a coulé ton convoi juste avant l’arrivée.` : `Des navires de ${names.nation(e.attacker)} ont coulé ton convoi en pleine mer.`,
+        tip: 'Sans navires de guerre, un convoi ne peut pas se défendre. Construis un port et une usine pour l’escorter.'
+      });
+    } else if (e.type === 'retreat-lost' && e.naval && e.nationId === playerId && !merged.has(e)) {
+      const lost = num(e.amount);
+      out.push({
+        kind: 'stranded', provinceId: e.provinceId, lost, kicker: 'MARINE', title: '⚓ Convoi perdu en mer',
+        lead: `${plural(lost, 'unité')} perdue${lost > 1 ? 's' : ''}`,
+        text: `Le port de ${names.province(e.provinceId)} est tombé : tes troupes n’avaient plus où accoster.`, tip: ''
+      });
+    }
+  }
+  return out;
+}
