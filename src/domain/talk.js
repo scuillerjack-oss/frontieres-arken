@@ -114,7 +114,11 @@ const AI_LINES = {
   conquerorThreat: ['{to}, vos terres seront bientôt les nôtres.', 'Soumettez-vous, {to}, et vous garderez peut-être votre trône. Un petit trône.', '{to}, Arken n’aura qu’un seul maître. Indice : ce n’est pas vous.'],
   traitorCharm: ['{to}, une alliance entre nous ferait trembler Arken. Qu’en dites-vous ?', 'Nous n’avons que de l’estime pour {to}. Unissons-nous.', '{to}, soyons alliés : vos ennemis seront les nôtres.'],
   builderPeace: ['{to}, nos chantiers ont besoin de paix. Commerçons.', 'Nous bâtissons, {to}, nous ne conquérons pas.', '{to}, nos ports sont ouverts à vos marchands.'],
-  ceasefireOffer: ['{to}, cessons ce combat. Une trêve servirait nos deux peuples.', 'Assez, {to}. Nous proposons de déposer les armes.', '{to}, nous sommes prêts à signer une trêve.']
+  ceasefireOffer: ['{to}, cessons ce combat. Une trêve servirait nos deux peuples.', 'Assez, {to}. Nous proposons de déposer les armes.', '{to}, nous sommes prêts à signer une trêve.'],
+  // V13.2 : une proposition qui suit un refus le dit, et une offre en or est annoncée.
+  ceasefireAgain: ['{to}, vous avez repoussé notre trêve. Nous la proposons une nouvelle fois.', 'Nous revenons vers vous, {to}, malgré votre refus : signons la paix.', '{to}, notre première offre de trêve a été rejetée. Réfléchissez cette fois.'],
+  ceasefireGold: ['{to}, déposons les armes. Nous vous verserons {gold} or en gage de paix.', 'Une trêve, {to}, et {gold} or pour vos caisses. Que dites-vous ?', '{to}, cessons ce combat : {gold} or vous attendent si vous signez.'],
+  ceasefireGoldAgain: ['{to}, vous avez refusé notre trêve. Cette fois, nous ajoutons {gold} or.', 'Vous avez refusé notre trêve, {to}. Voici {gold} or pour vous faire changer d’avis.', '{to}, notre parole ne vous suffisait pas. Voici {gold} or pour la sceller.']
 };
 /** V13 : toutes les lignes pré-écrites (tests : français soigné, aucune insulte). */
 export function allTalkLines() {
@@ -315,7 +319,8 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
   }
 }
 /** Message d'une IA qui propose une trêve ou une alliance (au joueur, qui répond via la diplomatie). */
-export function aiOfferTalk(state, map, from, to, kind) {
-  const text = kind === 'ceasefire' ? pickFrom(state, AI_LINES.ceasefireOffer, 'offer', state.turn, from, to) : pickFrom(state, AI_LINES.traitorCharm, 'offer', state.turn, from, to);
-  return publishTalk(state, { from, to, tone: kind === 'ceasefire' ? 'neutre' : 'amical', text: fill(text, map, from, to), ai: true });
+export function aiOfferTalk(state, map, from, to, kind, { again = false, gold = 0 } = {}) {
+  const set = kind !== 'ceasefire' ? AI_LINES.traitorCharm : gold > 0 ? (again ? AI_LINES.ceasefireGoldAgain : AI_LINES.ceasefireGold) : again ? AI_LINES.ceasefireAgain : AI_LINES.ceasefireOffer;
+  const text = fill(pickFrom(state, set, 'offer', state.turn, from, to), map, from, to).replace('{gold}', String(gold));
+  return publishTalk(state, { from, to, tone: kind === 'ceasefire' ? 'neutre' : 'amical', text, ai: true });
 }

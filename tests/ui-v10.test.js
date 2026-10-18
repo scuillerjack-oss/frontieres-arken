@@ -140,16 +140,16 @@ test('V10 : nouvelles catégories du journal stylées (pillage, élimination, af
   for (const e of events) assert.notEqual(journalCategoryClass(journalEntry(e, map, 'valmorne').type), 'neutral', e.type);
 });
 
-test('V13 marine : aide « maritime » à jour (anneau, points de port, durée, interception, escorte)', () => {
+test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 2 tours, interception, escorte, 70 %)', () => {
   const text = TUTORIAL_GUIDE.find(x => x.id === 'maritime').text;
   assert.match(text, /anneau/);
-  assert.match(text, /point de port ⚓ que l’on possède \(construit ou non, dès le tour 1\)/);
-  assert.match(text, /débarque uniquement au point de port au bout de la route/);
-  assert.match(text, /port construit \+ une usine/);
-  assert.doesNotMatch(text, /voisines côtières/);
-  assert.match(text, /2 tours au minimum/);
+  assert.match(text, /point de port ⚓ que vous possédez/);
+  assert.match(text, /2 tours/);
+  assert.match(text, /port \+ usine/);
   assert.match(text, /intercepter/);
   assert.match(text, /escorter/);
-  assert.doesNotMatch(text, /à chaque extrémité/);
-  assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /60 tours/.test(x.text)));
+  assert.match(text, /70 %/);
+  // Retour de Jack : plus de pavé illisible.
+  for (const x of TUTORIAL_GUIDE) assert.ok(x.text.length <= 280, `${x.id} : ${x.text.length} caractères`);
+  assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /80 tours/.test(x.text)));
 });

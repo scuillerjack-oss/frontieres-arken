@@ -64,9 +64,9 @@ export const RULES = Object.freeze({
   // V10 marine (docs/V10-marine.md) : durée d'une traversée = max(minTurns, arrondi supérieur de length / stageLength)
   // tours, length = longueur de la route en unités de la carte (1536 × 1536). 1 tour = 1 étape en mer.
   naval:{ stageLength:150, minTurns:2 },
-  // V10 : fin de partie à la fin du tour 60 (classement : provinces, puis capitales tenues, puis trésor) ;
+  // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
-  gameLength:60
+  gameLength:80
 });
 
 export const HISTORICAL_RULE_REFERENCE = Object.freeze({

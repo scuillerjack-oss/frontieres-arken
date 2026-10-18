@@ -234,7 +234,7 @@ test('talkOptions : exactement 3 propositions (hostile, neutre, amical), textes 
   const s = scenario({ aurel: 'heros' });
   const base = talkOptions(s, map, { from: 'valmorne', to: 'aurel' });
   assert.deepEqual(base.map(o => o.tone), ['hostile', 'neutre', 'amical']);
-  for (const o of base) { assert.ok(o.text.length > 10); assert.match(o.text, /Aurel/); assert.ok(o.preview); }
+  for (const o of base) { assert.ok(o.text.length > 10); assert.match(o.text, /Solmara/); /* V13.2 : Aurel renommée Solmara */ assert.ok(o.preview); }
   assert.notEqual(new Set(base.map(o => o.text)).size, 1);
   const situation = () => talkOptions(s, map, { from: 'valmorne', to: 'aurel' })[0].situation;
   // V13 (anneau maritime) : Valmorne est voisine d'Oroël (route Branvale–Nordhème), plus d'Aurel.
@@ -336,13 +336,13 @@ let originalRandom, randomCalls = 0;
 before(() => { originalRandom = Math.random; const r = seededRandom(11); Math.random = () => { randomCalls++; return r(); }; });
 after(() => { Math.random = originalRandom; });
 const SEEDS = ['sim-1', 'sim-2', 'sim-3', 'sim-4', 'sim-5'];
-function simulate(seed, player, turns = 60) {
+function simulate(seed, player, turns = 80) {
   const s = createGameState({ map, playerNationId: player, seed });
   for (const id of NATIONS) s.controllers[id] = 'ai';
   for (let i = 0; i < turns; i++) { resolveInterturn(s, map); assertInvariants(s, `V11 ${seed}`); }
   return s;
 }
-test('Simulation V11 : 5 parties × 60 tours — guerre tôt, trahisons, aucune personnalité gagnante systématique', () => {
+test('Simulation V11 : 5 parties × 80 tours — guerre tôt, trahisons, aucune personnalité gagnante systématique', () => {
   const firstWars = [], winners = [];
   let betrayals = 0, talks = 0, alliances = 0, ceasefires = 0;
   SEEDS.forEach((seed, i) => {
@@ -353,7 +353,7 @@ test('Simulation V11 : 5 parties × 60 tours — guerre tôt, trahisons, aucune 
     talks += s.events.filter(e => e.type === 'talk').length;
     alliances += s.events.filter(e => e.type === 'diplomatic-action' && e.action === 'alliance' && e.accepted).length;
     ceasefires += s.events.filter(e => e.type === 'ceasefire-offer' && e.accepted).length;
-    assert.ok(s.events.some(e => e.type === 'game-over'), 'fin de partie au tour 60');
+    assert.ok(s.events.some(e => e.type === 'game-over'), 'fin de partie au tour 80');
     assert.ok(s.talk.length > 0 && s.talk.length <= 60);
     const w = gameRanking(s)[0].nationId;
     winners.push(s.leaders[w]?.archetype);

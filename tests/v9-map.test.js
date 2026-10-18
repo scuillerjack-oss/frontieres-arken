@@ -34,7 +34,10 @@ test('V9 : 20 provinces p01..p20 dans le même ordre, 5 nations, 4 provinces par
 });
 
 test('V9 : identifiants, noms, nations, couleurs et biomes identiques à la V6', () => {
-  assert.deepEqual(map.nations.map(n => ({ ...n })), arkenV1Map.nations.map(n => ({ ...n })));
+  // V13.2 (décision de Jack) : seul le NOM affiché d'Aurel change (« Solmara », trop proche d'Oroël à l'oreille) ;
+  // l'identifiant `aurel`, la couleur et le blason restent ceux de la V6 (ils sont dans les sauvegardes).
+  const renamed = { aurel: { name: 'Alliance de Solmara', short: 'Solmara' } };
+  assert.deepEqual(map.nations.map(n => ({ ...n })), arkenV1Map.nations.map(n => ({ ...n, ...(renamed[n.id] || {}) })));
   for (const [i, p] of map.provinces.entries()) {
     const old = arkenV1Map.provinces[i];
     assert.deepEqual([p.id, p.name, p.initialOwner, p.biome], [old.id, old.name, old.initialOwner, old.biome]);
@@ -225,8 +228,8 @@ test('V13 marine IA : débarquements aux points de port et interceptions dans le
     const dep = ev.filter(e => e.type === 'convoy-departed' && !e.returning);
     departures += dep.length; escorted += dep.filter(e => e.escort > 0).length;
     const go = ev.find(e => e.type === 'game-over');
-    assert.ok(go, 'fin de partie enregistrée (tour 60 ou 5 capitales)');
-    assert.ok(go.turn <= 60, `fin au tour ${go.turn}`);
+    assert.ok(go, 'fin de partie enregistrée (tour 80 ou 5 capitales)');
+    assert.ok(go.turn <= 80, `fin au tour ${go.turn}`);
     firstVictory.push(go.reason === 'capitals' ? go.turn : null);
   }
   assert.ok(landings >= 20, `${landings} débarquements`);

@@ -163,7 +163,7 @@ test('V13 : Bâtisseur — refuse souvent d\'attaquer, accepte plus volontiers d
     answer = ask(s, 'roc-epine', 'attack', 'aurel');
   }
   assert.equal(answer.accepted, false);
-  assert.match(journalEntry(answer, map, 'valmorne').text, /Roc-Épine refuse d’attaquer Aurel avec vous/);
+  assert.match(journalEntry(answer, map, 'valmorne').text, /Roc-Épine refuse d’attaquer Solmara avec vous/);
   assert.equal(helpPacts(s).length, 0);
   replan(s);
   assert.ok(!ordersOf(s, 'roc-epine').some(o => o.kind === 'diplomacy' && o.action === 'war'));
@@ -178,7 +178,7 @@ test('V13 : Traître — accepte tout… et ne vient pas ; la promesse non tenue
   setRelation(s, { nationId: 'aurel', target: 'valmorne', type: 'war' });
   const answer = ask(s, 'roc-epine', 'attack', 'aurel');
   assert.equal(answer.accepted, true, 'il accepte');
-  assert.match(journalEntry(answer, map, 'valmorne').text, /accepte d’attaquer Aurel avec vous/);
+  assert.match(journalEntry(answer, map, 'valmorne').text, /accepte d’attaquer Solmara avec vous/);
   assert.equal(helpPacts(s)[0].fake, true);
   assert.equal(activeHelpPacts(s, 'roc-epine').length, 0, 'aucun engagement tenu');
   assert.equal(helpPactsFor(s, 'roc-epine')[0].kind, 'attack', 'le joueur voit une promesse comme une autre');
@@ -193,7 +193,7 @@ test('V13 : Traître — accepte tout… et ne vient pas ; la promesse non tenue
   }
   assert.ok(broken, 'promesse non tenue');
   assert.equal(atWar(s, 'roc-epine', 'aurel'), false);
-  assert.match(journalEntry(broken, map, 'valmorne').text, /avait promis d’attaquer Aurel avec vous… et n’est jamais venu/);
+  assert.match(journalEntry(broken, map, 'valmorne').text, /avait promis d’attaquer Solmara avec vous… et n’est jamais venu/);
   assert.equal(helpPacts(s).length, 0);
 });
 

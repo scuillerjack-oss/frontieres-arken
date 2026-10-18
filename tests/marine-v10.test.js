@@ -206,27 +206,27 @@ test('migration 6 -> 7 : un transport V10 lot 2 en mer devient un convoi qui arr
 });
 
 // --- Fin de partie -------------------------------------------------------------------------------------------------
-test('fin de partie au tour 60 : classement provinces, puis capitales, puis trésor', () => {
-  assert.equal(RULES.gameLength, 60);
+test('fin de partie au tour RULES.gameLength (80 depuis V13.2) : classement provinces, puis capitales, puis trésor', () => {
+  assert.equal(RULES.gameLength, 80); // V13.2 : décision de Jack (60 → 80 tours)
   const s = fresh();
-  s.turn = 59; resolveInterturn(s, map);
-  assert.equal(s.gameOver, undefined, 'pas de fin avant la fin du tour 60');
-  assert.equal(s.turn, 60);
+  s.turn = RULES.gameLength - 1; resolveInterturn(s, map);
+  assert.equal(s.gameOver, undefined, 'pas de fin avant la fin du dernier tour');
+  assert.equal(s.turn, RULES.gameLength);
   s.provinces.p05.ownerId = 'valmorne';                  // Valmorne : 5 provinces, 2 capitales
   s.provinces.p10.ownerId = 'oroel';                     // Oroël : 5 provinces, 1 capitale
   s.nations.aurel.treasury = 9999;                       // Aurel 4 provinces, très riche : 3e ou mieux parmi les 4
   resolveInterturn(s, map);
   assert.equal(s.gameOver.reason, 'turn-limit');
-  assert.equal(s.gameOver.turn, 60);
+  assert.equal(s.gameOver.turn, RULES.gameLength);
   const r = s.gameOver.ranking.map(x => x.nationId);
   assert.deepEqual(r.slice(0, 3), ['valmorne', 'oroel', 'aurel']);
   assert.equal(s.gameOver.winnerId, 'valmorne');
   assert.ok(s.events.some(e => e.type === 'game-over'));
-  assert.match(journalEntry(s.events.find(e => e.type === 'game-over'), map, 'valmorne').text, /Fin de la partie au tour 60/);
+  assert.match(journalEntry(s.events.find(e => e.type === 'game-over'), map, 'valmorne').text, /Fin de la partie au tour 80/);
   // La partie peut continuer (sauvegarde reprise) : la fin n'est enregistrée qu'une fois.
   resolveInterturn(s, map);
   assert.equal(s.events.filter(e => e.type === 'game-over').length, 1);
-  assert.equal(s.turn, 62);
+  assert.equal(s.turn, RULES.gameLength + 2);
 });
 test('victoire anticipée : une nation tient les 5 capitales', () => {
   const s = fresh();
