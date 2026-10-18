@@ -15,6 +15,7 @@ import { queueDiplomaticOrder, setRelation, resolveInterturn, spendableTreasury,
 import { leaderHint, recordStrike, strengthOf } from '../src/domain/leaders.js';
 import { ceasefireRange, clampCeasefireAmount, ceasefireEstimate, ceasefireOrder, allyBlockedTarget } from '../src/presentation/v13-2-ux.js';
 import { diplomacyActions } from '../src/presentation/v3-ux.js';
+import { territoryBorders } from '../src/presentation/v5-ux.js';
 import { TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
 import { map, freshState } from './helpers/fixtures.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
@@ -214,6 +215,8 @@ test('province alliée : signalée avant la saisie des troupes, plus proposée e
   assert.equal(allyBlockedTarget(s, 'valmorne', 'p05'), null);
   assert.match(app, /ALLIÉ · ATTAQUE IMPOSSIBLE/);
   assert.match(app, /Votre allié : vous ne pouvez pas l’attaquer/);
+  // Retour de Jack : liseré VERT pour les alliés (le bleu est celui du joueur).
+  assert.deepEqual(territoryBorders(s, map).map(b => b.kind), ['player', 'ally']);
 });
 
 // --- 7. Textes ------------------------------------------------------------------------------------------------

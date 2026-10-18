@@ -134,8 +134,8 @@ Tests : `tests/v13-1-beta.test.js`. Vérifié dans Chrome mobile simulé (393 px
    couleur et blason inchangés (sauvegardes intactes).
 5. **80 tours au lieu de 60**, affichés « 26/80 » dans le bandeau ; les 5 derniers tours en orange, et une ligne au journal
    « ⏳ Plus que 5 tours avant la fin de la partie ».
-6. **Attaquer un allié : pas assez clair** : en mode déplacement, les provinces alliées sont teintées en bleu (plus en vert)
-   et le bandeau le dit ; les toucher ouvre « 🤝 X est votre allié — attaque impossible » avec un bouton Diplomatie ;
+6. **Attaquer un allié : pas assez clair** : en mode déplacement, les provinces alliées ne sont plus proposées en vert
+   sont entourées d'un **liseré vert** (demande de Jack : le bleu reste celui du joueur) et le bandeau le dit ; les toucher ouvre « 🤝 X est votre allié — attaque impossible » avec un bouton Diplomatie ;
    la fiche d'une province alliée porte « 🤝 Votre allié : vous ne pouvez pas l'attaquer ».
 7. **Descriptions trop longues** : toutes les aides réécrites en 1 à 3 phrases courtes (≤ 280 caractères, testé).
 Après relecture indépendante : les refus s'oublient après 20 tours ou dès qu'une trêve/alliance est signée ; si l'IA

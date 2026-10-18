@@ -358,8 +358,9 @@ dialog.ad-overlay::backdrop{background:#000c}
 .hud-stat b .turn-max{font-size:.62em;font-weight:700;color:#8fa6b2;margin-left:1px}
 .hud-stat.turn-final{border-color:#c9774c}.hud-stat.turn-final b{color:#f0a070}
 /* V13.2 : provinces alliées en mode déplacement (non attaquables), fiche alliée, cessez-le-feu au montant choisi */
-.province.ally-blocked .area{fill:#2f7fff;fill-opacity:.5}
-.info-chip.ally-chip{border-color:#5da9ff;color:#cfe5ff;background:#0f2a44}
+.territory.ally{stroke:#3fcf74;filter:drop-shadow(0 0 2px #002a12)}
+.province.ally-blocked .area{fill:#020a10;fill-opacity:.5}
+.info-chip.ally-chip{border-color:#3fcf74;color:#d4f7e0;background:#0e2e1d}
 .proposal-memo{font-size:.82rem;color:#f0c48a;margin:8px 0 0}
 #eventDialog .capital-gold{font-size:1.8rem}
 .cf-intro{margin:4px 0 10px;font-size:.9rem;color:#d6e2e7}

@@ -147,6 +147,9 @@ export function territoryBorders(state, map) {
   const own = nation => map.provinces.filter(d => state.provinces[d.id]?.ownerId === nation).map(d => d.id);
   const groups = [{ kind: 'player', nationId: state.playerNationId, provinceIds: own(state.playerNationId) }];
   for (const enemy of nationsAtWarWith(state)) groups.push({ kind: 'war', nationId: enemy, provinceIds: own(enemy) });
+  // V13.2 (Jack) : liseré VERT autour des alliés — le bleu reste celui du joueur.
+  for (const t of state.diplomacy?.treaties || []) if (t.active !== false && t.type === 'alliance' && t.parties?.includes(state.playerNationId))
+    for (const ally of t.parties) if (ally !== state.playerNationId) groups.push({ kind: 'ally', nationId: ally, provinceIds: own(ally) });
   return groups.filter(g => g.provinceIds.length).map(g => ({ ...g, segments: territoryOutline(map, g.provinceIds) }));
 }
 
