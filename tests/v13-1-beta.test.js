@@ -81,3 +81,14 @@ test('interface : les fenêtres du sort des convois suivent la prise de capitale
   assert.ok(app.includes('await showCapitalPopups(events);\n    await showSeaPopups(events);'));
   assert.ok(app.includes('⚠ Garnison inconnue : la province est hors de vue.'));
 });
+
+test('débarquement repoussé alors que le port de départ est tombé : une seule fenêtre, survivants perdus en mer', () => {
+  const events = [
+    { type: 'battle', naval: true, attacker: 'valmorne', defender: 'roc-epine', provinceId: 'p05', originIds: ['p02'], lossesByNation: { valmorne: { infantry: 30 }, 'roc-epine': { infantry: 5 } } },
+    { type: 'retreat-lost', naval: true, nationId: 'valmorne', provinceId: 'p02', amount: 10 }
+  ];
+  const pops = seaFatePopups(events, 'valmorne', names);
+  assert.equal(pops.length, 1);
+  assert.match(pops[0].lead, /30 unités perdues à Roc-Épine/);
+  assert.match(pops[0].text, /10 survivants n’ont plus de port où rentrer \(Sylvaren est tombée\) : perdus en mer\./);
+});
