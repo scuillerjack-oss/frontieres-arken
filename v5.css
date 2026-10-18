@@ -112,6 +112,7 @@ nav.bottom-bar #nextTurn i{font-size:1.7rem;font-weight:900}
 #provinceSheet{bottom:calc(84px + env(safe-area-inset-bottom))}
 #tutorialBubble{bottom:calc(96px + env(safe-area-inset-bottom))}
 #sheetActions button{min-height:48px;font-size:.86rem;padding:10px 12px}
+#sheetActions button{flex:1 1 auto;min-width:0;padding:10px 8px}
 #moveBanner{top:62px;font-size:.84rem}
 #moveBanner button{min-height:36px;padding:6px 12px;font-weight:700}
 @media(max-width:370px){.brand{display:none}.hud-stat{min-width:52px}.hud-stat b{font-size:1.25rem}}

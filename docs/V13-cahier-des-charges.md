@@ -81,7 +81,14 @@ Détails : `docs/V13-marine.md`, `docs/V13-vision.md`, `docs/V13-alliances-echan
 - « Attaque X avec moi » ne propose que les nations que l'allié peut atteindre par l'anneau ; sinon refus motivé.
 - L'IA marine ne lit plus les navires réels d'un port qu'elle ne voit pas ; marge de débarquement 0,25 (60 % de réussite).
 
+### Vérification dans Chrome mobile simulé (393 px, 18/10/2026)
+Parcours réel joué jusqu'à la fin de partie (14 tours) : récit d'introduction, fiches sous brouillard (« effectif inconnu »),
+ligne de PV, embarquement depuis un point de port dès le tour 1, convoi intercepté, « Votre capitale est tombée »,
+cessez-le-feu en fenêtre Oui / Non, écran de défaite. Aucune erreur dans la console, aucun débordement horizontal.
+Corrigé : sur la fiche d'une province, le bouton « Construire » dépassait de 3 px à droite et paraissait coupé.
+
 ### À surveiller en bêta
+- Deux nations peuvent envoyer la même réplique hostile au même tour (« Belle attaque… ») : à varier si ça se voit trop.
 - L'IA prend moins la mer (brouillard + anneau) : environ 50 débarquements sur 60 tours contre 105 en V12.
 - 4 capitales sur 5 sont des points de port ; Glacenoire ↔ Noireflamme relie deux capitales.
 - Deux bases navales face à face peuvent s'accumuler sans s'attaquer.
