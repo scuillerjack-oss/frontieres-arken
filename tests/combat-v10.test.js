@@ -11,7 +11,7 @@ import { map, freshState, assertInvariants } from './helpers/fixtures.js';
 
 const F = units => ({ units });
 const atWar = (s, a, b) => s.diplomacy.wars.some(w => w.participants.includes(a) && w.participants.includes(b));
-const attack = (s, nationId, fromId, toId, units) => s.orders.push({ id: `t${s.orders.length}`, kind: 'move', nationId, fromId, toId, units: { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, ...units }, warships: 0, routeType: 'land', status: 'pending', turn: s.turn });
+const attack = (s, nationId, fromId, toId, units) => s.orders.push({ id: `t${s.orders.length}`, kind: 'move', nationId, fromId, toId, units: { infantry: 0, cavalry: 0, armor: 0, artillery: 0, ...units }, warships: 0, routeType: 'land', status: 'pending', turn: s.turn });
 
 // --- A1. Plafonds de construction ---------------------------------------------------------------------------
 test('A1 : une seule banque par province, file de construction comprise, message clair', () => {
@@ -149,7 +149,7 @@ test('A4 : chaque affrontement est visible par TOUS ; les pertes seulement pour 
   resolveInterturn(s, map);
   const ev = s.events.find(e => e.type === 'battle');
   assert.ok(ev);
-  assert.equal(eventKnownToPlayer(s, map, ev), true, 'Aurel, sans ballon ni province voisine, est informé');
+  assert.equal(eventKnownToPlayer(s, map, ev), true, 'Aurel, sans vision sur la province, est informé');
   const pub = journalEntry(ev, map, 'aurel'), own = journalEntry(ev, map, 'valmorne');
   assert.match(pub.text, /^Affrontement à .* entre Valmorne et Roc-Épine : Roc-Épine tient la province\.$/);
   assert.doesNotMatch(pub.text, /Pertes/);
@@ -168,12 +168,14 @@ test('A4 : une prise de province annonce « prend la province »', () => {
 
 // --- B1. Table des unités et matchups ---------------------------------------------------------------------------
 test('B1 : chaque type a des PV et des dégâts dans RULES.combat, multiplicateurs complets', () => {
-  for (const k of ['infantry', 'cavalry', 'armor', 'artillery', 'balloon', 'warship']) {
+  for (const k of ['infantry', 'cavalry', 'armor', 'artillery', 'warship']) {
     assert.ok(RULES.combat.units[k].hp > 0, k);
     assert.ok(RULES.combat.units[k].damage >= 0, k);
     assert.ok(RULES.combat.multipliers[k], k);
   }
-  assert.equal(RULES.combat.units.balloon.damage, 0, 'le ballon ne combat pas');
+  // V13 : le ballon d'observation est supprimé (remplacé par la vision : tests/vision-v13.test.js).
+  assert.equal(RULES.combat.units.balloon, undefined, 'plus de ballon');
+  assert.equal(RULES.combat.balloonAccuracyBonus, undefined, 'plus de bonus de précision');
   assert.equal(RULES.combat.passes, 3);
 });
 
@@ -198,14 +200,12 @@ test('B1 matchup : l\'infanterie en nombre tient tête aux blindés à coût ég
   const r = resolveCombat({ attacker: F({ armor: 4 }), defender: F({ infantry: 120 }) }); // 120 or contre 120 or
   assert.equal(r.captured, false);
 });
-test('B1 matchup : le ballon ne combat pas mais donne +15 % de précision ; seul, il est capturé', () => {
+// V13 (test remplacé) : le ballon est supprimé ; un « ballon » d'une vieille force est ignoré et ne donne plus +15 %.
+test('V13 : plus de ballon ni de bonus de précision au combat', () => {
   const without = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 300 }), passes: 1 }).defenderHpLost;
   const withBalloon = resolveCombat({ attacker: F({ infantry: 100, balloon: 1 }), defender: F({ infantry: 300 }), passes: 1 }).defenderHpLost;
-  assert.ok(Math.abs(withBalloon - without * 1.15) <= 2);
-  const lone = resolveCombat({ attacker: F({ infantry: 20 }), defender: F({ balloon: 2 }) });
-  assert.equal(lone.captured, true);
-  assert.equal(lone.attackerHpLost, 0, 'le ballon ne tire pas');
-  assert.equal(resolveCombat({ attacker: F({ balloon: 3 }), defender: F({}) }).captured, false, 'un ballon seul ne prend pas une province');
+  assert.equal(withBalloon, without, 'aucun bonus');
+  assert.equal(resolveCombat({ attacker: F({ balloon: 3 }), defender: F({}) }).captured, false, 'un ballon n\'existe plus : pas de prise');
 });
 test('B1 matchup : navire contre navire en mer ; les troupes embarquées ne tirent pas et sont vulnérables', () => {
   const r = resolveCombat({ attacker: F({ warship: 1, infantry: 100 }), defender: F({ warship: 1 }), mode: 'naval' });
@@ -254,7 +254,7 @@ test('B2 : plusieurs attaquants — le plus fort survivant prend la province, le
 // --- B3. Blessures et guérison ---------------------------------------------------------------------------------
 test('B3 : les PV perdus non mortels restent (state.provinces[id].wounds) et guérissent de 10 % des PV max par tour', () => {
   const s = freshState({ allHuman: true });
-  assert.deepEqual(s.provinces.p05.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 });
+  assert.deepEqual(s.provinces.p05.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, warship: 0 });
   attack(s, 'valmorne', 'p04', 'p05', { infantry: 40 }); // défense tenue, garnison blessée
   resolveInterturn(s, map);
   assert.equal(s.provinces.p05.ownerId, 'roc-epine');
@@ -310,10 +310,10 @@ test('B5 : migration d\'une sauvegarde V9 (schéma 5) : PV pleins, aucune blessu
   const old = structuredClone(s); old.schemaVersion = 5;
   for (const p of Object.values(old.provinces)) delete p.wounds;
   old.productionQueue = [{ kind: 'unit', type: 'infantry', provinceId: 'p01', nationId: 'valmorne', amount: 40, remaining: 1 }, { kind: 'building', type: 'bank', provinceId: 'p02', nationId: 'valmorne', amount: 1, remaining: 2 }];
-  old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20, cavalry: 0, armor: 0, artillery: 0, balloon: 0 }, warships: 1, status: 'at-sea', remaining: 1 }];
+  old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20, cavalry: 0, armor: 0, artillery: 0 }, warships: 1, status: 'at-sea', remaining: 1 }];
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 8, 'V9 -> V10 lot 2 -> V10 marine -> V11');
-  for (const p of Object.values(m.provinces)) assert.deepEqual(p.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, balloon: 0, warship: 0 });
+  assert.equal(m.schemaVersion, 9, 'V9 -> V10 lot 2 -> V10 marine -> V11 -> V13');
+  for (const p of Object.values(m.provinces)) assert.deepEqual(p.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, warship: 0 });
   assert.deepEqual(m.productionQueue.map(q => q.cost), [40, 30]);
   assert.equal(m.transports[0].wounds.infantry, 0);
   assertInvariants(m, 'migration');

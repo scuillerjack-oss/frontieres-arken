@@ -1,5 +1,8 @@
 # FRONTIÈRES: ARKEN — V10 — Marine
 
+> **V13 : embarquement, débarquement et routes remplacés par l'anneau de 5 routes et les points de port — voir
+> `V13-marine.md`.** Le reste (durée, convois, interception, escorte, combat de débarquement) reste valable.
+
 > Refonte de la marine demandée par la bêta V9 (points 14 à 16 de `BETA-V9-retours-Jack.md`).
 > Code : `src/domain/game-engine.js` (convois), `src/domain/combat.js` (combats naval et débarquement),
 > valeurs dans `RULES` (`src/domain/constants.js`). Tests : `tests/marine-v10.test.js`.

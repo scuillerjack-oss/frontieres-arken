@@ -677,8 +677,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     230,
-     652
+     210,
+     648
     ]
    },
    "paintedCells": [
@@ -1488,8 +1488,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     280,
-     653
+     290,
+     668
     ]
    },
    "paintedCells": [
@@ -2470,8 +2470,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     897,
-     629
+     955,
+     470
     ]
    },
    "paintedCells": [
@@ -2983,8 +2983,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     1067,
-     828
+     1098,
+     817
     ]
    },
    "paintedCells": [
@@ -3402,8 +3402,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     1025,
-     414
+     1012,
+     400
     ]
    },
    "paintedCells": [
@@ -4265,8 +4265,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     597,
-     976
+     618,
+     968
     ]
    },
    "paintedCells": [
@@ -4805,8 +4805,8 @@
    "coastal": true,
    "port": {
     "anchor": [
-     1018,
-     818
+     1020,
+     830
     ]
    },
    "paintedCells": [
@@ -5100,22 +5100,7 @@
     "ile-sud-ouest"
    ],
    "waypoints": [],
-   "length": 50
-  },
-  {
-   "from": "p03",
-   "to": "p09",
-   "islands": [
-    "ile-nord-ouest",
-    "ile-est"
-   ],
-   "waypoints": [
-    [
-     865,
-     595
-    ]
-   ],
-   "length": 201
+   "length": 82
   },
   {
    "from": "p03",
@@ -5128,58 +5113,6 @@
    "length": 236
   },
   {
-   "from": "p03",
-   "to": "p19",
-   "islands": [
-    "ile-nord-ouest",
-    "ile-sud"
-   ],
-   "waypoints": [
-    [
-     899,
-     667
-    ],
-    [
-     1019,
-     753
-    ]
-   ],
-   "length": 447
-  },
-  {
-   "from": "p07",
-   "to": "p09",
-   "islands": [
-    "ile-sud-ouest",
-    "ile-est"
-   ],
-   "waypoints": [],
-   "length": 366
-  },
-  {
-   "from": "p07",
-   "to": "p13",
-   "islands": [
-    "ile-sud-ouest",
-    "ile-nord-est"
-   ],
-   "waypoints": [
-    [
-     819,
-     685
-    ],
-    [
-     877,
-     549
-    ],
-    [
-     917,
-     537
-    ]
-   ],
-   "length": 625
-  },
-  {
    "from": "p07",
    "to": "p17",
    "islands": [
@@ -5187,7 +5120,7 @@
     "ile-sud"
    ],
    "waypoints": [],
-   "length": 99
+   "length": 86
   },
   {
    "from": "p09",
@@ -5196,17 +5129,8 @@
     "ile-est",
     "ile-nord-est"
    ],
-   "waypoints": [
-    [
-     857,
-     561
-    ],
-    [
-     919,
-     531
-    ]
-   ],
-   "length": 306
+   "waypoints": [],
+   "length": 90
   },
   {
    "from": "p11",
@@ -5216,34 +5140,7 @@
     "ile-sud"
    ],
    "waypoints": [],
-   "length": 50
-  },
-  {
-   "from": "p13",
-   "to": "p19",
-   "islands": [
-    "ile-nord-est",
-    "ile-sud"
-   ],
-   "waypoints": [
-    [
-     889,
-     547
-    ],
-    [
-     863,
-     555
-    ],
-    [
-     921,
-     683
-    ],
-    [
-     1019,
-     753
-    ]
-   ],
-   "length": 543
+   "length": 79
   }
  ],
  "decorativeIsletCount": 39

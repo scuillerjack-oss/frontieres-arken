@@ -59,7 +59,7 @@ export function convoyMarkers(state,map,playerNationId=state.playerNationId){
 }
 
 // --- V10 : PV et blessures dans la fiche d'une province (docs/V10-moteur.md §6) -----------------------------
-const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['canon','canons'],balloon:['ballon','ballons'],warship:['navire','navires']};
+const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['canon','canons'],warship:['navire','navires']};
 /** Lignes « 8 blindés · 92 % PV » d'une province : par type présent, nombre, PV restants / PV max (blessures). */
 export function forceHealthRows(p,unitHp){
   const counts={...(p?.units||{}),warship:p?.warships||0};
@@ -100,7 +100,9 @@ export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITO
   'AFFRONTEMENT':'foreign-conflict','PILLAGE':'plunder','ÉLIMINATION':'elimination','ORDRE ANNULÉ':'cancelled',
   'INTERCEPTION':'naval','DÉBARQUEMENT':'naval','MARINE':'naval','FIN DE PARTIE':'endgame','DIPLOMATIE':'blue','diplomatie':'blue',
   // V11 : personnalités des dirigeants.
-  'ÉCHANGE':'talk','TRAHISON':'betrayal','RÉVÉLATION':'reveal','TENSION':'tension'});
+  'ÉCHANGE':'talk','TRAHISON':'betrayal','RÉVÉLATION':'reveal','TENSION':'tension',
+  // V13 : demandes d'aide entre alliés.
+  'AIDE':'help'});
 export function journalCategoryClass(type){
   return JOURNAL_TYPE_CLASSES[type]||'neutral';
 }

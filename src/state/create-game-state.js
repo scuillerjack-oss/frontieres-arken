@@ -26,7 +26,7 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
     nations: Object.fromEntries(nationIds.map(id => [id, { treasury: 120, eliminated: false, capitalId:capitals[id] }])),
     provinces: Object.fromEntries(map.provinces.map(p => [p.id, {
       ownerId: p.initialOwner,
-      units: { ...emptyUnits(), infantry: capitals[p.initialOwner]===p.id ? 200 : 40, cavalry: capitals[p.initialOwner]===p.id ? 10 : 0, armor: capitals[p.initialOwner]===p.id ? 6 : 0, artillery: capitals[p.initialOwner]===p.id ? 2 : 0, balloon: capitals[p.initialOwner]===p.id ? 1 : 0 },
+      units: { ...emptyUnits(), infantry: capitals[p.initialOwner]===p.id ? 200 : 40, cavalry: capitals[p.initialOwner]===p.id ? 10 : 0, armor: capitals[p.initialOwner]===p.id ? 6 : 0, artillery: capitals[p.initialOwner]===p.id ? 2 : 0 },
       warships: 0,
       wounds: emptyWounds(),
       // `portSite` is geographic eligibility; a port must be built and paid for.

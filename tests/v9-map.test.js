@@ -70,12 +70,15 @@ test('V9 : chaque île = une nation, 4 provinces, connexe par la terre', () => {
   }
 });
 
-test('V9 : chaque paire d\'îles est reliée par une route maritime entre deux sites de port', () => {
+test('V13 : anneau maritime — chaque île reliée à ses 2 voisines par une route entre deux sites de port', () => {
   const islands = [...new Set(map.provinces.map(p => p.landmassId))];
   const pairs = new Set(map.maritimeRoutes.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')));
-  for (let i = 0; i < islands.length; i++) for (let j = i + 1; j < islands.length; j++)
-    assert.ok(pairs.has([islands[i], islands[j]].sort().join('|')), `${islands[i]} - ${islands[j]} sans route`);
-  assert.equal(map.maritimeRoutes.length, 10);
+  // V9 : graphe complet (10 routes) ; V13 : anneau NO ↔ NE ↔ E ↔ S ↔ SO ↔ NO (5 routes, détaillé dans marine-v13).
+  const ring = ['ile-nord-ouest', 'ile-nord-est', 'ile-est', 'ile-sud', 'ile-sud-ouest'];
+  for (let i = 0; i < 5; i++) assert.ok(pairs.has([ring[i], ring[(i + 1) % 5]].sort().join('|')), `${ring[i]} - ${ring[(i + 1) % 5]} sans route`);
+  assert.equal(pairs.size, 5);
+  assert.deepEqual(new Set(islands), new Set(ring));
+  assert.equal(map.maritimeRoutes.length, 5);
   for (const [a, b] of map.maritimeRoutes) {
     assert.ok(byId(a).port && byId(b).port, `${a}-${b} : extrémité sans port`);
     assert.notEqual(islandOf(a), islandOf(b));
@@ -84,19 +87,22 @@ test('V9 : chaque paire d\'îles est reliée par une route maritime entre deux s
   assert.equal(map.seaLanes.length, map.maritimeRoutes.length);
 });
 
-test('V9 : la mer s\'ouvre dans les deux sens quand les ports sont construits', () => {
+test('V13 : la mer est ouverte dans les deux sens dès le tour 1 (ports construits ou non)', () => {
   const s = fresh({ allHuman: true });
-  assert.equal(legalDestinations(map, s, 'p03').some(d => d.type === 'sea'), false);
+  const check = () => {
+    for (const [a, b] of map.maritimeRoutes) {
+      assert.ok(legalDestinations(map, s, a).some(d => d.id === b && d.type === 'sea'), `${a}->${b}`);
+      assert.ok(legalDestinations(map, s, b).some(d => d.id === a && d.type === 'sea'), `${b}->${a}`);
+    }
+    // Depuis ses points de port, chaque île atteint exactement ses 2 voisines de l'anneau.
+    for (const island of new Set(map.provinces.map(p => p.landmassId))) {
+      const reached = new Set(map.provinces.filter(p => p.landmassId === island && p.port).flatMap(p => legalDestinations(map, s, p.id).filter(d => d.type === 'sea').map(d => islandOf(d.id))));
+      assert.equal(reached.size, 2, `${island} atteint ${[...reached]}`);
+    }
+  };
+  check();
   for (const p of map.provinces) if (p.port) s.provinces[p.id].buildings.port = 1;
-  for (const [a, b] of map.maritimeRoutes) {
-    assert.ok(legalDestinations(map, s, a).some(d => d.id === b && d.type === 'sea'), `${a}->${b}`);
-    assert.ok(legalDestinations(map, s, b).some(d => d.id === a && d.type === 'sea'), `${b}->${a}`);
-  }
-  // Depuis ses ports, chaque île atteint les 4 autres.
-  for (const island of new Set(map.provinces.map(p => p.landmassId))) {
-    const reached = new Set(map.provinces.filter(p => p.landmassId === island && p.port).flatMap(p => legalDestinations(map, s, p.id).filter(d => d.type === 'sea').map(d => islandOf(d.id))));
-    assert.equal(reached.size, 4, `${island} n'atteint que ${[...reached]}`);
-  }
+  check();
 });
 
 test('V9 : zones tactiles = polygones dans l\'image, sans chevauchement, centre dans sa province (B7)', () => {
@@ -119,16 +125,15 @@ test('V9 : zones tactiles = polygones dans l\'image, sans chevauchement, centre 
 
 test('V9 : flèche d\'un ordre maritime = tracé de la route (ancres des ports + waypoints)', () => {
   const s = fresh({ allHuman: true });
-  s.provinces.p07.buildings.port = 1; s.provinces.p13.buildings.port = 1;
-  assert.equal(queueMoveOrder(s, map, { nationId: 'roc-epine', fromId: 'p07', toId: 'p13', units: { infantry: 10 } }).ok, true);
+  assert.equal(queueMoveOrder(s, map, { nationId: 'roc-epine', fromId: 'p07', toId: 'p17', units: { infantry: 10 } }).ok, true);
   s.playerNationId = 'roc-epine';
   const [arrow] = playerOrderArrows(s, map);
   assert.equal(arrow.routeType, 'sea');
   const path = orderPath(map, arrow);
-  const lane = map.seaLanes.find(l => l.from === 'p07' && l.to === 'p13');
-  assert.deepEqual(path, [byId('p07').markerAnchor, byId('p07').port.anchor, ...lane.waypoints, byId('p13').port.anchor, byId('p13').markerAnchor]);
+  const lane = map.seaLanes.find(l => l.from === 'p07' && l.to === 'p17');
+  assert.deepEqual(path, [byId('p07').markerAnchor, byId('p07').port.anchor, ...lane.waypoints, byId('p17').port.anchor, byId('p17').markerAnchor]);
   // Sens inverse : même tracé retourné.
-  const back = orderPath(map, { fromId: 'p13', toId: 'p07', routeType: 'sea' });
+  const back = orderPath(map, { fromId: 'p17', toId: 'p07', routeType: 'sea' });
   assert.deepEqual(back, [...path].reverse());
   // Ordre terrestre : segment direct entre centres.
   assert.deepEqual(orderPath(map, { fromId: 'p05', toId: 'p06', routeType: 'land' }), [byId('p05').markerAnchor, byId('p06').markerAnchor]);
@@ -208,8 +213,8 @@ test('V9 IA : pas suicidaire — chaque débarquement est escorté et la plupart
   assert.ok(wins / landings >= .6, `${wins}/${landings} débarquements réussis`);
 });
 
-// V10 marine : débarquements escortés vers des côtes sans port, interceptions, et fin de partie mesurée (info).
-test('V10 marine IA : débarquements et interceptions dans les 5 parties de 200 tours', () => {
+// V10/V13 marine : débarquements (uniquement aux points de port depuis la V13), interceptions, fin de partie (info).
+test('V13 marine IA : débarquements aux points de port et interceptions dans les 5 parties de 200 tours', () => {
   let landings = 0, interceptions = 0, noPortLandings = 0, escorted = 0, departures = 0;
   const firstVictory = [];
   for (const s of Object.values(games)) {
@@ -226,8 +231,10 @@ test('V10 marine IA : débarquements et interceptions dans les 5 parties de 200 
   }
   assert.ok(landings >= 20, `${landings} débarquements`);
   assert.ok(interceptions >= 1, `${interceptions} interceptions`);
-  assert.ok(noPortLandings >= 1, 'débarquements sur des côtes sans site de port');
-  assert.ok(escorted / departures >= .5, `${escorted}/${departures} convois escortés`);
+  // V13 : on ne débarque plus qu'aux points de port (V10 exigeait au moins un débarquement hors port).
+  assert.equal(noPortLandings, 0, 'débarquements hors des points de port');
+  // V13 : l'IA peut partir sans escorte quand aucune flotte ennemie ne menace la route (V10 : ≥ 50 % escortés).
+  assert.ok(escorted >= 5, `${escorted}/${departures} convois escortés`);
   const wins = firstVictory.filter(Boolean);
   console.log(`# info marine : ${landings} débarquements, ${interceptions} interceptions, ${escorted}/${departures} convois escortés ; victoire anticipée (5 capitales) : ${wins.length ? `${wins.length}/5 parties, tour moyen ${Math.round(wins.reduce((a, b) => a + b, 0) / wins.length)}` : 'aucune en 200 tours'}`);
 });
