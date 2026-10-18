@@ -23,7 +23,17 @@ const pairTreaty = (state, a, b, type) => state.diplomacy.treaties.some(t => t.a
 const reservedDiplomaticFunds = (state, nationId) => (state.orders || []).filter(o => o.kind === 'diplomacy' && o.action === 'ceasefire' && o.nationId === nationId && o.status === 'pending').reduce((n,o)=>n+(o.amount||0),0);
 export const spendableTreasury = (state, nationId) => Math.max(0,(state.nations[nationId]?.treasury||0)-reservedDiplomaticFunds(state,nationId));
 
-export const incomeFor = (state, nationId) => Object.values(state.provinces).filter(p => p.ownerId === nationId).reduce((n, p) => n + RULES.baseIncome + (p.buildings.bank || 0) * RULES.bankIncome + (p.buildings.factory || 0) * RULES.factoryIncome, 0);
+/** V13.1 : détail du revenu par tour (provinces, banques, usines, ports construits). */
+export function incomeBreakdown(state, nationId) {
+  const owned = Object.values(state.provinces).filter(p => p.ownerId === nationId);
+  const count = key => owned.reduce((n, p) => n + (p.buildings?.[key] > 0 ? 1 : 0), 0);
+  const provinces = owned.length, banks = count('bank'), factories = count('factory'), ports = count('port');
+  const total = provinces * RULES.baseIncome + banks * RULES.bankIncome + factories * RULES.factoryIncome + ports * (RULES.portIncome || 0);
+  return { provinces, banks, factories, ports, total };
+}
+export const incomeFor = (state, nationId) => incomeBreakdown(state, nationId).total;
+/** V13.1 : or rapporté chaque tour par un bâtiment (0 pour la forteresse). */
+export const buildingIncome = type => ({ bank: RULES.bankIncome, factory: RULES.factoryIncome, port: RULES.portIncome || 0 })[type] || 0;
 // Puissances « V6 » conservées pour compatibilité (plus utilisées par les combats depuis la V10 : voir combat.js).
 export const landPower = (u, defense = false) => LAND_UNIT_TYPES.reduce((n, k) => n + (u[k] || 0) * (defense && k === 'artillery' ? RULES.units[k].defensePower : RULES.units[k].power), 0);
 export const navalPower = ({ units = {}, warships = 0, transport = false }) => warships * RULES.units.warship.power + landPower(units) * (transport ? RULES.navalTransportPowerFactor : 0);
@@ -1215,6 +1225,14 @@ export function journalEntry(event, map, playerNationId = null) {
       if (event.reason === 'ally') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : la province appartient à un allié. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
       return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
     case 'production-lost': return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
+    case 'income': {
+      const parts = [`${safeNum(event.provinces)} province${event.provinces > 1 ? 's' : ''} × ${RULES.baseIncome}`];
+      if (event.banks) parts.push(`${safeNum(event.banks)} banque${event.banks > 1 ? 's' : ''} × ${RULES.bankIncome}`);
+      if (event.factories) parts.push(`${safeNum(event.factories)} usine${event.factories > 1 ? 's' : ''} × ${RULES.factoryIncome}`);
+      if (event.ports) parts.push(`${safeNum(event.ports)} port${event.ports > 1 ? 's' : ''} × ${RULES.portIncome}`);
+      if (event.bonus) parts.push(`atout +${safeNum(event.bonus)}`);
+      return { priority:0, type:'REVENUS', category:'treasure', text:`💰 Revenus du tour : +${safeNum(event.amount)} or (${parts.join(' · ')}).` };
+    }
     case 'retreat-lost': if (event.naval) return { priority:2, type:'MARINE', category:'lost', text:`Des navires n’ont plus de port où rentrer (${where} perdue) : ${safeNum(event.amount)} unités perdues en mer.` };
       return { priority:2, type:'COMBAT', category:'lost', text:`Les survivants d’une attaque n’ont pas pu se replier (province de départ perdue) : ${safeNum(event.amount)} unités perdues.` };
     case 'ceasefire-offer': return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,event.target)}.`:`Cessez-le-feu refusé par ${nationName(map,event.target)} ; aucun paiement n’a été débité.`};
@@ -1242,7 +1260,7 @@ function aggregateEntries(entries) {
   return [...merged.values()];
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
-  const priority = new Set(['battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended']);
+  const priority = new Set(['income','battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;
@@ -1316,6 +1334,8 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
     const base = incomeFor(state,id), extra = goldBonus(state, id, base); // V12 : atout « or » (joueur humain seulement)
     state.nations[id].treasury += base + extra;
     if (extra) state.events.push({ turn: state.turn, type: 'boost-gold', nationId: id, amount: extra });
+    // V13.1 : le joueur voit chaque tour ce que rapportent ses provinces et ses bâtiments.
+    if (id === state.playerNationId && !state.nations[id].eliminated) state.events.push({ turn: state.turn, type: 'income', nationId: id, amount: base + extra, bonus: extra, ...incomeBreakdown(state, id) });
   }
   resolveTalk(state,map,locked,eventStart);
   checkGameOver(state);

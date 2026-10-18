@@ -350,3 +350,6 @@ dialog.ad-overlay::backdrop{background:#000c}
 #eventDialog.proposal{border-color:#5da9ff}
 #eventDialog.proposal .talk-quote{text-align:left}
 .proposal-facts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-size:.74rem}
+.info-chip.income{color:#9fe3b9;border-color:#3f7a5a}.income-tag{color:#9fe3b9;font-weight:700}
+.sea-warn{margin:6px 0 0;padding:7px 9px;border-radius:8px;background:#3a2a12;border:1px solid #a7843f;color:#ffe2a6;font-size:.82rem}
+.sea-tip{margin-top:10px;font-size:.82rem;color:#c9d6dd}

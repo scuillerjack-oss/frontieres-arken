@@ -8,7 +8,7 @@ export const NAVAL_UNIT_TYPES = Object.freeze(['warship']);
 export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port']);
 
 export const RULES = Object.freeze({
-  baseIncome: 4, bankIncome: 3, factoryIncome: 3,
+  baseIncome: 4, bankIncome: 3, factoryIncome: 3, portIncome: 2,
   // V10 : `max` = plafond par province, file de construction comprise (une banque, une usine, un port, fort niveau 3).
   buildings: { bank:{cost:30,turns:3,max:1}, factory:{cost:40,turns:3,max:1}, fort:{costs:[20,35,50],turns:2,max:3}, port:{cost:40,turns:3,max:1} },
   units: {
