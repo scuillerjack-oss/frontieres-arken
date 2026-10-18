@@ -100,11 +100,13 @@ test('Testeur V10 : la bulle du tutoriel passe en haut quand la fiche de provinc
   assert.match(app, /\$\('#provinceSheet'\)\.hidden=false;placeTutorial\(\)/, 'appelé à l\'ouverture de la fiche');
 });
 
-test('V11 : barre du bas avec le bouton Échanges et son badge ; bouton Échanger dans la fiche d\'une province étrangère', () => {
+test('V11 : barre du bas avec le bouton Échanges et son badge ; bouton Diplomatie (seul) dans la fiche d\'une province étrangère', () => {
   const html = read('index.html');
   assert.match(html, /id="journalBtn"[\s\S]*id="talkBtn"[\s\S]*id="talkBadge"[\s\S]*id="nextTurn"/);
   assert.match(html, /<dialog id="talkDialog"/);
-  assert.match(read('app.js'), /\[\['diplo','Diplomatie'\],\['talk','Échanger'\]\]/);
+  // V13.3 (Jack) : plus de bouton « Échanger » dans la fiche ; on parle via Diplomatie → « Échanger publiquement ».
+  assert.match(read('app.js'), /\[\['diplo','Diplomatie'\]\];/);
+  assert.match(read('app.js'), /Échanger publiquement/);
 });
 
 test('V11 : les modules du moteur des personnalités sont mis en cache hors ligne', () => {

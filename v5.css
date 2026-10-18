@@ -376,3 +376,13 @@ dialog.ad-overlay::backdrop{background:#000c}
 .cf-chance{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:#081c28;border:1px solid #2f4a5b}
 .cf-chance b{color:var(--gold)}
 .cf-note{font-size:.76rem;color:#9fb3bd;margin:8px 0 10px}
+
+/* V13.3 : être attaqué saute aux yeux (journal) — fond rouge, liseré épais clignotant, titre blanc */
+.journal-entry.under-attack{border-left:8px solid #ff2d2d;background:linear-gradient(90deg,#5a0d0d,#2a0b10);box-shadow:0 0 0 1px #ff4d4d inset,0 0 14px #ff2d2d66;animation:underAttack 1.1s ease-in-out 4}
+.journal-entry.under-attack small{color:#fff;font-weight:900;letter-spacing:.08em}
+@keyframes underAttack{50%{box-shadow:0 0 0 2px #ff7070 inset,0 0 22px #ff2d2dcc}}
+@media (prefers-reduced-motion:reduce){.journal-entry.under-attack{animation:none}}
+
+/* V13.3 (Jack) : liserés guerre / allié / tension de la même épaisseur que le liseré bleu du joueur */
+.territory.war,.territory.ally,.territory.brink{stroke-width:calc(28px * var(--line,1))}
+.territory.brink{stroke-dasharray:calc(34px * var(--line,1)) calc(20px * var(--line,1))}
