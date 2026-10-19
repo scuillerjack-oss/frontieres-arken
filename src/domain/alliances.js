@@ -7,8 +7,8 @@
 // engagement `state.diplomacy.help[]` de HELP_TURNS tours que l'IA de l'allié applique dans ses ordres
 // (game-engine.js, aiPlan) : guerre déclarée + attaques contre X, ou renforts vers sa base navale et guerre à
 // l'agresseur. Le Traître accepte toujours… et ne vient jamais (engagement `fake`), ce qui se voit à l'échéance.
-import { chance, pickFrom, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation } from './leaders.js';
-import { publishTalk, neighbors } from './talk.js';
+import { chance, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation } from './leaders.js';
+import { publishTalk, neighbors, pickLine } from './talk.js';
 
 export const HELP_KINDS = Object.freeze(['defend', 'attack']);
 export const HELP_TURNS = 5;
@@ -167,7 +167,7 @@ export function resolveHelpRequests(state, map, locked) {
     const d = helpDecision(state, o.to, req, map);
     const arch = archetypeOf(state, o.to) || 'batisseur';
     const pool = d.reason === 'ally-of-target' ? HELP_LINES.allyOfTarget : d.reason === 'out-of-reach' ? HELP_LINES.outOfReach : HELP_LINES[arch]?.[req.kind]?.[d.accept ? 'yes' : 'no'] || HELP_LINES.batisseur.defend.no;
-    const text = fillHelp(pickFrom(state, pool, 'help-line', state.turn, o.to, o.nationId, req.kind), map, o.nationId, req.target, req.provinceId);
+    const text = fillHelp(pickLine(state, pool, o.to, 'help-line', state.turn, o.to, o.nationId, req.kind), map, o.nationId, req.target, req.provinceId);
     const msg = publishTalk(state, { from: o.to, to: o.nationId, tone: d.accept ? 'amical' : 'neutre', text, ai: true, awaitReply: false, tension: false });
     if (d.accept) {
       state.diplomacy.help = helpPacts(state).filter(p => !(p.ally === o.to && p.requester === o.nationId && p.kind === req.kind));

@@ -163,3 +163,7 @@ du refus et « +19 or si vous acceptez ». Aucune erreur JavaScript, aucun débo
    et le débarquement. Corrigé côté règle : la forteresse ne retirait que 9 / 17 / 23 % des dégâts (division par 1,1 / 1,2 / 1,3) ;
    elle retire désormais vraiment **10 / 20 / 30 %**.
 Tests : `tests/v13-3-beta.test.js`, `tests/v13-3-paroles.test.js`.
+Relecture indépendante (19/10/2026) : rien de bloquant ; corrigés au passage — les réponses aux demandes d'aide suivent
+aussi l'anti-répétition, doublon `fortLevel` retiré du journal, forteresse au niveau 3 affichée « −30 % (niveau maximal) ».
+Vérifié dans Chrome mobile simulé (393 px) : 9 tours joués, fiche sans bouton « Échanger », journal lisible, aucune erreur
+JavaScript, aucun débordement horizontal.

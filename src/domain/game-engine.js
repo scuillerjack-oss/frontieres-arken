@@ -366,7 +366,6 @@ function fight(state, toId, groups, fought, { naval = false } = {}) {
     // V13.3 : forces engagées et PV perdus par camp (le joueur comprend pourquoi il perd 340 hommes contre 62).
     engagedByNation: Object.fromEntries([...groups.map(g => [g.nationId, { ...g.force.units }]), [defender, { ...before.units }]]),
     hpLostByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.hpLost]), [defender, res.defenderHpLost]]),
-    fortLevel: target.buildings.fort || 0,
     passes: res.passes.length, fortLevel: target.buildings.fort || 0
   });
   if (res.captured) onCapture(state, toId, res.winnerId, defender);
