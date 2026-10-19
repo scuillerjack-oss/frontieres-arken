@@ -46,8 +46,13 @@ test('forts : coûts 20/35/50, maximum 3', () => {
   const s = freshState({ allHuman: true });
   s.nations.valmorne.treasury = 1000;
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 20);
+  // V13.3 : un niveau à la fois.
+  assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).error, 'Forteresse : un niveau est déjà en construction, attendez qu’il soit terminé');
+  s.orders = []; s.productionQueue = []; s.provinces.p01.buildings.fort = 1;
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 35);
+  s.orders = []; s.provinces.p01.buildings.fort = 2;
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 50);
+  s.orders = []; s.provinces.p01.buildings.fort = 3;
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).ok, false);
 });
 

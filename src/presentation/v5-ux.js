@@ -59,7 +59,7 @@ export function convoyMarkers(state,map,playerNationId=state.playerNationId){
 }
 
 // --- V10 : PV et blessures dans la fiche d'une province (docs/V10-moteur.md §6) -----------------------------
-const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['canon','canons'],warship:['navire','navires']};
+const UNIT_SHORT={infantry:['fantassin','fantassins'],cavalry:['cavalier','cavaliers'],armor:['blindé','blindés'],artillery:['artilleur','artilleurs'],warship:['navire','navires']};
 /** Lignes « 8 blindés · 92 % PV » d'une province : par type présent, nombre, PV restants / PV max (blessures). */
 export function forceHealthRows(p,unitHp){
   const counts={...(p?.units||{}),warship:p?.warships||0};
@@ -96,7 +96,7 @@ export function ceasefireOffers(targetTreasury){
 }
 
 // Style d'une entrée de journal d'après son type affiché (V10 : nouvelles catégories du moteur et de la marine).
-export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITOIRE PERDU':'lost','CONFLIT ÉTRANGER':'foreign-conflict','COMBAT':'combat',
+export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITOIRE PERDU':'lost','⚠ TERRITOIRE PERDU':'under-attack','⚠ ON VOUS ATTAQUE':'under-attack','CONFLIT ÉTRANGER':'foreign-conflict','COMBAT':'combat',
   'AFFRONTEMENT':'foreign-conflict','PILLAGE':'plunder','ÉLIMINATION':'elimination','ORDRE ANNULÉ':'cancelled',
   'REVENUS':'treasure','INTERCEPTION':'naval','DÉBARQUEMENT':'naval','MARINE':'naval','FIN DE PARTIE':'endgame','DIPLOMATIE':'blue','diplomatie':'blue',
   // V11 : personnalités des dirigeants.
@@ -186,10 +186,12 @@ export function unitPrerequisiteText(rule, buildings = {}, pending = {}) {
 
 // Construction : raison en clair quand un bâtiment ne peut pas être commandé (affichage défensif :
 // la limite « max » par province n'est lue que si le moteur la fournit dans RULES.buildings).
-export function buildingUnavailableReason({ type, label, rule = {}, count = 0, portSite = true, cost = 0, spendable = Infinity }) {
+export function buildingUnavailableReason({ type, label, rule = {}, count = 0, built = null, portSite = true, cost = 0, spendable = Infinity }) {
   if (type === 'port' && !portSite) return `${label} : impossible ici, cette province n’a pas de site portuaire`;
   if (type === 'port' && count > 0) return `${label} : déjà construit ou en construction`;
   if (type === 'fort' && Array.isArray(rule.costs) && count >= rule.costs.length) return `${label} : niveau maximal atteint (${rule.costs.length} sur ${rule.costs.length}, en comptant les niveaux en construction)`;
+  // V13.3 : un seul niveau de forteresse à la fois.
+  if (type === 'fort' && built !== null && count > built) return `${label} : niveau ${built + 1} en construction, attendez qu’il soit terminé`;
   if (Number.isFinite(rule.max) && count >= rule.max) return `${label} : ${rule.max} maximum par province (déjà construite ou en construction)`;
   if (cost > spendable) return `${label} : trésor insuffisant (il manque ${cost - spendable} or)`;
   return '';

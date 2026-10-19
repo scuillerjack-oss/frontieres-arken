@@ -2,7 +2,7 @@
 import { provinceIntel, visibleProvinces } from '../domain/vision.js';
 import { regimentText } from '../domain/combat.js';
 
-const SHORT = { infantry: ['fantassin', 'fantassins'], cavalry: ['cavalier', 'cavaliers'], armor: ['blindé', 'blindés'], artillery: ['canon', 'canons'], warship: ['navire', 'navires'] };
+const SHORT = { infantry: ['fantassin', 'fantassins'], cavalry: ['cavalier', 'cavaliers'], armor: ['blindé', 'blindés'], artillery: ['artilleur', 'artilleurs'], warship: ['navire', 'navires'] };
 
 /**
  * Ce que la fiche de province affiche des troupes, du point de vue du joueur.

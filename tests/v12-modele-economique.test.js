@@ -139,8 +139,9 @@ test('V12 atout Défense : un fort du joueur protège 10 % de plus au niveau 10 
   const garrison = { units: { infantry: 400 } }, attacker = { units: { infantry: 400 } };
   const plain = resolveBattle({ defender: garrison, attackers: [{ id: 'a', force: attacker }], fortLevel: 1, passes: 1 });
   const boosted = resolveBattle({ defender: garrison, attackers: [{ id: 'a', force: attacker }], fortLevel: 1, passes: 1, fortBonus: 1.1 });
-  assert.equal(plain.defenderHpLost, Math.round(400 * 5 / 1.1));
-  assert.equal(boosted.defenderHpLost, Math.round(400 * 5 / (1.1 * 1.1)));
+  // V13.3 : fort niveau 1 = −10 % de dégâts reçus (÷ 1/0,9).
+  assert.equal(plain.defenderHpLost, Math.round(400 * 5 * .9));
+  assert.equal(boosted.defenderHpLost, Math.round(400 * 5 * .9 / 1.1));
   const noFort = resolveBattle({ defender: garrison, attackers: [{ id: 'a', force: attacker }], fortLevel: 0, passes: 1, fortBonus: 1.1 });
   assert.equal(noFort.defenderHpLost, 2000, 'sans fort, l\'atout n\'a pas d\'effet');
   // Dans le moteur : une attaque ennemie contre une province fortifiée du joueur.

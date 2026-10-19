@@ -37,12 +37,17 @@ test('A1 : forteresse niveaux 1 à 3 maximum (20/35/50), en comptant les niveaux
   s.nations.valmorne.treasury = 500;
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 20);
   resolveInterturn(s, map);
+  // V13.3 (Jack) : un niveau à la fois — le suivant ne se lance qu'une fois le précédent terminé.
+  const next = () => { for (let i = 0; i < 6 && s.provinces.p01.buildings.fort < buildingCount(s, 'p01', 'fort'); i++) resolveInterturn(s, map); };
+  next();
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 35);
+  assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).ok, false, 'niveau 2 en cours : pas de niveau 3');
+  next();
   assert.equal(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).cost, 50);
+  next();
   assert.match(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).error, /niveau 3 \(maximum\)/);
-  for (let i = 0; i < 4; i++) resolveInterturn(s, map);
   assert.equal(s.provinces.p01.buildings.fort, 3);
-  assert.deepEqual(RULES.fortDefense, [1, 1.1, 1.2, 1.3]);
+  assert.deepEqual(RULES.fortDefense, [1, 1 / .9, 1 / .8, 1 / .7]); // V13.3 : −10/−20/−30 % de dégâts reçus
 });
 
 test('A1 / B5 : l\'IA respecte les plafonds (jamais deux usines ou deux banques, même en file)', () => {

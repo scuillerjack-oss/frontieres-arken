@@ -138,6 +138,7 @@ export function buildingCount(state, provinceId, type) {
   const pending = (state.orders || []).filter(o => o.kind === 'construction' && o.provinceId === provinceId && o.type === type && o.status === 'pending').length;
   return (p?.buildings?.[type] || 0) + active + pending;
 }
+export const FORT_IN_PROGRESS = 'Forteresse : un niveau est déjà en construction, attendez qu’il soit terminé';
 export function queueConstruction(state, { nationId, provinceId, type }) {
   const p = state.provinces[provinceId], r = RULES.buildings[type];
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
@@ -146,6 +147,8 @@ export function queueConstruction(state, { nationId, provinceId, type }) {
   const count = buildingCount(state, provinceId, type);
   // V10 : plafonds par province, file de construction comprise (RULES.buildings[type].max).
   if (count >= (r.max ?? Infinity)) return { ok: false, error: BUILDING_CAP_ERRORS[type] || 'Maximum atteint dans cette province' };
+  // V13.3 (Jack) : la forteresse se construit un niveau à la fois — le niveau 2 ne se lance qu'une fois le 1 terminé.
+  if (type === 'fort' && count > (p.buildings.fort || 0)) return { ok: false, error: FORT_IN_PROGRESS };
   const cost = type === 'fort' ? r.costs[count] : r.cost;
   if (spendableTreasury(state,nationId) < cost) return { ok: false, error: 'Trésor insuffisant ou réservé à un cessez-le-feu' };
   state.nations[nationId].treasury -= cost;
@@ -360,6 +363,9 @@ function fight(state, toId, groups, fought, { naval = false } = {}) {
     attackerLosses: res.attackers.reduce((n, a) => n + lossCount(a.lossesByType), 0), defenderLosses: lossCount(res.defenderLossesByType),
     attackerHpLost: res.attackers.reduce((n, a) => n + a.hpLost, 0), defenderHpLost: res.defenderHpLost,
     lossesByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.lossesByType]), [defender, res.defenderLossesByType]]),
+    // V13.3 : forces engagées et PV perdus par camp (le joueur comprend pourquoi il perd 340 hommes contre 62).
+    engagedByNation: Object.fromEntries([...groups.map(g => [g.nationId, { ...g.force.units }]), [defender, { ...before.units }]]),
+    hpLostByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.hpLost]), [defender, res.defenderHpLost]]),
     passes: res.passes.length, fortLevel: target.buildings.fort || 0
   });
   if (res.captured) onCapture(state, toId, res.winnerId, defender);
@@ -1236,8 +1242,9 @@ export function eventInvolvesNation(event, nationId) {
   return [event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.attackers||[])].includes(nationId);
 }
 // `balloon` : seulement pour relire les événements d'anciennes parties (le ballon est supprimé en V13).
-const LABELS_LOSS = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'canons', balloon:'ballons', warship:'navires' };
-const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${LABELS_LOSS[k] || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
+const LABELS_LOSS = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'artilleurs', balloon:'ballons', warship:'navires' };
+const LABELS_ONE = { infantry:'fantassin', cavalry:'cavalier', armor:'blindé', artillery:'artilleur', balloon:'ballon', warship:'navire' };
+const lossText = byType => { const parts = Object.entries(byType || {}).filter(([,n]) => n > 0).map(([k,n]) => `${n} ${(n === 1 ? LABELS_ONE[k] : LABELS_LOSS[k]) || k}`); return parts.length ? parts.join(', ') : 'aucune'; };
 /**
  * Entrée de journal d'un événement. `playerNationId` = nation qui lit le journal.
  * Affrontements (V10) : texte public « Affrontement à X entre A et B — province prise / tenue » ; le détail des
@@ -1250,20 +1257,30 @@ export function journalEntry(event, map, playerNationId = null) {
   const sides = event => { const atk = [...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map,id)); return `${atk.join(' et ')} et ${nationName(map,event.defender)}`; };
   const lossDetails = () => {
     if (!involved) return '';
-    if (event.lossesByNation) return ' Pertes : ' + Object.entries(event.lossesByNation).map(([id, l]) => `${nationName(map,id)} ${lossText(l)}`).join(' ; ') + '.';
+    if (event.lossesByNation) {
+      let t = ' Pertes : ' + Object.entries(event.lossesByNation).map(([id, l]) => `${nationName(map,id)} ${lossText(l)}`).join(' ; ') + '.';
+      // V13.3 : forces engagées, PV perdus (les blindés et l'artillerie encaissent beaucoup avant de mourir), forteresse.
+      if (event.engagedByNation) t += ' Forces engagées : ' + Object.entries(event.engagedByNation).map(([id, u]) => `${nationName(map,id)} ${lossText(u)}`).join(' ; ') + '.';
+      const mods = [event.fortLevel > 0 ? `forteresse niveau ${event.fortLevel} : −${event.fortLevel * 10} % de dégâts reçus par le défenseur` : '', event.naval ? 'débarquement : assaillant à 70 %' : ''].filter(Boolean);
+      if (event.hpLostByNation) t += ' PV perdus, blessés compris : ' + Object.entries(event.hpLostByNation).map(([id, hp]) => `${nationName(map,id)} ${safeNum(hp)}`).join(' ; ') + (mods.length ? ` (${mods.join(' ; ')})` : '') + '.';
+      return t;
+    }
     return ` Pertes : attaquant ${safeNum(event.attackerLosses)}, défenseur ${safeNum(event.defenderLosses)}.`;
   };
   const how = event.naval ? ' (débarquement)' : '';
   switch (event.type) {
     case 'battle': {
       const mine = involved && playerNationId !== null;
+      // V13.3 (Jack) : être attaqué doit sauter aux yeux.
+      if (event.defender === playerNationId && playerNationId !== null) return { priority:4, type:'⚠ ON VOUS ATTAQUE', category:'under-attack', public:true,
+        text:`${where} attaquée par ${[...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map,id)).join(' et ')}${how} : vous tenez la province.${lossDetails()}` };
       return { priority:3, type: mine ? (event.naval ? 'DÉBARQUEMENT' : 'COMBAT') : 'AFFRONTEMENT', category: mine ? 'combat' : 'foreign-conflict', public:true,
         text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,event.defender)} tient la province.${lossDetails()}` };
     }
     case 'conquest': {
       const winner = event.newOwnerId || event.attacker, defender = event.defender;
-      const type = winner===playerNationId?'CONQUÊTE':defender===playerNationId?'TERRITOIRE PERDU':'CONFLIT ÉTRANGER';
-      return { priority:4, type, category:type==='CONQUÊTE'?'conquest':type==='TERRITOIRE PERDU'?'lost':'foreign-conflict', public:true,
+      const type = winner===playerNationId?'CONQUÊTE':defender===playerNationId?'⚠ TERRITOIRE PERDU':'CONFLIT ÉTRANGER';
+      return { priority:4, type, category:type==='CONQUÊTE'?'conquest':type==='⚠ TERRITOIRE PERDU'?'under-attack':'foreign-conflict', public:true,
         text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,winner)} prend la province.${lossDetails()}` };
     }
     case 'capital-plunder': return { priority:4, type:'PILLAGE', category: event.attacker===playerNationId?'conquest':event.defender===playerNationId?'lost':'foreign-conflict', public:true,
