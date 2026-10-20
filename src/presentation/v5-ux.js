@@ -5,7 +5,7 @@ export function playerOrderArrows(state,map,playerNationId=state.playerNationId)
   return (state.orders||[]).filter(o=>o.kind==='move'&&o.status==='pending'&&o.nationId===playerNationId).flatMap(order=>{
     const from=byId.get(order.fromId),to=byId.get(order.toId),target=state.provinces[order.toId];
     if(!from||!to||!target)return[];
-    const attack=target.ownerId!==playerNationId;
+    const attack=target.ownerId!==playerNationId&&!order.passage; // V13.4 : passage chez un allié = flèche verte
     return [{id:order.id,kind:attack?'attack':'move',color:attack?'red':'green',fromId:order.fromId,toId:order.toId,via:order.via,turns:order.turns,fromName:from.name,toName:to.name,start:from.markerAnchor,end:to.markerAnchor,routeType:order.routeType||'land'}];
   });
 }

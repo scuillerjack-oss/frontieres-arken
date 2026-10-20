@@ -11,7 +11,7 @@
 //   5. Forteresse (fort >= 1) d'une nation qui n'est ni soi ni un allié : troupes cachées même si la province est
 //      visible (« troupes retranchées »), bâtiments visibles.
 import { RULES, LAND_UNIT_TYPES } from './constants.js';
-import { provinceForce, normalizeForce, combatValue, regimentStats } from './combat.js';
+import { provinceForce, normalizeForce, combatValue, regimentStats, mergeForce, legacyForce } from './combat.js';
 import { navalBonusFactor } from './boosts.js';
 
 const allied = (state, a, b) => (state.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties?.includes(a) && t.parties?.includes(b));
@@ -31,7 +31,9 @@ export function visibleProvinces(state, map, nationId) {
     const p = state.provinces[d.id];
     if (!p || !sharers.has(p.ownerId)) continue;
     out.add(d.id);
-    if (hasLandTroops(p)) for (const n of d.landConnections || []) if (state.provinces[n]) out.add(n);
+    // V13.4 : des troupes alliées stationnées (droit de passage) révèlent aussi les voisines.
+    const guests = (state.stationed || []).some(e => e.provinceId === d.id && sharers.has(e.nationId) && hasLandTroops(e));
+    if (hasLandTroops(p) || guests) for (const n of d.landConnections || []) if (state.provinces[n]) out.add(n);
   }
   return out;
 }
@@ -82,7 +84,11 @@ export function prudentEstimate(state, provinceId) {
 export function perceivedForce(state, map, nationId, provinceId, visible = null) {
   const intel = provinceIntel(state, map, nationId, provinceId, visible);
   if (!intel) return normalizeForce({});
-  return intel.troopsKnown ? intel.force : prudentEstimate(state, provinceId);
+  if (!intel.troopsKnown) return prudentEstimate(state, provinceId);
+  // V13.4 : des renforts alliés stationnés défendent aussi la province (droit de passage) : ils comptent.
+  let f = intel.force;
+  for (const e of state.stationed || []) if (e.provinceId === provinceId) f = mergeForce(f, legacyForce(e)); // y compris les siens
+  return f;
 }
 
 /** Puissance d'une nation telle que `viewer` la perçoit (somme des garnisons vues ou estimées ; convois en mer ignorés). */

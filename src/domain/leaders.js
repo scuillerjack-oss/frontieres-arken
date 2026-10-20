@@ -59,6 +59,7 @@ export function strengthOf(state, nationId) {
   let n = 0;
   for (const p of Object.values(state.provinces || {})) if (p.ownerId === nationId) n += combatValue(provinceForce(p));
   for (const t of state.transports || []) if (t.nationId === nationId) n += combatValue(legacyForce(t));
+  for (const e of state.stationed || []) if (e.nationId === nationId) n += combatValue(legacyForce(e)); // V13.4 : troupes chez un allié
   return n;
 }
 

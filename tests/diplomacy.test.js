@@ -87,13 +87,17 @@ test('aléa de la diplomatie déterministe : seededRandom dépend de state.seed 
 
 // V13 (changement voulu, décision de Jack) : pas de guerre entre alliés. Une attaque contre un allié est annulée
 // sans combat ; pour attaquer, il faut rompre l'alliance (rompre + attaquer dans le même tour = trahison).
+// V13.4 (changement voulu, retour de Jack du 20/10/2026) : l'alliance inclut le droit de passage — un ordre vers une
+// province alliée n'est plus annulé, les troupes y stationnent (sans combat ni guerre).
 test('V13 : attaquer une nation alliée est impossible ; rompre puis attaquer = trahison et guerre', () => {
   const s = freshState({ allHuman: true });
   setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
   s.orders.push({ id: 'z', kind: 'move', nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: 1 });
   resolveInterturn(s, map);
   assert.equal(relationWithPlayer(s, 'roc-epine'), 'alliance', 'l\'alliance tient');
-  assert.ok(s.events.some(e => e.type === 'attack-cancelled' && e.reason === 'ally-land'));
+  assert.equal(s.provinces.p05.ownerId, 'roc-epine', 'aucune prise');
+  assert.equal(s.stationed.find(e => e.provinceId === 'p05' && e.nationId === 'valmorne')?.units.infantry, 10, 'V13.4 : passage, les troupes stationnent');
+  assert.ok(!s.events.some(e => ['battle', 'conquest'].includes(e.type)));
   assert.equal(queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'roc-epine', action: 'break' }).ok, true);
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p04', toId: 'p05', units: { infantry: 10 } }).ok, true, 'rupture ordonnée : l\'attaque devient possible');
   resolveInterturn(s, map);

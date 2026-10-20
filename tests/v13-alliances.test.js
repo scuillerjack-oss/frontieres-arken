@@ -58,9 +58,11 @@ test('V13 : pas de guerre entre alliés — ni déclaration, ni attaque, tant qu
   arm(s, 'p03');
   setRelation(s, { nationId: 'valmorne', target: 'oroel', type: 'alliance' });
   assert.equal(queueDiplomaticOrder(s, { nationId: 'valmorne', target: 'oroel', action: 'war' }).error, 'Vous êtes alliés : rompez d’abord l’alliance');
+  // V13.4 (changement voulu, retour de Jack) : vers un allié, l'ordre est un PASSAGE (stationnement), pas une attaque.
   const landing = queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 50 }, warships: 2 });
-  assert.equal(landing.ok, false, 'pas de débarquement chez un allié');
-  assert.match(landing.error, /allié/);
+  assert.equal(landing.ok, true, 'passage par mer vers un allié');
+  assert.equal(s.orders.find(o => o.id === landing.orderId).passage, true);
+  s.orders = s.orders.filter(o => o.id !== landing.orderId);
   const actions = diplomacyActions(s, 'oroel');
   assert.equal(actions.find(a => a.id === 'war').enabled, false);
   assert.match(actions.find(a => a.id === 'war').reason, /rompez d’abord/);
@@ -348,7 +350,8 @@ test('V13 : récit d\'introduction — court, évocateur, les quatre masques et 
   assert.match(text, /actes/);
   assert.ok(text.length < 600, 'texte court');
   const app = read('app.js');
-  assert.match(app, /showGame\(\);await showIntro\(\);tutorial\(/, 'une fois, au début d\'une nouvelle partie');
+  // V13.4 : après le récit, le mini tuto (première partie) ou les bulles contextuelles.
+  assert.match(app, /showGame\(\);await showIntro\(\);(if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\})?tutorial\(/, 'une fois, au début d\'une nouvelle partie');
   assert.doesNotMatch(app.match(/function continueSavedGame[^\n]*/)[0], /showIntro/, 'pas en reprenant une partie');
   assert.match(read('index.html'), /<dialog id="eventDialog"/);
 });

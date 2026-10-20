@@ -123,15 +123,18 @@ test('débarquement repoussé : les survivants rembarquent et rentrent par la m�
   check(s, 'repli par mer');
 });
 
-test('débarquement vers un allié : annulé, le convoi rentre', () => {
+// V13.4 (changement voulu, retour de Jack) : l'alliance inclut le droit de passage — un convoi qui arrive chez un
+// allié n'est plus renvoyé, ses troupes stationnent au point de port allié.
+test('convoi qui arrive chez un allié : pas de combat, les troupes stationnent (droit de passage)', () => {
   const s = fresh();
   s.provinces.p03.buildings.port = 1;
   queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 20 } });
   setRelation(s, { nationId: 'valmorne', target: 'oroel', type: 'alliance' });
   resolveInterturn(s, map); resolveInterturn(s, map);
-  assert.ok(s.events.some(e => e.type === 'attack-cancelled' && e.reason === 'ally'));
   assert.equal(s.provinces.p14.ownerId, 'oroel');
-  assert.ok(s.transports.some(t => t.returning && t.toId === 'p03'));
+  assert.ok(!s.events.some(e => ['battle', 'conquest'].includes(e.type) && e.provinceId === 'p14'));
+  assert.equal(s.stationed.find(e => e.provinceId === 'p14' && e.nationId === 'valmorne')?.units.infantry, 20);
+  assert.ok(s.events.some(e => e.type === 'convoy-arrived' && e.passage));
 });
 
 // --- Interception et escorte -------------------------------------------------------------------------------------
