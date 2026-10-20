@@ -513,7 +513,8 @@ function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;
 // V14.1 : vue de lancement = capitale du joueur au centre de l'écran (zoom juste suffisant), et bouton qui bascule
 // entre « Voir toute la carte » et « Revenir à ma capitale ».
 function applyLaunchView(){if(!state||!mapContentSize.width)return;const v=launchView({anchor:province(state.nations[state.playerNationId]?.capitalId||'p01').markerAnchor,frame:FRAME,viewport:frameSize,content:mapContentSize});scale=v.scale;tx=v.x;ty=v.y;clampTransform();updateLabelScale();}
-function updateWholeMapButton(){const b=$('#wholeMapBtn');if(!b)return;const whole=showsWholeMap(scale,minZoom);b.textContent=whole?`◎ ${BACK_TO_CAPITAL_LABEL}`:`🗺 ${WHOLE_MAP_LABEL}`;b.dataset.whole=whole?'1':'0';}
+function updateWholeMapButton(){const b=$('#wholeMapBtn');if(!b)return;b.hidden=minZoom>=.999;// écran presque carré : la carte entière tient déjà
+  const whole=showsWholeMap(scale,minZoom);b.textContent=whole?`◎ ${BACK_TO_CAPITAL_LABEL}`:`🗺 ${WHOLE_MAP_LABEL}`;b.dataset.whole=whole?'1':'0';}
 function updateLabelScale(){updateWholeMapButton();const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
 // edgeSlack : marge de glisse au-delà du bord (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
 function clampTransform(edgeSlack=PAN_SLACK){

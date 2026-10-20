@@ -172,4 +172,16 @@ garnison et évite d'attaquer une province bien défendue.
 
 Tests : `tests/v14-1.test.js` (17 tests) ; `tests/v13-3-paroles.test.js` adapté (un autre dirigeant ne reprend plus la
 réplique au même tour).
+Vérifié dans Chrome mobile simulé (390 × 844) : nouvelle partie avec Valmorne → la capitale est au milieu de l'écran (zoom
+1,5, la côte vers Roc-Épine visible) ; « Voir toute la carte » montre les cinq îles, le bouton devient « Revenir à ma
+capitale » et y ramène ; même vue en reprenant une partie ; partie reprise avec des troupes de Valmorne stationnées à
+Roc-Épine, attaquée par Noireflamme → journal « ⚔ Vos troupes ont combattu Noireflamme : vous êtes désormais en guerre
+avec Noireflamme. Combat à Roc-Épine (en défendant Roc-Épine). » Aucune erreur JavaScript, aucun débordement horizontal.
+
+Relecture indépendante (20/10/2026) : rien de bloquant. Corrigé : sur un écran presque carré (la carte entière tient déjà),
+le bouton « Voir toute la carte » est masqué.
+### À surveiller (relecture)
+- La guerre automatique est rare entre IA (elles évitent d'attaquer une province bien défendue) : à regarder en bêta,
+  surtout quand Jack poste des troupes chez un allié.
+- La vue de lancement laisse une bande de mer en haut pour Valmorne et Oroël (capitales collées au bord de la carte).
 
