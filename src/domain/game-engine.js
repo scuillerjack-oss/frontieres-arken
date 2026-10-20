@@ -1194,7 +1194,9 @@ function aiPlan(state, map, nationId) {
   const base = navalBase(map, state, owned);
   const targets = warTargets(state, map, nationId, arch);
   // V13 : engagements pris auprès d'un allié (demande d'aide acceptée) : guerre déclarée et attaques contre X.
-  const helpTargets = helpWarTargets(state, map, nationId);
+  // V14.0 (relecture) : une trêve signée depuis moins de 10 tours est respectée, même pour aider un allié — sinon l'IA
+  // deviendrait « traître » malgré elle (rompre une trêve récente est une trahison).
+  const helpTargets = new Set([...helpWarTargets(state, map, nationId)].filter(x => !recentTruce(state, nationId, x)));
   for (const x of helpTargets) {
     targets.add(x);
     if (!pairWar(state, nationId, x) && !pendingDiplo(state, nationId, x)) queueDiplomaticOrder(state, { nationId, target: x, action: 'war' });
@@ -1230,7 +1232,7 @@ function aiPlan(state, map, nationId) {
   if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
-    return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||arch==='conquerant')&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
+    return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||(arch==='conquerant'&&!recentTruce(state,nationId,owner)))&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
   attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge

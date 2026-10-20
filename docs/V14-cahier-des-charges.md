@@ -1,9 +1,8 @@
 # FRONTIÈRES: ARKEN — V14 — Cahier des charges (préparé le 20/10/2026, à valider avec Jack dimanche)
 
-> **Où on en est (20/10/2026)** : V14.0 faite (trêve rompue = trahison, rappel des troupes par l'IA, convois sauvés,
-> PV des troupes stationnées au journal, allié qui vient défendre vérifié et amélioré) — Pull Request ouverte, pas encore
-> fusionnée. Les retours de Jack sur la V13.4 (section 2) restent à recueillir dimanche. **Prochaine étape : V14.1**
-> (points 3 à 6 de la section 3), après les retours de dimanche.
+> **Où on en est (20/10/2026, soir)** : V14.0 faite, testée (333 tests) et fusionnée. Prochaine étape : **V14.1**
+> (guerre automatique des troupes qui combattent, décidée par Jack, puis points 3 à 6 de la section 3).
+> Les retours de Jack sur la V13.4 (section 2) restent à recueillir dimanche.
 
 ## 1. Principe
 - La V14 suit la V13.4 (retours de bêta du 20/10 : passage automatique chez l'allié, % de la forteresse affichés,
@@ -18,10 +17,10 @@
 - Jack joue une partie sur la V13.4 et note ce qui ne va pas, comme d'habitude.
 - Ces retours passent **en priorité** devant le reste de ce cahier.
 - À vérifier en particulier : le mini-tuto est-il clair ? Le passage chez l'allié marche-t-il dans une vraie guerre ?
-- **Question pour Jack (posée en V14.0, pas tranchée)** : quand des troupes stationnées chez un allié attaqué se battent
-  contre l'agresseur, faut-il que leur nation **déclare automatiquement la guerre** à cet agresseur ?
-  Aujourd'hui : non — elles défendent la province, mais leur nation reste en paix avec l'agresseur (comportement gardé
-  tel quel en attendant ta réponse). Réponds simplement « oui, guerre automatique » ou « non, on garde comme ça ».
+- **Décision de Jack (20/10/2026)** : « si mes troupes affrontent qui que ce soit, même pour défendre un allié, ça me
+  met en guerre avec ; au joueur de gérer ses choix politiques après. » → **guerre automatique**, à faire en V14.1,
+  pour le joueur comme pour les IA, avec une ligne claire au journal (« ⚔ Vos troupes ont combattu X : vous êtes
+  désormais en guerre avec X »). Si une trêve récente existait avec X, ce n'est **pas** une trahison (on défendait).
 
 ## 3. Points ouverts du gameplay (« À surveiller » des V13 à V13.3)
 1. **L'allié vient vraiment défendre** : depuis la V13.4, l'alliance donne le passage. L'IA alliée doit s'en servir :
@@ -101,7 +100,18 @@ Faite avant les retours de dimanche (section 2 non commencée, rien d'inventé).
      non-allié, jamais alliés et en guerre).
 - **Question ouverte** (guerre automatique des troupes stationnées) : non tranchée, ajoutée en section 2.
 
-Tests : `tests/v14-0.test.js` (15 tests). Vérifié dans Chrome mobile simulé (390 × 844) : partie reprise avec une trêve
+Relecture indépendante (20/10/2026) : un point bloquant corrigé — un allié IA qui tient un engagement d'aide
+(« Défends-moi », « Attaque X avec moi ») déclarait la guerre à une nation avec qui il venait de signer une trêve, et
+devenait donc « traître » malgré lui. Il respecte maintenant sa trêve tant qu'elle a moins de 10 tours (ni déclaration,
+ni attaque) ; le Conquérant aussi ne frappe plus pendant une trêve récente.
+### À surveiller (relecture)
+- Un convoi qui débarque pendant une trêve signée après son départ mais dans le même inter-tour : il débarque quand même
+  (comportement V13 inchangé) et c'est maintenant une trahison. Dans les simulations IA, cela touche surtout le Traître
+  (≈ 9 cas sur 12 parties de 70 tours). Une correction essayée faisait baisser le taux de débarquements réussis de l'IA :
+  laissée pour la V14.1.
+- Des troupes à l'escale chez un allié peuvent être rappelées un tour avant d'avancer (va-et-vient possible, sans perte).
+
+Tests : `tests/v14-0.test.js` (16 tests). Vérifié dans Chrome mobile simulé (390 × 844) : partie reprise avec une trêve
 signée ce tour-ci, avertissement dans Diplomatie → Déclarer la guerre, dans la préparation du débarquement et dans sa
 confirmation ; débarquement → journal « TRAHISON… rompt la trêve », réplique de Roc-Épine « Trahison ! Valmorne signe la
 paix puis frappe aussitôt. » ; troupes d'Oroël stationnées à Branvale sans danger rappelées à Nordhème. Aucune erreur

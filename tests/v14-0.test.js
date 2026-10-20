@@ -321,3 +321,25 @@ test('correctif (vérification du point 1) : province menacée hors de portée d
   const next = s.orders.find(x => x.kind === 'move' && x.nationId === 'roc-epine' && x.fromId === 'p02');
   assert.ok(next && next.toId === 'p03', 'puis elles avancent vers Branvale, la province menacée');
 });
+
+test('relecture : un allié IA engagé à aider ne rompt pas une trêve récente (pas de trahison malgré lui)', () => {
+  const s = freshState({ allHuman: true });
+  s.controllers['roc-epine'] = 'ai'; s.leaders['roc-epine'].archetype = 'conquerant';
+  setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
+  setRelation(s, { nationId: 'valmorne', target: 'noireflamme', type: 'war' });
+  setRelation(s, { nationId: 'roc-epine', target: 'noireflamme', type: 'war' });
+  setRelation(s, { nationId: 'roc-epine', target: 'noireflamme', type: 'ceasefire' });
+  for (const id of ['p05', 'p06', 'p07', 'p08']) s.provinces[id].units.infantry = 500;
+  s.provinces.p09.units = units(5); s.provinces.p09.buildings.fort = 0;
+  s.diplomacy.help = [{ ally: 'roc-epine', requester: 'valmorne', kind: 'attack', against: 'noireflamme', provinceId: null, turn: s.turn, until: s.turn + 5 }];
+  planAIOrders(s, map);
+  assert.ok(!s.orders.some(o => o.nationId === 'roc-epine' && o.kind === 'diplomacy' && o.action === 'war'), 'pas de déclaration');
+  assert.ok(!s.orders.some(o => o.nationId === 'roc-epine' && o.kind === 'move' && s.provinces[o.toId].ownerId === 'noireflamme'), 'pas d\'attaque');
+  resolveInterturn(s, map);
+  assert.ok(!s.events.some(e => e.type === 'betrayal'));
+  // Trêve de plus de 10 tours : l'engagement est tenu (guerre ordinaire, sans trahison).
+  s.diplomacy.treaties.find(t => t.type === 'ceasefire').started = s.turn - 10;
+  s.ai.plannedTurn = null;
+  planAIOrders(s, map);
+  assert.ok(s.orders.some(o => o.nationId === 'roc-epine' && o.kind === 'diplomacy' && o.action === 'war' && o.target === 'noireflamme'));
+});
