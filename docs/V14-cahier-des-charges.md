@@ -1,7 +1,7 @@
 # FRONTIÈRES: ARKEN — V14 — Cahier des charges (préparé le 20/10/2026, à valider avec Jack dimanche)
 
-> **Où on en est (20/10/2026, soir)** : V14.0 faite, testée (333 tests) et fusionnée. Prochaine étape : **V14.1**
-> (guerre automatique des troupes qui combattent, décidée par Jack, puis points 3 à 6 de la section 3).
+> **Où on en est (20/10/2026, nuit)** : V14.1 faite et testée (350 tests), Pull Request ouverte, **pas encore fusionnée**
+> (fusion sur accord de Jack). Prochaine étape : **V14.2** (préparation Google Play, section 4).
 > Les retours de Jack sur la V13.4 (section 2) restent à recueillir dimanche.
 
 ## 1. Principe
@@ -21,6 +21,7 @@
   met en guerre avec ; au joueur de gérer ses choix politiques après. » → **guerre automatique**, à faire en V14.1,
   pour le joueur comme pour les IA, avec une ligne claire au journal (« ⚔ Vos troupes ont combattu X : vous êtes
   désormais en guerre avec X »). Si une trêve récente existait avec X, ce n'est **pas** une trahison (on défendait).
+  → **Fait en V14.1** (voir Réalisé).
 
 ## 3. Points ouverts du gameplay (« À surveiller » des V13 à V13.3)
 1. **L'allié vient vraiment défendre** : depuis la V13.4, l'alliance donne le passage. L'IA alliée doit s'en servir :
@@ -116,3 +117,59 @@ signée ce tour-ci, avertissement dans Diplomatie → Déclarer la guerre, dans 
 confirmation ; débarquement → journal « TRAHISON… rompt la trêve », réplique de Roc-Épine « Trahison ! Valmorne signe la
 paix puis frappe aussitôt. » ; troupes d'Oroël stationnées à Branvale sans danger rappelées à Nordhème. Aucune erreur
 JavaScript, aucun débordement horizontal.
+
+### V14.1.0 — guerre automatique, bases navales, mer, répliques, carte centrée (20/10/2026)
+1. **Guerre automatique** (décision de Jack, section 2) : dès que des troupes d'une nation combattent une autre nation, leur
+   nation entre en guerre avec elle — pour le joueur comme pour les IA. Le cas nouveau est celui des **troupes stationnées
+   chez un allié qui défendent sa province** (y compris les renforts envoyés par « Défends-moi ») ; les attaques, les chocs
+   en rase campagne et les débarquements mettaient déjà en guerre, et une interception en mer n'a lieu qu'entre nations
+   déjà en guerre.
+   - Journal (public, rubrique GUERRE) : « ⚔ Vos troupes ont combattu X : vous êtes désormais en guerre avec X. Combat à
+     P (en défendant Y). » ; côté assaillant : « ⚔ Les troupes de G ont combattu les vôtres à P… » ; pour les autres :
+     « ⚔ Les troupes de G ont combattu X à P : G est désormais en guerre avec X. »
+   - Une trêve existante avec X est rompue de fait, **sans trahison** (pas d'événement TRAHISON, pas de compteur, pas
+     d'agression comptée) ; le journal le dit (« La trêve avec X est rompue, sans trahison : vous vous défendiez »).
+   - Deux alliés ne se combattent jamais : un contingent allié de l'assaillant reste à l'écart du combat (pas de pertes, pas
+     de guerre, alliance intacte). Une nation éliminée (ancienne sauvegarde) ne défend plus et n'entre jamais en guerre.
+2. **Bases navales face à face** (section 3, point 3) : l'IA en guerre **attaque la base navale ennemie** au bout de sa
+   route quand la simulation du combat naval montre qu'elle coule toute la flotte à quai (majorée de 30 %) en gardant des
+   navires ; elle garde un navire au port, puis la flotte rentre (journal « Bataille navale devant le port de X… »). Et
+   **elle cesse d'empiler** : sans aucune côte à viser par la mer, sa flotte s'arrête à 4 navires.
+3. **L'IA prend un peu plus la mer** (point 4) : marge de débarquement 0,25 → 0,10, **sauf vers une capitale (0,35 : pas de
+   débarquement suicide)** ; elle rassemble ses troupes au port d'embarquement plus tôt (dès la moitié des forces utiles) ;
+   et elle **se souvient de la garnison** vue lors d'un assaut repoussé (toute une partie, tant que la province n'a pas
+   changé de main) : plus de débarquements suicides répétés au même endroit (avant : le Traître retentait tous les ~20
+   tours contre une garnison 4 fois plus forte). Le test « pas suicidaire » (`tests/v9-map.test.js`) reste vert.
+4. **Répliques** (point 5) : un dirigeant ne reprend plus une réplique déjà envoyée **au même tour** par un autre dirigeant
+   (en plus de ses 6 derniers messages).
+5. **Carte au lancement** (point 6) : centrée sur la capitale du joueur (nouvelle partie et reprise), avec le zoom juste
+   suffisant (au plus 1,5) ; bouton **« 🗺 Voir toute la carte »** en bas à gauche, qui devient « ◎ Revenir à ma capitale ».
+   Le bouton ◎ du zoom ramène aussi à cette vue.
+6. **« À surveiller » de la V14.0** :
+   - Trêve signée dans le même inter-tour que le départ d'un convoi : le convoi fait **demi-tour** au lieu de débarquer
+     (avant : débarquement = trahison). Un convoi parti alors que la trêve existait déjà débarque toujours (trahison).
+   - **Plus de va-et-vient** : des troupes envoyées en aide restent au moins 5 tours chez l'allié (escale comprise), sauf
+     si leur nation a besoin d'elles chez elle ; après un rappel « danger passé », le Héros ne revient que pour une
+     **nouvelle** agression.
+
+Simulation IA contre IA, 30 parties × 80 tours, V14.0 → V14.1 :
+
+| Mesure | V14.0 | V14.1 |
+|---|---|---|
+| Débarquements (hors trêves trahies) | 210 | 222 |
+| Débarquements réussis | 65 % | 65 % |
+| Trêves trahies par un débarquement | 45 | 33 (le Traître, par caractère) |
+| Navires en fin de partie (toutes nations) | 1 118 | 720 |
+| Attaques de bases navales | 0 | 3 (3 réussies) |
+| Même réplique au même tour par deux nations | 5 | 0 |
+| Va-et-vient des troupes en escale | 7 | 0 |
+| Incohérences (alliés en guerre, troupes chez un non-allié, guerre avec un éliminé) | 0 | 0 |
+
+Test « pas suicidaire » (5 parties × 200 tours) : 54 → 66 débarquements, 61 % → 65 % réussis. Autres graines
+(`tests/v14-1.test.js`, 30 parties) : 232 débarquements, 62 % réussis, 49 demi-tours pour trêve.
+La guerre automatique reste rare entre IA (1 cas sur 30 parties) : l'IA compte les troupes alliées stationnées dans la
+garnison et évite d'attaquer une province bien défendue.
+
+Tests : `tests/v14-1.test.js` (17 tests) ; `tests/v13-3-paroles.test.js` adapté (un autre dirigeant ne reprend plus la
+réplique au même tour).
+

@@ -30,6 +30,8 @@ import { INTRO_STORY, seaFatePopups, capitalPopups, tensionText, helpChoices, he
 // V13.4 : alliance = passage libre, bonus de la forteresse en %, mini tutoriel de la première partie.
 import { hasPassage, stationedAt, guestsAt } from './src/domain/game-engine.js';
 import { truceWarning } from './src/presentation/v14-ux.js';
+// V14.1 : carte centrée sur la capitale au lancement, bouton « Voir toute la carte ».
+import { launchView, wholeMapView, showsWholeMap, WHOLE_MAP_LABEL, BACK_TO_CAPITAL_LABEL } from './src/presentation/v14-1-ux.js';
 import { PASSAGE_TEXT, passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from './src/presentation/v13-4-ux.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
@@ -472,7 +474,7 @@ function showWelcome(){
 }
 function showGame(){
   setActiveScreen(document,'game');history.pushState({arkenScreen:'game'},'',location.href);
-  requestAnimationFrame(()=>{measureFrame();render();focusProvince(state.nations[state.playerNationId]?.capitalId||'p01');if(state.gameOver)showEndScreen();});
+  requestAnimationFrame(()=>{measureFrame();render();applyLaunchView();if(state.gameOver)showEndScreen();});
 }
 function continueSavedGame(){state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();}
 function confirmSaveReplacement(){
@@ -508,7 +510,11 @@ function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={w
 // Centre la vue sur une province (capitale du joueur au lancement).
 function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform(0);}
 // Les icônes et noms rétrécissent un peu quand on zoome (sinon ils deviendraient énormes) : appliqué en fin de geste.
-function updateLabelScale(){const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
+// V14.1 : vue de lancement = capitale du joueur au centre de l'écran (zoom juste suffisant), et bouton qui bascule
+// entre « Voir toute la carte » et « Revenir à ma capitale ».
+function applyLaunchView(){if(!state||!mapContentSize.width)return;const v=launchView({anchor:province(state.nations[state.playerNationId]?.capitalId||'p01').markerAnchor,frame:FRAME,viewport:frameSize,content:mapContentSize});scale=v.scale;tx=v.x;ty=v.y;clampTransform();updateLabelScale();}
+function updateWholeMapButton(){const b=$('#wholeMapBtn');if(!b)return;const whole=showsWholeMap(scale,minZoom);b.textContent=whole?`◎ ${BACK_TO_CAPITAL_LABEL}`:`🗺 ${WHOLE_MAP_LABEL}`;b.dataset.whole=whole?'1':'0';}
+function updateLabelScale(){updateWholeMapButton();const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
 // edgeSlack : marge de glisse au-delà du bord (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
 function clampTransform(edgeSlack=PAN_SLACK){
   if(!frameSize.width||!frameSize.height)return;
@@ -550,7 +556,8 @@ $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
 $('#endNewGame').onclick=()=>{$('#endDialog').close();beginNewGame();};$('#endJournal').onclick=()=>{$('#endDialog').close();renderJournal(true);};
 // Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
 function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;clampTransform();updateLabelScale();}
-$('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();if(state)focusProvince(state.nations[state.playerNationId].capitalId);updateLabelScale();};
+$('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{scale=1;tx=ty=0;clampTransform();applyLaunchView();updateLabelScale();};
+$('#wholeMapBtn').onclick=()=>{if(showsWholeMap(scale,minZoom))return applyLaunchView();const v=wholeMapView(minZoom);scale=v.scale;tx=v.x;ty=v.y;clampTransform(0);updateLabelScale();};
 $('#mapShell').addEventListener('click',event=>{if(event.target.closest('.order-arrow'))tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
 function handleAppBack(){
   if(document.querySelector('#adOverlay[open]')){history.pushState({arkenScreen:$('#gameScreen').hidden?'home':'game'},'',location.href);return;} // V12 : la pub de test se ferme seule
