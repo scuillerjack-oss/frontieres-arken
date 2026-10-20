@@ -167,3 +167,34 @@ Relecture indépendante (19/10/2026) : rien de bloquant ; corrigés au passage �
 aussi l'anti-répétition, doublon `fortLevel` retiré du journal, forteresse au niveau 3 affichée « −30 % (niveau maximal) ».
 Vérifié dans Chrome mobile simulé (393 px) : 9 tours joués, fiche sans bouton « Échanger », journal lisible, aucune erreur
 JavaScript, aucun débordement horizontal.
+
+## V13.4.0 — retours de bêta de Jack (20/10/2026)
+Retours mot pour mot et explications simples : `docs/BETA-V13.3-retours-Jack.md`.
+1. **Alliance = droit de passage automatique et réciproque** (« Passage dans territoire allié nécessaire pour aider si
+   guerre ») : il n'existait aucun accord de passage ; il fait désormais partie de l'alliance (`src/domain/passage.js`).
+   - Un ordre vers une province alliée (terre, ou mer jusqu'au point de port allié) est un **passage** : les troupes y
+     **stationnent** (`state.stationed`, champ facultatif, pas de nouveau schéma de sauvegarde), peuvent en repartir
+     (traverser), et **défendent** la province avec la garnison ; leurs pertes sont comptées à part au journal.
+   - Elles révèlent les provinces voisines (vision) et comptent dans l'armée du joueur.
+   - **Rompre l'alliance retire le passage** : troupes stationnées rapatriées (province voisine, sinon capitale) ;
+     un passage ordonné le même tour est annulé, un convoi en route fait demi-tour (« passage-lost ») : jamais de
+     guerre involontaire. Rompre + passage ce tour-là n'est pas une trahison (seule une vraie attaque l'est).
+   - **IA** : un allié engagé à défendre (« Défends-moi ») envoie stationner 40 % d'une armée chez le demandeur ;
+     le Héros le fait aussi pour un allié attaqué. Simulation 12 parties IA × 70 tours : passages réels, aucune
+     incohérence (jamais de troupes chez un non-allié, jamais alliés et en guerre).
+   - Écran : « Alliance : passage libre dans vos territoires » (fiche, Diplomatie, fenêtre d'alliance, confirmation),
+     provinces alliées de nouveau en vert au déplacement, fenêtre « Passage chez un allié », journal **PASSAGE**.
+   - Tests adaptés volontairement (règle V13 « on ne débarque pas chez un allié » remplacée) :
+     `diplomacy.test.js`, `marine-v10.test.js`, `v13-alliances.test.js`.
+2. **Bonus de la forteresse affiché** : `fortReductionPct` (combat.js) calcule le % depuis `RULES.fortDefense` et l'atout
+   « Forts », exactement comme le combat : fiche de province, menu Construction (niveau suivant), préparation d'une
+   attaque, journal de combat, aide.
+3. **Mini tutoriel de la première partie** : 6 bulles qui suivent les vrais gestes (province, recruter, déplacer,
+   diplomatie, fin du tour, fin), « Passer » à tout moment, plus jamais réaffiché (clé dédiée `frontieres-arken-mini-tuto`,
+   la sauvegarde n'est pas touchée), relançable dans ⚙ Paramètres → « Relancer le mini tuto ». Les anciennes bulles
+   d'aide contextuelles restent, après le mini tuto.
+Tests : `tests/v13-4-beta.test.js`. Vérifié dans Chrome mobile simulé (390 × 844) : mini tuto à la première partie
+(étapes 1 à 5 franchies par les vrais gestes, « Passer », pas réaffiché en reprenant la partie, relancé depuis les
+Paramètres), alliance acceptée par la fenêtre Oui / Non, passage par mer jusqu'à Roc-Épine alliée et troupes stationnées
+visibles sur la fiche, forteresse « −20 % » sur la fiche et « niveau 1 : −10 % » dans Construction. Aucune erreur
+JavaScript, aucun débordement horizontal.

@@ -184,6 +184,20 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
   };
 }
 
+/**
+ * V13.4 (Jack : « c'est pas marqué le/les bonus en pourcentage offert par la forteresse ») : réduction RÉELLE des
+ * dégâts reçus par la garnison d'une forteresse, en %, calculée exactement comme dans resolveBattle :
+ * dégâts reçus ÷ (RULES.fortDefense[niveau] × atout fort) → réduction = 1 − 1 / facteur. Arrondie à l'unité.
+ */
+export function fortReductionPct(level, fortBonus = 1) {
+  const l = Math.max(0, Math.min(RULES.fortDefense.length - 1, int(level)));
+  if (!l) return 0;
+  const factor = (RULES.fortDefense[l] || 1) * (Number(fortBonus) > 0 ? Number(fortBonus) : 1);
+  return Math.round((1 - 1 / factor) * 100);
+}
+/** Niveau maximal de la forteresse (lu dans les règles). */
+export const FORT_MAX_LEVEL = () => RULES.fortDefense.length - 1;
+
 /** Raccourci à un seul attaquant. mode : 'land' | 'landing' | 'naval'. */
 export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land', passes }) {
   const r = resolveBattle({ defender, attackers: [{ id: 'attacker', force: attacker, mode: mode === 'naval' ? 'land' : mode }], fortLevel, naval: mode === 'naval', passes });

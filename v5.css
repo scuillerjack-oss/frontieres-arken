@@ -386,3 +386,16 @@ dialog.ad-overlay::backdrop{background:#000c}
 /* V13.3 (Jack) : liserés guerre / allié / tension de la même épaisseur que le liseré bleu du joueur */
 .territory.war,.territory.ally,.territory.brink{stroke-width:calc(28px * var(--line,1))}
 .territory.brink{stroke-dasharray:calc(34px * var(--line,1)) calc(20px * var(--line,1))}
+
+/* V13.4 : alliance = passage libre, bonus de forteresse, mini tutoriel de la première partie */
+.info-chip.passage-chip{border-color:#3fcf74;color:#c9f5d8;background:#0d2a1c}
+.info-chip.fort-chip{border-color:#c9a45a;color:#ffe6ae;background:#2a2110}
+.fort-tag{color:#ffe6ae;font-weight:700}
+.passage-note{border:1px solid #3fcf74;background:#0d2a1c;color:#c9f5d8;border-radius:10px;padding:8px 10px;font-size:.84rem}
+.province.destination.ally-passage .area{stroke:#3fcf74}
+#miniTuto{position:fixed;z-index:31;left:12px;right:12px;top:calc(70px + env(safe-area-inset-top));background:#f4e8c9;color:#10202a;border:3px solid #3fcf74;border-radius:13px;padding:12px;box-shadow:0 10px 40px #000a;max-height:40dvh;overflow:auto}
+#miniTuto b{display:block;font-size:.95rem}
+#miniTuto p{margin:4px 0 10px;font-size:.88rem;line-height:1.35}
+.mini-tuto-actions{display:flex;gap:8px;justify-content:flex-end}
+.mini-tuto-actions button{border:0;border-radius:8px;padding:9px 14px;min-height:40px;background:#173d51;color:#fff;font-weight:700}
+.mini-tuto-actions button.cancel{background:#d9ccb0;color:#10202a}
