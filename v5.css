@@ -401,3 +401,5 @@ dialog.ad-overlay::backdrop{background:#000c}
 .mini-tuto-actions button.cancel{background:#d9ccb0;color:#10202a}
 .info-chip.regiment small.guest-note{display:block;color:#c9f5d8}
 #miniTuto.bottom{inset:auto 12px calc(96px + env(safe-area-inset-bottom)) 12px}
+/* V14.1 : bouton « Voir toute la carte » / « Revenir à ma capitale », en bas à gauche de la carte. */
+.whole-map-btn{position:absolute;left:8px;bottom:10px;z-index:3;min-height:40px;padding:6px 11px;border:1px solid #587184;border-radius:12px;background:#0a2231e6;color:#fff;font-weight:700;font-size:.8rem;box-shadow:0 3px 10px #0007}

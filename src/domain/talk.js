@@ -14,7 +14,8 @@ export const AI_TALK_PER_TURN = 3;     // au plus 3 messages des dirigeants IA p
 // V13 : hostile = provocation et humour piquant (jamais d'insulte ni de grossièreté) ; neutre = mesuré ;
 // amical = chaleureux. Plusieurs variantes par ton, choisies selon la graine de la partie.
 // V13.3 (retours bêta) : au moins neuf variantes par liste et plus aucun commerce (le jeu n'en a pas) ; un dirigeant
-// ne reprend pas une réplique de ses RECENT_LINES derniers messages (pickLine).
+// ne reprend pas une réplique de ses RECENT_LINES derniers messages (pickLine). V14.1 : ni une réplique déjà envoyée
+// au même tour par un autre dirigeant.
 const LINES = {
   war: {
     hostile: ['{to}, vos soldats courent vite. Dommage que ce soit dans le mauvais sens.', 'Gardez vos drapeaux pliés, {to} : vous en aurez besoin pour vous rendre.',
@@ -349,13 +350,19 @@ export const usedRecently = (state, from, line) => { const re = linePattern(line
  */
 export function pickLine(state, list, from, ...keys) {
   const start = Math.floor(chance(state, ...keys) * list.length) % list.length;
-  const recent = recentTexts(state, from);
-  if (!recent.length) return list[start];
-  for (let i = 0; i < list.length; i++) {
-    const line = list[(start + i) % list.length], re = linePattern(line);
-    if (!recent.some(t => re.test(t))) return line;
+  const recent = recentTexts(state, from), others = sameTurnTexts(state, from);
+  if (!recent.length && !others.length) return list[start];
+  const free = (line, texts) => { const re = linePattern(line); return !texts.some(t => re.test(t)); };
+  // 1. ni parmi ses derniers messages, ni déjà dite ce tour par un autre dirigeant ; 2. au moins pas déjà dite ce tour.
+  for (const texts of [[...recent, ...others], others]) for (let i = 0; i < list.length; i++) {
+    const line = list[(start + i) % list.length];
+    if (free(line, texts)) return line;
   }
   return list[start];
+}
+/** V14.1 (cahier V14 §3 point 5) : textes publiés CE tour par les autres dirigeants (anti-répétition entre nations). */
+export function sameTurnTexts(state, from) {
+  return (state.talk || []).filter(m => m.turn === state.turn && m.from !== from).map(m => m.text);
 }
 
 const nameOf = (map, id) => map?.nations?.find(n => n.id === id)?.short || 'tous';

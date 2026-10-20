@@ -53,7 +53,8 @@ export const RULES = Object.freeze({
     healRate:.1               // guérison : 10 % des PV max de la pile par tour, si la province n'a pas combattu
   },
   // V10 : réglages de l'IA (évaluation des attaques par simulation du combat).
-  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.25 },
+  // V14.1 : marge de débarquement 0,25 → 0,10, sauf vers une capitale (0,35) ; rassemblement dès la moitié des forces utiles.
+  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.1, capitalLandingMargin:.35, stagingFactor:.5 },
   // V13 : vision (brouillard de guerre, src/domain/vision.js). Quand les troupes d'une province ne sont pas connues,
   // l'IA ne lit jamais l'effectif réel : elle suppose une garnison « prudente » tirée de ce qui est public
   // (capitale ou non, port construit, tour de jeu), multipliée par (1 + growthPerTurn × (tour − 1)).

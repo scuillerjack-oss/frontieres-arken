@@ -75,7 +75,9 @@ test('V13.3 : anti-répétition — pickLine saute les répliques des 6 derniers
   const next = pickLine(s, list, 'oroel', 'k', 1);
   assert.notEqual(next, start);
   assert.equal(next, list[(list.indexOf(start) + 1) % list.length]);
-  // Un autre dirigeant n'est pas concerné.
+  // Un autre dirigeant n'est pas concerné… sauf au même tour (V14.1 : pas deux fois la même réplique au même tour).
+  assert.notEqual(pickLine(s, list, 'aurel', 'k', 1), start);
+  s.turn++;
   assert.equal(pickLine(s, list, 'aurel', 'k', 1), start);
   // Toutes les répliques utilisées sauf une : c'est elle qui sort, quel que soit le tirage.
   const t = createGameState({ map, playerNationId: 'valmorne', seed: 'paroles' });

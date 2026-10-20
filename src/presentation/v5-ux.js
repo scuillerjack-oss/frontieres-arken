@@ -100,7 +100,7 @@ export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITO
   'AFFRONTEMENT':'foreign-conflict','PILLAGE':'plunder','ÉLIMINATION':'elimination','ORDRE ANNULÉ':'cancelled',
   'REVENUS':'treasure','INTERCEPTION':'naval','DÉBARQUEMENT':'naval','MARINE':'naval','FIN DE PARTIE':'endgame','DIPLOMATIE':'blue','diplomatie':'blue',
   // V11 : personnalités des dirigeants.
-  'ÉCHANGE':'talk','TRAHISON':'betrayal','RÉVÉLATION':'reveal','TENSION':'tension',
+  'ÉCHANGE':'talk','TRAHISON':'betrayal','GUERRE':'combat','RÉVÉLATION':'reveal','TENSION':'tension',
   // V13 : demandes d'aide entre alliés.
   'AIDE':'help'});
 export function journalCategoryClass(type){
