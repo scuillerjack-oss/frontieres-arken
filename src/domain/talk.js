@@ -252,6 +252,17 @@ const AI_LINES = {
     '{to} a trahi son serment. Arken saura quelle valeur accorder à sa parole.', 'Notre allié {to} nous frappe dans le dos. Nous frapperons de face.',
     '{to} brise notre alliance. Que chaque nation en tire la leçon.', '{to}, vous avez trahi un allié. Vous n’en aurez plus jamais.',
     'La parole de {to} ne vaut plus rien. Cette trahison se paiera.', '{to}, nous vous faisions confiance. Chaque province prise vous sera reprise.'],
+  // V14.0 : trêve rompue moins de 10 tours après sa signature (trahison).
+  truceBreaker: ['{to}, une trêve n’est qu’une pause. La pause est finie.', 'Nous avions signé, {to} ? Nous avons changé d’avis.',
+    '{to}, la paix vous allait bien. Elle ne nous rapportait rien.', 'Merci pour ce répit, {to}. Nos armées en avaient besoin.',
+    '{to}, notre parole valait ce que vaut une trêve : peu de chose.', 'La trêve est rompue, {to}. Vous auriez dû en profiter pour vous armer.',
+    '{to}, nous avons signé la paix pour mieux préparer la guerre.', 'Une trêve, {to} ? Le temps de reprendre des forces, rien de plus.',
+    '{to}, l’encre de notre trêve est sèche. Nos épées, non.'],
+  truceBroken: ['{to} a rompu sa trêve à peine signée. Que tout Arken sache ce que vaut sa parole.', 'Trahison ! {to} signe la paix puis frappe aussitôt.',
+    '{to}, votre trêve n’était qu’un piège. Nous ne l’oublierons pas.', 'La signature de {to} ne vaut rien : sa trêve n’a pas tenu dix tours.',
+    '{to} brise la paix qu’il avait jurée. Nous nous défendrons.', 'Plus personne ne croira {to}. Sa trêve était un mensonge.',
+    '{to}, vous avez trahi votre propre trêve. Arken vous jugera.', 'Nous avions déposé les armes, {to}. Vous en avez profité. Honte à vous.',
+    '{to} rompt la trêve sans honneur. Chaque nation en tirera la leçon.'],
   heroWarn: ['{to}, attaquer les plus faibles est indigne. Cessez, ou nous interviendrons.', 'Nous ne laisserons pas {to} écraser ses voisins.', '{to}, chaque agression de plus vous rapproche de notre colère.',
     '{to}, laissez vos voisins en paix. C’est notre dernier avertissement.', 'Les faibles ne sont pas sans défenseur, {to}. Ils nous ont.',
     '{to}, retirez vos armées, ou nos bannières se lèveront contre vous.', 'Nous voyons vos conquêtes, {to}. Nos serments nous interdisent de nous taire.',
@@ -498,8 +509,9 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
   const once = (from, to, tone, text) => { if (spoke.has(from) || !to || state.nations[to]?.eliminated) return; if (say(from, to, tone, text)) spoke.add(from); };
   const line = (key, from, ...k) => pickLine(state, AI_LINES[key], from, key, state.turn, from, ...k);
   for (const e of turnEvents.filter(e => e.type === 'betrayal')) {
-    if (state.controllers?.[e.nationId] === 'ai') once(e.nationId, e.target, 'hostile', line('betrayal', e.nationId, e.target));
-    if (state.controllers?.[e.target] === 'ai') once(e.target, e.nationId, 'hostile', line('betrayed', e.target, e.nationId));
+    // V14.0 : une trêve rompue a ses propres répliques (les autres parlent d'alliance).
+    if (state.controllers?.[e.nationId] === 'ai') once(e.nationId, e.target, 'hostile', line(e.truce ? 'truceBreaker' : 'betrayal', e.nationId, e.target));
+    if (state.controllers?.[e.target] === 'ai') once(e.target, e.nationId, 'hostile', line(e.truce ? 'truceBroken' : 'betrayed', e.target, e.nationId));
   }
   for (const e of turnEvents.filter(e => e.type === 'diplomacy' && e.relation === 'war' && e.reason === 'combat')) {
     if (state.controllers?.[e.target] === 'ai' && archetypeOf(state, e.target) !== 'traitre') once(e.target, e.nationId, 'hostile', pickLine(state, LINES.afterAttack.hostile, e.target, 'attacked', state.turn, e.target));
