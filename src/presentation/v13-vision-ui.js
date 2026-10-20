@@ -1,6 +1,7 @@
 // V13 — Affichage de la vision (brouillard de guerre) et des PV lisibles. Règles : docs/V13-vision.md.
 import { provinceIntel, visibleProvinces } from '../domain/vision.js';
-import { regimentText } from '../domain/combat.js';
+import { regimentText, regimentStats, mergeForce, legacyForce } from '../domain/combat.js';
+import { navalBonusFactor } from '../domain/boosts.js';
 
 const SHORT = { infantry: ['fantassin', 'fantassins'], cavalry: ['cavalier', 'cavaliers'], armor: ['blindé', 'blindés'], artillery: ['artilleur', 'artilleurs'], warship: ['navire', 'navires'] };
 
@@ -19,10 +20,17 @@ export function provinceTroopView(state, map, provinceId, nationId = state.playe
     known: false, entrenched: intel.entrenched, visible: intel.visible, empty: false, wounded: false, text: regimentText(null), composition: '',
     note: intel.entrenched ? 'Troupes retranchées dans la forteresse : effectif inconnu' : 'Hors de vue : aucune de vos troupes (ou de vos alliés) dans une province voisine par la terre'
   };
-  const counts = { ...intel.units, warship: intel.warships };
+  // V13.4 (relecture) : chez une nation étrangère, les renforts de SES alliés stationnés là défendent aussi —
+  // ils sont comptés dans le régiment affiché (sinon le joueur attaquerait en sous-estimant la garnison).
+  const guests = intel.friendly ? [] : (state.stationed || []).filter(e => e.provinceId === provinceId && e.nationId !== nationId);
+  const force = guests.reduce((f, e) => mergeForce(f, legacyForce(e)), intel.force);
+  const regiment = guests.length ? regimentStats(force, { warshipFactor: navalBonusFactor(state, intel.ownerId) }) : intel.regiment;
+  const counts = { ...force.units };
   const composition = Object.keys(SHORT).filter(k => counts[k] > 0).map(k => `${counts[k]} ${SHORT[k][counts[k] > 1 ? 1 : 0]}`).join(' · ');
   const empty = !composition;
-  return { known: true, entrenched: false, visible: true, empty, wounded: intel.regiment.wounded, text: empty ? 'Régiment : aucune troupe' : regimentText(intel.regiment), composition, note: '' };
+  const allies = [...new Set(guests.map(e => e.nationId))];
+  return { known: true, entrenched: false, visible: true, empty, wounded: regiment.wounded, text: empty ? 'Régiment : aucune troupe' : regimentText(regiment), composition, note: '',
+    guests: allies, guestNote: allies.length ? `Dont renforts alliés stationnés : ${guests.map(e => `${Object.entries(e.units || {}).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${SHORT[k]?.[n > 1 ? 1 : 0] || k}`).concat(e.warships ? [`${e.warships} navires`] : []).join(' · ')}`).join(' ; ')}` : '' };
 }
 
 /** Ensemble des provinces dont le joueur voit les troupes (pour les icônes de la carte). */

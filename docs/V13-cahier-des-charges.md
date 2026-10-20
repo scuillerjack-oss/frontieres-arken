@@ -193,7 +193,20 @@ Retours mot pour mot et explications simples : `docs/BETA-V13.3-retours-Jack.md`
    diplomatie, fin du tour, fin), « Passer » à tout moment, plus jamais réaffiché (clé dédiée `frontieres-arken-mini-tuto`,
    la sauvegarde n'est pas touchée), relançable dans ⚙ Paramètres → « Relancer le mini tuto ». Les anciennes bulles
    d'aide contextuelles restent, après le mini tuto.
-Tests : `tests/v13-4-beta.test.js`. Vérifié dans Chrome mobile simulé (390 × 844) : mini tuto à la première partie
+Relecture indépendante (20/10/2026) : un point bloquant corrigé — les renforts d'un allié stationnés chez une nation
+étrangère visible étaient comptés au combat mais pas affichés sur la fiche (« 50 fantassins » au lieu de 200) : ils sont
+maintenant dans le régiment affiché, avec « Dont renforts alliés stationnés ». Corrigés au passage : un ordre donné
+depuis chez un ancien allié n'affiche plus « province tombée » mais « l'alliance a été rompue » ; l'IA compte ses
+propres troupes stationnées ; troupes d'une nation éliminée dispersées avec une ligne au journal ; la bulle du mini
+tuto reste lisible au-dessus des fenêtres (Recruter, Déplacer) et descend en bas en mode déplacement pour ne pas
+cacher le bandeau.
+### À surveiller (relecture)
+- Des renforts stationnés chez un allié attaqué combattent l'agresseur sans que leur nation lui déclare la guerre :
+  à confirmer avec Jack (guerre automatique ou non).
+- L'IA ne rappelle pas les troupes qu'elle a envoyées chez un allié (elles restent jusqu'à la fin de l'alliance).
+- Un convoi parti de chez un allié dont l'alliance est rompue pendant la traversée n'a plus de port où rentrer :
+  ses troupes sont perdues (cas rare).
+Tests : `tests/v13-4-beta.test.js` (14 tests). Vérifié dans Chrome mobile simulé (390 × 844) : mini tuto à la première partie
 (étapes 1 à 5 franchies par les vrais gestes, « Passer », pas réaffiché en reprenant la partie, relancé depuis les
 Paramètres), alliance acceptée par la fenêtre Oui / Non, passage par mer jusqu'à Roc-Épine alliée et troupes stationnées
 visibles sur la fiche, forteresse « −20 % » sur la fiche et « niveau 1 : −10 % » dans Construction. Aucune erreur

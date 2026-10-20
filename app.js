@@ -67,8 +67,12 @@ function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.clas
 // --- V13.4 : mini tutoriel de la première partie (5-6 bulles qui suivent les vrais gestes, « Passer » à tout moment).
 // Mémoire dans une clé DÉDIÉE (frontieres-arken-mini-tuto) : la sauvegarde de partie n'est jamais touchée.
 let miniStep=null;
-function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){box.hidden=true;return;}const s=MINI_TUTO_STEPS[miniStep];
-  $('#miniTutoTitle').textContent=s.title;$('#miniTutoText').textContent=s.text;$('#miniTutoNext').textContent=miniStep===MINI_TUTO_STEPS.length-1?'Terminer':'Suivant ›';box.hidden=false;$('#tutorialBubble').hidden=true;}
+// La bulle passe dans la « couche du dessus » (popover) et y est remise à chaque fenêtre ouverte : elle reste lisible
+// pendant les gestes faits dans une fenêtre (Recruter, Déplacer), au lieu d'être cachée dessous.
+function raiseMiniTuto(){const box=$('#miniTuto');if(miniStep===null||!box.showPopover)return;try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover();}catch{}}
+function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;return;}const s=MINI_TUTO_STEPS[miniStep];
+  $('#miniTutoTitle').textContent=s.title;$('#miniTutoText').textContent=s.text;$('#miniTutoNext').textContent=miniStep===MINI_TUTO_STEPS.length-1?'Terminer':'Suivant ›';box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();}
+new MutationObserver(()=>{if(miniStep!==null&&document.querySelector('dialog[open]'))raiseMiniTuto();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 function startMiniTuto(){miniStep=0;showMiniTuto();}
 function endMiniTuto(){miniStep=null;markMiniTutoSeen();showMiniTuto();}
 function miniTuto(event){if(miniStep===null)return;const next=miniTutoAdvance(miniStep,event);if(next===miniStep)return;if(next===null)return endMiniTuto();miniStep=next;showMiniTuto();}
@@ -169,6 +173,7 @@ function render(){
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;$('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
   $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
+  $('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement
 }
 function selectProvince(id){
   if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
@@ -183,7 +188,7 @@ function showProvinceSheet(){
   // V13 : une seule ligne en chiffres pour le régiment (« Régiment : 344 PV · 52 dégâts par assaut ») ; troupes hors de vue
   // ou retranchées dans une forteresse ennemie : « Régiment : effectif inconnu » (vision : docs/V13-vision.md).
   const troops=provinceTroopView(state,map,selected);
-  const forcesHtml=troops.known?`<span class="info-chip regiment${troops.wounded?' wounded':''}"><b>${troops.text}</b>${troops.composition?`<small>${troops.composition}${troops.wounded?' · en convalescence':''}</small>`:''}</span>`
+  const forcesHtml=troops.known?`<span class="info-chip regiment${troops.wounded?' wounded':''}"><b>${troops.text}</b>${troops.composition?`<small>${troops.composition}${troops.wounded?' · en convalescence':''}</small>`:''}${troops.guestNote?`<small class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
     :`<span class="info-chip regiment unknown"><b>${troops.text}</b><small>${troops.note}</small></span>`;
   // V13 : point de port (construit ou non) → destinations par mer ; sinon, rien (le refus s'explique au déplacement).
   const naval=mine&&isPortPoint(map,selected)?`<span class="info-chip note">⚓ Point de port : embarquement vers ${legalDestinations(map,state,selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port?'':' (port à construire pour les navires de guerre)'}</span>`:'';

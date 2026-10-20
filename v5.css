@@ -393,9 +393,11 @@ dialog.ad-overlay::backdrop{background:#000c}
 .fort-tag{color:#ffe6ae;font-weight:700}
 .passage-note{border:1px solid #3fcf74;background:#0d2a1c;color:#c9f5d8;border-radius:10px;padding:8px 10px;font-size:.84rem}
 .province.destination.ally-passage .area{stroke:#3fcf74}
-#miniTuto{position:fixed;z-index:31;left:12px;right:12px;top:calc(70px + env(safe-area-inset-top));background:#f4e8c9;color:#10202a;border:3px solid #3fcf74;border-radius:13px;padding:12px;box-shadow:0 10px 40px #000a;max-height:40dvh;overflow:auto}
+#miniTuto{position:fixed;z-index:31;inset:calc(70px + env(safe-area-inset-top)) 12px auto 12px;width:auto;margin:0;background:#f4e8c9;color:#10202a;border:3px solid #3fcf74;border-radius:13px;padding:12px;box-shadow:0 10px 40px #000a;max-height:40dvh;overflow:auto}
 #miniTuto b{display:block;font-size:.95rem}
 #miniTuto p{margin:4px 0 10px;font-size:.88rem;line-height:1.35}
 .mini-tuto-actions{display:flex;gap:8px;justify-content:flex-end}
 .mini-tuto-actions button{border:0;border-radius:8px;padding:9px 14px;min-height:40px;background:#173d51;color:#fff;font-weight:700}
 .mini-tuto-actions button.cancel{background:#d9ccb0;color:#10202a}
+.info-chip.regiment small.guest-note{display:block;color:#c9f5d8}
+#miniTuto.bottom{inset:auto 12px calc(96px + env(safe-area-inset-bottom)) 12px}

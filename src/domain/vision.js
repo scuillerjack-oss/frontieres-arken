@@ -87,7 +87,7 @@ export function perceivedForce(state, map, nationId, provinceId, visible = null)
   if (!intel.troopsKnown) return prudentEstimate(state, provinceId);
   // V13.4 : des renforts alliés stationnés défendent aussi la province (droit de passage) : ils comptent.
   let f = intel.force;
-  for (const e of state.stationed || []) if (e.provinceId === provinceId && e.nationId !== nationId) f = mergeForce(f, legacyForce(e));
+  for (const e of state.stationed || []) if (e.provinceId === provinceId) f = mergeForce(f, legacyForce(e)); // y compris les siens
   return f;
 }
 

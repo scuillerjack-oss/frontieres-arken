@@ -68,7 +68,8 @@ export function settleStationed(state, map) {
   const keep = [];
   for (const e of [...state.stationed].sort((a, b) => a.provinceId.localeCompare(b.provinceId) || a.nationId.localeCompare(b.nationId))) {
     const force = legacyForce(e);
-    if (!hasUnits(force) || state.nations?.[e.nationId]?.eliminated) continue;
+    if (!hasUnits(force)) continue;
+    if (state.nations?.[e.nationId]?.eliminated) { state.events?.push({ turn: state.turn, type: 'stationed-lost', nationId: e.nationId, target: state.provinces[e.provinceId]?.ownerId, provinceId: e.provinceId, amount: COMBAT_TYPES.reduce((n, k) => n + force.units[k], 0), eliminated: true }); continue; }
     const p = state.provinces[e.provinceId], owner = p?.ownerId;
     if (owner === e.nationId) { writeProvinceForce(p, mergeForce(provinceForce(p), force)); continue; }
     if (hasPassage(state, e.nationId, owner)) { keep.push(e); continue; }

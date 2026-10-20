@@ -15,6 +15,8 @@ import { setPlayerBonuses } from '../src/domain/boosts.js';
 import { passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_KEY, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from '../src/presentation/v13-4-ux.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
 import { playerOrderArrows } from '../src/presentation/v5-ux.js';
+import { provinceTroopView } from '../src/presentation/v13-vision-ui.js';
+import { COMBAT_TYPES } from '../src/domain/combat.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
 import { map, freshState } from './helpers/fixtures.js';
 
@@ -191,4 +193,52 @@ test('mini tuto : bouton « Passer », lancement à la première partie seulemen
   assert.match(app, /if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\}/);
   assert.doesNotMatch(app.match(/function continueSavedGame[^\n]*/)[0], /MiniTuto/, 'pas en reprenant une partie');
   assert.doesNotMatch(read('src/presentation/v13-4-ux.js'), /frontieres-arken-v2-save/);
+});
+
+// --- Corrections après relecture indépendante ------------------------------------------------------------------
+test('relecture : les renforts alliés stationnés chez une nation étrangère visible sont affichés (pas de surprise)', () => {
+  const s = freshState({ allHuman: true });
+  setRelation(s, { nationId: 'roc-epine', target: 'noireflamme', type: 'alliance' });
+  s.provinces.p08.ownerId = 'noireflamme'; s.provinces.p08.buildings.fort = 0;
+  s.provinces.p08.units = { infantry: 50, cavalry: 0, armor: 0, artillery: 0 };
+  s.stationed = [{ nationId: 'roc-epine', provinceId: 'p08', units: { infantry: 150, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, wounds: {} }];
+  s.provinces.p06.ownerId = 'valmorne'; s.provinces.p06.units.infantry = 10; // vue sur p08
+  const v = provinceTroopView(s, map, 'p08', 'valmorne');
+  assert.equal(v.known, true);
+  assert.match(v.composition, /200 fantassins/);
+  assert.match(v.guestNote, /150 fantassins/);
+});
+
+test('relecture : défense avec renforts alliés — aucune troupe créée ni perdue en dehors des pertes du combat', () => {
+  const s = freshState({ allHuman: true });
+  setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
+  s.provinces.p05.units = { infantry: 100, cavalry: 0, armor: 0, artillery: 0 }; s.provinces.p05.buildings.fort = 0;
+  s.stationed = [{ nationId: 'valmorne', provinceId: 'p05', units: { infantry: 200, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, wounds: {} }];
+  s.provinces.p07.ownerId = 'noireflamme'; s.provinces.p07.units.infantry = 150;
+  s.orders.push({ id: 'x1', kind: 'move', nationId: 'noireflamme', fromId: 'p07', toId: 'p05', units: { infantry: 150, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, routeType: 'land', status: 'pending', turn: s.turn });
+  resolveInterturn(s, map);
+  const b = s.events.find(e => e.type === 'battle' && e.provinceId === 'p05');
+  assert.ok(b, 'la province tient');
+  const lost = id => COMBAT_TYPES.reduce((n, k) => n + (b.lossesByNation[id]?.[k] || 0), 0);
+  assert.equal(s.provinces.p05.units.infantry + stationedAt(s, 'p05', 'valmorne').units.infantry, 300 - lost('valmorne') - lost('roc-epine'));
+  assert.equal(stationedAt(s, 'p05', 'valmorne').units.infantry, 200 - lost('valmorne'));
+});
+
+test('relecture : attaque lancée depuis la province d\'un allié ; alliance rompue → « passage annulé », pas « province tombée »', () => {
+  const s = freshState({ allHuman: true });
+  setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
+  s.stationed = [{ nationId: 'valmorne', provinceId: 'p05', units: { infantry: 200, cavalry: 0, armor: 0, artillery: 0 }, warships: 0, wounds: {} }];
+  s.provinces.p08.ownerId = 'noireflamme'; s.provinces.p08.units = { infantry: 5, cavalry: 0, armor: 0, artillery: 0 }; s.provinces.p08.buildings.fort = 0;
+  assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p05', toId: 'p08', units: { infantry: 150 } }).ok, true, 'attaque depuis chez l\'allié');
+  const t = structuredClone(s);
+  resolveInterturn(s, map);
+  assert.equal(s.provinces.p08.ownerId, 'valmorne', 'prise');
+  queueDiplomaticOrder(t, { nationId: 'roc-epine', target: 'valmorne', action: 'break' });
+  resolveInterturn(t, map);
+  const ev = t.events.find(e => e.type === 'attack-cancelled');
+  assert.equal(ev.reason, 'passage-lost');
+  assert.match(journalEntry(ev, arkenV9Map, 'valmorne').text, /l’alliance a été rompue/);
+  const before = s0 => Object.values(s0.provinces).filter(p => p.ownerId === 'valmorne').reduce((n, p) => n + p.units.infantry, 0);
+  assert.equal(stationedAt(t, 'p05', 'valmorne'), null);
+  assert.ok(t.events.some(e => e.type === 'stationed-recalled' && e.amount === 200), 'les 200 rentrent, pas perdues');
 });

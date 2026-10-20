@@ -471,7 +471,8 @@ function aggregateMoves(state, map, orders, fought) {
   const departures = [];
   for (const o of attacks.filter(x => !wave1.includes(x))) {
     if (state.provinces[o.fromId]?.ownerId !== o.nationId && !(o.guest && hasPassage(state, o.nationId, state.provinces[o.fromId]?.ownerId) && stationedAt(state, o.fromId, o.nationId))) {
-      state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'origin-lost' });
+      // V13.4 : un ordre donné depuis chez un ancien allié (alliance rompue) n'est pas une « province tombée ».
+      state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: o.guest ? 'passage-lost' : 'origin-lost' });
       continue;
     }
     const force = takeOrderForces(state, o);
@@ -1455,7 +1456,8 @@ export function journalEntry(event, map, playerNationId = null) {
         : `🤝 Passage chez ${nationName(map,event.target)} (allié) : ${safeNum(event.amount)} unités stationnent à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} et la défendront.` };
       return { priority:1,type:'déplacement',category:'neutral',text:`Mouvement vers ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} effectué.` };
     case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${safeNum(event.amount)} unités quittent ${where} et rentrent à ${provinceDef(map,event.toId)?.name || 'leur base'}.` };
-    case 'stationed-lost': return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${safeNum(event.amount)} unités perdues à ${where}.` };
+    case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ses ${safeNum(event.amount)} unités stationnées à ${where} se dispersent.` };
+      return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${safeNum(event.amount)} unités perdues à ${where}.` };
     default: return null;
   }
 }
