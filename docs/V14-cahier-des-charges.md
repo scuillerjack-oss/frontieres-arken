@@ -205,3 +205,103 @@ le bouton « Voir toute la carte » est masqué.
   surtout quand Jack poste des troupes chez un allié.
 - La vue de lancement laisse une bande de mer en haut pour Valmorne et Oroël (capitales collées au bord de la carte).
 
+
+### V14.2.0 — retours de bêta de la V14.1 (25/10/2026)
+Section 2, points 1 à 8. Le tutoriel (point 9) est la V14.3, la préparation Google Play la V14.4.
+
+1. **Aide d'alliance — « 5 tours » sans ambiguïté.** Diagnostic dans le code : l'engagement durait 5 tours **à partir de
+   l'acceptation, trajet compris**. Or un allié met 2 tours de mer (souvent davantage avec une escale) : il n'aidait
+   vraiment que 2 ou 3 tours. **Règle corrigée** : l'aide dure **5 tours une fois les troupes arrivées** ; le trajet
+   estimé (1 tour par la terre, la durée de la traversée par la mer, +1 tour d'escale, au plus 4) s'ajoute.
+   - Journal : « Roc-Épine accepte de vous défendre : ses troupes partent maintenant, arrivée estimée dans 2 tours, puis
+     elles vous aident pendant 5 tours (engagement jusqu'au tour 8). » Vérifié : les troupes arrivent bien au tour annoncé.
+   - Fenêtre « Aide de X » : « en route : arrivée estimée dans 2 tours, puis aide pendant 5 tours », puis « aide sur
+     place : encore N tours ». Allié sans route directe (ex. Solmara pour Valmorne) : le message le dit (« ses troupes
+     risquent de ne pas venir ») au lieu d'inventer une date.
+2. **Hostilité : avertissement à 70 %, guerre automatique à 85 %.** Diagnostic : en V14.1, **aucune règle** ne
+   déclarait la guerre à 100 % ; seule l'IA avait un petit risque de guerre par tour au-delà de 75 % (4 à 12 %), et
+   jamais le joueur. Simulation V14.1 : 1 898 tours où une paire de nations restait à 85 % ou plus sans guerre.
+   - Fin de chaque tour (après combats et échanges) : tension ≥ **70 %** → **avertissement** au journal (« ⚠ HOSTILITÉ :
+     dès 85 % (à partir du prochain tour), la guerre sera déclarée ») ; tension ≥ **85 %** et averti lors d'un tour
+     précédent → **guerre déclarée** (« ⚔ GUERRE DÉCLARÉE », public). L'avertissement arrive toujours au moins un tour
+     avant (un message hostile fait +20 d'un coup). Même règle pour le joueur et pour les IA.
+   - Ce n'est pas une agression : ni trahison, ni réputation, ni indignation des Héros.
+   - **Alliance ou trêve** : elles protègent ; tant qu'elles tiennent, la tension est plafonnée à 84 %.
+   - **Après la déclaration** : la jauge affiche « En guerre » et ne redescend pas sous 70 % tant que dure la guerre
+     (règle V13) ; une trêve la ramène à 40 % au plus. Retombée sous 70 % sans guerre : l'avertissement est oublié.
+   - Le palier « au bord de la guerre » commence maintenant à 70 % (avant 75 %).
+3. **Traits des dirigeants plus marqués.**
+   - **Conquérant** : une provocation (message hostile) fait **+35** au lieu de +20, et l'insolent devient sa **cible**
+     pendant 8 tours (sauf allié ou trêve récente). Il accepte des combats plus serrés (marge 0,95 au lieu de 1,0 ; 0,8 en
+     guerre), vise une 2e proie dès 1,25 fois sa force (avant 1,5) et peut lancer **2 attaques terrestres par tour**.
+   - **Héros naïf** : un message amical fait **−14** au lieu de −7 et il s'en souvient (charme, 12 tours) : alliance
+     acceptée jusqu'à 65 % de tension ; **3 amabilités lui font oublier une agression** (et même un Traître démasqué) ;
+     2 amabilités et il accepte d'« attaquer X avec vous » ; il épargne un agresseur très aimable. Un message hostile
+     rompt le charme.
+   - **Bâtisseur** : une provocation ne fait que **+8** ; la tension avec lui retombe **deux fois plus vite** ; une
+     querelle de son allié ne lui fait que +5 (au lieu de +20). Il ne déclare jamais la guerre lui-même.
+   - **Traître** : il peut prendre pour cible **n'importe quel allié** dès que c'est payant (allié depuis 5 tours, et
+     plus faible : 85 % de sa force s'il est occupé ailleurs, 60 % sinon), y compris une **ancienne victime** ; il passe
+     à la cible suivante 6 tours après son coup (avant 12) ; à partir du tour 10, il courtise aussi d'autres voisins
+     calmes (2 alliés au plus) pour avoir plusieurs nations à trahir.
+   - L'aperçu de tension d'un message ne montre l'effet propre au trait que si le dirigeant est révélé (rien n'est dévoilé).
+4. **Débarquement : assaillant à 85 %** (au lieu de 70 %). Jack proposait de supprimer le malus ; **décision du chef de
+   projet : le réduire sans le supprimer** (carte d'îles : sans malus, les IA enchaîneraient les débarquements).
+   Calibrage (simulation IA contre IA, 40 parties × 80 tours, et calcul des troupes nécessaires) :
+
+   | Malus | Débarquements | Réussis | Troupes pour prendre une province (fort 1), terre = 240 | Capitale (fort 2) |
+   |---|---|---|---|---|
+   | 70 % (V14.1) | 298 | 59 % | 300 (+25 %) | 440 |
+   | 80 % | 312 | 62 % | 280 (+17 %) | 400 |
+   | **85 % (retenu)** | 307 | 63 % | **260 (+8 %)** | 360 |
+   | 90 % | 319 | 61 % | 240 (+0 %) | 360 |
+   | 100 % (supprimé) | 315 | 65 % | 240 (+0 %) | 320 |
+
+   **Pourquoi 85 %** : c'est le dernier palier où débarquer coûte encore un peu plus cher qu'attaquer par la terre
+   (+8 % de troupes) ; à 90 %, le malus ne change déjà plus rien dans les cas courants. Le jeu reste équilibré : le
+   nombre de débarquements des IA ne s'envole pas (≈ +3 %), leur taux de réussite non plus. Les rapports de combat
+   affichent le vrai chiffre (« débarquement : assaillant à 85 % » ; un ancien rapport garde « 70 % »).
+5. **Recrutement : PV et dégâts de chaque troupe.** Toucher le nom (« Infanterie ⓘ PV et dégâts ») ouvre un panneau sous
+   la ligne : « 200 PV · 100 dégâts par assaut **par lot de 20 fantassins** — soit 10 PV et 5 dégâts par fantassin »,
+   « 175 PV · 100 dégâts par lot de 5 cavaliers », « 240 PV · 120 dégâts **par unité** (1 blindé par lot) », coût,
+   délai, points forts et faibles, effet du débarquement. Ce bouton est séparé des + / − et ne touche jamais aux lots :
+   **ouvrir le détail ne recrute jamais**.
+6. **Navires en convalescence.** « En convalescence » = navires **blessés** : ils ont perdu des PV et tirent moins fort.
+   - Dans un **port construit** (le sien, ou celui d'un allié où ils stationnent) : **100 % des PV en 3, 4 ou 5 tours**
+     selon les dégâts (jusqu'à 15 % des PV perdus → 3 tours, jusqu'à 30 % → 4, au-delà → 5). Avant : 10 % par tour,
+     où qu'ils soient (jusqu'à 5 tours, même sans port).
+   - Sans port construit : réparations de fortune, 5 % par tour. En mer : aucune réparation. Nouveaux dégâts pendant la
+     réparation : délai recalculé.
+   - Fiche de la province : « ⚓ 3 navires de guerre en convalescence : 1 100 / 2 100 PV (52 %) · réparés au port :
+     100 % dans 5 tours », avec l'explication en dessous.
+7. **Phrases deux fois plus variées** : chaque liste de messages du joueur, de réponses et de voix des dirigeants
+   (`talk-v14-2.js`), et chaque liste de réponses des alliés aux demandes d'aide (`alliances-v14-2.js`), reçoit
+   autant de nouvelles répliques qu'elle en avait (948 répliques au lieu de 474 dans talk.js ; 242 réponses
+   d'aide au lieu de 121). Mêmes règles qu'en V13.3 (ton, personnalité, pas d'insulte, pas de commerce, anti-répétition).
+8. **Rapports de conquête** : un saut de ligne avant « PV perdus, blessés compris : … ». Rien d'autre ne change.
+
+**Simulation IA contre IA, 30 parties × 80 tours (graines `v142-0` à `v142-29`, `tools/simulation/v14-2-bilan.mjs`)** :
+
+| Mesure | V14.1 | V14.2 |
+|---|---|---|
+| Paires restées à 85 % ou plus sans guerre (tours cumulés) | 1 898 | 27 (le tour qui suit l'avertissement) |
+| Guerres déclarées par l'hostilité / avertissements | 0 / 0 | 41 / 68 |
+| Assauts par partie : Conquérant / Traître / Héros / Bâtisseur | 5,9 / 4,1 / 2,1 / 0,8 | 5,8 / 4,1 / 1,9 / 0,8 |
+| Trahisons du Traître par partie | 2,0 | 2,2 |
+| Parties où le Traître trahit deux nations différentes ou plus | 5 / 30 | 9 / 30 |
+| Débarquements / réussis | 220 / 61 % | 233 / 64 % |
+| Classement final, 1er : Conquérant / Traître / Héros / Bâtisseur | 12 / 12 / 5 / 1 | 11 / 16 / 2 / 1 |
+
+**Note d'équilibrage** : entre IA, l'écart entre les personnalités était déjà net et le reste (le Conquérant attaque
+3 fois plus que le Héros, 7 fois plus que le Bâtisseur). Les nouveaux traits jouent surtout **face au joueur** : ils
+réagissent à ses messages (provocations, amabilités), ce que les IA entre elles n'échangent que rarement. Les scénarios
+reproductibles de `tests/v14-2.test.js` le vérifient : un Conquérant provoqué déclare la guerre au joueur alors qu'il le
+laissait tranquille ; trois messages amicaux font accepter au Héros l'alliance d'un agresseur ; quatre provocations ne
+mettent pas un Bâtisseur en colère ; le Traître trahit l'allié le plus faible (pas sa cible prévue) puis le retrahit.
+Le Conquérant n'attaque pas beaucoup plus entre IA : il est limité par la taille de son armée, pas par le choix de ses
+cibles (un essai « moins de banques, plus d'armée » n'a rien changé et a été retiré). Le Traître gagne un peu plus
+souvent (16 parties sur 30) : à surveiller en bêta.
+
+Tests : `tests/v14-2.test.js` (24 tests) ; adaptés : `v11-personnalites` (palier à 70 %), `v13-alliances` (durée de
+l'aide, Bâtisseur, propositions du Traître à d'autres nations), `ui-v10` et `combat-v10` (85 %), `v13-3-paroles`
+(réponses d'aide doublées vérifiées). 374 tests au vert.

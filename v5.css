@@ -415,3 +415,6 @@ dialog.ad-overlay::backdrop{background:#000c}
 .unit-detail p{margin:4px 0;color:#d8e4e8}.unit-detail p.unit-help{color:#9fb1ba;font-size:.7rem}
 /* V14.2 (Jack) : navires en convalescence. */
 .info-chip.ship-chip.wounded{border-color:#c79b4b;background:#2b2410}.info-chip.ship-chip small{display:block;margin-top:3px;color:#d9c9a2;font-size:.68rem}
+/* V14.2 (vérification mobile) : le nom de la troupe n'a pas l'air d'un bouton d'achat ; le détail prend toute la largeur. */
+.action-card button.unit-info-btn{background:none;border:0;border-bottom:1px dashed #6f8796;border-radius:0;color:#fff;padding:2px 0 3px;font-weight:400;width:auto;max-width:100%}
+.action-card .unit-detail-slot{grid-column:1/-1}
