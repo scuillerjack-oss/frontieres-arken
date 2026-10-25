@@ -418,3 +418,17 @@ dialog.ad-overlay::backdrop{background:#000c}
 /* V14.2 (vérification mobile) : le nom de la troupe n'a pas l'air d'un bouton d'achat ; le détail prend toute la largeur. */
 .action-card button.unit-info-btn{background:none;border:0;border-bottom:1px dashed #6f8796;border-radius:0;color:#fff;padding:2px 0 3px;font-weight:400;width:auto;max-width:100%}
 .action-card .unit-detail-slot{grid-column:1/-1}
+/* V14.3 : tutoriel facultatif et rejouable — bulle complète (objectif, Quitter / Passer l'étape), surlignage de la cible */
+.tuto-entry{width:100%;min-height:48px;margin-top:10px;border:1.5px solid #3fcf74;background:#0f3326;color:#d8ffe6;border-radius:10px;font-weight:800;font-size:.98rem}
+#miniTuto.tuto-full{max-height:34dvh;padding:10px 12px}
+#miniTuto.tuto-full b{font-size:.9rem}
+#miniTuto.tuto-full p{font-size:.85rem;margin:3px 0 6px}
+#miniTutoGoal{font-weight:700;color:#0d4f2b;background:#d9f2df;border-radius:8px;padding:5px 8px}
+#miniTuto .mini-tuto-actions button.secondary{background:#e8dcbf;color:#173d51;border:1px solid #173d51}
+#miniTuto.tuto-full.bottom{inset:auto 12px calc(66px + env(safe-area-inset-bottom)) 12px}
+.tuto-target{outline:3px solid #3fcf74!important;outline-offset:2px;box-shadow:0 0 0 6px #3fcf7455!important;animation:tutoPulse 1.2s ease-in-out infinite;position:relative;z-index:2}
+g.tuto-target .area{stroke:#3fcf74!important;stroke-width:calc(9px * var(--line,1))!important;fill-opacity:.5}
+g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPulseSvg 1.2s ease-in-out infinite}
+@keyframes tutoPulse{50%{box-shadow:0 0 0 10px #3fcf7422}}
+@keyframes tutoPulseSvg{50%{opacity:.75}}
+@media (prefers-reduced-motion:reduce){.tuto-target,g.tuto-target{animation:none}}

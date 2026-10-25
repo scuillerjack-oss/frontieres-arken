@@ -35,6 +35,8 @@ import { shipRepairInfo } from './src/domain/game-engine.js';
 // V14.1 : carte centrée sur la capitale au lancement, bouton « Voir toute la carte ».
 import { launchView, wholeMapView, showsWholeMap, WHOLE_MAP_LABEL, BACK_TO_CAPITAL_LABEL } from './src/presentation/v14-1-ux.js';
 import { PASSAGE_TEXT, passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from './src/presentation/v13-4-ux.js';
+// V14.3 : tutoriel facultatif et rejouable (partie d'entraînement à part, clé de sauvegarde distincte).
+import { createTutorialState, isTutorial, saveKeyFor, loadTutorial, clearTutorial, tutorialOffered, markTutorialOffered, tutorialStepView, tutorialAdvance, tutorialHint, moveEvent, firstVisibleTarget, bubblePlacement, TUTORIAL_STEPS } from './src/presentation/v14-3-tutoriel.js';
 
 const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', warship:'Navires' };
@@ -53,12 +55,14 @@ let backgroundImage = null;
 let profile = loadProfile();
 const saveMyProfile = () => saveProfile(profile);
 /** Injecte les atouts du profil dans la partie (joueur humain seulement) : création, chargement, amélioration. */
-const applyBoosts = game => game ? setPlayerBonuses(game, profile.boosts) : game;
-const save = () => { if (state) localStorage.setItem(SAVE_KEY, encodeSave(state)); };
+const applyBoosts = game => game && !isTutorial(game) ? setPlayerBonuses(game, profile.boosts) : game; // V14.3 : pas d'atouts dans le tutoriel (chiffres de base)
+// V14.3 : la partie de tutoriel a SA clé (frontieres-arken-tutoriel-save) ; la vraie partie garde SAVE_KEY, jamais écrasée.
+const save = () => { if (state) localStorage.setItem(saveKeyFor(state), encodeSave(state)); };
 const load = () => { try { const raw=localStorage.getItem(SAVE_KEY); return raw ? decodeSave(raw) : null; } catch { return null; } };
 const E = (tag, attrs={}) => { const node=document.createElementNS(SVG,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); return node; };
 function toast(message) { const node=$('#toast'); node.textContent=message; node.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>node.classList.remove('show'),4200); }
 function tutorial(id,title,text) {
+  if (miniStep!==null||tutoStep!==null) return; // V14.3 : ni pendant le tutoriel
   if (miniStep!==null) return; // V13.4 : pas de bulle contextuelle pendant le mini tuto (elles restent pour plus tard)
   if (!state.settings.hints || state.tutorial.seen.includes(id)) return;
   if(state.tutorial.turn!==state.turn){state.tutorial.turn=state.turn;state.tutorial.shown=[];}
@@ -74,13 +78,69 @@ function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.clas
 let miniStep=null;
 // La bulle passe dans la « couche du dessus » (popover) et y est remise à chaque fenêtre ouverte : elle reste lisible
 // pendant les gestes faits dans une fenêtre (Recruter, Déplacer), au lieu d'être cachée dessous.
-function raiseMiniTuto(){const box=$('#miniTuto');if(miniStep===null||!box.showPopover)return;try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover();}catch{}}
+function raiseMiniTuto(){const box=$('#miniTuto');if((miniStep===null&&tutoStep===null)||!box.showPopover)return;try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover();}catch{}}
 function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;return;}const s=MINI_TUTO_STEPS[miniStep];
   $('#miniTutoTitle').textContent=s.title;$('#miniTutoText').textContent=s.text;$('#miniTutoNext').textContent=miniStep===MINI_TUTO_STEPS.length-1?'Terminer':'Suivant ›';box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();}
-new MutationObserver(()=>{if(miniStep!==null&&document.querySelector('dialog[open]'))raiseMiniTuto();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
-function startMiniTuto(){miniStep=0;showMiniTuto();}
-function endMiniTuto(){miniStep=null;markMiniTutoSeen();showMiniTuto();}
-function miniTuto(event){if(miniStep===null)return;const next=miniTutoAdvance(miniStep,event);if(next===miniStep)return;if(next===null)return endMiniTuto();miniStep=next;showMiniTuto();}
+new MutationObserver(()=>{if((miniStep!==null||tutoStep!==null)&&document.querySelector('dialog[open]'))raiseMiniTuto();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
+function startMiniTuto(){if(tutoStep!==null)return;miniStep=0;showMiniTuto();}
+function endMiniTuto(){if(tutoStep!==null)return quitTutorial();miniStep=null;markMiniTutoSeen();showMiniTuto();}
+function miniTuto(event){tuto(event);if(miniStep===null)return;const next=miniTutoAdvance(miniStep,event);if(next===miniStep)return;if(next===null)return endMiniTuto();miniStep=next;showMiniTuto();}
+// --- V14.3 : tutoriel facultatif et rejouable --------------------------------------------------------------------
+// Une partie d'entraînement à part (scénario fixe, vrai moteur). La bulle du mini tuto (#miniTuto) sert de support :
+// titre, explication, objectif, « Quitter » et « Suivant › » (passer une étape si on est bloqué). Ce qu'il faut toucher
+// est surligné (classe tuto-target), et la bulle se place à l'opposé de la cible pour ne jamais la cacher.
+let tutoStep=null,tutoTimer=0,tutoTargetEl=null,tutoFocused=null;
+function tutoVisible(sel){const el=document.querySelector(sel);if(!el||!el.getClientRects().length)return false;const top=[...document.querySelectorAll('dialog[open]')].at(-1);return top?top.contains(el):!el.closest('dialog');}
+function refreshTuto(){
+  if(tutoStep===null||!state)return;const v=tutorialStepView(tutoStep,state,map),box=$('#miniTuto');
+  const sel=firstVisibleTarget(v.targets,tutoVisible),el=sel?document.querySelector(sel):null;
+  if(el!==tutoTargetEl){tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=el;if(el){el.classList.add('tuto-target');if(!el.closest('svg'))el.scrollIntoView?.({block:'nearest'});}}
+  else el?.classList.add('tuto-target'); // la carte est redessinée à chaque render : on remet la classe
+  const place=el?bubblePlacement(el.getBoundingClientRect(),innerHeight):(moveSource?'bottom':'top');
+  box.classList.toggle('bottom',place==='bottom');
+}
+function showTuto(){
+  const box=$('#miniTuto');if(tutoStep===null)return;const v=tutorialStepView(tutoStep,state,map);
+  $('#miniTutoTitle').textContent=`${v.progress} · ${v.title}`;$('#miniTutoText').textContent=v.text;
+  const goal=$('#miniTutoGoal');goal.hidden=!v.goal;goal.textContent=v.goal?`👉 ${v.goal}`:'';
+  $('#miniTutoSkip').textContent='Quitter';$('#miniTutoNext').textContent=v.next||'Passer l’étape ›';$('#miniTutoNext').classList.toggle('secondary',!v.next);
+  box.classList.add('tuto-full');box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();
+  // Province à toucher hors de l'écran : la carte s'y centre (une fois par étape).
+  const prov=(v.targets||[]).map(t=>t.match(/^\[data-id="(p\d\d)"\]$/)?.[1]).filter(Boolean).at(-1);
+  if(prov&&tutoFocused!==tutoStep&&!document.querySelector('dialog[open]')){tutoFocused=tutoStep;const r=document.querySelector(`[data-id="${prov}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect();if(!r||r.right<f.left+20||r.left>f.right-20||r.bottom<f.top+20||r.top>f.bottom-20){focusProvince(prov);updateLabelScale();}}
+  refreshTuto();
+}
+function setTutoStep(i){document.querySelectorAll('.tuto-done').forEach(x=>x.classList.remove('tuto-done'));tutoStep=i;state.tutorialRun={...(state.tutorialRun||{}),step:i};save();showTuto();}
+function tuto(event){
+  if(tutoStep===null||!state)return;const hint=tutorialHint(tutoStep,event);if(hint)toast(hint);
+  const next=tutorialAdvance(tutoStep,event,state,map);if(next===tutoStep)return;if(next===null)return finishTutorial();setTutoStep(next);
+}
+function tutoRunning(){document.body.classList.add('tutorial-on');clearInterval(tutoTimer);tutoTimer=setInterval(refreshTuto,350);showTuto();}
+function stopTuto(){tutoStep=null;clearInterval(tutoTimer);tutoTimer=0;tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=null;document.body.classList.remove('tutorial-on');const box=$('#miniTuto');box.classList.remove('tuto-full','bottom');$('#miniTutoGoal').hidden=true;$('#miniTutoSkip').textContent='Passer';$('#miniTutoNext').classList.remove('secondary');try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;}
+/** Démarre (ou reprend) le tutoriel. La vraie partie n'est ni lue ni écrite : elle reste sous SAVE_KEY. */
+async function startTutorial({resume=false}={}){
+  markTutorialOffered(undefined,tutorialOfferState()==='termine'?'termine':'propose');
+  for(const d of document.querySelectorAll('dialog[open]'))d.close();
+  stopTuto();miniStep=null;
+  const saved=resume?loadTutorial(decodeSave):null;
+  state=saved?hydrateState(saved):createTutorialState({map});if(!state)state=createTutorialState({map});
+  selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();$('#moveBanner').hidden=true;$('#provinceSheet').hidden=true;save();showGame();
+  tutoStep=Math.max(0,Math.min(TUTORIAL_STEPS.length-1,Number(state.tutorialRun?.step)||0));tutoFocused=null;tutoRunning();
+}
+const tutorialOfferState=()=>{try{return localStorage.getItem('frontieres-arken-tutoriel-propose');}catch{return null;}};
+/** « Quitter » : la partie de tutoriel est gardée (on la reprend depuis l'accueil) ; retour à l'accueil. */
+function quitTutorial(){save();stopTuto();showWelcome();toast('Tutoriel en pause : « Reprendre le tutoriel » sur l’accueil.');}
+function showTutoRanking(){const rows=gameRanking(state).map(r=>`<tr class="${r.nationId===state.playerNationId?'me':''}"><td>${r.rank}</td><td><i style="--nation:${nation(r.nationId).color}"></i>${nation(r.nationId).short}</td><td>${r.provinces}</td><td>${r.capitals}</td><td>${r.treasury}</td></tr>`).join('');
+  actionModal('Classement',`TUTORIEL · TOUR ${state.turn}`,`<p class="end-why">Si la partie s’arrêtait maintenant :</p><table class="ranking"><thead><tr><th>#</th><th>Nation</th><th>Prov.</th><th>Cap.</th><th>Or</th></tr></thead><tbody>${rows}</tbody></table><p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor. À la fin d’une vraie partie, cet écran s’affiche tout seul.</p><button class="primary" data-close-ranking>Continuer</button>`);
+  $('[data-close-ranking]').onclick=()=>$('#actionDialog').close();}
+/** Fin du tutoriel : sa sauvegarde est effacée (jamais celle de la vraie partie), mini tuto marqué vu. */
+function finishTutorial(){stopTuto();clearTutorial();markTutorialOffered(undefined,'termine');markMiniTutoSeen();state=null;showWelcome();toast('Tutoriel terminé ! Votre partie vous attend.');}
+function tutoNext(){if(tutoStep===null)return;const v=tutorialStepView(tutoStep,state,map);if(v.action==='ranking')showTutoRanking();if(tutoStep>=TUTORIAL_STEPS.length-1)return finishTutorial();setTutoStep(tutoStep+1);}
+/** Premier lancement : le tutoriel est proposé une fois (jamais imposé). */
+async function offerTutorial(){if(tutorialOffered())return;markTutorialOffered();
+  const answer=await eventPopup({kicker:'PREMIER LANCEMENT',title:'🎓 Un tutoriel pour commencer ?',cls:'proposal tuto-offer',html:'<p>Une petite partie d’entraînement de 8 tours : la carte, les troupes, la diplomatie, les alliances, la mer… en jouant.</p><p class="help-intro">Facultatif. Vous pourrez le rejouer quand vous voulez depuis l’accueil ou ⚙ Paramètres, sans toucher à votre partie.</p>',buttons:[{label:'Passer',value:false},{label:'Jouer le tutoriel',value:true,primary:true}]});
+  if(answer)startTutorial();}
+function updateTutoEntry(){const b=$('#welcomeTutorial');if(b)b.innerHTML=loadTutorial(decodeSave)?'<span aria-hidden="true">🎓</span> Reprendre le tutoriel':'<span aria-hidden="true">🎓</span> Tutoriel';}
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
 // Route maritime : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line).
 // V13 : routes neutres, une seule couleur (plus d'état jaune « open » hérité de la V9).
@@ -178,11 +238,11 @@ function render(){
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;$('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
   $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
-  $('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement
+  if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)
 }
 function selectProvince(id){
   if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
-  selected=id;render();showProvinceSheet();if(state.provinces[id]?.ownerId===state.playerNationId)miniTuto('own-province');
+  selected=id;render();showProvinceSheet();tuto(`select:${id}`);if(state.provinces[id]?.ownerId===state.playerNationId)miniTuto('own-province');
   tutorial('province-sheet','Inspecter une province','Propriétaire, bâtiments, troupes connues et actions possibles : tout est sur cette fiche.');
 }
 function showProvinceSheet(){
@@ -209,7 +269,7 @@ function showProvinceSheet(){
   $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
   const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
-  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').hidden=false;placeTutorial();
+  $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').dataset.province=selected;$('#provinceSheet').hidden=false;placeTutorial();
   document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
   if(!mine&&troops.known)tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
 }
@@ -240,7 +300,7 @@ function openForceSelection(fromId,toId){
   document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const mode=b.dataset.preset;if(mode==='manual'){document.querySelector('[data-force]')?.focus();return;}const chosen=forceSelection(available,mode);for(const k of LAND_UNIT_TYPES)document.querySelector(`[data-force="${k}"]`).value=chosen[k];const ws=document.querySelector('[data-force="warships"]');if(ws)ws.value=mode==='100'?available.warships:Math.floor(available.warships/2);updateSummary();});updateSummary();
   $('#confirmMove').onclick=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),warships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0),quantity=Object.values(units).reduce((a,b)=>a+b,0)+warships,description=Object.entries(units).filter(([,n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(warships?[`${warships} navires`]:[]).join(', ')||'Aucune force';
     if(!quantity)return toast('Sélectionne au moins une unité');
-    confirmationModal(attack?'Confirmer l’attaque':passage?'Confirmer le passage':'Confirmer le déplacement',`<div class="order-detail"><span>Action : ${attack?'attaquer':passage?`stationner chez ${nation(to.ownerId).short} (allié)`:'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span><span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${route.turns} tours</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});if(!result.ok)return toast(result.error);$('#actionDialog').close();selected=null;render();toast('Ordre ajouté à la planification');miniTuto('move');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
+    confirmationModal(attack?'Confirmer l’attaque':passage?'Confirmer le passage':'Confirmer le déplacement',`<div class="order-detail"><span>Action : ${attack?'attaquer':passage?`stationner chez ${nation(to.ownerId).short} (allié)`:'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span><span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${route.turns} tours</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});if(!result.ok)return toast(result.error);$('#actionDialog').close();selected=null;render();toast('Ordre ajouté à la planification');tuto(moveEvent({routeType:route?.type,attack,toId,units,warships}));miniTuto('move');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
   };
   tutorial(attack?'attack':'move-confirm',attack?'Préparer une attaque':'Préparer un déplacement','Envoyez 50 %, 100 % ou choisissez unité par unité. Le combat a lieu à la fin du tour.');
   if(route?.type==='sea')tutorial('maritime','Transport maritime',TUTORIAL_GUIDE.find(x=>x.id==='maritime').text);
@@ -253,7 +313,7 @@ function openRecruit(){
   const lots=Object.fromEntries(items.map(x=>[x.key,0]));
   const update=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),available=spendableTreasury(state,state.playerNationId);$('#recruitCost').textContent=`${total} or`;$('#recruitWarning').textContent=total>available?'Trésor insuffisant après les sommes réservées.':'';for(const {key,r,blocked} of items){$(`#lot-count-${key}`).textContent=lots[key];const extra=recruitPreview(state,state.playerNationId,key,lots[key]*r.amount)-lots[key]*r.amount;$(`#lot-amount-${key}`).innerHTML=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}${extra>0?` <em class="boost-extra">+${extra} atout</em>`:''}`;const plus=document.querySelector(`[data-lot-plus="${key}"]`);if(plus)plus.disabled=blocked||total+r.cost>available;}};
   // V14.2 (Jack) : toucher le nom d'une troupe ouvre / ferme son détail (PV, dégâts) ; jamais de recrutement par ce bouton.
-  document.querySelectorAll('[data-unit-info]').forEach(b=>b.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const slot=$(`#unit-detail-${b.dataset.unitInfo}`);slot.hidden=!slot.hidden;b.setAttribute('aria-expanded',String(!slot.hidden));}));
+  document.querySelectorAll('[data-unit-info]').forEach(b=>b.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const slot=$(`#unit-detail-${b.dataset.unitInfo}`);slot.hidden=!slot.hidden;b.setAttribute('aria-expanded',String(!slot.hidden));if(!slot.hidden)tuto('unit-info');}));
   for(const {key} of items){document.querySelector(`[data-lot-minus="${key}"]`)?.addEventListener('click',()=>{lots[key]=Math.max(0,lots[key]-1);update();});document.querySelector(`[data-lot-plus="${key}"]`)?.addEventListener('click',()=>{lots[key]++;update();});}update();
   $('#confirmRecruit').onclick=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),quantity=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].amount,0);if(!quantity)return toast('Choisis au moins un lot');if(total>spendableTreasury(state,state.playerNationId))return toast('Trésor insuffisant après les sommes réservées');
     confirmationModal('Confirmer le recrutement',`<div class="order-detail"><span>Action : recrutement</span><span>Province : ${province(selected).name}</span><span>Quantité : ${quantity} unité(s) en ${Object.values(lots).filter(Boolean).reduce((n,v)=>n+v,0)} lot(s)</span>${(()=>{const extra=recruitPreview(state,state.playerNationId,'infantry',lots.infantry*RULES.units.infantry.amount)-lots.infantry*RULES.units.infantry.amount;return extra>0?`<span class="boost-extra">Atout Recrutement +${profile.boosts.recruit} % : +${extra} fantassins à la livraison</span>`:'';})()}<span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de recrutement ajouté à l’inter-tour');miniTuto('recruit');});
@@ -264,7 +324,7 @@ function openBuild(){
   const p=state.provinces[selected],orders=state.orders.filter(o=>o.kind==='construction'&&o.provinceId===selected&&o.status==='pending'),active=state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected);
   const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;return{type,rule,cost,turns:rule.turns,count,built,queued:count-built};}).map(x=>({...x,reason:buildingUnavailableReason({type:x.type,label:buildingNames[x.type],rule:x.rule,count:x.count,built:x.built,portSite:p.portSite,cost:x.cost??0,spendable:spendableTreasury(state,state.playerNationId)})}));
   actionModal('Construction',province(selected).name,`<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span><b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${buildingIncome(x.type)?` · <b class="income-tag">rapporte +${buildingIncome(x.type)} or/tour</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,selected)}</b>`:''}${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
-  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');});});
+  document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;confirmationModal('Confirmer la construction',`<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');tuto('build');});});
   tutorial('build','Financer une construction','Payé tout de suite, livré après sa durée. Banque et usine rapportent +3 or par tour.');
 }
 function diplomaticExplanation(id,target){return({break:`Rompre l’alliance avec ${nation(target).short} à l’inter-tour. Rompre et attaquer dans le même tour est une trahison que tout Arken verra.`,war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.${truceWarning(state,state.playerNationId,target,nation(target).short)?`</span><span class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,target,nation(target).short)}`:''}`,alliance:`Proposer une alliance à ${nation(target).short}. Elle commencera à l’inter-tour. ${PASSAGE_TEXT} (dans les deux sens) : vous pourrez l’aider s’il est en guerre.`,ultimatum:`Proposer un cessez-le-feu à ${nation(target).short}, en payant ou en exigeant de l’or. S’il refuse, aucun or ne bouge.`})[id]||'Action diplomatique';}
@@ -302,13 +362,13 @@ function confirmCeasefire(target,mode,amount){
 function confirmDiplomacy(action,target,offerLevel=.5){
   const offer=action==='ultimatum'?ceasefireOffers(state.nations[target].treasury).find(o=>o.offerLevel===offerLevel):null;
   const details=offer?`<div class="order-detail"><span>Action : proposer un cessez-le-feu / ultimatum</span><span>Nation : ${nation(target).name}</span><span>Offre : ${Math.round(offer.offerLevel*100)} % de son trésor, soit ${offer.amount} or</span><span>Chance d’acceptation : ${Math.round(offer.acceptanceProbability*100)} %</span><span>Trésor actuel : ${state.nations[state.playerNationId].treasury} or</span><span>Trésor après acceptation : ${state.nations[state.playerNationId].treasury-offer.amount} or</span><span>Disponible après acceptation : ${spendableTreasury(state,state.playerNationId)-offer.amount} or</span><span>En cas de refus : aucun débit, aucune trêve.</span></div>`:`<div class="order-detail"><span>${diplomaticExplanation(action,target)}</span><span>Trésor actuel : ${state.nations[state.playerNationId].treasury} or</span><span>Coût : 0 or</span></div>`;
-  confirmationModal('Confirmer l’action diplomatique',details,()=>{const result=queueDiplomaticOrder(state,{nationId:state.playerNationId,target,action,offerLevel});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();toast('Action diplomatique ajoutée aux ordres du tour');});
+  confirmationModal('Confirmer l’action diplomatique',details,()=>{const result=queueDiplomaticOrder(state,{nationId:state.playerNationId,target,action,offerLevel});if(!result.ok)return toast(result.error);$('#actionDialog').close();render();toast('Action diplomatique ajoutée aux ordres du tour');tuto(`${action}:${target}`);});
 }
 function openDiplomacy(target=null){
   if(!target){actionModal('Diplomatie','CHOISISSEZ UN PAYS',`<div class="action-list">${map.nations.filter(n=>n.id!==state.playerNationId).map(n=>`<button class="nation" data-country="${n.id}" style="--nation:${n.color}"><i></i>${n.name}</button>`).join('')}</div>`);document.querySelectorAll('[data-country]').forEach(b=>b.onclick=()=>{const id=b.dataset.country;$('#actionDialog').close();openDiplomacy(id)});return;}
   const actions=diplomacyActions(state,target),pending=state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
   actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,target).toUpperCase()}`,`${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span><b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>${relationWithPlayer(state,target)==='alliance'?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes peuvent traverser ses provinces, y stationner et les défendre (et lui chez vous).</p>`:''}${relationWithPlayer(state,target)==='alliance'?`<button id="askHelp" class="help-launch">🤝 Demander de l’aide à ${nation(target).short}</button>`:''}`);
-  $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));miniTuto('diplomacy');
+  $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));miniTuto('diplomacy');tuto(`diplomacy:${target}`);
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
   tutorial('diplomacy','Diplomatie en deux étapes','Choisissez une action : vous verrez ses conséquences avant de confirmer. Elle s’applique à la fin du tour.');
@@ -326,7 +386,7 @@ function openHelpRequest(ally){
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(ally);});
   document.querySelectorAll('[data-help]').forEach(b=>b.onclick=()=>{const req={from:state.playerNationId,to:ally,kind:b.dataset.help,target:b.dataset.target||null,provinceId:b.dataset.province||null};
     const r=safeEngine(()=>queueHelpRequest(state,req),{ok:false,error:'Demande impossible pour le moment'});if(!r.ok)return toast(r.error);
-    $('#actionDialog').close();render();toast(`Demande envoyée à ${nation(ally).short} : ${helpText({help:req.kind,target:req.target,provinceId:req.provinceId})}. Réponse à la fin du tour.`);});
+    $('#actionDialog').close();render();tuto('help');toast(`Demande envoyée à ${nation(ally).short} : ${helpText({help:req.kind,target:req.target,provinceId:req.provinceId})}. Réponse à la fin du tour.`);});
 }
 // --- V13 : fenêtres d'événements (récit, capitale, propositions) ----------------------------------------------------
 function eventPopup({kicker='',title,html='',cls='',buttons=[{label:'Continuer',value:true,primary:true}]}){
@@ -399,7 +459,7 @@ function openTalkCompose(to,replyTo=null){
   $('#talkBack').onclick=()=>{$('#actionDialog').close();openTalk();};
   $('#talkSend').onclick=()=>{if(!chosen)return;const before=(state.talk||[]).length,result=safeEngine(()=>queueTalk(state,map,{from:state.playerNationId,to,tone:chosen,replyTo}),{ok:false,error:'Échange impossible pour le moment'});
     if(!result?.ok)return toast(result?.error||'Échange impossible');
-    $('#actionDialog').close();render();toast((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`);openTalk();};
+    $('#actionDialog').close();render();if(chosen==='hostile')tuto(`talk-hostile:${to}`);toast((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`);openTalk();};
 }
 function renderJournal(permanent=false){
   const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
@@ -429,7 +489,7 @@ function resolveTurn(){
   const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'})[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
-  $('#confirmEndTurn').onclick=async()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);trackMissions(events);
+  $('#confirmEndTurn').onclick=async()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
     await showCapitalPopups(events);
     await showSeaPopups(events);
     if(state.gameOver){showEndScreen();return;}
@@ -448,7 +508,7 @@ function hydrateState(value){
   for(const n of map.nations)if(value.nations[n.id])value.nations[n.id].capitalId||=map.provinces.find(p=>p.initialOwner===n.id)?.id;
   for(const d of map.provinces)if(value.provinces[d.id])value.provinces[d.id].portSite=Boolean(d.port);
   if(!value.chronicle.length&&value.events?.length)value.chronicle=value.events.filter(e=>eventKnownToPlayer(value,map,e)).map(e=>journalEntry(e,map,value.playerNationId)).filter(Boolean);
-  return applyBoosts(value);
+  return applyBoosts(value); // V14.3 : sans effet sur une partie de tutoriel
 }
 // --- V12 : atouts, missions du jour, achats de test, profil ------------------------------------------------------
 function trackMissions(events){
@@ -476,13 +536,13 @@ function restoreProfileView(){
   $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);profile=r.profile;saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }
 function showWelcome(){
-  setActiveScreen(document,'welcome');const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);$('#tutorialBubble').hidden=true;miniStep=null;$('#miniTuto').hidden=true;state=null;history.replaceState({arkenScreen:'home'},'',location.href);
+  setActiveScreen(document,'welcome');const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);$('#tutorialBubble').hidden=true;miniStep=null;stopTuto();$('#miniTuto').hidden=true;state=null;updateTutoEntry();history.replaceState({arkenScreen:'home'},'',location.href);
 }
 function showGame(){
   setActiveScreen(document,'game');history.pushState({arkenScreen:'game'},'',location.href);
   requestAnimationFrame(()=>{measureFrame();render();applyLaunchView();if(state.gameOver)showEndScreen();});
 }
-function continueSavedGame(){state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();}
+function continueSavedGame(){stopTuto();state=hydrateState(load());if(!state)return toast('Aucune sauvegarde valide à reprendre');selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();}
 function confirmSaveReplacement(){
   const dialog=$('#replaceSaveDialog');
   return new Promise(resolve=>{
@@ -503,12 +563,12 @@ function beginNewGame(){
 }
 function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
     await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;}tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
-function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');}
+function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');updateTutoEntry();offerTutorial();}
 function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
   const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height),contain=Math.min(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
   mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
@@ -549,7 +609,12 @@ viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('poi
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#tutorialOk').onclick=()=>$('#tutorialBubble').hidden=true;
 $('#miniTutoSkip').onclick=endMiniTuto;
-$('#miniTutoNext').onclick=()=>{if(miniStep===null)return;if(miniStep>=MINI_TUTO_STEPS.length-1)return endMiniTuto();miniStep++;showMiniTuto();};
+$('#miniTutoNext').onclick=()=>{if(tutoStep!==null)return tutoNext();if(miniStep===null)return;if(miniStep>=MINI_TUTO_STEPS.length-1)return endMiniTuto();miniStep++;showMiniTuto();};
+$('#welcomeTutorial').onclick=()=>startTutorial({resume:true});
+$('#replayTutorial').onclick=()=>{$('#settingsDialog').close();startTutorial();};
+$('#journalDialog').addEventListener('close',()=>tuto('journal-closed'));
+// V14.3 : un bouton surligné déjà touché est marqué (.tuto-done) : la bulle passe au geste suivant de l'étape.
+document.addEventListener('click',e=>{const t=e.target.closest?.('.tuto-target');if(t&&!t.closest('svg'))t.classList.add('tuto-done');},true);
 $('#replayMiniTuto').onclick=()=>{resetMiniTuto();$('#settingsDialog').close();startMiniTuto();};
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();

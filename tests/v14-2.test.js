@@ -492,6 +492,6 @@ test('rapport de conquête : saut de ligne entre le récap et les pertes totales
 });
 
 // --- Version visible -----------------------------------------------------------------------------------------------------------
-test('version 14.2.0', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '14.2.0');
+test('version 14.2.0 ou suivante (V14.3 : 14.3.0)', () => {
+  assert.match(JSON.parse(read('package.json')).version, /^14\.([2-9]|\d\d)\.\d+$/);
 });
