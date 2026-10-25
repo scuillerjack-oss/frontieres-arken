@@ -330,3 +330,64 @@ avec Oroël à 97 %. Aucune erreur JavaScript, aucun débordement horizontal.
 Tests : `tests/v14-2.test.js` (25 tests) ; adaptés : `v11-personnalites` (palier à 70 %), `v13-alliances` (durée de
 l'aide, Bâtisseur, propositions du Traître à d'autres nations), `ui-v10` et `combat-v10` (85 %), `v13-3-paroles`
 (réponses d'aide doublées vérifiées). 375 tests au vert.
+
+### V14.3.0 — tutoriel facultatif et rejouable (25/10/2026)
+Section 2, point 9. Il prolonge le mini tuto de la V13.4 (même bulle, mêmes gestes) au lieu de le doubler : le mini tuto
+reste pour la première vraie partie de ceux qui passent le tutoriel ; un tutoriel terminé compte comme mini tuto vu.
+
+1. **Facultatif** : au tout premier lancement, une fenêtre propose « 🎓 Un tutoriel pour commencer ? » → **Jouer le
+   tutoriel** / **Passer**. Proposée une seule fois (clé `frontieres-arken-tutoriel-propose`), jamais imposée.
+2. **Rejouable à tout moment** : bouton « 🎓 Tutoriel » sur l'accueil (« Reprendre le tutoriel » s'il est en pause) et
+   « 🎓 Jouer le tutoriel » dans ⚙ Paramètres (repart du début).
+3. **Partie d'entraînement à part** : sauvegarde distincte `frontieres-arken-tutoriel-save`. La clé de la vraie partie
+   `frontieres-arken-v2-save` n'est jamais lue ni écrite par le tutoriel (le jeu sauvegarde toujours sous la clé de la partie
+   affichée). **Quitter** (bouton de la bulle, ou l'accueil) garde le tutoriel en pause ; « Continuer la partie » retrouve la
+   vraie partie intacte. Fin du tutoriel : sa sauvegarde est effacée, retour à l'accueil. Pas d'atouts ni de missions dans le
+   tutoriel.
+4. **Scénario fixe, vrai moteur** (`src/presentation/v14-3-tutoriel.js`) : Valmorne contre un monde calme ; seul Roc-Épine
+   est dirigé par l'IA (Héros caché : il accepte l'alliance et l'aide selon les vraies règles) ; tension de départ avec Oroël
+   à 60 % ; à Branvale un port construit, 3 navires et 160 fantassins + 10 cavaliers ; à Nordhème (Oroël) un port et
+   1 navire. Aucun résultat n'est truqué : tout passe par `resolveInterturn`.
+5. **26 étapes sur 8 tours**, chacune avec un objectif concret (👉) ; elle avance quand le joueur fait le geste :
+   - tour 1 : la carte et vos provinces → déplacer des troupes (Valmorne → Sylvaren) → fin du tour → le journal ;
+   - tour 2 : recrutement (bouton ⓘ PV et dégâts, puis 1 lot) → construire une banque (30 or, 3 tours, +3 or/tour) ;
+   - tour 3 : diplomatie (tension 60 %, avertissement à 70 %, guerre automatique à 85 %) → message hostile → « ⚠ HOSTILITÉ » ;
+   - tour 4 : proposer l'alliance à Roc-Épine → 2e message hostile → « ⚔ GUERRE DÉCLARÉE » et alliance conclue ;
+   - tour 5 : demander de l'aide (« arrivée estimée dans 2 tours, puis 5 tours d'aide ») → les ports → débarquement escorté
+     sur Nordhème (2 tours en mer, troupes à 85 %) ;
+   - tours 6-7 : convoi intercepté et protégé par l'escorte → rapport de conquête (saut de ligne, « assaillant à 85 % »)
+     → navires blessés au port (« 100 % dans 3 tours ») ;
+   - tour 8 : renforts de Roc-Épine stationnés à Sylvaren → fin de partie (80 tours, 5 capitales) et classement réel
+     → « Tutoriel terminé ! ».
+   Les chiffres affichés sont lus dans le moteur (`RULES`, `HELP_TURNS`, seuils d'hostilité) : une règle qui change
+   change la bulle. Si le joueur s'écarte (débarquement trop faible : conseil ; Nordhème non prise ; renforts pas encore
+   là), les textes s'adaptent à ce qui s'est vraiment passé. « Passer l'étape › » débloque toujours.
+6. **Lisible sur téléphone** : la bulle (en haut ou en bas, sous la barre d'état et au-dessus de la barre du bas, safe
+   areas comprises) se place à l'opposé de ce qu'il faut toucher ; la cible est entourée de vert et pulse ; la carte se
+   centre sur la province à toucher si elle est hors de l'écran.
+
+Tests : `tests/v14-3-tutoriel.test.js` (10 tests ; `v13-1-beta` et `v14-2` adaptés) — ordre pédagogique, chiffres lus dans le moteur, scénario identique à
+chaque lancement, **parcours complet joué avec le vrai moteur** (avertissement, guerre à 85 %, alliance, aide, prise de
+Nordhème, navires au port, renforts, classement), débarquement minimal et cas d'échec, **sauvegarde de la vraie partie
+jamais écrasée** (démarrer, jouer, quitter, reprendre, finir), proposition unique, rejouer. 385 tests au vert.
+
+Vérifié dans Chrome mobile simulé (393 × 852, Android) : proposition au premier lancement (Passer), vraie partie lancée
+avec Oroël, puis tutoriel depuis l'accueil, les 26 étapes jouées au doigt (chaque cible surlignée, jamais cachée par la
+bulle), « Quitter » au tour 7 → accueil avec « Reprendre le tutoriel » → reprise à la bonne étape → fin → la vraie partie
+reprend au tour 1 avec Oroël, sauvegarde identique octet pour octet ; Paramètres → « Jouer le tutoriel » repart à l'étape 1.
+Aucune erreur JavaScript, aucun débordement horizontal.
+
+Relecture indépendante (25/10/2026) : un point bloquant corrigé — « Quitter » pendant une fenêtre ouverte (journal,
+confirmation) laissait la fenêtre ouverte sur l'accueil, et la suite de la fin du tour pouvait tourner sans partie. Les
+fenêtres sont maintenant fermées, la suite de la fin du tour s'arrête si la partie a changé, et la bulle est placée DANS
+la fenêtre ouverte (une fenêtre modale rendait la bulle intouchable). Corrigé aussi : fermer l'Historique ne valide plus
+l'étape « journal » ; une étape « Fin du tour » ne se saute pas (sinon les bulles décaleraient du moteur) ; « Relancer le
+mini tuto » est sans effet pendant le tutoriel ; revenus du 1er tour (+18 or) et durée de la traversée lus dans le moteur
+(testés). Vérifié dans le navigateur : Quitter avec le journal ouvert → accueil sans fenêtre, aucune erreur ; le mini tuto
+V13.4 fonctionne toujours (sa bulle suit la fenêtre Recrutement).
+
+### À surveiller (V14.3)
+- Le scénario rend le tutoriel sûr (une seule IA, les autres nations ne bougent pas) : c'est voulu pour apprendre, mais une
+  vraie partie est plus agitée. La dernière bulle le dit implicitement ; à voir avec Jack si une phrase de plus est utile.
+- La proposition au premier lancement apparaîtra aussi une fois chez les joueurs qui ont déjà une partie (Jack) : un
+  simple « Passer » suffit.

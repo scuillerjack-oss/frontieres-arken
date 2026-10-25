@@ -78,7 +78,8 @@ test('débarquement repoussé avec survivants, convoi coulé, convoi perdu : cha
 });
 
 test('interface : les fenêtres du sort des convois suivent la prise de capitale ; l\'ordre de débarquement prévient', () => {
-  assert.ok(app.includes('await showCapitalPopups(events);\n    await showSeaPopups(events);'));
+  // V14.3 : même ordre, avec un arrêt si le joueur a quitté le tutoriel entre deux fenêtres.
+  assert.ok(app.includes('await showCapitalPopups(events);if(!same())return;\n    await showSeaPopups(events);'));
   assert.ok(app.includes('⚠ Garnison inconnue : la province est hors de vue.'));
 });
 
