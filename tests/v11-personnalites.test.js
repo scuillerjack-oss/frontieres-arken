@@ -186,7 +186,7 @@ test('Diplomatie IA : une IA propose au joueur ; réponse amicale = accord, host
 test('Tension : 0..100, symétrique, seuils et libellés du contrat', () => {
   const s = scenario();
   assert.deepEqual(tensionLevel(s, 'valmorne', 'aurel'), { value: 10, label: 'calme' });
-  for (const [v, label] of [[0, 'calme'], [24, 'calme'], [25, 'tendu'], [49, 'tendu'], [50, 'hostile'], [74, 'hostile'], [75, 'au bord de la guerre'], [100, 'au bord de la guerre']]) {
+  for (const [v, label] of [[0, 'calme'], [24, 'calme'], [25, 'tendu'], [49, 'tendu'], [50, 'hostile'], [69, 'hostile'], [70, 'au bord de la guerre'], [100, 'au bord de la guerre']] /* V14.2 : avertissement dès 70 % */) {
     setTension(s, 'valmorne', 'aurel', v);
     assert.equal(tensionLevel(s, 'aurel', 'valmorne').label, label, `${v}`);
   }

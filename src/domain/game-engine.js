@@ -2,6 +2,7 @@ import { RULES, LAND_UNIT_TYPES } from './constants.js';
 import { fortReductionPct } from './combat.js';
 import { resolveBattle, resolveCombat, provinceForce, writeProvinceForce, legacyForce, toLegacy, splitForce, mergeForce, normalizeForce, healForce, combatValue, scaleForce, hasCombatUnits, emptyCounts, totalHp, maxHp, COMBAT_TYPES } from './combat.js';
 export { resolveBattle, resolveCombat, provinceForce, combatValue } from './combat.js';
+import { hostilityWars, HOSTILITY_WAR, HOSTILITY_WARNING, provokers, charmOf } from './leaders.js';
 import { recordStrike, ensureLeaders, archetypeOf, reveal, reputation, recordAggression, getTension, setTension, addTension, acceptsAlliance, ceasefireBias,
   chance, pickFrom, strengthOf, recentAggressions, driftTension, observeLeaders, aliveNations, ARCHETYPE_LABELS } from './leaders.js';
 import { publishTalk, aiTalk, aiOfferTalk, pruneTalkPending, neighbors } from './talk.js';
@@ -306,6 +307,17 @@ function autoWar(state, nationId, enemy, provinceId, host = null) {
   state.events.push({ turn: state.turn, type: 'auto-war', nationId, target: enemy, provinceId, host, ...(brokeTruce ? { brokeTruce: true } : {}) });
   return true;
 }
+/**
+ * V14.2 — guerre déclarée par l'hostilité (tension ≥ 85 %), entre deux nations sans alliance ni trêve. Pas une
+ * agression : ni trahison, ni réputation, ni indignation des Héros. Événement public « hostility-war » au journal.
+ */
+function hostilityWar(state, a, b, value) {
+  if (pairWar(state, a, b) || state.nations[a]?.eliminated || state.nations[b]?.eliminated) return false;
+  state.diplomacy.wars.push({ active: true, participants: [a, b], started: state.turn, hostility: true });
+  dropProposals(state, a, b);
+  state.events.push({ turn: state.turn, type: 'hostility-war', nationId: a, target: b, value: Math.round(value) });
+  return true;
+}
 /** V14.0 : en dessous de ce nombre de tours, rompre une trêve est une trahison (Jack, cahier V14 §3 point 2). */
 export const TRUCE_BETRAYAL_TURNS = 10;
 /** Trêve en cours entre a et b signée depuis moins de TRUCE_BETRAYAL_TURNS tours, ou null (ancienne sauvegarde sans date : null). */
@@ -449,7 +461,7 @@ function fight(state, toId, groups, fought, { naval = false } = {}) {
     engagedByNation: Object.fromEntries([...groups.map(g => [g.nationId, { ...g.force.units }]), [defender, { ...own.units }], ...guests.map(e => [e.nationId, { ...legacyForce(e).units }])]),
     // V14.0 : les PV perdus par les troupes alliées stationnées sont comptés à part (avant : tout au propriétaire).
     hpLostByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.hpLost]), [defender, Math.max(0, res.defenderHpLost - Object.values(guestHpLost).reduce((n, v) => n + v, 0))], ...Object.entries(guestHpLost)]),
-    passes: res.passes.length, fortLevel: target.buildings.fort || 0, fortPct: fortReductionPct(target.buildings.fort || 0, fortBonusFactor(state, defender)),
+    passes: res.passes.length, fortLevel: target.buildings.fort || 0, ...(groups.some(g => g.mode === 'landing') ? { landingPct: Math.round(RULES.combat.landingPenalty * 100) } : {}), fortPct: fortReductionPct(target.buildings.fort || 0, fortBonusFactor(state, defender)),
     ...(guests.length ? { guests: guests.map(e => e.nationId), guestLosses } : {})
   });
   if (res.captured) onCapture(state, toId, res.winnerId, defender);
@@ -955,13 +967,74 @@ function resolveTransports(state, map, fought) {
     if (winner) dockEscort(state, map, toId, winner.nationId, winner.convoys[0].fromId, laneKey(winner.convoys[0]), winner.convoys[0].turns);
   }
 }
-/** Guérison : dans chaque province qui n'a pas combattu ce tour, RULES.combat.healRate des PV max par type. */
+/**
+ * V14.2 (retour de Jack) — navires en convalescence (= navires blessés : ils ont perdu des PV et tirent moins fort).
+ *  - Dans un PORT CONSTRUIT (le sien, ou celui d'un allié où ils stationnent), ils reviennent à 100 % des PV en
+ *    3, 4 ou 5 tours selon les dégâts (SHIP_REPAIR_TURNS : jusqu'à 15 % des PV max perdus → 3 tours, jusqu'à 30 % →
+ *    4 tours, au-delà → 5 tours ; une pile ne perd jamais plus de 50 % sans que des navires coulent).
+ *  - Ailleurs (point de port sans port construit, province sans port) : réparations de fortune, SHIP_FIELD_REPAIR des
+ *    PV max par tour (5 %), soit jusqu'à 10 tours.
+ *  - En mer : pas de réparation. Nouveaux dégâts (combat, navires blessés qui arrivent) : le délai est recalculé.
+ * Plans mémorisés dans state.shipRepairs[`${nation}@${province}`] = { turnsLeft, wounds } (absent des anciennes
+ * sauvegardes : recréé au besoin).
+ */
+export const SHIP_REPAIR_TURNS = Object.freeze([{ upTo: .15, turns: 3 }, { upTo: .3, turns: 4 }, { upTo: 1, turns: 5 }]);
+export const SHIP_FIELD_REPAIR = .05;
+export const shipRepairTurnsFor = (wounds, ships) => {
+  const max = ships * RULES.combat.units.warship.hp, share = max > 0 ? wounds / max : 0;
+  return wounds > 0 ? SHIP_REPAIR_TURNS.find(r => share <= r.upTo + 1e-9).turns : 0;
+};
+const repairKey = (nationId, provinceId) => `${nationId}@${provinceId}`;
+function repairShips(state, force, nationId, provinceId, inPort) {
+  state.shipRepairs = state.shipRepairs && typeof state.shipRepairs === 'object' ? state.shipRepairs : {};
+  const key = repairKey(nationId, provinceId), ships = force.units.warship, wounds = force.wounds.warship;
+  if (!ships || !wounds) { delete state.shipRepairs[key]; return force; }
+  if (!inPort) {
+    delete state.shipRepairs[key];
+    force.wounds.warship = Math.max(0, wounds - Math.ceil(Math.round(SHIP_FIELD_REPAIR * ships * RULES.combat.units.warship.hp * 1000) / 1000));
+    return force;
+  }
+  let plan = state.shipRepairs[key];
+  if (!plan || !(plan.turnsLeft > 0) || wounds > plan.wounds) plan = { turnsLeft: shipRepairTurnsFor(wounds, ships), wounds };
+  const healed = Math.ceil(wounds / plan.turnsLeft);
+  force.wounds.warship = Math.max(0, wounds - healed);
+  plan = { turnsLeft: plan.turnsLeft - 1, wounds: force.wounds.warship };
+  if (plan.turnsLeft > 0 && plan.wounds > 0) state.shipRepairs[key] = plan; else delete state.shipRepairs[key];
+  return force;
+}
+/** Guérison des troupes (healForce) + réparation des navires (repairShips). */
+function healWithShips(state, force, nationId, provinceId, inPort) {
+  const ships = { units: force.units.warship, wounds: force.wounds.warship };
+  const healed = healForce(force);
+  healed.units.warship = ships.units; healed.wounds.warship = ships.wounds; // les navires suivent leur propre règle
+  return repairShips(state, healed, nationId, provinceId, inPort);
+}
+/**
+ * État de convalescence des navires de `nationId` dans `provinceId` (affichage) :
+ * { ships, hp, maxHp, wounded, inPort, turnsLeft } ; turnsLeft = tours avant 100 % (estimation au rythme actuel).
+ */
+export function shipRepairInfo(state, provinceId, nationId = state.provinces?.[provinceId]?.ownerId) {
+  const p = state.provinces?.[provinceId];
+  if (!p) return null;
+  const own = nationId === p.ownerId, e = own ? null : stationedAt(state, provinceId, nationId);
+  const ships = own ? p.warships || 0 : e?.warships || 0, wounds = Math.max(0, own ? p.wounds?.warship || 0 : e?.wounds?.warship || 0);
+  if (!ships) return null;
+  const maxHpShips = ships * RULES.combat.units.warship.hp, inPort = Boolean(p.buildings?.port) && (own || hasPassage(state, nationId, p.ownerId));
+  const plan = state.shipRepairs?.[repairKey(nationId, provinceId)];
+  const turnsLeft = !wounds ? 0 : inPort ? (plan && plan.wounds === wounds && plan.turnsLeft > 0 ? plan.turnsLeft : shipRepairTurnsFor(wounds, ships))
+    : Math.ceil(wounds / Math.ceil(Math.round(SHIP_FIELD_REPAIR * maxHpShips * 1000) / 1000));
+  return { ships, hp: maxHpShips - wounds, maxHp: maxHpShips, wounded: wounds > 0, inPort, turnsLeft };
+}
+/** Guérison : dans chaque province qui n'a pas combattu ce tour, RULES.combat.healRate des PV max par type (navires : voir repairShips). */
 function healProvinces(state, fought) {
   for (const [id, p] of Object.entries(state.provinces)) {
     if (fought.has(id)) continue;
-    writeProvinceForce(p, healForce(provinceForce(p)));
+    writeProvinceForce(p, healWithShips(state, provinceForce(p), p.ownerId, id, Boolean(p.buildings?.port)));
   }
-  for (const e of [...(state.stationed || [])]) if (!fought.has(e.provinceId)) setStationedForce(state, e.nationId, e.provinceId, healForce(legacyForce(e)));
+  for (const e of [...(state.stationed || [])]) if (!fought.has(e.provinceId)) {
+    const host = state.provinces[e.provinceId];
+    setStationedForce(state, e.nationId, e.provinceId, healWithShips(state, legacyForce(e), e.nationId, e.provinceId, Boolean(host?.buildings?.port)));
+  }
 }
 /** B6 : une nation sans province (ni troupes en mer) est éliminée ; elle ne revient pas. */
 function updateEliminations(state) {
@@ -1166,8 +1239,12 @@ function navalThreat(state, nationId, fromId, via, map = null) {
 }
 // --- V11 : personnalités (docs/V11-contrat.md, src/domain/leaders.js) ----------------------------------------
 // Marge de sécurité exigée avant d'attaquer (garnison simulée × marge), par archétype.
-const ARCH_MARGIN = { conquerant: 1.0, traitre: 1.05, heros: 1.15, batisseur: 1.4 };
-// Risque de guerre par tour au-delà du seuil « au bord de la guerre » (75), par archétype (le Conquérant n'attend pas).
+// V14.2 (traits plus marqués) : le Conquérant accepte un combat plus serré (0,95 au lieu de 1,0) et lance jusqu'à
+// deux attaques terrestres par tour (ARCH_ATTACKS) ; le Bâtisseur reste très prudent.
+const ARCH_MARGIN = { conquerant: .95, traitre: 1.05, heros: 1.15, batisseur: 1.4 };
+const ARCH_ATTACKS = { conquerant: 2, traitre: 1, heros: 1, batisseur: 1 };
+// Risque de guerre par tour au-delà du seuil « au bord de la guerre » (V14.2 : 70, avant 75), par archétype (le Conquérant n'attend pas).
+// À 85 %, la guerre est de toute façon déclarée automatiquement (hostilityWars).
 const WAR_RISK = { heros: .12, traitre: .08, batisseur: .04, conquerant: 0 };
 const aiMemory = (state, id) => { state.ai.plans ||= {}; return state.ai.plans[id] ||= {}; };
 const reachable = (state, map, a, b) => neighbors(state, map, a, b);
@@ -1189,13 +1266,17 @@ function warTargets(state, map, id, arch) {
         .filter(n => { const t = state.diplomacy.treaties.find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n)); return !t || state.turn - t.started >= TRUCE_BETRAYAL_TURNS; })
         .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
       if (prey.length && !out.size) out.add(prey[0]);
-      // Assez fort : une deuxième proie.
-      if (prey.length > 1 && strengthOf(state, id) > 1.5 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
+      // Assez fort : une deuxième proie (V14.2 : dès 1,25 fois sa force, avant 1,5).
+      if (prey.length > 1 && strengthOf(state, id) > 1.25 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
     }
+    // V14.2 (Jack : « les provocations doivent le pousser à attaquer ») : qui le provoque devient une cible, dès le tour
+    // suivant (sauf un allié, ou une trêve récente qu'il ne rompt pas pour ne pas passer pour un traître).
+    for (const n of provokers(state, id)) if (n !== id && !pairTreaty(state, id, n, 'alliance') && !recentTruce(state, id, n) && reachable(state, map, id, n)) out.add(n);
   }
   if (arch === 'heros') {
     // Punir les agresseurs récents (sauf ses alliés : il est fidèle).
-    for (const a of recentAggressions(state, 10)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id, a.attacker)) out.add(a.attacker);
+    // V14.2 : naïf, il épargne un agresseur qui l'a beaucoup flatté (3 messages amicaux récents) — sauf s'il est déjà en guerre avec lui.
+    for (const a of recentAggressions(state, 10)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id, a.attacker) && !(charmOf(state, id, a.attacker) >= 3 && !pairWar(state, id, a.attacker))) out.add(a.attacker);
   }
   if (arch === 'traitre') {
     const t = traitorState(state, map, id);
@@ -1208,19 +1289,31 @@ function warTargets(state, map, id, arch) {
     if (out.has(n) || pairTreaty(state, id, n, 'alliance') || !reachable(state, map, id, n)) continue;
     const t = getTension(state, id, n);
     if (mem.grudges.includes(n)) { if (t >= 50) out.add(n); else mem.grudges = mem.grudges.filter(x => x !== n); continue; }
-    if (t >= 75 && chance(state, 'war-risk', state.turn, id, n) < (WAR_RISK[arch] ?? .08) * (1 + (t - 75) / 25)) { mem.grudges.push(n); out.add(n); }
+    if (t >= HOSTILITY_WARNING && chance(state, 'war-risk', state.turn, id, n) < (WAR_RISK[arch] ?? .08) * (1 + (t - HOSTILITY_WARNING) / 15)) { mem.grudges.push(n); out.add(n); }
   }
   return out;
 }
 /** Le Traître choisit une cible (« marque »), la courtise, puis la frappe au moment opportun. */
 function traitorState(state, map, id) {
   const mem = aiMemory(state, id);
-  if (mem.mark && (state.nations[mem.mark]?.eliminated || (state.turn > (mem.strikeTurn || 0) + 12 && !pairTreaty(state, id, mem.mark, 'alliance')))) { mem.mark = null; }
+  // V14.2 : coup porté (plus allié avec sa marque) → il passe à la suivante au bout de 6 tours (avant 12).
+  if (mem.mark && (state.nations[mem.mark]?.eliminated || (state.turn > (mem.strikeTurn || 0) + 6 && !pairTreaty(state, id, mem.mark, 'alliance')))) { mem.mark = null; }
+  // V14.2 (Jack : « le traître peut trahir n'importe qui, autant de fois que c'est à son avantage ») : N'IMPORTE QUEL
+  // allié devient la marque dès que c'est payant — allié depuis au moins 5 tours, et plus faible que lui : à moins de
+  // 85 % de sa force s'il est occupé par une autre guerre, à moins de 60 % sinon. Même une ancienne victime peut être retrahie.
+  const ripe = aliveNations(state).filter(n => n !== id && pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n)
+    && state.turn - (state.diplomacy.treaties.find(t => t.active !== false && t.type === 'alliance' && t.parties.includes(id) && t.parties.includes(n))?.started ?? state.turn) >= 5
+    && (aliveNations(state).some(x => x !== id && x !== n && pairWar(state, n, x)) ? perceivedStrength(state, map, id, n) < .85 * strengthOf(state, id) : perceivedStrength(state, map, id, n) < .6 * strengthOf(state, id)))
+    .sort((a, b) => perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
+  if (ripe.length && (!mem.mark || !pairTreaty(state, id, mem.mark, 'alliance') || state.turn < (mem.strikeTurn || 0) - 3)) {
+    if (mem.mark !== ripe[0]) { mem.mark = ripe[0]; mem.strikeTurn = state.turn; }
+  }
   if (!mem.mark) {
     const cand = aliveNations(state).filter(n => n !== id && reachable(state, map, id, n) && !pairWar(state, id, n));
     if (cand.length) {
       mem.mark = pickFrom(state, cand.sort(), 'traitor-mark', id, state.turn);
-      mem.strikeTurn = state.turn + 7 + Math.floor(chance(state, 'traitor-strike', id, state.turn) * 6);
+      // V14.2 : un allié déjà en place se trahit plus vite (pas besoin de le courtiser).
+      mem.strikeTurn = state.turn + (pairTreaty(state, id, mem.mark, 'alliance') ? 3 : 7) + Math.floor(chance(state, 'traitor-strike', id, state.turn) * 6);
     }
   }
   state.ai.traitorMark ||= {};
@@ -1259,7 +1352,14 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
       continue;
     }
     if (ally) continue;
-    if (arch === 'traitre') { const t = traitorState(state, map, id); if (n === t.mark && state.turn >= 2 && state.turn < t.strikeTurn) propose(n, 'alliance'); }
+    // V14.2 : le Traître courtise sa marque, mais aussi tout voisin calme (tension < 40) : chaque alliance est une
+    // trahison possible plus tard, « autant de fois que c'est à son avantage ». Au plus 2 alliés à la fois, et pas avant
+    // le tour 10 (sinon il « endort » le Conquérant dès le début et retarde les premières guerres).
+    if (arch === 'traitre') {
+      const t = traitorState(state, map, id), allies = alive.filter(x => pairTreaty(state, id, x, 'alliance')).length;
+      if (n === t.mark && state.turn >= 2 && state.turn < t.strikeTurn) propose(n, 'alliance');
+      else if (state.turn >= 10 && allies < 2 && reachable(state, map, id, n) && getTension(state, id, n) < 40 && chance(state, 'traitor-court', state.turn, id, n) < .35) propose(n, 'alliance');
+    }
     if (arch === 'heros' && recentAggressions(state, 6).some(a => a.victim === n && a.attacker !== id) && getTension(state, id, n) < 40) propose(n, 'alliance');
     if (arch === 'batisseur' && state.turn >= 6 && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
   }
@@ -1315,10 +1415,16 @@ function aiPlan(state, map, nationId) {
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
   const threshold = ARCH_MARGIN[arch];
+  let launched = 0;
   for (const x of attacks) {
-    const margin = x.atWar ? Math.max(.85, threshold - .2) : threshold;
+    if (launched >= (ARCH_ATTACKS[arch] || 1)) break;
+    if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
+    // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
+    const margin = x.atWar ? Math.max(arch === 'conquerant' ? .8 : .85, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
-    if (units) { queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }); break; }
+    if (!units) continue;
+    if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) launched++;
+    else if (arch !== 'conquerant') break; // comportement V14.1 conservé pour les autres personnalités
   }
   recallStationed(state, map, nationId, owned); // V14.0 : rappel des troupes stationnées chez un allié
   if (activeHelpPacts(state, nationId).some(p => p.kind === 'defend')) helpReinforce(state, map, nationId, owned, base);
@@ -1558,7 +1664,8 @@ export function eventKnownToPlayer(state, map, event) {
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war'].includes(event.type)) return true;
+  if (['conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war'].includes(event.type)) return true;
+  if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
   if (event.type === 'tension') return false;
   if ((event.attackers || []).includes(player)) return true;
@@ -1592,8 +1699,9 @@ export function journalEntry(event, map, playerNationId = null) {
       let t = ' Pertes : ' + Object.entries(event.lossesByNation).map(([id, l]) => `${nationName(map,id)} ${lossText(l)}`).join(' ; ') + '.';
       // V13.3 : forces engagées, PV perdus (les blindés et l'artillerie encaissent beaucoup avant de mourir), forteresse.
       if (event.engagedByNation) t += ' Forces engagées : ' + Object.entries(event.engagedByNation).map(([id, u]) => `${nationName(map,id)} ${lossText(u)}`).join(' ; ') + '.';
-      const mods = [event.fortLevel > 0 ? `forteresse niveau ${event.fortLevel} : −${safeNum(event.fortPct ?? fortReductionPct(event.fortLevel))} % de dégâts reçus par le défenseur` : '', event.guests?.length ? `renforts alliés en défense : ${event.guests.map(id => nationName(map, id)).join(', ')}` : '', event.naval ? 'débarquement : assaillant à 70 %' : ''].filter(Boolean);
-      if (event.hpLostByNation) t += ' PV perdus, blessés compris : ' + Object.entries(event.hpLostByNation).map(([id, hp]) => `${nationName(map,id)} ${safeNum(hp)}`).join(' ; ') + (mods.length ? ` (${mods.join(' ; ')})` : '') + '.';
+      const mods = [event.fortLevel > 0 ? `forteresse niveau ${event.fortLevel} : −${safeNum(event.fortPct ?? fortReductionPct(event.fortLevel))} % de dégâts reçus par le défenseur` : '', event.guests?.length ? `renforts alliés en défense : ${event.guests.map(id => nationName(map, id)).join(', ')}` : '', event.naval ? `débarquement : assaillant à ${Math.round((event.landingPct ?? 70))} %` : ''].filter(Boolean);
+      // V14.2 (Jack) : un saut de ligne sépare le récap du début des pertes totales avec blessés.
+      if (event.hpLostByNation) t += '\nPV perdus, blessés compris : ' + Object.entries(event.hpLostByNation).map(([id, hp]) => `${nationName(map,id)} ${safeNum(hp)}`).join(' ; ') + (mods.length ? ` (${mods.join(' ; ')})` : '') + '.';
       return t;
     }
     return ` Pertes : attaquant ${safeNum(event.attackerLosses)}, défenseur ${safeNum(event.defenderLosses)}.`;
@@ -1663,12 +1771,29 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:3, type:'GUERRE', category:'foreign-conflict', public:true,
         text:`⚔ Les troupes ${deName(G)} ont combattu ${X}${at} : ${G} est désormais en guerre avec ${X}.${event.brokeTruce ? ' Leur trêve est rompue, sans trahison.' : ''}` };
     }
+    // V14.2 : hostilité — avertissement à 70 %, guerre déclarée automatiquement à 85 %.
+    case 'hostility-warning': {
+      const other = event.nationId === playerNationId ? event.target : event.target === playerNationId ? event.nationId : null;
+      if (!other) return null;
+      return { priority:4, type:'⚠ HOSTILITÉ', category:'under-attack', public:false,
+        text:`Tension avec ${nationName(map,other)} : ${safeNum(event.value)} %. Attention : dès ${HOSTILITY_WAR} % (à partir du prochain tour), la guerre sera déclarée automatiquement. Un message amical, une alliance ou une trêve fait baisser la tension.` };
+    }
+    case 'hostility-war': {
+      const A = nationName(map, event.nationId), B = nationName(map, event.target);
+      const other = event.nationId === playerNationId ? B : event.target === playerNationId ? A : null;
+      if (other) return { priority:5, type:'⚔ GUERRE DÉCLARÉE', category:'under-attack', public:true,
+        text:`L’hostilité avec ${other} a atteint ${safeNum(event.value)} % (seuil : ${HOSTILITY_WAR} %) : la guerre est déclarée entre vous et ${other}. Vos troupes peuvent désormais l’attaquer, et les siennes vous attaquer.` };
+      return { priority:3, type:'GUERRE', category:'foreign-conflict', public:true,
+        text:`L’hostilité entre ${A} et ${B} a atteint ${safeNum(event.value)} % : les deux nations sont désormais en guerre.` };
+    }
     case 'reveal': return { priority:4, type:'RÉVÉLATION', category:'reveal', public:true,
       text:`${nationName(map,event.nationId)} se révèle : ${ARCHETYPE_LABELS[event.archetype] || 'un dirigeant'}${({ betrayal:' — il a trahi son allié', conquest:' — ses conquêtes ne laissent aucun doute', defense:' — il prend les armes pour défendre les nations attaquées', builder:' — il bâtit et ne cherche pas la guerre' })[event.revealedBy || event.reason] || ''}.` };
     case 'tension': {
+      // V14.2 (relecture) : le passage à « au bord de la guerre » est annoncé par l'avertissement d'hostilité (plus clair).
+      if (event.rising && event.label === 'au bord de la guerre') return null;
       const other = event.nationId === playerNationId ? event.target : event.nationId;
       return { priority: event.label === 'au bord de la guerre' ? 3 : 2, type:'TENSION', category:'tension',
-        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).${event.label === 'au bord de la guerre' ? ' Le risque de guerre est élevé.' : ''}` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` };
+        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` };
     }
     // V13 : alliances (rupture, demandes d'aide).
     case 'alliance-broken': return { priority:4, type:'DIPLOMATIE', category:'blue', public:true,
@@ -1733,7 +1858,7 @@ function aggregateEntries(entries) {
   return [...merged.values()];
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
-  const priority = new Set(['auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
+  const priority = new Set(['hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest','field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;
@@ -1842,9 +1967,11 @@ function resolveTalk(state, map, locked, eventStart) {
     published.push(msg);
   }
   // V13 : réponses des alliés aux demandes d'aide (avant les paroles des IA : elles comptent dans le quota).
-  resolveHelpRequests(state, map, locked);
+  resolveHelpRequests(state, map, locked, id => legalDestinations(map, state, id)); // V14.2 : trajet estimé de l'aide
   aiTalk(state, map, { published, turnEvents: state.events.slice(eventStart) });
   expireHelpPacts(state);
+  // V14.2 : guerre automatique à 85 % d'hostilité (avant la dérive de fin de tour, après tous les échanges du tour).
+  hostilityWars(state, (a, b, value) => hostilityWar(state, a, b, value));
   // Propositions des IA expirées.
   state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => p.turn > state.turn - PROPOSAL_TURNS && !state.nations[p.from]?.eliminated);
   driftTension(state);

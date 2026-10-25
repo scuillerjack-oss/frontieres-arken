@@ -46,7 +46,9 @@ export const RULES = Object.freeze({
       artillery:{infantry:1.5,cavalry:1.2,armor:.8,warship:.5},
       warship:{infantry:.5,cavalry:.5,armor:.5,artillery:.5,warship:1}
     },
-    landingPenalty:.7,        // débarquement : les troupes qui assaillent depuis la mer font 70 % de leurs dégâts
+    // V14.2 (Jack : « enlever le malus ») : réduit 70 % → 85 %, pas supprimé (carte d'îles : sans malus, les IA abuseraient
+    // des débarquements). Calibré par simulation : voir docs/V14-cahier-des-charges.md, Réalisé V14.2.
+    landingPenalty:.85,       // débarquement : les troupes qui assaillent depuis la mer font 85 % de leurs dégâts
     convoyVulnerability:1.5,  // combat naval : troupes embarquées = cargaison, ne tirent pas, dégâts reçus × 1,5
     killShare:.5,             // part des dégâts d'une passe qui tue des unités entières ; le reste devient des blessures
     maxWoundShare:.5,         // une unité ne peut pas porter plus de 50 % de PV perdus : au-delà, elle est détruite

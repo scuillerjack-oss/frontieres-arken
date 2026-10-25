@@ -8,20 +8,13 @@ import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { resolveInterturn, setRelation } from '../src/domain/game-engine.js';
 import { allTalkLines, talkLineLists, pickLine, usedRecently, recentTexts, publishTalk, talkOptions, RECENT_LINES } from '../src/domain/talk.js';
-import { queueHelpRequest } from '../src/domain/alliances.js';
+import { queueHelpRequest, helpLineLists } from '../src/domain/alliances.js';
 import { pickFrom } from '../src/domain/leaders.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NATIONS = map.nations.map(n => n.id);
-// Les réponses d'aide (HELP_LINES) ne sont pas exportées : on lit le tableau dans la source.
-const helpSource = readFileSync(join(root, 'src/domain/alliances.js'), 'utf8');
-const HELP_LINES = Function(`return ${helpSource.slice(helpSource.indexOf('const HELP_LINES = ') + 19, helpSource.indexOf('\n};\n', helpSource.indexOf('const HELP_LINES')) + 2)}`)();
-const helpLists = () => {
-  const out = {};
-  const walk = (v, path) => { if (Array.isArray(v)) out[path] = v; else for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k); };
-  walk(HELP_LINES, 'help');
-  return out;
-};
+// V14.2 : les réponses d'aide sont exportées (helpLineLists), nouvelles variantes comprises.
+const helpLists = () => Object.fromEntries(Object.entries(helpLineLists()).map(([k, v]) => [`help.${k}`, v]));
 const allLists = () => ({ ...talkLineLists(), ...helpLists() });
 
 test('V13.3 : plus aucune réplique ne parle de commerce, de marchands ni de ports ouverts', () => {

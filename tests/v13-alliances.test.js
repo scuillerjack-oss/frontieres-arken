@@ -104,7 +104,9 @@ test('V13 : Héros — « Défends-moi » accepté ; il masse des renforts et d�
   assert.equal(answer.accepted, true);
   const pact = helpPacts(s).find(p => p.ally === 'roc-epine');
   assert.ok(pact && !pact.fake);
-  assert.equal(pact.until - pact.turn, HELP_TURNS);
+  // V14.2 : durée = trajet estimé + HELP_TURNS tours d'aide sur place.
+  assert.equal(pact.until - pact.turn, pact.travel + HELP_TURNS);
+  assert.ok(pact.travel >= 1);
   // Réponse dans les échanges (sans bouton Répondre) et dans le journal (AIDE).
   const msg = s.talk.find(m => m.id === answer.talkId);
   assert.equal(msg.from, 'roc-epine'); assert.equal(msg.to, 'valmorne');
@@ -186,7 +188,7 @@ test('V13 : Traître — accepte tout… et ne vient pas ; la promesse non tenue
   assert.equal(helpPactsFor(s, 'roc-epine')[0].kind, 'attack', 'le joueur voit une promesse comme une autre');
   assert.equal('fake' in helpPactsFor(s, 'roc-epine')[0], false, 'sans savoir qu\'elle est fausse');
   let broken = null;
-  for (let i = 0; i < HELP_TURNS + 1 && !broken; i++) {
+  for (let i = 0; i < HELP_TURNS + 6 && !broken; i++) { // V14.2 : trajet + 5 tours
     replan(s);
     assert.ok(!ordersOf(s, 'roc-epine').some(o => (o.kind === 'diplomacy' && o.action === 'war' && o.target === 'aurel') || (o.kind === 'move' && s.provinces[o.toId].ownerId === 'aurel') || o.help), 'il ne vient pas');
     s.orders = s.orders.filter(o => o.nationId === 'valmorne');
@@ -237,9 +239,10 @@ test('V13 : propositions reçues — Oui = alliance immédiate, Non = refus ; ja
   for (let i = 0; i < 12; i++) {
     resolveInterturn(s, map);
     assert.equal(proposalsToAnswer(s).length, 0, `tour ${s.turn}`);
-    assert.ok(!(s.diplomacy.proposals || []).some(x => x.from === 'aurel'));
+    // V14.2 : le Traître peut courtiser d'AUTRES nations (plusieurs alliés à trahir) ; jamais à nouveau son allié.
+    assert.ok(!(s.diplomacy.proposals || []).some(x => x.from === 'aurel' && x.to === 'valmorne'));
   }
-  assert.ok(!s.talk.slice(before).some(m => m.from === 'aurel' && charm.test(m.text)), 'aucune offre d\'alliance d\'un allié');
+  assert.ok(!s.talk.slice(before).some(m => m.from === 'aurel' && m.to === 'valmorne' && charm.test(m.text)), 'aucune offre d\'alliance d\'un allié');
   // Filet : une proposition injectée d'une nation alliée n'est jamais affichée.
   s.diplomacy.proposals.push({ from: 'aurel', to: 'valmorne', action: 'alliance', turn: s.turn - 1, talkId: null });
   assert.equal(proposalsToAnswer(s, 'valmorne', { fresh: true }).length, 0);
@@ -306,10 +309,11 @@ test('V13 : une conversation se termine — plus de « Répondre » après répo
 
 // --- 5. Tension en %, cohérente avec les faits ---------------------------------------------------------------------
 test('V13 : tension en % — une menace la fait bondir, l\'aperçu et le journal parlent en %', () => {
-  const s = scenario({ oroel: 'batisseur' });
+  // V14.2 : le Bâtisseur se fiche des provocations (+8) ; la règle générale (+20) se vérifie sur un Héros.
+  const s = scenario({ oroel: 'heros' });
   assert.equal(TALK_TENSION.hostile, 20);
   const [hostile] = talkOptions(s, map, { from: 'valmorne', to: 'oroel' });
-  assert.match(hostile.preview, /^Tension 10 % → 30 % \(\+20\)/);
+  assert.match(hostile.preview, /^Tension 10 % → 30 % \(\+20/); // V14.2 : « , jusqu'à 45 % selon son caractère » si non révélé
   queueTalk(s, map, { from: 'valmorne', to: 'oroel', tone: 'hostile' }); resolveInterturn(s, map);
   assert.ok(getTension(s, 'valmorne', 'oroel') >= 25, 'bond net après une menace (palier « tendu » dès le premier message)');
   const ev = s.events.find(e => e.type === 'tension' && e.target === 'oroel' || e.type === 'tension' && e.nationId === 'oroel');

@@ -1,4 +1,5 @@
 import { neighbors } from '../domain/talk.js';
+import { RULES } from '../domain/constants.js';
 // V13 — interface des alliances et des échanges (docs/V13-alliances-echanges.md).
 // Fonctions pures, sans DOM : testables sous Node.
 
@@ -47,7 +48,8 @@ export function capitalPopups(events, playerId, names) {
 export function tensionText(level) {
   const value = Math.max(0, Math.min(100, Math.round(Number(level?.value) || 0)));
   if (level?.label === 'en guerre') return { value, short: 'En guerre', long: `En guerre · ${value} %`, war: true };
-  return { value, short: `${value} %`, long: `${value} % · ${level?.label || 'calme'}`, war: false };
+  // V14.2 : au bord de la guerre, le seuil de la guerre automatique est rappelé.
+  return { value, short: `${value} %`, long: `${value} % · ${level?.label || 'calme'}${level?.label === 'au bord de la guerre' ? ' (guerre automatique à 85 %)' : ''}`, war: false };
 }
 
 /**
@@ -68,7 +70,20 @@ export function helpChoices(state, map, allyId, playerId = state.playerNationId)
 /** Engagements en cours d'un allié envers le joueur (affichage), tolérant à l'absence du champ. */
 export function helpPactsFor(state, allyId, playerId = state.playerNationId) {
   return (Array.isArray(state.diplomacy?.help) ? state.diplomacy.help : []).filter(p => p.ally === allyId && p.requester === playerId && p.until >= state.turn)
-    .map(p => ({ kind: p.kind, against: p.against ?? null, provinceId: p.provinceId ?? null, turnsLeft: Math.max(0, p.until - state.turn + 1) }));
+    .map(p => {
+      if (p.noRoute) return { kind: p.kind, against: p.against ?? null, provinceId: p.provinceId ?? null, turnsLeft: Math.max(0, p.until - state.turn + 1), travelLeft: 0, helpLeft: Math.max(0, p.until - state.turn + 1), noRoute: true };
+      // V14.2 : trajet (en route) puis aide sur place ; anciennes sauvegardes sans `travel` : tout est « sur place ».
+      // Réponse publiée à l'inter-tour du tour p.turn : le joueur la lit au tour p.turn + 1, les troupes partent alors.
+      const travelLeft = Math.max(0, (Number(p.turn) || 0) + 1 + (Number(p.travel) || 0) - state.turn);
+      return { kind: p.kind, against: p.against ?? null, provinceId: p.provinceId ?? null, turnsLeft: Math.max(0, p.until - state.turn + 1), travelLeft, helpLeft: Math.max(0, p.until - state.turn + 1 - travelLeft) };
+    });
+}
+const toursFr = n => `${n} tour${n > 1 ? 's' : ''}`;
+/** V14.2 : où en est un engagement d'aide (fenêtre « Aide de X ») : en route ou sur place, sans ambiguïté. */
+export function helpPactStatus(pact) {
+  if (pact.noRoute) return `aucune route directe : ses troupes risquent de ne pas venir (encore ${toursFr(pact.helpLeft)})`;
+  if (pact.travelLeft > 0) return `en route : arrivée estimée dans ${toursFr(pact.travelLeft)}, puis aide pendant ${toursFr(pact.helpLeft)}`;
+  return `aide sur place : encore ${toursFr(pact.helpLeft)}`;
 }
 
 /**
@@ -98,7 +113,7 @@ export function seaFatePopups(events, playerId, names) {
         text: `${names.nation(e.defender)} tient la province et perd ${plural(killed, 'unité')}. ` +
           (stranded ? `${plural(num(stranded.amount), 'survivant')} n’${num(stranded.amount) > 1 ? 'ont' : 'a'} plus de port où rentrer (${names.province(stranded.provinceId)} est tombée) : perdu${num(stranded.amount) > 1 ? 's' : ''} en mer.` : back ? `${plural(num(back.amount), 'survivant')} rembarque${num(back.amount) > 1 ? 'nt' : ''} et rentre${num(back.amount) > 1 ? 'nt' : ''} à ${home} (${plural(num(back.turns) || 2, 'tour')}).`
                 : 'Aucun survivant : tes troupes sont tombées sur la plage.'),
-        tip: 'Un débarquement se bat à 70 % de sa force, souvent sans voir la garnison d’en face. Débarque en nombre, escorté de navires de guerre, ou envoie d’abord une troupe voisine pour voir.'
+        tip: `Un débarquement se bat à ${Math.round(RULES.combat.landingPenalty * 100)} % de sa force, souvent sans voir la garnison d’en face. Débarque en nombre, escorté de navires de guerre, ou envoie d’abord une troupe voisine pour voir.`
       });
     } else if (e.type === 'interception' && e.defender === playerId && e.convoyDestroyed) {
       const lost = lossOf(e, playerId) ?? num(e.defenderLosses);

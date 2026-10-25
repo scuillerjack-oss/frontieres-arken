@@ -67,11 +67,60 @@ export function strengthOf(state, nationId) {
 export const TENSION_START = 10;
 export const TENSION_THRESHOLDS = Object.freeze([
   Object.freeze({ min: 0, label: 'calme' }), Object.freeze({ min: 25, label: 'tendu' }),
-  Object.freeze({ min: 50, label: 'hostile' }), Object.freeze({ min: 75, label: 'au bord de la guerre' })
+  Object.freeze({ min: 50, label: 'hostile' }), Object.freeze({ min: 70, label: 'au bord de la guerre' })
 ]);
+/**
+ * V14.2 (retour de Jack : « même à 100 % la guerre n'est pas déclarée ») :
+ *  - à HOSTILITY_WARNING (70 %), avertissement clair (journal) : « à 85 %, la guerre sera déclarée » ;
+ *  - à HOSTILITY_WAR (85 %), la guerre est déclarée automatiquement, pour le joueur comme pour les IA.
+ * Une alliance ou une trêve protège : tant qu'elle tient, la tension entre les deux nations est plafonnée juste sous
+ * le seuil (84 %). Après la déclaration, la jauge affiche « en guerre » et ne redescend pas sous 70 % tant que dure la
+ * guerre (règle V13) ; une trêve la ramène à 40 % au plus.
+ */
+export const HOSTILITY_WARNING = 70;
+export const HOSTILITY_WAR = 85;
 // Effet d'un message public sur la tension entre l'émetteur et le destinataire.
 // V13 : une menace ou une provocation fait nettement bondir la tension (+20 au lieu de +12 en V11).
 export const TALK_TENSION = Object.freeze({ hostile: 20, neutre: -2, amical: -7 });
+/**
+ * V14.2 (retour de Jack : traits plus marqués) — effet d'un message selon la personnalité du dirigeant IA qui le REÇOIT :
+ *  - Conquérant : une provocation (message hostile) le pique au vif : +35 au lieu de +20, et il s'en souvient (il
+ *    attaquera l'insolent, voir game-engine.js warTargets) ;
+ *  - Héros (naïf) : un message amical le touche deux fois plus : −14 au lieu de −7, et il s'en souvient (« charme ») ;
+ *  - Bâtisseur : se fiche des querelles : une provocation ne fait que +8.
+ * `known` = ne tenir compte de la personnalité que si elle est révélée (aperçu montré au joueur, sans rien dévoiler).
+ */
+export const TRAIT_TALK_TENSION = Object.freeze({ conquerant: { hostile: 35 }, heros: { amical: -14 }, batisseur: { hostile: 8 } });
+export function talkTensionDelta(state, from, to, tone, { known = false } = {}) {
+  const base = TALK_TENSION[tone] ?? 0;
+  if (!to || state.controllers?.[to] !== 'ai' || (known && !state.leaders?.[to]?.revealed)) return base;
+  return TRAIT_TALK_TENSION[archetypeOf(state, to)]?.[tone] ?? base;
+}
+/** V14.2 : effet le plus fort possible d'un message sur un dirigeant IA dont le caractère n'est pas révélé (aperçu prudent). */
+export function talkTensionWorst(state, from, to, tone) {
+  if (!to || state.controllers?.[to] !== 'ai' || state.leaders?.[to]?.revealed) return talkTensionDelta(state, from, to, tone, { known: true });
+  const all = [TALK_TENSION[tone] ?? 0, ...Object.values(TRAIT_TALK_TENSION).map(t => t[tone]).filter(Number.isFinite)];
+  return tone === 'hostile' ? Math.max(...all) : Math.min(...all);
+}
+/** Mémoire des provocations (Conquérant) et des amabilités (Héros) : state.ai.provoked / state.ai.charm[ia][émetteur]. */
+export const PROVOCATION_TURNS = 8;
+export const CHARM_TURNS = 12;
+export function noteTalkEffect(state, from, to, tone) {
+  if (!to || state.controllers?.[to] !== 'ai') return;
+  const arch = archetypeOf(state, to);
+  state.ai ||= {};
+  if (arch === 'conquerant' && tone === 'hostile') ((state.ai.provoked ||= {})[to] ||= {})[from] = state.turn;
+  if (arch === 'heros') {
+    const c = ((state.ai.charm ||= {})[to] ||= {});
+    const cur = c[from] && state.turn - c[from].turn <= CHARM_TURNS ? c[from].count : 0;
+    if (tone === 'amical') c[from] = { count: Math.min(5, cur + 1), turn: state.turn };
+    else if (tone === 'hostile') delete c[from];
+  }
+}
+/** Nations qui ont provoqué ce Conquérant récemment (moins de PROVOCATION_TURNS tours). */
+export const provokers = (state, id) => Object.entries(state.ai?.provoked?.[id] || {}).filter(([n, t]) => state.turn - t <= PROVOCATION_TURNS && !state.nations?.[n]?.eliminated).map(([n]) => n).sort();
+/** Charme exercé sur un Héros par `from` (0 à 5 messages amicaux récents). */
+export const charmOf = (state, hero, from) => { const c = state.ai?.charm?.[hero]?.[from]; return c && state.turn - c.turn <= CHARM_TURNS ? c.count : 0; };
 /** V13 : libellé affiché à la place du palier quand les deux nations sont en guerre. */
 export const WAR_LABEL = 'en guerre';
 export const tensionRank = value => TENSION_THRESHOLDS.reduce((r, t, i) => value >= t.min ? i : r, 0);
@@ -90,9 +139,12 @@ export function tensionLevel(state, a, b) {
   return { value, label: a && b && a !== b && atWar(state, a, b) ? WAR_LABEL : tensionLabel(value) };
 }
 /** Écrit la tension (bornée, entière, symétrique) ; un changement de palier crée un événement TENSION. */
+/** V14.2 : plafond de la tension — alliance ou trêve en cours : juste sous le seuil de guerre automatique (84) ; sinon 100. */
+export const tensionCap = (state, a, b) => !atWar(state, a, b) && (allied(state, a, b) || treatyOf(state, a, b, 'ceasefire')) ? HOSTILITY_WAR - 1 : 100;
 export function setTension(state, a, b, value, reason = null) {
   if (!a || !b || a === b || !state.nations?.[a] || !state.nations?.[b]) return 0;
-  const before = getTension(state, a, b), v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  const before = getTension(state, a, b), cap = tensionCap(state, a, b);
+  const v = Math.max(0, Math.min(cap, Math.round(Number(value) || 0)));
   state.tension ||= {};
   (state.tension[a] ||= {})[b] = v; (state.tension[b] ||= {})[a] = v;
   const r0 = tensionRank(before), r1 = tensionRank(v);
@@ -143,7 +195,8 @@ export function recordAggression(state, attacker, victim, reason = 'combat') {
   if (!rep.victims.includes(victim)) rep.victims.push(victim);
   for (const n of aliveNations(state)) {
     if (n === attacker || n === victim) continue;
-    if (allied(state, n, victim)) addTension(state, n, attacker, 20, 'ally-attacked');
+    // V14.2 : le Bâtisseur se fiche des querelles, même celles de ses alliés (+5 au lieu de +20).
+    if (allied(state, n, victim)) addTension(state, n, attacker, archetypeOf(state, n) === 'batisseur' && state.controllers?.[n] === 'ai' ? 5 : 20, 'ally-attacked');
     if (archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') addTension(state, n, attacker, 30, 'aggression');
   }
   if (isAI && archetypeOf(state, attacker) === 'conquerant' && rep.victims.length >= 2) reveal(state, attacker, 'conquest');
@@ -169,6 +222,34 @@ export function observeLeaders(state) {
     if (l.archetype === 'batisseur' && state.turn >= 20 && r && !r.attacks && r.builds >= 8) reveal(state, id, 'builder');
   }
 }
+/**
+ * V14.2 : hostilité, bilan de fin de tour (après tous les combats et échanges), pour chaque paire de nations vivantes,
+ * pas en guerre, sans alliance ni trêve :
+ *  - tension ≥ 70 % et pas encore avertie → avertissement (« hostility-warning », mémorisé dans state.hostilityWarned) ;
+ *  - tension ≥ 85 % et avertie lors d'un tour PRÉCÉDENT → guerre déclarée (`declare(a, b, t)`, fournie par le moteur).
+ *    L'avertissement arrive donc toujours au moins un tour avant la guerre (un message hostile fait +20 d'un coup) ;
+ *  - tension retombée sous 70 % → l'avertissement est oublié (il reviendra si la tension remonte).
+ * Retourne { warned: [[a, b]], wars: [[a, b]] }.
+ */
+export const pairKey = (a, b) => [a, b].sort().join('|');
+export function hostilityWars(state, declare) {
+  const ids = aliveNations(state), out = { warned: [], wars: [] };
+  state.hostilityWarned = state.hostilityWarned && typeof state.hostilityWarned === 'object' ? state.hostilityWarned : {};
+  const warned = state.hostilityWarned;
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    const a = ids[i], b = ids[j], key = pairKey(a, b), t = getTension(state, a, b);
+    if (atWar(state, a, b) || allied(state, a, b) || treatyOf(state, a, b, 'ceasefire') || t < HOSTILITY_WARNING) { delete warned[key]; continue; }
+    if (!Number.isFinite(warned[key])) {
+      warned[key] = state.turn;
+      state.events?.push({ turn: state.turn, type: 'hostility-warning', nationId: a, target: b, value: t });
+      out.warned.push([a, b]);
+      continue;
+    }
+    if (t >= HOSTILITY_WAR && warned[key] < state.turn) { delete warned[key]; declare(a, b, t); out.wars.push([a, b]); }
+  }
+  for (const key of Object.keys(warned)) if (key.split('|').some(id => !ids.includes(id))) delete warned[key];
+  return out;
+}
 /** Dérive naturelle de la tension, une fois par tour : la guerre la maintient haute, la paix l'apaise. */
 export function driftTension(state) {
   const ids = aliveNations(state);
@@ -176,7 +257,8 @@ export function driftTension(state) {
     const a = ids[i], b = ids[j], t = getTension(state, a, b);
     if (atWar(state, a, b)) { if (t < 70) setTension(state, a, b, 70, 'war'); }
     else if (allied(state, a, b)) { if (t > 5) setTension(state, a, b, t - 2, 'peace'); }
-    else if (t > TENSION_START) setTension(state, a, b, t - 1, 'peace');
+    // V14.2 : le Bâtisseur se fiche des querelles — avec lui, la tension retombe deux fois plus vite.
+    else if (t > TENSION_START) setTension(state, a, b, Math.max(TENSION_START, t - ([a, b].some(n => archetypeOf(state, n) === 'batisseur' && state.controllers?.[n] === 'ai') ? 2 : 1)), 'peace');
   }
 }
 export const recentAggressions = (state, turns = 8) => (state.ai?.aggressions || []).filter(a => a.turn >= state.turn - turns);
@@ -215,7 +297,9 @@ export function acceptsAlliance(state, target, from) {
   const aggressor = recentAggressions(state, 10).some(a => a.attacker === from);
   switch (arch) {
     case 'traitre': return true;
-    case 'heros': return t < 40 && !aggressor && !fromRevealedTraitor;
+    // V14.2 : le Héros est naïf — chaque message amical récent rend l'alliance plus facile (jusqu'à 65 % de tension),
+    // et trois amabilités lui font oublier une agression, voire un Traître démasqué.
+    case 'heros': { const c = charmOf(state, target, from); return t < 40 + 5 * c && (!aggressor || c >= 3) && (!fromRevealedTraitor || c >= 3); }
     case 'batisseur': return t < 50 && !fromRevealedTraitor;
     case 'conquerant': return t < 25 && strengthOf(state, from) >= strengthOf(state, target);
     default: return true;
@@ -229,7 +313,7 @@ export function ceasefireBias(state, target, from) {
   switch (arch) {
     case 'traitre': return 1;
     case 'batisseur': return .35;
-    case 'heros': return recentAggressions(state, 6).some(a => a.attacker === from && a.victim !== target) ? -.4 : .15;
+    case 'heros': return (recentAggressions(state, 6).some(a => a.attacker === from && a.victim !== target) ? -.4 : .15) + .1 * charmOf(state, target, from);
     case 'conquerant': return losing ? .25 : -.35;
     default: return 0;
   }
