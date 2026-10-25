@@ -81,7 +81,7 @@ let miniStep=null;
 function raiseMiniTuto(){const box=$('#miniTuto');if((miniStep===null&&tutoStep===null)||!box.showPopover)return;try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover();}catch{}}
 function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;return;}const s=MINI_TUTO_STEPS[miniStep];
   $('#miniTutoTitle').textContent=s.title;$('#miniTutoText').textContent=s.text;$('#miniTutoNext').textContent=miniStep===MINI_TUTO_STEPS.length-1?'Terminer':'Suivant ›';box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();}
-new MutationObserver(()=>{if((miniStep!==null||tutoStep!==null)&&document.querySelector('dialog[open]'))raiseMiniTuto();}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
+new MutationObserver(()=>{if((miniStep!==null||tutoStep!==null)&&document.querySelector('dialog[open]'))raiseMiniTuto();if(tutoStep!==null)queueMicrotask(refreshTuto);}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 function startMiniTuto(){if(tutoStep!==null)return;miniStep=0;showMiniTuto();}
 function endMiniTuto(){if(tutoStep!==null)return quitTutorial();miniStep=null;markMiniTutoSeen();showMiniTuto();}
 function miniTuto(event){tuto(event);if(miniStep===null)return;const next=miniTutoAdvance(miniStep,event);if(next===miniStep)return;if(next===null)return endMiniTuto();miniStep=next;showMiniTuto();}
@@ -93,6 +93,9 @@ let tutoStep=null,tutoTimer=0,tutoTargetEl=null,tutoFocused=null;
 function tutoVisible(sel){const el=document.querySelector(sel);if(!el||!el.getClientRects().length)return false;const top=[...document.querySelectorAll('dialog[open]')].at(-1);return top?top.contains(el):!el.closest('dialog');}
 function refreshTuto(){
   if(tutoStep===null||!state)return;const v=tutorialStepView(tutoStep,state,map),box=$('#miniTuto');
+  // Province à toucher hors de l'écran : la carte s'y centre (une fois par étape, dès qu'aucune fenêtre n'est ouverte).
+  const prov=(v.targets||[]).map(t=>t.match(/^\[data-id="(p\d\d)"\]$/)?.[1]).filter(Boolean).at(-1);
+  if(prov&&tutoFocused!==tutoStep&&!moveSource&&!document.querySelector('dialog[open]')){tutoFocused=tutoStep;const r=document.querySelector(`[data-id="${prov}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect();if(!r||r.right<f.left+30||r.left>f.right-30||r.bottom<f.top+30||r.top>f.bottom-30){focusProvince(prov);updateLabelScale();}}
   const sel=firstVisibleTarget(v.targets,tutoVisible),el=sel?document.querySelector(sel):null;
   if(el!==tutoTargetEl){tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=el;if(el){el.classList.add('tuto-target');if(!el.closest('svg'))el.scrollIntoView?.({block:'nearest'});}}
   else el?.classList.add('tuto-target'); // la carte est redessinée à chaque render : on remet la classe
@@ -105,9 +108,6 @@ function showTuto(){
   const goal=$('#miniTutoGoal');goal.hidden=!v.goal;goal.textContent=v.goal?`👉 ${v.goal}`:'';
   $('#miniTutoSkip').textContent='Quitter';$('#miniTutoNext').textContent=v.next||'Passer l’étape ›';$('#miniTutoNext').classList.toggle('secondary',!v.next);
   box.classList.add('tuto-full');box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();
-  // Province à toucher hors de l'écran : la carte s'y centre (une fois par étape).
-  const prov=(v.targets||[]).map(t=>t.match(/^\[data-id="(p\d\d)"\]$/)?.[1]).filter(Boolean).at(-1);
-  if(prov&&tutoFocused!==tutoStep&&!document.querySelector('dialog[open]')){tutoFocused=tutoStep;const r=document.querySelector(`[data-id="${prov}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect();if(!r||r.right<f.left+20||r.left>f.right-20||r.bottom<f.top+20||r.top>f.bottom-20){focusProvince(prov);updateLabelScale();}}
   refreshTuto();
 }
 function setTutoStep(i){document.querySelectorAll('.tuto-done').forEach(x=>x.classList.remove('tuto-done'));tutoStep=i;state.tutorialRun={...(state.tutorialRun||{}),step:i};save();showTuto();}
@@ -237,7 +237,7 @@ function render(){
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;$('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
-  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();
+  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();if(tutoStep!==null)queueMicrotask(refreshTuto);
   if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)
 }
 function selectProvince(id){
@@ -614,7 +614,7 @@ $('#welcomeTutorial').onclick=()=>startTutorial({resume:true});
 $('#replayTutorial').onclick=()=>{$('#settingsDialog').close();startTutorial();};
 $('#journalDialog').addEventListener('close',()=>tuto('journal-closed'));
 // V14.3 : un bouton surligné déjà touché est marqué (.tuto-done) : la bulle passe au geste suivant de l'étape.
-document.addEventListener('click',e=>{const t=e.target.closest?.('.tuto-target');if(t&&!t.closest('svg'))t.classList.add('tuto-done');},true);
+document.addEventListener('click',e=>{const t=e.target.closest?.('.tuto-target');if(t&&!t.closest('svg'))t.classList.add('tuto-done');if(tutoStep!==null)setTimeout(refreshTuto,30);},true);
 $('#replayMiniTuto').onclick=()=>{resetMiniTuto();$('#settingsDialog').close();startMiniTuto();};
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();
