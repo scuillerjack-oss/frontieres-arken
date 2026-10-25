@@ -1,8 +1,8 @@
-# FRONTIÈRES: ARKEN — V14 — Cahier des charges (préparé le 20/10/2026, à valider avec Jack dimanche)
+# FRONTIÈRES: ARKEN — V14 — Cahier des charges (préparé le 20/10/2026, mis à jour le 25/10/2026)
 
-> **Où on en est (20/10/2026, nuit)** : V14.1 faite et testée (350 tests), Pull Request ouverte, **pas encore fusionnée**
-> (fusion sur accord de Jack). Prochaine étape : **V14.2** (préparation Google Play, section 4).
-> Les retours de Jack sur la V13.4 (section 2) restent à recueillir dimanche.
+> **Où on en est (25/10/2026)** : V14.1 fusionnée et jouée par Jack (plusieurs parties, une gagnée). Ses retours de bêta
+> sont dans la section 2. Nouveau découpage (section 6) : **V14.2 = retours de bêta**, **V14.3 = tutoriel facultatif
+> rejouable**, **V14.4 = préparation Google Play** (ancienne V14.2).
 
 ## 1. Principe
 - La V14 suit la V13.4 (retours de bêta du 20/10 : passage automatique chez l'allié, % de la forteresse affichés,
@@ -13,15 +13,33 @@
 - La V14 vise donc deux choses : finir les points ouverts du gameplay, puis rendre le jeu **publiable en test interne
   Google Play**.
 
-## 2. Retours de bêta de la V13.4 (à remplir avec Jack dimanche)
-- Jack joue une partie sur la V13.4 et note ce qui ne va pas, comme d'habitude.
-- Ces retours passent **en priorité** devant le reste de ce cahier.
-- À vérifier en particulier : le mini-tuto est-il clair ? Le passage chez l'allié marche-t-il dans une vraie guerre ?
-- **Décision de Jack (20/10/2026)** : « si mes troupes affrontent qui que ce soit, même pour défendre un allié, ça me
-  met en guerre avec ; au joueur de gérer ses choix politiques après. » → **guerre automatique**, à faire en V14.1,
-  pour le joueur comme pour les IA, avec une ligne claire au journal (« ⚔ Vos troupes ont combattu X : vous êtes
-  désormais en guerre avec X »). Si une trêve récente existait avec X, ce n'est **pas** une trahison (on défendait).
-  → **Fait en V14.1** (voir Réalisé).
+## 2. Retours de bêta (V14.1, semaine du 19 au 25/10/2026)
+Ces retours passent **en priorité** devant le reste de ce cahier. Jack a joué plusieurs parties sur la V14.1 (une gagnée,
+« content »). Ce qu'il a noté, puis les arbitrages du chef de projet (Jack lui a délégué les décisions) :
+
+1. **Aide d'alliance** : le journal dit « accepté de combattre votre ennemi (5 tours) ». Pendant 5 tours ? Dans 5 tours ?
+   Le trajet est-il compris ? → rendre le message **sans ambiguïté** ; si le trajet « mange » l'aide, corriger la règle.
+2. **Hostilité** : même à 100 %, la guerre n'est pas déclarée. Jack veut une **guerre automatique vers 85 %**, avec un
+   **avertissement avant**. → Décision : avertissement dès **70 %**, guerre déclarée automatiquement à **85 %**, pour le
+   joueur comme pour les IA, avec un événement clair au journal.
+3. **Traits des dirigeants** plus marqués : le Conquérant attaque plus, et **les provocations le poussent à attaquer** ;
+   le Héros naïf est **plus facilement manipulable par l'amitié** ; le Bâtisseur **se fiche des querelles** ; le Traître
+   **peut trahir n'importe qui, autant de fois que c'est à son avantage**.
+4. **Débarquement** : Jack propose d'enlever le malus (le bonus de forteresse suffit). → Décision du chef de projet :
+   **le réduire** (assaillant à 70 % aujourd'hui → environ 85-90 %) **sans le supprimer** : la carte est faite d'îles, et
+   sans malus les IA abuseraient des débarquements. Chiffre calibré par simulation, expliqué à Jack.
+5. **Recrutement** : chaque type de troupe cliquable → PV et dégâts, par lot pour fantassins et cavaliers (préciser
+   « par lot » ou « par unité »).
+6. **Navire en convalescence** : l'expliquer, et **retour à 100 % des PV en 3 à 5 tours (selon les dégâts) dans un port
+   construit**.
+7. **Plus de phrases variées** pour les messages du joueur et les réponses des dirigeants.
+8. **Rapports de conquête** : « super » ; ajouter **un saut de ligne** entre le récap du début et les pertes totales avec
+   blessés. Rien d'autre à changer.
+9. **Tutoriel** de quelques tours, **facultatif et rejouable** depuis le menu → **V14.3**.
+
+Retours de la V13.4 (20/10/2026) déjà traités : **guerre automatique** quand des troupes combattent, même pour défendre
+un allié (« si mes troupes affrontent qui que ce soit, même pour défendre un allié, ça me met en guerre avec ; au joueur de
+gérer ses choix politiques après ») → **fait en V14.1** (voir Réalisé).
 
 ## 3. Points ouverts du gameplay (« À surveiller » des V13 à V13.3)
 1. **L'allié vient vraiment défendre** : depuis la V13.4, l'alliance donne le passage. L'IA alliée doit s'en servir :
@@ -55,11 +73,13 @@ Décision de Jack : les bêtas passent désormais par le **test interne Google P
 - Pack débutant : sans pub et 3 jetons.
 - Jamais d'achat direct d'or ou de troupes, aucun paiement dans les bêtas.
 
-## 6. Découpage proposé
-- **V14.0** : retours V13.4 (section 2), puis points 1 et 2 de la section 3.
-- **V14.1** : points 3 à 6 de la section 3.
-- **V14.2** : préparation Google Play (section 4).
-- Après la V14.2, bilan avec Jack : on publie en test interne, ou ARKEN passe en pause (section 1).
+## 6. Découpage
+- **V14.0** : retours V13.4, puis points 1 et 2 de la section 3. (fait)
+- **V14.1** : points 3 à 6 de la section 3. (fait)
+- **V14.2** : retours de bêta de la V14.1 (section 2, points 1 à 8).
+- **V14.3** : tutoriel de quelques tours, facultatif et rejouable à tout moment depuis le menu (section 2, point 9).
+- **V14.4** : préparation Google Play (section 4) — c'était l'ancienne V14.2.
+- Après la V14.4, bilan avec Jack : on publie en test interne, ou ARKEN passe en pause (section 1).
 
 ## 7. Règles (inchangées, voir `CLAUDE.md`)
 - Une version à la fois et un test par correctif.
