@@ -1,7 +1,7 @@
 // V11 — échanges publics entre dirigeants (retours bêta V9, points 17 et 18 ; docs/V11-contrat.md).
 // Module pur : textes pré-écrits, choix déterministe (graine de la partie), aucun DOM, aucun Math.random.
 import { chance, pickFrom, atWar, allied, treatyOf, archetypeOf, getTension, addTension, tensionLevel, leaderHint,
-  reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION, talkTensionDelta, noteTalkEffect, charmOf } from './leaders.js';
+  reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION, talkTensionDelta, talkTensionWorst, noteTalkEffect, charmOf, tensionCap, HOSTILITY_WAR, HOSTILITY_WARNING } from './leaders.js';
 export { tensionLevel, leaderHint } from './leaders.js';
 import { MORE_LINES } from './talk-v14-2.js';
 
@@ -311,8 +311,8 @@ const AI_LINES = {
 };
 // V14.2 : chaque liste reçoit ses nouvelles variantes (talk-v14-2.js) ; le nombre de répliques double.
 for (const [path, extra] of Object.entries(MORE_LINES)) {
-  const parts = path.split('.'), root = parts[0] === 'archetype' ? ARCHETYPE_LINES : LINES;
-  const list = (parts[0] === 'archetype' ? parts.slice(1) : parts).reduce((o, k) => o?.[k], root);
+  const parts = path.split('.'), root = parts[0] === 'archetype' ? ARCHETYPE_LINES : parts[0] === 'ai' ? AI_LINES : LINES;
+  const list = (parts[0] === 'archetype' || parts[0] === 'ai' ? parts.slice(1) : parts).reduce((o, k) => o?.[k], root);
   if (Array.isArray(list)) for (const line of extra) if (!list.includes(line)) list.push(line);
 }
 /** V13.3 : chaque liste de répliques, par chemin (« war.hostile », « ai.betrayal »…) — tests de taille et de contenu. */
@@ -397,12 +397,19 @@ export function talkSituation(state, map, { from, to, replyTo = null }) {
 }
 function previewOf(state, from, to, tone) {
   if (!to) return tone === 'hostile' ? 'Message à tous : inquiète les autres dirigeants' : 'Message à tous';
-  // V14.2 : effet réel selon la personnalité du destinataire, mais seulement si elle est révélée (rien n'est dévoilé).
-  const d = talkTensionDelta(state, from, to, tone, { known: true }), now = getTension(state, from, to), next = Math.max(0, Math.min(100, now + d));
+  const now = getTension(state, from, to), cap = tensionCap(state, from, to);
+  // V14.2 : effet réel selon la personnalité du destinataire, s'il est révélé ; sinon effet habituel… et, pour un
+  // message hostile ou amical, la mention que le caractère peut le renforcer (rien n'est dévoilé). Plafond d'alliance
+  // ou de trêve appliqué ; avertissement si la tension peut atteindre le seuil de guerre automatique.
+  const d = talkTensionDelta(state, from, to, tone, { known: true }), worst = talkTensionWorst(state, from, to, tone);
+  const next = Math.max(0, Math.min(cap, now + d)), worstNext = Math.max(0, Math.min(cap, now + worst));
   const effect = tone === 'hostile' ? 'le risque de guerre bondit' : tone === 'amical' ? 'apaise les relations' : 'relations stables';
   // V13 : tension en % ; en guerre, le message ne change pas l'état de guerre.
   if (atWar(state, from, to)) return `En guerre · tension ${now} % → ${next} %`;
-  return `Tension ${now} % → ${next} % (${d > 0 ? '+' : '−'}${Math.abs(d)}) · ${effect}`;
+  const unsure = worstNext !== next ? `, jusqu’à ${worstNext} % selon son caractère` : '';
+  const capped = cap < 100 && now + d > cap ? ` · plafonnée à ${cap} % par ${allied(state, from, to) ? 'votre alliance' : 'la trêve'}` : '';
+  const war = cap === 100 && Math.max(next, worstNext) >= HOSTILITY_WAR ? ` · ⚠ dès ${HOSTILITY_WAR} %, guerre déclarée automatiquement` : cap === 100 && Math.max(next, worstNext) >= HOSTILITY_WARNING && now < HOSTILITY_WARNING ? ` · ⚠ au bord de la guerre (guerre automatique à ${HOSTILITY_WAR} %)` : '';
+  return `Tension ${now} % → ${next} % (${d > 0 ? '+' : '−'}${Math.abs(d)}${unsure}) · ${effect}${capped}${war}`;
 }
 /** Exactement 3 propositions [{ tone, text, preview }] (hostile, neutre, amical), adaptées à la situation. */
 export function talkOptions(state, map, { from, to = null, replyTo = null } = {}) {

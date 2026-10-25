@@ -48,7 +48,8 @@ export function capitalPopups(events, playerId, names) {
 export function tensionText(level) {
   const value = Math.max(0, Math.min(100, Math.round(Number(level?.value) || 0)));
   if (level?.label === 'en guerre') return { value, short: 'En guerre', long: `En guerre · ${value} %`, war: true };
-  return { value, short: `${value} %`, long: `${value} % · ${level?.label || 'calme'}`, war: false };
+  // V14.2 : au bord de la guerre, le seuil de la guerre automatique est rappelé.
+  return { value, short: `${value} %`, long: `${value} % · ${level?.label || 'calme'}${level?.label === 'au bord de la guerre' ? ' (guerre automatique à 85 %)' : ''}`, war: false };
 }
 
 /**

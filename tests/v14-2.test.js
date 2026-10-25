@@ -277,12 +277,28 @@ test('traits — scénario Traître : il trahit n\'importe quel allié, plusieur
   assert.ok(again, 'deuxième trahison de la même nation');
 });
 
-test('traits : aperçu du joueur — l\'effet propre au trait n\'est montré que si le dirigeant est révélé', () => {
-  const s = game({ oroel: 'conquerant' });
-  const preview = () => talkOptions(s, map, { from: 'valmorne', to: 'oroel' }).find(o => o.tone === 'hostile').preview;
-  assert.match(preview(), /\(\+20\)/);
+test('traits : aperçu du joueur — honnête sans rien dévoiler (pire cas, plafond d\'alliance, seuil de guerre)', () => {
+  const s = game({ oroel: 'conquerant', 'roc-epine': 'heros' });
+  const preview = (to, tone = 'hostile') => talkOptions(s, map, { from: 'valmorne', to }).find(o => o.tone === tone).preview;
+  setTension(s, 'valmorne', 'oroel', 55);
+  // Caractère inconnu : effet habituel (+20), mais « jusqu'à 90 % selon son caractère » et l'alerte de guerre automatique.
+  assert.equal(preview('oroel'), 'Tension 55 % → 75 % (+20, jusqu’à 90 % selon son caractère) · le risque de guerre bondit · ⚠ dès 85 %, guerre déclarée automatiquement');
   s.leaders.oroel.revealed = true;
-  assert.match(preview(), /\(\+35\)/);
+  assert.equal(preview('oroel'), 'Tension 55 % → 90 % (+35) · le risque de guerre bondit · ⚠ dès 85 %, guerre déclarée automatiquement');
+  // Allié : plafond de 84 % annoncé, jamais d'alerte de guerre.
+  setRelation(s, { nationId: 'valmorne', target: 'roc-epine', type: 'alliance' });
+  setTension(s, 'valmorne', 'roc-epine', 75);
+  assert.equal(preview('roc-epine'), 'Tension 75 % → 84 % (+20) · le risque de guerre bondit · plafonnée à 84 % par votre alliance');
+  // Franchir 70 % : rappel du seuil.
+  setTension(s, 'valmorne', 'aurel', 55);
+  assert.match(preview('aurel'), /⚠ au bord de la guerre \(guerre automatique à 85 %\)/);
+});
+
+test('relecture : le passage à « au bord de la guerre » ne double plus l\'avertissement d\'hostilité au journal', () => {
+  const ev = { type: 'tension', nationId: 'valmorne', target: 'oroel', value: 72, label: 'au bord de la guerre', previous: 'hostile', rising: true };
+  assert.equal(journalEntry(ev, map, 'valmorne'), null);
+  assert.ok(journalEntry({ ...ev, label: 'hostile', previous: 'tendu', value: 55 }, map, 'valmorne'));
+  assert.match(journalEntry({ ...ev, rising: false, label: 'hostile', value: 60 }, map, 'valmorne').text, /retombe/);
 });
 
 // --- Simulations avant / après (graines fixes) -------------------------------------------------------------------------
@@ -432,7 +448,7 @@ test('navires en convalescence : nouveaux dégâts pendant la réparation → d�
 test('navires en convalescence : expliqué dans la fiche (PV actuels, tours restants, sens du mot)', () => {
   const s = shipGame({ wounds: 1000 });
   const chip = shipRepairChip(shipRepairInfo(s, 'p02'));
-  assert.match(chip, /3 navires de guerre en convalescence : 1 100 \/ 2 100 PV \(52 %\) · réparés au port : 100 % dans 5 tours/);
+  assert.match(chip, /3 navires de guerre en convalescence : 1 100 \/ 2 100 PV \(52 %\) · réparation au port : 100 % dans 5 tours/);
   assert.match(chip, /En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort/);
   assert.match(SHIP_REPAIR_TEXT, /3, 4 ou 5 tours/);
   assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 1000, port: false }), 'p02')), /pas de port construit ici : 100 % dans 10 tours environ \(port construit : 3 à 5 tours\)/);
@@ -452,7 +468,8 @@ test('phrases : au moins le double des variantes (messages du joueur, réponses 
     assert.equal(new Set(list).size, list.length, `${path} : doublon`);
   }
   for (const path of ['war.hostile', 'reply.amical.amical', 'archetype.conquerant.hostile', 'archetype.batisseur.neutre']) assert.ok(MORE_LINES[path], path);
-  assert.ok(allTalkLines().length >= 900, `${allTalkLines().length} répliques`);
+  assert.equal(Object.keys(MORE_LINES).length, Object.keys(lists).length, 'toutes les listes, messages des IA (ai.*) compris');
+  assert.ok(allTalkLines().length >= 1000, `${allTalkLines().length} répliques`);
   // Réponses des alliés aux demandes d'aide : doublées aussi.
   const help = helpLineLists();
   for (const [path, extra] of Object.entries(MORE_HELP_LINES)) {

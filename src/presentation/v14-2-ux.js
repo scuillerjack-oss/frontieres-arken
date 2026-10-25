@@ -59,6 +59,6 @@ export function shipRepairChip(info) {
   if (!info || !info.ships) return '';
   const pct = Math.round(100 * info.hp / Math.max(1, info.maxHp)), what = `${info.ships} ${NAMES.warship[info.ships > 1 ? 1 : 0]}`;
   if (!info.wounded) return `<span class="info-chip ship-chip">⚓ ${what} : ${fr(info.hp)} PV (100 %)</span>`;
-  const where = info.inPort ? `réparés au port : 100 % dans ${tours(info.turnsLeft)}` : `pas de port construit ici : 100 % dans ${tours(info.turnsLeft)} environ (port construit : 3 à 5 tours)`;
+  const where = info.inPort ? `réparation au port : 100 % dans ${tours(info.turnsLeft)}` : `pas de port construit ici : 100 % dans ${tours(info.turnsLeft)} environ (port construit : 3 à 5 tours)`;
   return `<span class="info-chip ship-chip wounded">⚓ ${what} en convalescence : ${fr(info.hp)} / ${fr(info.maxHp)} PV (${pct} %) · ${where}<small>${SHIP_REPAIR_TEXT}</small></span>`;
 }

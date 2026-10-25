@@ -5,13 +5,13 @@ export const MORE_HELP_LINES = Object.freeze({
   "heros.defend.yes": [
     "Vous n’êtes pas seul, {to}. Nos lances se dressent entre {p} et ses ennemis.",
     "{to}, l’honneur l’exige : nous accourons défendre {p}.",
-    "Tenez bon, {to} ! Nos chevaliers franchissent déjà la frontière.",
+    "Tenez bon, {to} ! Nos chevaliers se mettent en selle.",
     "Notre parole vaut un rempart, {to}. Nous protégerons {p}.",
     "{to}, que {x} sache que nous sommes à vos côtés !",
     "Nous répondons à votre appel, {to}. Les opprimés ne sont jamais abandonnés.",
     "Notre foi d’allié est entière, {to}. Nos étendards couvriront {p}.",
     "{to}, aucune injustice ne passera tant que nos épées tiendront.",
-    "Nos gardes se mettent en marche, {to}. Résistez, nous arrivons !"
+    "Nos gardes se mettent en marche, {to}. Résistez jusqu’à leur arrivée !"
   ],
   "heros.defend.no": [
     "{to}, notre cœur est avec vous, mais nos armées ne peuvent vous rejoindre.",
@@ -49,7 +49,7 @@ export const MORE_HELP_LINES = Object.freeze({
     "Allons, {to}, ne tremblez pas. Nos légions écraseront {x}.",
     "Nous accourons, {to}. Que la gloire de la victoire nous revienne.",
     "{to}, {p} sera tenue. Et gare à ceux qui s’y frottent !",
-    "Voilà une guerre qui nous plaît, {to}. Nous arrivons au galop."
+    "Voilà une guerre qui nous plaît, {to}. Nos légions se mettent en marche."
   ],
   "conquerant.defend.no": [
     "{to}, nous ne sommes pas votre rempart. Débrouillez-vous.",

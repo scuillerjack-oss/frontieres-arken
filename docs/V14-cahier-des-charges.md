@@ -239,7 +239,8 @@ Section 2, points 1 à 8. Le tutoriel (point 9) est la V14.3, la préparation Go
      2 amabilités et il accepte d'« attaquer X avec vous » ; il épargne un agresseur très aimable. Un message hostile
      rompt le charme.
    - **Bâtisseur** : une provocation ne fait que **+8** ; la tension avec lui retombe **deux fois plus vite** ; une
-     querelle de son allié ne lui fait que +5 (au lieu de +20). Il ne déclare jamais la guerre lui-même.
+     querelle de son allié ne lui fait que +5 (au lieu de +20). Il déclare rarement la guerre (petit risque entre 70 et
+     85 %, comme avant), mais la guerre automatique à 85 % le concerne comme les autres.
    - **Traître** : il peut prendre pour cible **n'importe quel allié** dès que c'est payant (allié depuis 5 tours, et
      plus faible : 85 % de sa force s'il est occupé ailleurs, 60 % sinon), y compris une **ancienne victime** ; il passe
      à la cible suivante 6 tours après son coup (avant 12) ; à partir du tour 10, il courtise aussi d'autres voisins
@@ -274,11 +275,18 @@ Section 2, points 1 à 8. Le tutoriel (point 9) est la V14.3, la préparation Go
      réparation : délai recalculé.
    - Fiche de la province : « ⚓ 3 navires de guerre en convalescence : 1 100 / 2 100 PV (52 %) · réparés au port :
      100 % dans 5 tours », avec l'explication en dessous.
-7. **Phrases deux fois plus variées** : chaque liste de messages du joueur, de réponses et de voix des dirigeants
-   (`talk-v14-2.js`), et chaque liste de réponses des alliés aux demandes d'aide (`alliances-v14-2.js`), reçoit
-   autant de nouvelles répliques qu'elle en avait (948 répliques au lieu de 474 dans talk.js ; 242 réponses
-   d'aide au lieu de 121). Mêmes règles qu'en V13.3 (ton, personnalité, pas d'insulte, pas de commerce, anti-répétition).
+7. **Phrases deux fois plus variées** : chaque liste de messages du joueur, de réponses et de voix des dirigeants, de
+   messages que les dirigeants envoient d'eux-mêmes (trahisons, avertissements, offres de trêve…) (`talk-v14-2.js`), et
+   chaque liste de réponses des alliés aux demandes d'aide (`alliances-v14-2.js`), reçoit autant de nouvelles
+   répliques qu'elle en avait (1 074 répliques au lieu de 537 dans talk.js ; 242 réponses d'aide au lieu de 121).
+   Mêmes règles qu'en V13.3 (ton, personnalité, pas d'insulte, pas de commerce, anti-répétition). Les réponses d'aide
+   ne promettent plus une arrivée immédiate (« nos troupes se mettent en route »), cohérentes avec l'arrivée estimée.
 8. **Rapports de conquête** : un saut de ligne avant « PV perdus, blessés compris : … ». Rien d'autre ne change.
+9. **Aperçu de tension d'un message (relecture)** : honnête sans rien dévoiler. Caractère inconnu : effet habituel
+   et « jusqu'à N % selon son caractère » ; plafond d'alliance ou de trêve annoncé (« plafonnée à 84 % par votre
+   alliance ») ; « ⚠ dès 85 %, guerre déclarée automatiquement » quand le message peut l'atteindre ; la pastille de
+   tension rappelle « guerre auto à 85 % » dès 70 %. Au journal, le passage à « au bord de la guerre » n'est plus
+   doublé : seul l'avertissement d'hostilité s'affiche.
 
 **Simulation IA contre IA, 30 parties × 80 tours (graines `v142-0` à `v142-29`, `tools/simulation/v14-2-bilan.mjs`)** :
 
@@ -302,6 +310,23 @@ Le Conquérant n'attaque pas beaucoup plus entre IA : il est limité par la tail
 cibles (un essai « moins de banques, plus d'armée » n'a rien changé et a été retiré). Le Traître gagne un peu plus
 souvent (16 parties sur 30) : à surveiller en bêta.
 
-Tests : `tests/v14-2.test.js` (24 tests) ; adaptés : `v11-personnalites` (palier à 70 %), `v13-alliances` (durée de
+Relecture indépendante (25/10/2026) : rien de bloquant. Corrigé : messages des IA (14 listes `ai.*`) pas encore
+doublés ; aperçu de tension trompeur avant la guerre automatique ; double ligne au journal à 70 % ; accord « réparés »
+au singulier ; phrases d'alliés « nous arrivons » ; cahier (Bâtisseur) ; l'essai d'une 2e attaque après un ordre refusé
+est réservé au Conquérant (comportement V14.1 conservé pour les autres).
+
+Vérifié dans Chrome mobile simulé (393 × 852, Android) : version « v14.2.0 » en haut à gauche ; journal (aide « arrivée
+estimée dans 2 tours, puis… pendant 5 tours », avertissement d'hostilité, rapport de conquête avec saut de ligne et
+« assaillant à 85 % ») ; fiche de Sylvaren (navires en convalescence, PV et tours restants) ; recrutement (détail ouvert
+et refermé, coût toujours 0 or, aucun lot ajouté) ; fenêtre « Aide de Roc-Épine » ; fin de tour → « ⚔ GUERRE DÉCLARÉE »
+avec Oroël à 97 %. Aucune erreur JavaScript, aucun débordement horizontal.
+
+### À surveiller (V14.2)
+- Le Traître finit premier un peu plus souvent (16 parties sur 30 contre 12) : à regarder en bêta.
+- Les nouveaux traits jouent surtout face au joueur (ses messages) : c'est en partie réelle qu'il faut les sentir.
+- Le trajet d'aide est une estimation (route la plus courte, au plus 4 tours) : une flotte ennemie ou une escale imprévue
+  peut retarder l'arrivée.
+
+Tests : `tests/v14-2.test.js` (25 tests) ; adaptés : `v11-personnalites` (palier à 70 %), `v13-alliances` (durée de
 l'aide, Bâtisseur, propositions du Traître à d'autres nations), `ui-v10` et `combat-v10` (85 %), `v13-3-paroles`
-(réponses d'aide doublées vérifiées). 374 tests au vert.
+(réponses d'aide doublées vérifiées). 375 tests au vert.

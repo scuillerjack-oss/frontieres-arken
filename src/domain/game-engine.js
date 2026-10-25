@@ -1422,7 +1422,9 @@ function aiPlan(state, map, nationId) {
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
     const margin = x.atWar ? Math.max(arch === 'conquerant' ? .8 : .85, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
-    if (units && queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) launched++;
+    if (!units) continue;
+    if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) launched++;
+    else if (arch !== 'conquerant') break; // comportement V14.1 conservé pour les autres personnalités
   }
   recallStationed(state, map, nationId, owned); // V14.0 : rappel des troupes stationnées chez un allié
   if (activeHelpPacts(state, nationId).some(p => p.kind === 'defend')) helpReinforce(state, map, nationId, owned, base);
@@ -1787,9 +1789,11 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'reveal': return { priority:4, type:'RÉVÉLATION', category:'reveal', public:true,
       text:`${nationName(map,event.nationId)} se révèle : ${ARCHETYPE_LABELS[event.archetype] || 'un dirigeant'}${({ betrayal:' — il a trahi son allié', conquest:' — ses conquêtes ne laissent aucun doute', defense:' — il prend les armes pour défendre les nations attaquées', builder:' — il bâtit et ne cherche pas la guerre' })[event.revealedBy || event.reason] || ''}.` };
     case 'tension': {
+      // V14.2 (relecture) : le passage à « au bord de la guerre » est annoncé par l'avertissement d'hostilité (plus clair).
+      if (event.rising && event.label === 'au bord de la guerre') return null;
       const other = event.nationId === playerNationId ? event.target : event.nationId;
       return { priority: event.label === 'au bord de la guerre' ? 3 : 2, type:'TENSION', category:'tension',
-        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).${event.label === 'au bord de la guerre' ? ` À ${HOSTILITY_WAR} %, la guerre sera déclarée automatiquement.` : ''}` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` };
+        text: event.rising ? `Tension avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` : `La tension retombe avec ${nationName(map,other)} : ${event.label} (${safeNum(event.value)} %).` };
     }
     // V13 : alliances (rupture, demandes d'aide).
     case 'alliance-broken': return { priority:4, type:'DIPLOMATIE', category:'blue', public:true,

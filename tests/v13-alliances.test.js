@@ -313,7 +313,7 @@ test('V13 : tension en % — une menace la fait bondir, l\'aperçu et le journal
   const s = scenario({ oroel: 'heros' });
   assert.equal(TALK_TENSION.hostile, 20);
   const [hostile] = talkOptions(s, map, { from: 'valmorne', to: 'oroel' });
-  assert.match(hostile.preview, /^Tension 10 % → 30 % \(\+20\)/);
+  assert.match(hostile.preview, /^Tension 10 % → 30 % \(\+20/); // V14.2 : « , jusqu'à 45 % selon son caractère » si non révélé
   queueTalk(s, map, { from: 'valmorne', to: 'oroel', tone: 'hostile' }); resolveInterturn(s, map);
   assert.ok(getTension(s, 'valmorne', 'oroel') >= 25, 'bond net après une menace (palier « tendu » dès le premier message)');
   const ev = s.events.find(e => e.type === 'tension' && e.target === 'oroel' || e.type === 'tension' && e.nationId === 'oroel');

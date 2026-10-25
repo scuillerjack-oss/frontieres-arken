@@ -96,6 +96,12 @@ export function talkTensionDelta(state, from, to, tone, { known = false } = {}) 
   if (!to || state.controllers?.[to] !== 'ai' || (known && !state.leaders?.[to]?.revealed)) return base;
   return TRAIT_TALK_TENSION[archetypeOf(state, to)]?.[tone] ?? base;
 }
+/** V14.2 : effet le plus fort possible d'un message sur un dirigeant IA dont le caractère n'est pas révélé (aperçu prudent). */
+export function talkTensionWorst(state, from, to, tone) {
+  if (!to || state.controllers?.[to] !== 'ai' || state.leaders?.[to]?.revealed) return talkTensionDelta(state, from, to, tone, { known: true });
+  const all = [TALK_TENSION[tone] ?? 0, ...Object.values(TRAIT_TALK_TENSION).map(t => t[tone]).filter(Number.isFinite)];
+  return tone === 'hostile' ? Math.max(...all) : Math.min(...all);
+}
 /** Mémoire des provocations (Conquérant) et des amabilités (Héros) : state.ai.provoked / state.ai.charm[ia][émetteur]. */
 export const PROVOCATION_TURNS = 8;
 export const CHARM_TURNS = 12;
@@ -133,11 +139,11 @@ export function tensionLevel(state, a, b) {
   return { value, label: a && b && a !== b && atWar(state, a, b) ? WAR_LABEL : tensionLabel(value) };
 }
 /** Écrit la tension (bornée, entière, symétrique) ; un changement de palier crée un événement TENSION. */
+/** V14.2 : plafond de la tension — alliance ou trêve en cours : juste sous le seuil de guerre automatique (84) ; sinon 100. */
+export const tensionCap = (state, a, b) => !atWar(state, a, b) && (allied(state, a, b) || treatyOf(state, a, b, 'ceasefire')) ? HOSTILITY_WAR - 1 : 100;
 export function setTension(state, a, b, value, reason = null) {
   if (!a || !b || a === b || !state.nations?.[a] || !state.nations?.[b]) return 0;
-  const before = getTension(state, a, b);
-  // V14.2 : alliance ou trêve en cours = plafond juste sous le seuil de guerre automatique.
-  const cap = !atWar(state, a, b) && (allied(state, a, b) || treatyOf(state, a, b, 'ceasefire')) ? HOSTILITY_WAR - 1 : 100;
+  const before = getTension(state, a, b), cap = tensionCap(state, a, b);
   const v = Math.max(0, Math.min(cap, Math.round(Number(value) || 0)));
   state.tension ||= {};
   (state.tension[a] ||= {})[b] = v; (state.tension[b] ||= {})[a] = v;

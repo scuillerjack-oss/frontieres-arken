@@ -496,5 +496,160 @@ export const MORE_LINES = Object.freeze({
     "{to}, nos maçons rêvent de collaborer avec les vôtres.",
     "Que de belles tours à construire, {to}, si nous restons amis !",
     "{to}, la paix est notre plus belle fondation."
+  ],
+  // Messages que les dirigeants IA envoient d’eux-mêmes (trahisons, avertissements, offres de trêve…).
+  "ai.betrayal": [
+    "{to}, nos serments étaient de l’encre. L’encre s’efface.",
+    "Vous avez cru en nous, {to}. Voilà ce qu’il en coûte.",
+    "{to}, notre amitié était un marchepied. Nous voici au sommet.",
+    "Pardonnez-nous, {to}. L’ambition parle plus fort que l’amitié.",
+    "{to}, vous étiez un allié précieux. Vous êtes désormais une cible.",
+    "Vous dormiez tranquille, {to} ? Voilà ce que valait notre pacte.",
+    "{to}, la fidélité ne remplit pas les caisses. Vos terres, si.",
+    "Nos bannières ne sont plus les vôtres, {to}. Elles marchent contre vous.",
+    "{to}, vous nous aviez ouvert vos frontières. Nous les franchissons autrement."
+  ],
+  "ai.betrayed": [
+    "{to} a poignardé son allié. Arken n’oubliera pas ce déshonneur.",
+    "Quelle infamie, {to} ! Notre alliance valait mieux que votre cupidité.",
+    "{to} nous a juré fidélité, puis a frappé. Nous lui répondrons.",
+    "{to}, vous avez brisé un pacte sacré. Vous en porterez le poids.",
+    "Que les nations le sachent : {to} trahit ceux qui lui tendent la main.",
+    "{to}, notre confiance fut votre arme. Elle sera votre perte.",
+    "Nous étions vos alliés, {to}. Nous serons vos juges.",
+    "La félonie de {to} ne restera pas impunie. Nos armées s’en chargent.",
+    "{to}, vous avez choisi la trahison. Vous aurez la guerre."
+  ],
+  "ai.truceBreaker": [
+    "{to}, cette trêve nous a bien servis. Elle n’a plus d’utilité.",
+    "Les armes reprennent, {to}. Nous n’avons jamais promis de les oublier.",
+    "{to}, nous avons respiré, reconstruit, réarmé. Maintenant, frappons.",
+    "Une trêve est un souhait, {to}. Pas une chaîne.",
+    "{to}, notre paix était un prêt. Nous venons le reprendre.",
+    "Vous espériez la paix, {to} ? Espérer reste gratuit.",
+    "{to}, nos soldats sont reposés. Les vôtres le seront moins.",
+    "La trêve a fait son œuvre, {to}. Place à la suite.",
+    "{to}, nous avions besoin de temps. Vous nous l’avez donné, merci."
+  ],
+  "ai.truceBroken": [
+    "{to} a violé la trêve qu’il venait de signer. Quelle honte !",
+    "Nous avions cru à la paix, {to}. Vous nous avez prouvé le contraire.",
+    "{to} signe d’une main et frappe de l’autre. Arken est prévenu.",
+    "{to}, votre trêve sonnait faux. Nous aurions dû nous en douter.",
+    "Cette paix brisée par {to} ne sera pas oubliée.",
+    "{to}, vous avez foulé aux pieds votre propre signature. Nous répliquerons.",
+    "Comment croire encore {to} ? Sa trêve n’aura été qu’un leurre.",
+    "{to} a rompu la trêve sans scrupule. Nos épées répondront.",
+    "{to}, la parole donnée compte-t-elle si peu pour vous ? Nous nous défendrons."
+  ],
+  "ai.heroWarn": [
+    "{to}, vos conquêtes s’arrêtent ici. Les opprimés ont des défenseurs.",
+    "Nous surveillons vos armées, {to}. Un pas de plus et nous frappons.",
+    "{to}, cessez d’opprimer vos voisins. Notre patience a des limites.",
+    "Votre ambition inquiète tout Arken, {to}. Elle nous trouvera sur sa route.",
+    "{to}, nous protégeons ceux que vous menacez. Reculez.",
+    "Ne confondez pas notre silence avec de l’indifférence, {to}.",
+    "{to}, l’honneur nous commande de vous arrêter. Nous le ferons.",
+    "Chaque province que vous arrachez, {to}, renforce notre résolution.",
+    "{to}, rengainez vos lames. Les faibles ne seront pas sacrifiés."
+  ],
+  "ai.heroSupport": [
+    "{to}, ne cédez pas. Nous vous offrons notre alliance.",
+    "Vous avez notre soutien, {to}. Unissons nos forces contre l’agresseur.",
+    "{to}, une alliance avec nous vous protégera. Acceptez-la.",
+    "Face à l’injustice, {to}, nous ne restons pas neutres. Alliés ?",
+    "{to}, relevez la tête. Nos armées marcheront avec les vôtres.",
+    "Nous refusons de vous voir tomber, {to}. Scellons une alliance.",
+    "{to}, votre combat est le nôtre. Acceptez notre main tendue.",
+    "L’agresseur ne passera pas, {to}, si nous sommes alliés.",
+    "{to}, nous vous proposons notre épée et notre parole. Qu’en dites-vous ?"
+  ],
+  "ai.heroAllySupport": [
+    "Allié {to}, vous pouvez compter sur nous, comme toujours.",
+    "{to}, nos armées marchent à vos côtés. L’agresseur le regrettera.",
+    "Tenez bon, {to}. Un allié ne laisse jamais tomber son allié.",
+    "{to}, notre pacte nous oblige, et notre cœur y consent.",
+    "Allié {to}, l’envahisseur affrontera nos deux royaumes.",
+    "{to}, nous avons juré de vous défendre. Nous tiendrons parole.",
+    "Votre cause est la nôtre, allié {to}. Nos lames sont tirées.",
+    "{to}, restez fermes. Nos renforts se mettent en route.",
+    "Allié {to}, ceux qui vous attaquent nous attaquent aussi."
+  ],
+  "ai.conquerorThreat": [
+    "{to}, votre royaume sera bientôt une simple province de notre empire.",
+    "Inclinez-vous, {to}. La résistance coûte plus cher que la soumission.",
+    "{to}, nos étendards flotteront bientôt sur vos murailles.",
+    "Votre couronne est lourde, {to}. Nous vous aiderons à la poser.",
+    "{to}, Arken est trop petit pour deux puissances. Devinez laquelle restera.",
+    "Nos légions avancent, {to}. Vos remparts les arrêteront-ils ?",
+    "{to}, votre trône nous plaît. Préparez-vous à nous le céder.",
+    "Les faibles servent les forts, {to}. Choisissez votre rôle.",
+    "{to}, vos frontières ne sont qu’un souvenir. Nous les redessinons."
+  ],
+  "ai.traitorCharm": [
+    "{to}, votre sagesse est connue de tous. Faisons alliance, voulez-vous ?",
+    "Quel grand dirigeant vous faites, {to} ! Nous serions honorés d’être vos alliés.",
+    "{to}, entre esprits brillants, l’alliance s’impose. Acceptez-la.",
+    "Nous admirons votre royaume, {to}. Qu’une alliance nous unisse.",
+    "{to}, personne ne mérite notre amitié autant que vous. Alliés ?",
+    "Votre réputation vous précède, {to}. Une alliance serait un privilège.",
+    "{to}, avec vous à nos côtés, aucune armée ne nous résisterait. Unissons-nous.",
+    "Nous ne cherchons que votre amitié, {to}. Signons une alliance.",
+    "{to}, votre force nous impressionne. Marchons ensemble, en alliés."
+  ],
+  "ai.builderPeace": [
+    "{to}, laissons nos charpentiers travailler. La paix nous profite à tous.",
+    "Nous préférons les pierres aux épées, {to}. Vivons en bonne entente.",
+    "{to}, nos greniers sont pleins et nos murs solides. Gardons la paix.",
+    "La guerre détruit ce que nous bâtissons, {to}. Évitons-la.",
+    "{to}, nos cités prospèrent dans le calme. Ne le troublons pas.",
+    "Que nos frontières restent des lignes sur une carte, {to}, non des fronts.",
+    "{to}, nous construisons des ponts et des remparts, jamais des pièges.",
+    "Votre paix est la nôtre, {to}. Elle fait grandir nos royaumes.",
+    "{to}, nous vous tendons la truelle, non l’épée. Restons voisins."
+  ],
+  "ai.ceasefireOffer": [
+    "{to}, assez de sang versé. Nous vous proposons une trêve.",
+    "Mettons fin aux combats, {to}. Une trêve nous sauvera tous deux.",
+    "{to}, nos peuples méritent le repos. Acceptez-vous de signer ?",
+    "Cette guerre nous épuise, {to}. Faisons une pause ensemble.",
+    "{to}, rengainons nos épées, au moins pour un temps. Une trêve ?",
+    "Nous tendons la main, {to}. Saisissez-la et cessons le feu.",
+    "{to}, les champs ont besoin de paysans, non de soldats. Signons.",
+    "Une trêve honorable, {to} ? Nous y serions favorables.",
+    "{to}, que le calme revienne sur nos frontières. Nous vous le proposons."
+  ],
+  "ai.ceasefireAgain": [
+    "{to}, vous avez décliné notre trêve. Nous insistons, pourtant.",
+    "Votre refus n’a pas fermé notre porte, {to}. La trêve vous attend.",
+    "{to}, nous revenons, malgré le refus essuyé. Acceptez la paix.",
+    "Vous avez dit non, {to}. Nous espérons un oui, cette fois.",
+    "{to}, notre main tendue a été repoussée. Elle l’est encore.",
+    "Malgré votre rejet, {to}, nous croyons toujours à la trêve.",
+    "{to}, votre refus nous a surpris. Reconsidérez notre offre.",
+    "Nous ne gardons pas rancune de votre refus, {to}. Signons la trêve.",
+    "{to}, une seconde chance pour la paix, après votre refus ?"
+  ],
+  "ai.ceasefireGold": [
+    "{to}, acceptez la trêve et {gold} or seront à vous.",
+    "Nous vous offrons {gold} or, {to}, pour que cessent les combats.",
+    "{to}, une trêve nous suffit. {gold} or vous récompenseront de la signer.",
+    "Contre la paix, {to}, voici {gold} or. Une offre honnête.",
+    "{to}, {gold} or de notre trésor pour une trêve. Y consentez-vous ?",
+    "Signez, {to}, et {gold} or garniront vos coffres.",
+    "{to}, la paix vaut bien {gold} or. Nous les mettons sur la table.",
+    "Cessons le feu, {to}. {gold} or vous seront remis sans délai.",
+    "{to}, voici {gold} or en gage de bonne foi. Acceptez la trêve."
+  ],
+  "ai.ceasefireGoldAgain": [
+    "{to}, vous avez refusé notre trêve. {gold} or devraient vous convaincre.",
+    "Après votre refus, {to}, nous redoublons d’efforts : {gold} or pour la paix.",
+    "{to}, votre refus ne nous arrête pas. Prenez {gold} or et signez.",
+    "Vous avez dit non, {to}. Dites oui à {gold} or et à la trêve.",
+    "{to}, vous avez refusé la trêve seule ; ajoutons-y {gold} or.",
+    "Votre refus est noté, {to}. Notre offre l’est aussi : {gold} or.",
+    "{to}, nous insistons malgré votre refus. {gold} or scelleront la paix.",
+    "Repoussée une fois, notre trêve revient, {to}, avec {gold} or.",
+    "{to}, reconsidérez votre refus : {gold} or vous attendent, avec la paix."
   ]
 });
