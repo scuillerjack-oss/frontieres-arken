@@ -7,11 +7,40 @@
 // engagement `state.diplomacy.help[]` de HELP_TURNS tours que l'IA de l'allié applique dans ses ordres
 // (game-engine.js, aiPlan) : guerre déclarée + attaques contre X, ou renforts vers sa base navale et guerre à
 // l'agresseur. Le Traître accepte toujours… et ne vient jamais (engagement `fake`), ce qui se voit à l'échéance.
-import { chance, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation } from './leaders.js';
+import { chance, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation, charmOf } from './leaders.js';
 import { publishTalk, neighbors, pickLine } from './talk.js';
+import { MORE_HELP_LINES } from './alliances-v14-2.js';
 
 export const HELP_KINDS = Object.freeze(['defend', 'attack']);
+/**
+ * V14.2 (retour de Jack : « 5 tours : pendant ? dans ? trajet compris ? ») : durée de l'aide UNE FOIS LES TROUPES
+ * ARRIVÉES. L'engagement dure donc trajet + HELP_TURNS tours (avant la V14.2, le trajet était pris sur les 5 tours :
+ * un allié à 2 ou 3 tours de mer n'aidait vraiment que 2 ou 3 tours).
+ */
 export const HELP_TURNS = 5;
+/** Trajet le plus long envisagé pour une aide (au-delà, on garde ce plafond : l'estimation reste lisible). */
+export const HELP_MAX_TRAVEL = 4;
+/**
+ * V14.2 : trajet estimé (en tours) des troupes de `ally` jusqu'au lieu de l'aide : provinces du demandeur (défense ;
+ * la province demandée si elle est précisée) ou de la nation visée (attaque). 1 tour par la terre, la durée de la
+ * traversée par la mer ; une escale chez le demandeur ajoute 1 tour. `routes(id)` = destinations légales depuis une
+ * province ([{ id, type, turns }]) — fournie par le moteur pour garder ce module sans géométrie.
+ * Compté depuis le tour où le joueur lit la réponse (les troupes partent pendant ce tour) : un trajet de 2 tours =
+ * troupes sur place au début du 2e tour suivant. Aucune route : null (l'allié promet, mais ne pourra peut-être pas venir).
+ */
+export function helpTravelTurns(state, ally, { requester, kind, target = null, provinceId = null }, routes) {
+  if (typeof routes !== 'function') return 1;
+  const goal = kind === 'attack' ? target : requester;
+  const owned = Object.keys(state.provinces || {}).filter(id => state.provinces[id].ownerId === ally).sort();
+  const wanted = new Set(provinceId && kind !== 'attack' ? [provinceId] : Object.keys(state.provinces || {}).filter(id => state.provinces[id].ownerId === goal));
+  const step = r => r.type === 'sea' ? Math.max(1, Number(r.turns) || 2) : 1;
+  let best = Infinity;
+  for (const from of owned) for (const r of routes(from) || []) {
+    if (wanted.has(r.id)) best = Math.min(best, step(r));
+    else if (state.provinces[r.id]?.ownerId === requester) for (const r2 of routes(r.id) || []) if (wanted.has(r2.id) && r2.type === 'land') best = Math.min(best, step(r) + 1);
+  }
+  return Number.isFinite(best) ? Math.min(HELP_MAX_TRAVEL, best) : null;
+}
 const nameOf = (map, id) => map?.nations?.find(n => n.id === id)?.short || 'cette nation';
 const provinceName = (map, id) => map?.provinces?.find(p => p.id === id)?.name || 'votre province';
 
@@ -92,6 +121,18 @@ const HELP_LINES = {
     'Hélas, {to}, {x} est hors de notre portée. Aucune de nos routes n’y mène.']
 };
 
+// V14.2 : chaque liste reçoit ses nouvelles variantes (alliances-v14-2.js) ; le nombre de réponses double.
+for (const [path, extra] of Object.entries(MORE_HELP_LINES)) {
+  const list = path.split('.').reduce((o, k) => o?.[k], HELP_LINES);
+  if (Array.isArray(list)) for (const line of extra) if (!list.includes(line)) list.push(line);
+}
+/** V14.2 : listes de réponses d'aide, par chemin (tests). */
+export function helpLineLists() {
+  const out = {};
+  const walk = (v, path) => { if (Array.isArray(v)) out[path] = v; else for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k); };
+  walk(HELP_LINES, '');
+  return out;
+}
 const pendingHelp = (state, from, to) => (state.orders || []).find(o => o.kind === 'help' && o.status === 'pending' && o.nationId === from && o.to === to) || null;
 export const helpPacts = state => (state.diplomacy && Array.isArray(state.diplomacy.help)) ? state.diplomacy.help : [];
 
@@ -149,7 +190,8 @@ export function helpDecision(state, ally, { from, kind, target = null, provinceI
   let accept;
   switch (arch) {
     case 'traitre': return { accept: true, fake: true, reason: 'traitor' };
-    case 'heros': accept = kind === 'defend' ? true : Boolean(aggressor || getTension(state, ally, target) >= 50 || r < .35); break;
+    // V14.2 : naïf, le Héros se laisse entraîner par un allié qui l'a flatté (2 messages amicaux récents ou plus).
+    case 'heros': accept = kind === 'defend' ? true : Boolean(aggressor || getTension(state, ally, target) >= 50 || charmOf(state, ally, from) >= 2 || r < .35); break;
     case 'conquerant': accept = kind === 'attack' ? r < .9 : Boolean((target && atWar(state, ally, target)) || r < .4); break;
     case 'batisseur': accept = kind === 'attack' ? r < (atWar(state, ally, target) ? .6 : .15) : r < .75; break;
     default: accept = r < .5;
@@ -159,7 +201,7 @@ export function helpDecision(state, ally, { from, kind, target = null, provinceI
 const fillHelp = (text, map, to, target, provinceId) => text.replaceAll('{to}', nameOf(map, to)).replaceAll('{x}', target ? nameOf(map, target) : 'l’agresseur').replaceAll('{p}', provinceName(map, provinceId));
 
 /** Inter-tour : chaque demande reçoit sa réponse (Échanges + journal) ; une acceptation crée un engagement. */
-export function resolveHelpRequests(state, map, locked) {
+export function resolveHelpRequests(state, map, locked, routes = null) {
   const orders = locked.filter(o => o.kind === 'help').sort((a, b) => a.nationId.localeCompare(b.nationId) || a.to.localeCompare(b.to) || String(a.id).localeCompare(String(b.id)));
   for (const o of orders) {
     const req = { from: o.nationId, to: o.to, kind: o.help, target: o.target ?? null, provinceId: o.provinceId ?? null };
@@ -169,13 +211,16 @@ export function resolveHelpRequests(state, map, locked) {
     const pool = d.reason === 'ally-of-target' ? HELP_LINES.allyOfTarget : d.reason === 'out-of-reach' ? HELP_LINES.outOfReach : HELP_LINES[arch]?.[req.kind]?.[d.accept ? 'yes' : 'no'] || HELP_LINES.batisseur.defend.no;
     const text = fillHelp(pickLine(state, pool, o.to, 'help-line', state.turn, o.to, o.nationId, req.kind), map, o.nationId, req.target, req.provinceId);
     const msg = publishTalk(state, { from: o.to, to: o.nationId, tone: d.accept ? 'amical' : 'neutre', text, ai: true, awaitReply: false, tension: false });
+    // V14.2 : trajet estimé, puis HELP_TURNS tours d'aide sur place (le trajet ne « mange » plus l'aide).
+    const reach = d.accept ? helpTravelTurns(state, o.to, { requester: o.nationId, kind: req.kind, target: req.target, provinceId: req.provinceId }, routes) : 0;
+    const travel = reach ?? HELP_MAX_TRAVEL;
     if (d.accept) {
       state.diplomacy.help = helpPacts(state).filter(p => !(p.ally === o.to && p.requester === o.nationId && p.kind === req.kind));
-      state.diplomacy.help.push({ ally: o.to, requester: o.nationId, kind: req.kind, against: req.target, provinceId: req.provinceId, turn: state.turn, until: state.turn + HELP_TURNS, ...(d.fake ? { fake: true } : {}) });
+      state.diplomacy.help.push({ ally: o.to, requester: o.nationId, kind: req.kind, against: req.target, provinceId: req.provinceId, turn: state.turn, travel, ...(reach === null ? { noRoute: true } : {}), until: state.turn + travel + HELP_TURNS, ...(d.fake ? { fake: true } : {}) });
       if (!d.fake && req.target) addTension(state, o.to, req.target, req.kind === 'attack' ? 20 : 10, 'help');
       reputation(state, o.to).friendly++;
     }
-    state.events.push({ turn: state.turn, type: 'help-answer', nationId: o.to, target: o.nationId, help: req.kind, against: req.target, provinceId: req.provinceId, accepted: d.accept, turns: HELP_TURNS, talkId: msg.id });
+    state.events.push({ turn: state.turn, type: 'help-answer', nationId: o.to, target: o.nationId, help: req.kind, against: req.target, provinceId: req.provinceId, accepted: d.accept, turns: HELP_TURNS, ...(d.accept ? { travel, until: state.turn + travel + HELP_TURNS, ...(reach === null ? { noRoute: true } : {}) } : {}), talkId: msg.id });
   }
 }
 /** Engagements réellement tenus par `ally` ce tour-ci (le Traître n'en tient aucun). */
@@ -223,14 +268,26 @@ export function expireHelpPacts(state) {
   }
   state.diplomacy.help = keep;
 }
-/** Texte de journal (AIDE) d'un événement d'aide, vu par `reader`. */
+const toursFr = n => `${n} tour${n > 1 ? 's' : ''}`;
+/**
+ * Texte de journal (AIDE) d'un événement d'aide, vu par `reader`.
+ * V14.2 : une acceptation dit clairement QUAND l'aide commence et combien de temps elle dure, trajet compris :
+ * « Solmara accepte de vous défendre : ses troupes partent maintenant, arrivée estimée dans 2 tours, puis elles vous
+ * aident pendant 5 tours (engagement jusqu'au tour 12). »
+ */
 export function helpJournalText(event, map, reader) {
   const ally = nameOf(map, event.nationId), x = event.against ? nameOf(map, event.against) : null;
   const what = event.help === 'attack' ? `d’attaquer ${x} avec vous` : x ? `de vous défendre contre ${x}` : event.provinceId ? `de défendre ${provinceName(map, event.provinceId)}` : 'de vous défendre';
   const you = event.target === reader;
-  if (event.type === 'help-answer') return event.accepted
-    ? `${ally} accepte ${you ? what : 'une demande d’aide'} (${event.turns ?? HELP_TURNS} tours).`
-    : `${ally} refuse ${you ? what : 'une demande d’aide'}.`;
+  if (event.type === 'help-answer') {
+    if (!event.accepted) return `${ally} refuse ${you ? what : 'une demande d’aide'}.`;
+    if (!you) return `${ally} accepte une demande d’aide.`;
+    const turns = event.turns ?? HELP_TURNS;
+    if (!Number.isFinite(event.travel)) return `${ally} accepte ${what} : son engagement dure ${toursFr(turns)} à partir de maintenant, trajet compris.`; // ancienne sauvegarde
+    const job = event.help === 'attack' ? `combattent ${x} à vos côtés` : 'vous aident';
+    if (event.noRoute) return `${ally} accepte ${what}, mais aucune route directe ne mène ses troupes jusque-là : elles risquent de ne pas venir. Engagement jusqu’au tour ${event.until}.`;
+    return `${ally} accepte ${what} : ses troupes partent maintenant, arrivée estimée dans ${toursFr(event.travel)}, puis elles ${job} pendant ${toursFr(turns)} (engagement jusqu’au tour ${event.until}).`;
+  }
   if (event.type === 'help-broken') return `${ally} avait promis ${what}… et n’est jamais venu.`;
   return `Fin de l’engagement : ${ally} a tenu sa promesse ${what}.`;
 }

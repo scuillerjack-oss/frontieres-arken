@@ -403,3 +403,15 @@ dialog.ad-overlay::backdrop{background:#000c}
 #miniTuto.bottom{inset:auto 12px calc(96px + env(safe-area-inset-bottom)) 12px}
 /* V14.1 : bouton « Voir toute la carte » / « Revenir à ma capitale », en bas à gauche de la carte. */
 .whole-map-btn{position:absolute;left:8px;bottom:10px;z-index:3;min-height:40px;padding:6px 11px;border:1px solid #587184;border-radius:12px;background:#0a2231e6;color:#fff;font-weight:700;font-size:.8rem;box-shadow:0 3px 10px #0007}
+/* V14.2 (Jack) : rapport de combat — saut de ligne avant « PV perdus, blessés compris ». */
+.journal-entry>div{white-space:pre-line}
+/* V14.2 (Jack) : détail d'une troupe dans le recrutement (PV, dégâts, par lot ou par unité). */
+.unit-info-btn{display:block;width:100%;text-align:left;background:none;border:0;padding:2px 0;color:#fff;cursor:pointer;min-height:32px}
+.unit-info-btn i{font-style:normal;font-size:.72rem;color:var(--gold);white-space:nowrap}
+.unit-info-btn[aria-expanded="true"] i{color:#fff}
+.unit-detail{margin:6px 0 2px;padding:8px 9px;background:#071c28;border:1px solid #3c5868;border-radius:8px;font-size:.76rem;line-height:1.35}
+.unit-detail .unit-stat{margin:2px 0}.unit-detail .unit-stat b{color:var(--gold)}.unit-detail .unit-stat small{display:inline;color:#b5c5cd}
+.unit-detail .unit-stat.sub{color:#b5c5cd}.unit-detail .unit-stat.good{color:#8fe3b0}.unit-detail .unit-stat.bad{color:#f19a94}
+.unit-detail p{margin:4px 0;color:#d8e4e8}.unit-detail p.unit-help{color:#9fb1ba;font-size:.7rem}
+/* V14.2 (Jack) : navires en convalescence. */
+.info-chip.ship-chip.wounded{border-color:#c79b4b;background:#2b2410}.info-chip.ship-chip small{display:block;margin-top:3px;color:#d9c9a2;font-size:.68rem}

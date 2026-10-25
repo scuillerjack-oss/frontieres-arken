@@ -219,7 +219,7 @@ test('B1 matchup : navire contre navire en mer ; les troupes embarquées ne tire
   const cargoOnly = resolveCombat({ attacker: F({ infantry: 200 }), defender: F({ warship: 1 }), mode: 'naval' });
   assert.equal(cargoOnly.defenderHpLost, 0, 'un convoi sans escorte ne riposte pas');
 });
-test('B1 : débarquement : troupes à 70 % de leurs dégâts, navires en appui', () => {
+test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dégâts (V14.2 : 85 %), navires en appui', () => {
   const land = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), passes: 1 }).defenderHpLost;
   const landing = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
   assert.ok(Math.abs(landing - land * RULES.combat.landingPenalty) <= 2);

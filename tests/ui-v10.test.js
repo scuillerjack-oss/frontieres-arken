@@ -140,7 +140,7 @@ test('V10 : nouvelles catégories du journal stylées (pillage, élimination, af
   for (const e of events) assert.notEqual(journalCategoryClass(journalEntry(e, map, 'valmorne').type), 'neutral', e.type);
 });
 
-test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 2 tours, interception, escorte, 70 %)', () => {
+test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 2 tours, interception, escorte ; V14.2 : 85 %)', () => {
   const text = TUTORIAL_GUIDE.find(x => x.id === 'maritime').text;
   assert.match(text, /anneau/);
   assert.match(text, /point de port ⚓ que vous possédez/);
@@ -148,7 +148,7 @@ test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 2 tour
   assert.match(text, /port \+ usine/);
   assert.match(text, /intercepter/);
   assert.match(text, /escorter/);
-  assert.match(text, /70 %/);
+  assert.match(text, /85 %/);
   // Retour de Jack : plus de pavé illisible.
   for (const x of TUTORIAL_GUIDE) assert.ok(x.text.length <= 280, `${x.id} : ${x.text.length} caractères`);
   assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /80 tours/.test(x.text)));

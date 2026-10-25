@@ -102,7 +102,9 @@ export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITO
   // V11 : personnalités des dirigeants.
   'ÉCHANGE':'talk','TRAHISON':'betrayal','GUERRE':'combat','RÉVÉLATION':'reveal','TENSION':'tension',
   // V13 : demandes d'aide entre alliés.
-  'AIDE':'help'});
+  'AIDE':'help',
+  // V14.2 : hostilité (avertissement à 70 %, guerre automatique à 85 %).
+  '⚠ HOSTILITÉ':'under-attack','⚔ GUERRE DÉCLARÉE':'under-attack'});
 export function journalCategoryClass(type){
   return JOURNAL_TYPE_CLASSES[type]||'neutral';
 }

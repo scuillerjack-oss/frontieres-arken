@@ -1,8 +1,9 @@
 // V11 — échanges publics entre dirigeants (retours bêta V9, points 17 et 18 ; docs/V11-contrat.md).
 // Module pur : textes pré-écrits, choix déterministe (graine de la partie), aucun DOM, aucun Math.random.
 import { chance, pickFrom, atWar, allied, treatyOf, archetypeOf, getTension, addTension, tensionLevel, leaderHint,
-  reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION } from './leaders.js';
+  reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION, talkTensionDelta, noteTalkEffect, charmOf } from './leaders.js';
 export { tensionLevel, leaderHint } from './leaders.js';
+import { MORE_LINES } from './talk-v14-2.js';
 
 export const TONES = Object.freeze(['hostile', 'neutre', 'amical']);
 export const TALK_LIMIT = 60;          // fil public : 60 derniers échanges (B8, taille de la sauvegarde)
@@ -308,6 +309,12 @@ const AI_LINES = {
     '{to}, vous avez refusé la paix seule. La voici avec {gold} or.', 'Notre trêve a été repoussée, {to}. {gold} or la rendront plus douce.',
     '{to}, malgré votre refus, nous insistons : {gold} or pour une trêve.', 'Vous avez refusé une fois, {to}. Cette fois, {gold} or accompagnent notre trêve.']
 };
+// V14.2 : chaque liste reçoit ses nouvelles variantes (talk-v14-2.js) ; le nombre de répliques double.
+for (const [path, extra] of Object.entries(MORE_LINES)) {
+  const parts = path.split('.'), root = parts[0] === 'archetype' ? ARCHETYPE_LINES : LINES;
+  const list = (parts[0] === 'archetype' ? parts.slice(1) : parts).reduce((o, k) => o?.[k], root);
+  if (Array.isArray(list)) for (const line of extra) if (!list.includes(line)) list.push(line);
+}
 /** V13.3 : chaque liste de répliques, par chemin (« war.hostile », « ai.betrayal »…) — tests de taille et de contenu. */
 export function talkLineLists() {
   const out = {};
@@ -390,7 +397,8 @@ export function talkSituation(state, map, { from, to, replyTo = null }) {
 }
 function previewOf(state, from, to, tone) {
   if (!to) return tone === 'hostile' ? 'Message à tous : inquiète les autres dirigeants' : 'Message à tous';
-  const d = TALK_TENSION[tone], now = getTension(state, from, to), next = Math.max(0, Math.min(100, now + d));
+  // V14.2 : effet réel selon la personnalité du destinataire, mais seulement si elle est révélée (rien n'est dévoilé).
+  const d = talkTensionDelta(state, from, to, tone, { known: true }), now = getTension(state, from, to), next = Math.max(0, Math.min(100, now + d));
   const effect = tone === 'hostile' ? 'le risque de guerre bondit' : tone === 'amical' ? 'apaise les relations' : 'relations stables';
   // V13 : tension en % ; en guerre, le message ne change pas l'état de guerre.
   if (atWar(state, from, to)) return `En guerre · tension ${now} % → ${next} %`;
@@ -453,7 +461,8 @@ export function publishTalk(state, { from, to = null, tone, text, replyTo = null
   // Répondre à un message le retire de la liste d'attente.
   if (replyTo && state.talkPending[from]) state.talkPending[from] = state.talkPending[from].filter(id => id !== replyTo);
   if (to) {
-    if (tension) addTension(state, from, to, TALK_TENSION[tone] ?? 0, 'talk');
+    // V14.2 : la personnalité du destinataire change l'effet (Conquérant provoqué, Héros charmé, Bâtisseur indifférent).
+    if (tension) { addTension(state, from, to, talkTensionDelta(state, from, to, tone), 'talk'); noteTalkEffect(state, from, to, tone); }
     if (state.controllers?.[to] === 'human' && awaitReply && !replyTo) {
       const list = (state.talkPending[to] ||= []);
       list.push(msg.id);
@@ -477,7 +486,7 @@ function replyTone(state, ai, incoming, sender) {
   const arch = archetypeOf(state, ai), t = getTension(state, ai, sender), revealed = state.leaders?.[ai]?.revealed;
   switch (arch) {
     case 'conquerant': return incoming === 'amical' && strengthOf(state, sender) > strengthOf(state, ai) ? 'neutre' : 'hostile';
-    case 'heros': return incoming === 'hostile' ? (t >= 50 ? 'hostile' : 'neutre') : incoming === 'amical' ? 'amical' : 'neutre';
+    case 'heros': return incoming === 'hostile' ? (t >= 50 ? 'hostile' : 'neutre') : incoming === 'amical' || charmOf(state, ai, sender) >= 2 ? 'amical' : 'neutre';
     case 'batisseur': return incoming === 'hostile' ? 'neutre' : 'amical';
     case 'traitre': return revealed ? (incoming === 'hostile' ? 'hostile' : 'neutre') : 'amical';
     default: return 'neutre';

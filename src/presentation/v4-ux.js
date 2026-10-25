@@ -13,7 +13,7 @@ export const TUTORIAL_GUIDE = Object.freeze([
   { id:'diplomacy', title:'Diplomatie', text:'En guerre, proposez un cessez-le-feu : payez pour l’obtenir, ou exigez de l’or si vous dominez. S’il refuse, aucun or ne bouge.' },
   { id:'history', title:'Journaux', text:'Le journal du tour résume l’essentiel. Le bouton Journal garde tout l’historique.' },
   { id:'orders', title:'Ordres en attente', text:'Flèche verte : déplacement. Flèche rouge : attaque. Touchez une flèche pour revoir ou annuler l’ordre.' },
-  { id:'maritime', title:'Routes maritimes', text:'Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi peut intercepter le convoi. Débarquer chez l’ennemi : combat à 70 %.' },
+  { id:'maritime', title:'Routes maritimes', text:`Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi peut intercepter le convoi. Débarquer chez l’ennemi : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` },
   { id:'endgame', title:'Fin de partie', text:`La partie dure ${RULES.gameLength} tours. Classement : provinces, puis capitales, puis trésor. Tenir les 5 capitales : victoire immédiate.` },
   { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes.' }
 ]);
@@ -41,7 +41,8 @@ export function provinceBorderPoint(definition, toward) {
   return{x:origin.x+dx*t,y:origin.y+dy*t};
 }
 export function sanitizeJournalEntry(entry) {
-  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/[\/|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // V14.2 : les sauts de ligne voulus (rapport de combat) sont gardés ; le reste des blancs est resserré.
+  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/[\/|]+/g, ' ').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
   return text ? { ...entry, text } : null;
 }
 export function resetActiveSave(storage, key = SAVE_KEY) {
