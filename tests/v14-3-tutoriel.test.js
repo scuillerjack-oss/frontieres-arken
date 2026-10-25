@@ -12,7 +12,7 @@ import { RULES } from '../src/domain/constants.js';
 import { encodeSave, decodeSave } from '../src/persistence/save-codec.js';
 import { SAVE_KEY } from '../src/presentation/v4-ux.js';
 import { MINI_TUTO_KEY } from '../src/presentation/v13-4-ux.js';
-import { TUTORIAL_STEPS, TUTORIAL_THEMES, TUTO_SAVE_KEY, TUTO_OFFER_KEY, TUTO_LANDING, createTutorialState, isTutorial, saveKeyFor, storeGame, loadTutorial, clearTutorial,
+import { TUTORIAL_STEPS, TUTORIAL_THEMES, TUTO_SAVE_KEY, TUTO_OFFER_KEY, TUTO_LANDING, TUTO_SEA_ROUTE_LENGTH, createTutorialState, isTutorial, saveKeyFor, storeGame, loadTutorial, clearTutorial,
   tutorialOffered, markTutorialOffered, tutorialCompleted, tutorialStepView, tutorialAdvance, tutorialHint, moveEvent, firstVisibleTarget, bubblePlacement, landingFailed, allyGuestProvince } from '../src/presentation/v14-3-tutoriel.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
@@ -87,6 +87,13 @@ test('tutoriel : les chiffres des bulles sont lus dans le moteur (aucune règle 
   assert.match(all, new RegExp(`aident ${HELP_TURNS} tours sur place`));
   assert.match(all, new RegExp(`dure ${RULES.gameLength} tours`));
   assert.match(all, /provinces, puis capitales, puis or/);
+  // Revenus du 1er tour annoncés au journal (+18 or) et durée de la traversée : ceux du moteur.
+  const s = createTutorialState({ map }); resolveInterturn(s, map);
+  const income = s.events.find(e => e.type === 'income');
+  assert.match(all, new RegExp(`vos revenus \\(\\+${income.amount} or\\)`));
+  const route = legalDestinations(map, createTutorialState({ map }), 'p03').find(d => d.id === 'p14');
+  assert.equal(map.seaLanes.find(l => l.from === 'p03' && l.to === 'p14').length, TUTO_SEA_ROUTE_LENGTH);
+  assert.match(all, new RegExp(`Par la mer : ${route.turns} tours de traversée`));
   // Le classement réel : provinces, puis capitales, puis trésor.
   assert.match(read('src/domain/game-engine.js'), /b\.provinces - a\.provinces \|\| b\.capitals - a\.capitals \|\| b\.treasury - a\.treasury/);
 });
@@ -189,9 +196,15 @@ test('tutoriel : quitter à tout moment, retrouver sa partie ; sauvegarde par la
   const app = read('app.js');
   assert.match(app, /const save = \(\) => \{ if \(state\) localStorage\.setItem\(saveKeyFor\(state\), encodeSave\(state\)\); \};/);
   assert.doesNotMatch(app, /localStorage\.setItem\(SAVE_KEY/, 'plus aucune écriture directe sur la clé de la vraie partie');
-  assert.match(app, /function quitTutorial\(\)\{save\(\);stopTuto\(\);showWelcome\(\);/);
   assert.match(app, /function endMiniTuto\(\)\{if\(tutoStep!==null\)return quitTutorial\(\);/, 'le bouton « Quitter » de la bulle');
-  assert.match(app, /function finishTutorial\(\)\{stopTuto\(\);clearTutorial\(\);/);
+    assert.match(app, /function quitTutorial\(\)\{save\(\);stopTuto\(\);closeAllDialogs\(\);showWelcome\(\);/, 'relecture : plus aucune fenêtre ouverte sur l\'accueil');
+  assert.match(app, /function finishTutorial\(\)\{stopTuto\(\);closeAllDialogs\(\);/);
+  assert.match(app, /const game=state,same=\(\)=>state===game;/, 'relecture : la suite de la fin du tour s\'arrête si on a quitté');
+  for (const w of ['showCapitalPopups(events);if(!same())return;', 'showSeaPopups(events);if(!same())return;', "dialogClosed($('#journalDialog'));if(!same())return;"]) assert.ok(app.includes(w), w);
+  assert.match(app, /dataset\.permanent!=='true'\)tuto\('journal-closed'\)/, 'relecture : l\'historique ne valide pas l\'étape du journal');
+  assert.match(app, /\$\('#miniTutoNext'\)\.hidden=v\.on\.includes\('end-turn'\)/, 'relecture : une fin de tour ne se saute pas');
+  assert.match(app, /\$\('#replayMiniTuto'\)\.onclick=\(\)=>\{if\(tutoStep!==null\)return/, 'relecture : mini tuto pas relancé pendant le tutoriel');
+  assert.match(app, /host=\[\.\.\.document\.querySelectorAll\('dialog\[open\]'\)\]\.at\(-1\)\|\|document\.body/, 'relecture : la bulle va dans la fenêtre ouverte (sinon « Quitter » serait inerte)');
   assert.match(app, /if\(!isTutorial\(state\)\)trackMissions\(events\)/, 'le tutoriel ne compte pas pour les missions');
   assert.match(app, /game && !isTutorial\(game\) \? setPlayerBonuses/, 'pas d\'atouts dans le tutoriel');
   assert.ok(read('sw.js').includes("'./src/presentation/v14-3-tutoriel.js'"));

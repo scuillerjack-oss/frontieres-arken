@@ -78,10 +78,12 @@ function placeTutorial(){const bubble=$('#tutorialBubble');if(bubble)bubble.clas
 let miniStep=null;
 // La bulle passe dans la « couche du dessus » (popover) et y est remise à chaque fenêtre ouverte : elle reste lisible
 // pendant les gestes faits dans une fenêtre (Recruter, Déplacer), au lieu d'être cachée dessous.
-function raiseMiniTuto(){const box=$('#miniTuto');if((miniStep===null&&tutoStep===null)||!box.showPopover)return;try{if(box.matches(':popover-open'))box.hidePopover();box.showPopover();}catch{}}
-function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;return;}const s=MINI_TUTO_STEPS[miniStep];
+// V14.3 (relecture) : une fenêtre modale rend inerte tout ce qui est hors d'elle — la bulle est donc DÉPLACÉE dans la
+// fenêtre du dessus (puis remise dans la page) : « Quitter » et « Suivant » restent toujours touchables.
+function raiseMiniTuto(){const box=$('#miniTuto');if((miniStep===null&&tutoStep===null)||!box.showPopover)return;const host=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;try{if(box.matches(':popover-open'))box.hidePopover();if(box.parentElement!==host)host.append(box);box.showPopover();}catch{}}
+function showMiniTuto(){const box=$('#miniTuto');if(miniStep===null){try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;if(box.parentElement!==document.body)document.body.append(box);return;}const s=MINI_TUTO_STEPS[miniStep];
   $('#miniTutoTitle').textContent=s.title;$('#miniTutoText').textContent=s.text;$('#miniTutoNext').textContent=miniStep===MINI_TUTO_STEPS.length-1?'Terminer':'Suivant ›';box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();}
-new MutationObserver(()=>{if((miniStep!==null||tutoStep!==null)&&document.querySelector('dialog[open]'))raiseMiniTuto();if(tutoStep!==null)queueMicrotask(refreshTuto);}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
+new MutationObserver(()=>{if(miniStep!==null||tutoStep!==null)raiseMiniTuto();if(tutoStep!==null)queueMicrotask(refreshTuto);}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open']});
 function startMiniTuto(){if(tutoStep!==null)return;miniStep=0;showMiniTuto();}
 function endMiniTuto(){if(tutoStep!==null)return quitTutorial();miniStep=null;markMiniTutoSeen();showMiniTuto();}
 function miniTuto(event){tuto(event);if(miniStep===null)return;const next=miniTutoAdvance(miniStep,event);if(next===miniStep)return;if(next===null)return endMiniTuto();miniStep=next;showMiniTuto();}
@@ -106,7 +108,7 @@ function showTuto(){
   const box=$('#miniTuto');if(tutoStep===null)return;const v=tutorialStepView(tutoStep,state,map);
   $('#miniTutoTitle').textContent=`${v.progress} · ${v.title}`;$('#miniTutoText').textContent=v.text;
   const goal=$('#miniTutoGoal');goal.hidden=!v.goal;goal.textContent=v.goal?`👉 ${v.goal}`:'';
-  $('#miniTutoSkip').textContent='Quitter';$('#miniTutoNext').textContent=v.next||'Passer l’étape ›';$('#miniTutoNext').classList.toggle('secondary',!v.next);
+  $('#miniTutoSkip').textContent='Quitter';$('#miniTutoNext').textContent=v.next||'Passer l’étape ›';$('#miniTutoNext').classList.toggle('secondary',!v.next);$('#miniTutoNext').hidden=v.on.includes('end-turn'); // une fin de tour se joue toujours (sinon les bulles décaleraient du moteur)
   box.classList.add('tuto-full');box.hidden=false;$('#tutorialBubble').hidden=true;raiseMiniTuto();
   refreshTuto();
 }
@@ -116,12 +118,11 @@ function tuto(event){
   const next=tutorialAdvance(tutoStep,event,state,map);if(next===tutoStep)return;if(next===null)return finishTutorial();setTutoStep(next);
 }
 function tutoRunning(){document.body.classList.add('tutorial-on');clearInterval(tutoTimer);tutoTimer=setInterval(refreshTuto,350);showTuto();}
-function stopTuto(){tutoStep=null;clearInterval(tutoTimer);tutoTimer=0;tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=null;document.body.classList.remove('tutorial-on');const box=$('#miniTuto');box.classList.remove('tuto-full','bottom');$('#miniTutoGoal').hidden=true;$('#miniTutoSkip').textContent='Passer';$('#miniTutoNext').classList.remove('secondary');try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;}
+function stopTuto(){$('#miniTutoNext').hidden=false;tutoStep=null;if($('#miniTuto').parentElement!==document.body)document.body.append($('#miniTuto'));clearInterval(tutoTimer);tutoTimer=0;tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=null;document.body.classList.remove('tutorial-on');const box=$('#miniTuto');box.classList.remove('tuto-full','bottom');$('#miniTutoGoal').hidden=true;$('#miniTutoSkip').textContent='Passer';$('#miniTutoNext').classList.remove('secondary');try{if(box.matches?.(':popover-open'))box.hidePopover();}catch{}box.hidden=true;}
 /** Démarre (ou reprend) le tutoriel. La vraie partie n'est ni lue ni écrite : elle reste sous SAVE_KEY. */
 async function startTutorial({resume=false}={}){
   markTutorialOffered(undefined,tutorialOfferState()==='termine'?'termine':'propose');
-  for(const d of document.querySelectorAll('dialog[open]'))d.close();
-  stopTuto();miniStep=null;
+  stopTuto();closeAllDialogs();miniStep=null;
   const saved=resume?loadTutorial(decodeSave):null;
   state=saved?hydrateState(saved):createTutorialState({map});if(!state)state=createTutorialState({map});
   selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();$('#moveBanner').hidden=true;$('#provinceSheet').hidden=true;save();showGame();
@@ -129,12 +130,13 @@ async function startTutorial({resume=false}={}){
 }
 const tutorialOfferState=()=>{try{return localStorage.getItem('frontieres-arken-tutoriel-propose');}catch{return null;}};
 /** « Quitter » : la partie de tutoriel est gardée (on la reprend depuis l'accueil) ; retour à l'accueil. */
-function quitTutorial(){save();stopTuto();showWelcome();toast('Tutoriel en pause : « Reprendre le tutoriel » sur l’accueil.');}
+function closeAllDialogs(){for(const d of document.querySelectorAll('dialog[open]'))d.close();}
+function quitTutorial(){save();stopTuto();closeAllDialogs();showWelcome();toast('Tutoriel en pause : « Reprendre le tutoriel » sur l’accueil.');}
 function showTutoRanking(){const rows=gameRanking(state).map(r=>`<tr class="${r.nationId===state.playerNationId?'me':''}"><td>${r.rank}</td><td><i style="--nation:${nation(r.nationId).color}"></i>${nation(r.nationId).short}</td><td>${r.provinces}</td><td>${r.capitals}</td><td>${r.treasury}</td></tr>`).join('');
   actionModal('Classement',`TUTORIEL · TOUR ${state.turn}`,`<p class="end-why">Si la partie s’arrêtait maintenant :</p><table class="ranking"><thead><tr><th>#</th><th>Nation</th><th>Prov.</th><th>Cap.</th><th>Or</th></tr></thead><tbody>${rows}</tbody></table><p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor. À la fin d’une vraie partie, cet écran s’affiche tout seul.</p><button class="primary" data-close-ranking>Continuer</button>`);
   $('[data-close-ranking]').onclick=()=>$('#actionDialog').close();}
 /** Fin du tutoriel : sa sauvegarde est effacée (jamais celle de la vraie partie), mini tuto marqué vu. */
-function finishTutorial(){stopTuto();clearTutorial();markTutorialOffered(undefined,'termine');markMiniTutoSeen();state=null;showWelcome();toast('Tutoriel terminé ! Votre partie vous attend.');}
+function finishTutorial(){stopTuto();closeAllDialogs();clearTutorial();markTutorialOffered(undefined,'termine');markMiniTutoSeen();state=null;showWelcome();toast('Tutoriel terminé ! Votre partie vous attend.');}
 function tutoNext(){if(tutoStep===null)return;const v=tutorialStepView(tutoStep,state,map);if(v.action==='ranking')showTutoRanking();if(tutoStep>=TUTORIAL_STEPS.length-1)return finishTutorial();setTutoStep(tutoStep+1);}
 /** Premier lancement : le tutoriel est proposé une fois (jamais imposé). */
 async function offerTutorial(){if(tutorialOffered())return;markTutorialOffered();
@@ -489,11 +491,12 @@ function resolveTurn(){
   const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'})[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
-  $('#confirmEndTurn').onclick=async()=>{ $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
-    await showCapitalPopups(events);
-    await showSeaPopups(events);
+  $('#confirmEndTurn').onclick=async()=>{ const game=state,same=()=>state===game; $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
+    // V14.3 : si le joueur quitte (tutoriel → accueil) pendant ces fenêtres, la suite s'arrête : jamais sur une autre partie.
+    await showCapitalPopups(events);if(!same())return;
+    await showSeaPopups(events);if(!same())return;
     if(state.gameOver){showEndScreen();return;}
-    renderJournal(false);await dialogClosed($('#journalDialog'));
+    renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;
     await showProposalPopups(); };
 }
 function playSfx(){if(!state.settings.sfx)return;audioCtx ||= new AudioContext();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=330;g.gain.setValueAtTime(.035,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.12);}
@@ -612,10 +615,10 @@ $('#miniTutoSkip').onclick=endMiniTuto;
 $('#miniTutoNext').onclick=()=>{if(tutoStep!==null)return tutoNext();if(miniStep===null)return;if(miniStep>=MINI_TUTO_STEPS.length-1)return endMiniTuto();miniStep++;showMiniTuto();};
 $('#welcomeTutorial').onclick=()=>startTutorial({resume:true});
 $('#replayTutorial').onclick=()=>{$('#settingsDialog').close();startTutorial();};
-$('#journalDialog').addEventListener('close',()=>tuto('journal-closed'));
+$('#journalDialog').addEventListener('close',()=>{if($('#journalDialog').dataset.permanent!=='true')tuto('journal-closed');}); // l'historique ne valide pas l'étape
 // V14.3 : un bouton surligné déjà touché est marqué (.tuto-done) : la bulle passe au geste suivant de l'étape.
 document.addEventListener('click',e=>{const t=e.target.closest?.('.tuto-target');if(t&&!t.closest('svg'))t.classList.add('tuto-done');if(tutoStep!==null)setTimeout(refreshTuto,30);},true);
-$('#replayMiniTuto').onclick=()=>{resetMiniTuto();$('#settingsDialog').close();startMiniTuto();};
+$('#replayMiniTuto').onclick=()=>{if(tutoStep!==null)return toast('Terminez ou quittez d’abord le tutoriel');resetMiniTuto();$('#settingsDialog').close();startMiniTuto();};
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;selected=null;placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();
 $('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};

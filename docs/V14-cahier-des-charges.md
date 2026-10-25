@@ -366,16 +366,25 @@ reste pour la première vraie partie de ceux qui passent le tutoriel ; un tutori
    areas comprises) se place à l'opposé de ce qu'il faut toucher ; la cible est entourée de vert et pulse ; la carte se
    centre sur la province à toucher si elle est hors de l'écran.
 
-Tests : `tests/v14-3-tutoriel.test.js` (10 tests) — ordre pédagogique, chiffres lus dans le moteur, scénario identique à
+Tests : `tests/v14-3-tutoriel.test.js` (10 tests ; `v13-1-beta` et `v14-2` adaptés) — ordre pédagogique, chiffres lus dans le moteur, scénario identique à
 chaque lancement, **parcours complet joué avec le vrai moteur** (avertissement, guerre à 85 %, alliance, aide, prise de
 Nordhème, navires au port, renforts, classement), débarquement minimal et cas d'échec, **sauvegarde de la vraie partie
-jamais écrasée** (démarrer, jouer, quitter, reprendre, finir), proposition unique, rejouer. 386 tests au vert.
+jamais écrasée** (démarrer, jouer, quitter, reprendre, finir), proposition unique, rejouer. 385 tests au vert.
 
 Vérifié dans Chrome mobile simulé (393 × 852, Android) : proposition au premier lancement (Passer), vraie partie lancée
 avec Oroël, puis tutoriel depuis l'accueil, les 26 étapes jouées au doigt (chaque cible surlignée, jamais cachée par la
 bulle), « Quitter » au tour 7 → accueil avec « Reprendre le tutoriel » → reprise à la bonne étape → fin → la vraie partie
 reprend au tour 1 avec Oroël, sauvegarde identique octet pour octet ; Paramètres → « Jouer le tutoriel » repart à l'étape 1.
 Aucune erreur JavaScript, aucun débordement horizontal.
+
+Relecture indépendante (25/10/2026) : un point bloquant corrigé — « Quitter » pendant une fenêtre ouverte (journal,
+confirmation) laissait la fenêtre ouverte sur l'accueil, et la suite de la fin du tour pouvait tourner sans partie. Les
+fenêtres sont maintenant fermées, la suite de la fin du tour s'arrête si la partie a changé, et la bulle est placée DANS
+la fenêtre ouverte (une fenêtre modale rendait la bulle intouchable). Corrigé aussi : fermer l'Historique ne valide plus
+l'étape « journal » ; une étape « Fin du tour » ne se saute pas (sinon les bulles décaleraient du moteur) ; « Relancer le
+mini tuto » est sans effet pendant le tutoriel ; revenus du 1er tour (+18 or) et durée de la traversée lus dans le moteur
+(testés). Vérifié dans le navigateur : Quitter avec le journal ouvert → accueil sans fenêtre, aucune erreur ; le mini tuto
+V13.4 fonctionne toujours (sa bulle suit la fenêtre Recrutement).
 
 ### À surveiller (V14.3)
 - Le scénario rend le tutoriel sûr (une seule IA, les autres nations ne bougent pas) : c'est voulu pour apprendre, mais une

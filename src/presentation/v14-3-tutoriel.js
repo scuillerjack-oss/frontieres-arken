@@ -10,6 +10,7 @@
 import { createGameState } from '../state/create-game-state.js';
 import { setTension } from '../domain/leaders.js';
 import { RULES } from '../domain/constants.js';
+import { seaTravelTurns } from '../domain/game-engine.js';
 import { HELP_TURNS } from '../domain/alliances.js';
 import { HOSTILITY_WARNING, HOSTILITY_WAR, TALK_TENSION } from '../domain/leaders.js';
 import { SAVE_KEY } from './v4-ux.js';
@@ -26,6 +27,9 @@ export const TUTO_START_TENSION = 60;
 /** Débarquement « réussi à coup sûr » dans ce scénario (vérifié par les tests) : escorte et troupes minimales. */
 export const TUTO_LANDING = Object.freeze({ from: 'p03', to: 'p14', minWarships: 2, minTroops: 60 });
 
+// Traversée Branvale → Nordhème : longueur de la route de la carte (236), durée calculée par le moteur (vérifiée par les tests).
+export const TUTO_SEA_ROUTE_LENGTH = 236;
+const seaTurns = seaTravelTurns(TUTO_SEA_ROUTE_LENGTH);
 const inc = RULES.baseIncome, bank = RULES.bankIncome, hostile = TALK_TENSION.hostile, landingPct = Math.round(RULES.combat.landingPenalty * 100);
 
 /**
@@ -97,7 +101,7 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: 'Rien ne bouge avant la fin du tour : vos ordres et ceux des autres nations se jouent alors tous en même temps.',
     goal: 'Touchez « Fin du tour », puis « Verrouiller et résoudre ».' },
   { id: 'journal', theme: 'tour', title: 'Le journal', on: 'journal-closed', targets: ['#journalDialog .primary'],
-    text: 'Le journal résume le tour : vos revenus (+18 or), les messages, les combats. L’onglet « Historique » garde tout.',
+    text: `Le journal résume le tour : vos revenus (+${4 * inc + RULES.portIncome} or), les messages, les combats. L’onglet « Historique » garde tout.`,
     goal: 'Lisez-le, puis « Retour à la carte ».' },
   // Tour 2 — recrutement (ⓘ PV et dégâts), constructions et revenus
   { id: 'recruter-info', theme: 'recruter', title: 'Recruter : PV et dégâts', on: 'unit-info', targets: ['[data-unit-info="infantry"]', SHEET('p01', 'recruit'), P('p01')],
@@ -140,7 +144,7 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: 'Une ancre ⚓ = un point de port : on y embarque. Un port construit (ancre cerclée d’or) permet aussi d’avoir des navires de guerre.',
     goal: 'Touchez Branvale : port construit, 3 navires à quai.' },
   { id: 'debarquer', theme: 'mer', title: 'Transport et débarquement', on: 'landing-escorted', targets: [CONFIRM, ONCE('[data-preset="100"]'), '#confirmMove', DEST('p14'), SHEET('p03', 'move'), P('p03')],
-    text: `Par la mer : ${2} tours de traversée, puis débarquement (vos troupes frappent à ${landingPct} %). Sans navires d’escorte, un convoi intercepté ne se défend pas.`,
+    text: `Par la mer : ${seaTurns} tours de traversée, puis débarquement (vos troupes frappent à ${landingPct} %). Sans navires d’escorte, un convoi intercepté ne se défend pas.`,
     goal: '« Déplacer / Attaquer » → Nordhème → « 100 % » (troupes et navires) → « Ajouter cet ordre » → « Confirmer ».',
     hints: { 'landing-weak': `Pour ce tutoriel, il faut au moins ${TUTO_LANDING.minWarships} navires et ${TUTO_LANDING.minTroops} soldats : touchez la flèche de l’ordre pour l’annuler, puis recommencez avec « 100 % ».` } },
   { id: 'fin-tour-5', theme: 'mer', title: 'En mer', on: 'end-turn', targets: ['#confirmEndTurn', '#nextTurn'],
