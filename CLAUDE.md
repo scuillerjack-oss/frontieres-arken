@@ -53,3 +53,12 @@ suivant, sans retélécharger l'APK. L'AAB Google Play, lui, garde le jeu embarq
   copie vers `dist/` et remplace `__VERSION__` par `version+commit`.
 - Tous les chemins sont relatifs : le site vit sous `/frontieres-arken/`.
 - Le moteur (`src/domain/`) ne dépend pas de la géométrie ; garder `src/domain/` sans DOM, testable sous Node.
+
+## Règles du studio (valables pour tous les projets de Jack)
+- **Relance automatique après la limite de quota** : si une équipe est bloquée par la limite, le chef de projet
+  programme une relance juste après l’heure de réinitialisation et reprend le travail en cours sans attendre Jack
+  (quota hebdomadaire épuisé : rien à relancer avant sa réinitialisation).
+- **Aucun jeu à perte** : chaque jeu a une fiche de rentabilité dans `docs/` (coûts réels, 3 scénarios de revenus,
+  seuil de rentabilité), mise à jour avant chaque publication ; 0 € de coût de fonctionnement.
+- **Jamais de pub quand le joueur dit non** ; jamais de pub pendant qu’on joue ni dans un tutoriel.
+- Les documents de travail vivent dans `docs/` du dépôt concerné, pour être retrouvés d’une conversation à l’autre.
