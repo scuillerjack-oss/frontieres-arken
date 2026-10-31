@@ -333,7 +333,8 @@ test('V14.4 secrets : aucun keystore ni identifiant AdMob réel dans le dépôt 
   const gitignore = read('.gitignore'); assert.match(gitignore, /\*\.jks/); assert.match(gitignore, /\*\.keystore/);
   for (const f of files.filter(f => /\.(js|json|md|yml|html|txt|xml)$/.test(f) && !f.endsWith('package-lock.json'))) {
     const text = read(f);
-    for (const m of text.matchAll(/ca-app-pub-(\d+)/g)) assert.equal(m[1], '3940256099942544', `${f} : identifiant AdMob non-test (${m[0]})`);
+    // Les tests utilisent volontairement de faux identifiants « production » pour vérifier que le build les refuse.
+    if (!f.startsWith('tests/')) for (const m of text.matchAll(/ca-app-pub-(\d+)/g)) assert.equal(m[1], '3940256099942544', `${f} : identifiant AdMob non-test (${m[0]})`);
     assert.doesNotMatch(text, /-----BEGIN (RSA |EC )?PRIVATE KEY-----/, f);
     assert.doesNotMatch(text, /PLAY_UPLOAD_KEYSTORE_BASE64\s*[=:]\s*['"]?[A-Za-z0-9+/]{60,}/, f);
   }
