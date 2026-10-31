@@ -20,7 +20,8 @@ import { setPlayerBonuses, recruitPreview } from './src/domain/boosts.js';
 import { upgradeBoost, addMissionProgress, recordAdWatched, missionDeltas, exportProfile, importProfile, BOOST_INFO, productById } from './src/domain/profile.js';
 import { loadProfile, saveProfile, todayLocal } from './src/presentation/profile-storage.js';
 import { showGameStartAd, showRewardedAd } from './src/presentation/ads.js';
-import { purchase } from './src/presentation/store.js';
+import { purchase, restorePurchases, BILLING_ENABLED } from './src/presentation/store.js';
+import { initPlay } from './src/presentation/play.js'; // V14.4 : pubs AdMob + achats Play Billing, build Google Play seulement
 import { boostScreenHtml } from './src/presentation/v12-ux.js';
 // V13 : alliances (demandes d'aide, propositions Oui / Non), récit d'introduction, prise de capitale, tension en %.
 import { proposalsToAnswer, respondToProposal } from './src/domain/game-engine.js';
@@ -54,6 +55,18 @@ let backgroundImage = null;
 // V12 : profil joueur (clé localStorage dédiée `frontieres-arken-profil`, distincte de la sauvegarde de partie).
 let profile = loadProfile();
 const saveMyProfile = () => saveProfile(profile);
+// V14.4 : build Google Play — consentement pub, bouton « Choix de confidentialité », achats payés mais non crédités rendus.
+let playPrivacy = null;
+async function recoverPlayPurchases(){
+  if(!BILLING_ENABLED)return;
+  const r=await restorePurchases(profile,{save:saveMyProfile,date:todayLocal()});
+  if(r.restored){saveMyProfile();if($('#boostDialog')?.open)openBoosts();toast(`Achat récupéré${r.tokens?` : +${r.tokens} jeton${r.tokens>1?'s':''}`:''}`);}
+}
+function refreshPlayPrivacy(){for(const id of ['adsPrivacy','adsPrivacyBoost']){const b=$('#'+id);if(b)b.hidden=!playPrivacy?.privacyOptionsRequired;}}
+async function startPlay(){
+  playPrivacy=await initPlay();refreshPlayPrivacy();$('#adsPrivacy').onclick=()=>playPrivacy?.showPrivacyOptions();
+  if(playPrivacy.active){await recoverPlayPurchases();addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recoverPlayPurchases();});}
+}
 /** Injecte les atouts du profil dans la partie (joueur humain seulement) : création, chargement, amélioration. */
 const applyBoosts = game => game && !isTutorial(game) ? setPlayerBonuses(game, profile.boosts) : game; // V14.3 : pas d'atouts dans le tutoriel (chiffres de base)
 // V14.3 : la partie de tutoriel a SA clé (frontieres-arken-tutoriel-save) ; la vraie partie garde SAVE_KEY, jamais écrasée.
@@ -522,9 +535,10 @@ function openBoosts(){
   const inGame=!$('#gameScreen').hidden&&Boolean(state);
   $('#boostBody').innerHTML=boostScreenHtml(profile,todayLocal(),{inGame});
   document.querySelectorAll('[data-boost]').forEach(b=>b.onclick=()=>{const r=upgradeBoost(profile,b.dataset.boost);if(!r.ok)return toast(r.error);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast(`${BOOST_INFO[b.dataset.boost].label} : +${r.level} %`);});
-  document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=async()=>{b.disabled=true;const r=await purchase(profile,b.dataset.buy,{date:todayLocal()});if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();toast(`Achat de test : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
-  $('[data-watch-ad]')?.addEventListener('click',async()=>{const r=await showRewardedAd();if(!r.rewarded)return toast('Publicité indisponible pour le moment');const res=recordAdWatched(profile,todayLocal());saveMyProfile();openBoosts();toast(`Mission publicité accomplie${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`);});
-  $('#copyProfile').onclick=copyProfile;$('#restoreProfile').onclick=restoreProfileView;
+  document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=async()=>{b.disabled=true;const r=await purchase(profile,b.dataset.buy,{date:todayLocal(),save:saveMyProfile});if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
+  $('[data-watch-ad]')?.addEventListener('click',async()=>{if(tutoStep!==null)return toast('Les publicités sont désactivées pendant le tutoriel');const r=await showRewardedAd();if(!r.rewarded)return toast(r.dismissed?'Publicité fermée : aucune récompense, et plus aucune publicité ne te sera imposée':'Publicité indisponible pour le moment');const res=recordAdWatched(profile,todayLocal());saveMyProfile();openBoosts();toast(`Mission publicité accomplie${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`);});
+  $('#copyProfile').onclick=copyProfile;$('#restoreProfile').onclick=restoreProfileView;refreshPlayPrivacy();
+  document.querySelectorAll('[data-ads-privacy]').forEach(b=>b.onclick=()=>playPrivacy?.showPrivacyOptions());
   if(!$('#boostDialog').open)$('#boostDialog').showModal();
 }
 async function copyProfile(){
@@ -568,7 +582,7 @@ function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
   document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
-    await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;}tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
+    await showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;}tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
 }
 function setup(){const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);setActiveScreen(document,'welcome');updateTutoEntry();offerTutorial();}
@@ -644,4 +658,4 @@ function handleAppBack(){
   else showWelcome();
   if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);
 }
-addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();
+addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();
