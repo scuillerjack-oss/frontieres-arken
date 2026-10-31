@@ -16,5 +16,9 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2"
+  },
+  "arkenPlayDependencies": {
+    "@capacitor-community/admob": "^8.0.0",
+    "@capgo/native-purchases": "^8.0.0"
   }
 }
