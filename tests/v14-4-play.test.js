@@ -97,7 +97,7 @@ test('V14.4 pubs : app.js ne demande une pub qu\'avant une nouvelle partie (hors
   // Deux pubs récompensées, toutes deux sur clic du joueur : la mission du jour et la pub bonus (V14.4, validée par Jack).
   assert.equal([...app.matchAll(/showRewardedAd\(/g)].length, 2);
   assert.match(app, /data-bonus-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub bonus pendant le tutoriel');
-  assert.match(app, /data-watch-ad\]'\)\?\.addEventListener\('click',async\(\)=>\{if\(tutoStep!==null\)/, 'pas de pub récompensée pendant le tutoriel');
+  assert.match(app, /data-watch-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub récompensée pendant le tutoriel');
   for (const f of ['src/domain/game-engine.js', 'src/presentation/v14-3-tutoriel.js']) assert.doesNotMatch(read(f), /ads\.js|showGameStartAd|showRewardedAd/);
 });
 
