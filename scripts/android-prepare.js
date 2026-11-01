@@ -16,6 +16,7 @@
 import { cpSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { configureManifest } from './play-config.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = join(root, 'android', 'app');
@@ -71,4 +72,8 @@ android {
 `;
   writeFileSync(gradleFile, gradle);
 }
+// 4. Build Google Play seulement (ARKEN_PLAY_BUILD) : APPLICATION_ID AdMob + permission BILLING. Sans cette variable
+// (APK de bêta, build local), le manifeste reste celui de Capacitor.
+const play = configureManifest(root, process.env);
+if (play.changed) console.log(`Manifeste Google Play : AdMob ${play.testing ? 'TEST' : 'PRODUCTION'} (${play.appId}), permission BILLING`);
 console.log('android/ personnalisé : icônes, version, signature (bêta, ou « play » si ARKEN_PLAY_STORE_FILE est défini au build)');

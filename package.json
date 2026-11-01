@@ -1,6 +1,6 @@
 {
   "name": "frontieres-arken",
-  "version": "14.3.0",
+  "version": "14.4.0",
   "private": true,
   "description": "FRONTIÈRES: ARKEN — stratégie au tour par tour, PWA mobile.",
   "type": "module",
@@ -16,5 +16,9 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2"
+  },
+  "arkenPlayDependencies": {
+    "@capacitor-community/admob": "^8.0.0",
+    "@capgo/native-purchases": "^8.0.0"
   }
 }

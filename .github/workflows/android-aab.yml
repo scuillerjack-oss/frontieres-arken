@@ -23,6 +23,15 @@ name: AAB Google Play (test interne)
 # jamais le baisser. Relancer une même exécution (« Re-run ») redonne le même versionCode :
 # Google refusera ce doublon, il faut alors relancer via « Run workflow » (nouveau numéro).
 #
+# V14.4 — PUBLICITÉS ET ACHATS : réservés à CE workflow (variable ARKEN_PLAY_BUILD, lue par scripts/build.js et
+# scripts/android-prepare.js). La PWA et l'APK de bêta (android-apk.yml) n'ont ni SDK ni plugin.
+#   - Plugins natifs (AdMob + Play Billing) : installés ici par scripts/play-deps.js (liste dans package.json,
+#     « arkenPlayDependencies »), jamais dans les dépendances de la PWA.
+#   - Publicités : identifiants de TEST Google tant que la variable de dépôt ARKEN_ADS_PRODUCTION n'est pas définie.
+#     Pour la production, définir les 4 variables de dépôt (Settings > Secrets and variables > Actions > Variables) :
+#     ARKEN_ADS_PRODUCTION (ex. true), ARKEN_ADMOB_APP_ID, ARKEN_ADMOB_INTERSTITIAL_ID, ARKEN_ADMOB_REWARDED_ID.
+#     Production avec un identifiant manquant ou de test = le build ÉCHOUE (volontaire).
+#
 # L'envoi automatique vers Google Play (API + compte de service) n'est pas en place :
 # Jack importe l'AAB à la main dans la Play Console.
 on:
@@ -41,6 +50,12 @@ env:
   PLAY_VERSION_CODE_OFFSET: 10000
   # Empreinte SHA-256 du certificat de la clé d'importation (publique, pas un secret).
   PLAY_UPLOAD_CERT_SHA256: 739764E974E94F243D4F43E113A0A132630441FE40A4D481E5299F74CD2235CF
+  # V14.4 : build Google Play (pubs AdMob + achats Play Billing). Vide = identifiants de TEST Google.
+  ARKEN_PLAY_BUILD: '1'
+  ARKEN_ADS_PRODUCTION: ${{ vars.ARKEN_ADS_PRODUCTION }}
+  ARKEN_ADMOB_APP_ID: ${{ vars.ARKEN_ADMOB_APP_ID }}
+  ARKEN_ADMOB_INTERSTITIAL_ID: ${{ vars.ARKEN_ADMOB_INTERSTITIAL_ID }}
+  ARKEN_ADMOB_REWARDED_ID: ${{ vars.ARKEN_ADMOB_REWARDED_ID }}
 
 jobs:
   aab:
@@ -76,8 +91,13 @@ jobs:
       - if: steps.cle.outputs.ok == 'true'
         run: npm ci
       - if: steps.cle.outputs.ok == 'true'
-        run: npm test
-      - if: steps.cle.outputs.ok == 'true'
+        # Les tests tournent SANS les plugins natifs et sans ARKEN_PLAY_BUILD : ils vérifient le comportement PWA/bêta.
+        run: env -u ARKEN_PLAY_BUILD -u ARKEN_ADS_PRODUCTION npm test
+      - name: Plugins natifs du build Play (AdMob, Play Billing)
+        if: steps.cle.outputs.ok == 'true'
+        run: node scripts/play-deps.js
+      - name: Construire le jeu (pubs TEST ou PRODUCTION ; échoue si identifiant manquant ou de test en production)
+        if: steps.cle.outputs.ok == 'true'
         run: node scripts/build.js "$GITHUB_SHA"
 
       - name: Générer et personnaliser le projet Android
@@ -119,6 +139,9 @@ jobs:
           export ARKEN_VERSION_CODE ARKEN_VERSION_NAME
           echo "versionCode=${ARKEN_VERSION_CODE} versionName=${ARKEN_VERSION_NAME}"
           echo "ARKEN_VERSION_CODE=${ARKEN_VERSION_CODE}" >> "$GITHUB_ENV"
+          if [ -n "$ARKEN_ADS_PRODUCTION" ] && [ "$ARKEN_ADS_PRODUCTION" != "0" ] && [ "$ARKEN_ADS_PRODUCTION" != "false" ]; then ADS=PRODUCTION; else ADS=TEST; fi
+          echo "Publicités : ${ADS}"
+          echo "### Build Google Play : Publicités : ${ADS}" >> "$GITHUB_STEP_SUMMARY"
           ./gradlew bundleRelease --stacktrace --no-daemon
 
       - name: Supprimer la clé d'importation du runner
@@ -163,5 +186,7 @@ jobs:
           fi
           {
             echo "### AAB Google Play publié : ${VERSION} (versionCode ${ARKEN_VERSION_CODE})"
+            if [ -n "$ARKEN_ADS_PRODUCTION" ] && [ "$ARKEN_ADS_PRODUCTION" != "0" ] && [ "$ARKEN_ADS_PRODUCTION" != "false" ]; then echo "- Publicités : PRODUCTION"; else echo "- Publicités : TEST (identifiants de test Google)"; fi
+            echo "- Achats : Google Play Billing (pack_debutant, jetons_1, jetons_5, jetons_12)"
             echo "${URL}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,6 @@
 // V12 — Écran « Atouts & missions » (rendu HTML pur, testable sous Node ; branché dans app.js).
 import { BOOST_KEYS, BOOST_MAX_LEVEL, BOOST_STEP_PCT } from '../domain/boosts.js';
-import { BOOST_INFO, missionStatus, STARTER_PACK_TOKENS, DAILY_REWARD_TOKENS, canUpgradeBoost } from '../domain/profile.js';
+import { BOOST_INFO, missionStatus, STARTER_PACK_TOKENS, DAILY_REWARD_TOKENS, canUpgradeBoost, BONUS_ADS_PER_TOKEN } from '../domain/profile.js';
 import { storeItems, BILLING_ENABLED } from './store.js';
 
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -19,15 +19,17 @@ export function boostScreenHtml(profile, date, { inGame = false } = {}) {
   const pack = items.find(x => x.id === 'pack_debutant');
   const packHtml = profile.starterPack
     ? `<div class="pack owned"><b>✔ Pack débutant actif</b><small>Plus aucune publicité au début des parties.</small></div>`
-    : `<div class="pack"><b>Pack débutant</b><small>Plus aucune publicité + ${STARTER_PACK_TOKENS} jetons immédiats. Achat unique.</small><button class="buy-test" data-buy="pack_debutant" ${pack?.available ? '' : 'disabled'}>${BILLING_ENABLED ? 'Acheter' : 'Achat de test (gratuit)'}</button></div>`;
-  const tokenItems = items.filter(x => x.id !== 'pack_debutant').map(x => `<button class="token-buy" data-buy="${x.id}">${esc(x.label)}<small>${BILLING_ENABLED ? '' : 'test gratuit'}</small></button>`).join('');
+    : `<div class="pack"><b>Pack débutant</b><small>Plus aucune publicité + ${STARTER_PACK_TOKENS} jetons immédiats. Achat unique.</small><button class="buy-test" data-buy="pack_debutant" ${pack?.available ? '' : 'disabled'}>${BILLING_ENABLED ? `Acheter${pack?.price ? ` · ${esc(pack.price)}` : ''}` : 'Achat de test (gratuit)'}</button></div>`;
+  const tokenItems = items.filter(x => x.id !== 'pack_debutant').map(x => `<button class="token-buy" data-buy="${x.id}">${esc(x.label)}<small>${BILLING_ENABLED ? esc(x.price || '') : 'test gratuit'}</small></button>`).join('');
   return `<div class="tokens-head"><span class="token-coin" aria-hidden="true">✦</span><div><b id="tokenCount">${profile.tokens}</b><small>jeton${profile.tokens > 1 ? 's' : ''} à placer</small></div><p>1 jeton = +1 % sur un atout, jusqu’à +10 %. ${inGame ? 'Les atouts s’appliquent tout de suite à ta nation, jamais aux IA.' : 'Les atouts s’appliquent à ta nation, jamais aux IA.'}</p></div>
   <h3 class="v12-h">Atouts</h3><div class="boost-list">${boosts}</div>
   <h3 class="v12-h">Missions du jour <small>${status.done}/${status.total}${status.rewarded ? ' · jeton du jour reçu ✔' : ` · ${status.total}/${status.total} = +${DAILY_REWARD_TOKENS} jeton`}</small></h3>
   <div class="mission-list">${missions}</div><p class="v12-note">La progression compte sur toutes tes parties de la journée. Nouvelles missions à minuit.</p>
+  <div class="mission ad bonus-ad" data-bonus-row><span class="mission-check" aria-hidden="true">▶</span><span class="mission-main"><b>Pub bonus (facultatif)</b><small>${BONUS_ADS_PER_TOKEN} pubs regardées = +1 jeton, autant de fois que tu veux.</small><span class="mission-bar"><i style="width:${Math.round(100 * (profile.bonusAds || 0) / BONUS_ADS_PER_TOKEN)}%"></i></span></span><span class="mission-count">${profile.bonusAds || 0}/${BONUS_ADS_PER_TOKEN}</span><button class="mission-ad" data-bonus-ad>Regarder</button></div>
   <h3 class="v12-h">Boutique ${BILLING_ENABLED ? '' : '<span class="test-badge">BÊTA · AUCUN PAIEMENT</span>'}</h3>${packHtml}
   <div class="token-shop">${tokenItems}</div>
   <p class="v12-note">On n’achète jamais d’or ni de troupes : seulement des jetons d’atouts et la suppression des publicités.</p>
   <h3 class="v12-h">Sécurité du profil</h3><p class="v12-note">En attendant la sauvegarde Google Play Jeux, garde une copie de ton profil (jetons, atouts, achats) dans tes notes.</p>
-  <div class="profile-tools"><button id="copyProfile" class="welcome-secondary">Copier mon profil</button><button id="restoreProfile" class="welcome-secondary">Restaurer</button></div>`;
+  <div class="profile-tools"><button id="copyProfile" class="welcome-secondary">Copier mon profil</button><button id="restoreProfile" class="welcome-secondary">Restaurer</button></div>
+  <button id="adsPrivacyBoost" class="welcome-secondary" data-ads-privacy hidden>Choix de confidentialité des publicités</button>`;
 }
