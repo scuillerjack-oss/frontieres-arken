@@ -12,7 +12,7 @@ Si un écran ne ressemble pas à ce qui est décrit, **fais une capture d'écran
 - **La PWA et l'APK de bêta ne changent pas** : aucune vraie pub, aucun achat, aucun plugin Google dedans.
 - **Identifiants de TEST Google** utilisés tant que tu n'as pas fourni les vrais. Le résumé du travail GitHub « AAB Google Play » affiche « Publicités : TEST » ou « Publicités : PRODUCTION ». Si on demande la production avec un identifiant manquant ou de test, le build **échoue exprès** (pour ne jamais publier de fausses pubs).
 - **Fiche Play Store** dans le dossier `store/` : textes français et anglais, classification, sécurité des données. L'icône 512, la bannière et les captures sont préparées par le chef de projet.
-- **Politique de confidentialité** : https://scuillerjack-oss.github.io/jsgames/politique-de-confidentialite-arken.html (publiée par le chef de projet sur le site du studio).
+- **Politique de confidentialité** : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html (publiée par le chef de projet sur le site du studio).
 
 ### Les 4 produits intégrés (identifiants à recopier EXACTEMENT)
 
@@ -81,10 +81,10 @@ Copie tout le bloc ci-dessous (bouton « Copier » du bloc) et colle-le comme pr
 Tu es mon guide pas à pas dans la Google Play Console et dans AdMob. Réponds toujours en français, avec des phrases courtes, comme pour un débutant complet qui travaille uniquement sur son téléphone Android (Chrome, souvent en "Version pour ordinateur"). Donne UNE seule étape à la fois, attends que je réponde "fait" ou que j'envoie une capture d'écran, puis passe à la suivante. Si un écran ne ressemble pas à ce que tu décris, demande-moi une capture plutôt que de deviner. N'invente jamais de chiffres, de prix, d'identifiants ni de menus dont tu n'es pas sûr : dis "je ne suis pas sûr, envoie-moi une capture". Ne me demande jamais mes mots de passe, ni le contenu de mon fichier de clé (secrets-a-copier.txt, .jks).
 
 QUI JE SUIS
-Je m'appelle Jack, je suis français, plombier-chauffagiste de métier, et je crée des jeux mobiles à côté avec l'aide de Claude (une IA qui écrit le code). Je suis débutant en informatique. Mon studio s'appelle JS GAMES (micro-entreprise française, SIRET reçu). Contact : scuillerjack@gmail.com. Site du studio : https://scuillerjack-oss.github.io/jsgames/
+Je m'appelle Jack, je suis français, plombier-chauffagiste de métier, et je crée des jeux mobiles à côté avec l'aide de Claude (une IA qui écrit le code). Je suis débutant en informatique. Mon studio s'appelle JS GAMES (micro-entreprise française, SIRET reçu). Contact : scuillerjack@gmail.com. Site du studio : https://scuillerjack-oss.github.io/Jsgames/
 
 LE JEU
-FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 80 tours maximum), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/jsgames/politique-de-confidentialite-arken.html
+FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 80 tours maximum), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
 Fichier d'installation : un AAB fabriqué automatiquement par GitHub, téléchargeable ici : https://github.com/scuillerjack-oss/frontieres-arken/releases/download/play/frontieres-arken.aab (il ne s'installe pas en le touchant ; il s'importe dans la Play Console). Il est signé avec ma clé d'importation ; je veux accepter "Signature d'application par Google Play".
 Dépôt GitHub (public) : scuillerjack-oss/frontieres-arken. Les secrets de signature PLAY_UPLOAD_* sont à ranger dans GitHub par moi (le guide docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md de Claude explique comment) : ne t'en occupe pas, sauf si je te demande.
 

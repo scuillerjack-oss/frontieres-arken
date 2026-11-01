@@ -4,7 +4,7 @@ Play Console > Règles et programmes > Contenu de l'application > Sécurité des
 Ces réponses reflètent le build Google Play d'ARKEN V14.4 avec le SDK Google Mobile Ads (AdMob) + UMP et Google Play Billing.
 Elles s'appuient sur la documentation Google « Données divulguées par le SDK Google Mobile Ads » :
 **à revérifier le jour de la déclaration**, Google peut faire évoluer la liste.
-Politique de confidentialité : https://scuillerjack-oss.github.io/jsgames/politique-de-confidentialite-arken.html
+Politique de confidentialité : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
 
 ## Collecte et partage
 
@@ -40,4 +40,4 @@ Notes :
 | Application destinée aux enfants ? | **Non** |
 | Accès à l'application | Toutes les fonctionnalités sont accessibles sans identifiants |
 | Application d'actualités / gouvernement / santé / finances | Non |
-| URL de la politique de confidentialité | https://scuillerjack-oss.github.io/jsgames/politique-de-confidentialite-arken.html |
+| URL de la politique de confidentialité | https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html |
