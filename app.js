@@ -19,6 +19,7 @@ import { provinceTroopView, knownTroopProvinces } from './src/presentation/v13-v
 import { setPlayerBonuses, recruitPreview } from './src/domain/boosts.js';
 import { upgradeBoost, addMissionProgress, recordAdWatched, missionDeltas, exportProfile, importProfile, BOOST_INFO, productById } from './src/domain/profile.js';
 import { loadProfile, saveProfile, todayLocal } from './src/presentation/profile-storage.js';
+import { recordGameStarted, hintsActive } from './src/domain/profile.js'; // V14.4 : explications pendant les 2 premières parties
 import { showGameStartAd, showRewardedAd } from './src/presentation/ads.js';
 import { purchase } from './src/presentation/store.js';
 import { boostScreenHtml } from './src/presentation/v12-ux.js';
@@ -63,10 +64,13 @@ const save = () => { if (state) localStorage.setItem(saveKeyFor(state), encodeSa
 const load = () => { try { const raw=localStorage.getItem(SAVE_KEY); return raw ? decodeSave(raw) : null; } catch { return null; } };
 const E = (tag, attrs={}) => { const node=document.createElementNS(SVG,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); return node; };
 function toast(message) { const node=$('#toast'); node.textContent=message; node.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>node.classList.remove('show'),4200); }
+// V14.4 (Jack) : bulles d'explication seulement pendant les 2 premières vraies parties (compteur du profil), sauf si le
+// joueur les redemande (Paramètres → « Revoir les conseils »). Le tutoriel V14.3 reste rejouable depuis l'accueil.
+function hintsOn(){return hintsActive(profile)||Boolean(state?.tutorial?.forced);}
 function tutorial(id,title,text) {
   if (miniStep!==null||tutoStep!==null) return; // V14.3 : ni pendant le tutoriel
   if (miniStep!==null) return; // V13.4 : pas de bulle contextuelle pendant le mini tuto (elles restent pour plus tard)
-  if (!state.settings.hints || state.tutorial.seen.includes(id)) return;
+  if (!state.settings.hints || !hintsOn() || state.tutorial.seen.includes(id)) return;
   if(state.tutorial.turn!==state.turn){state.tutorial.turn=state.turn;state.tutorial.shown=[];}
   state.tutorial.shown||=[];if(state.tutorial.shown.length>=2)return;
   state.tutorial.shown.push(id);tutorialShown.add(id);state.tutorial.seen.push(id);state.tutorial.stage=(state.tutorial.stage||0)+1;save();
@@ -422,7 +426,7 @@ async function showCapitalPopups(events){
 }
 async function showSeaPopups(events){
   for(const c of seaFatePopups(events,state.playerNationId,{nation:id=>nation(id).short,province:id=>province(id).name}))
-    await eventPopup({kicker:c.kicker,title:c.title,cls:`capital lost sea ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>${c.tip?`<p class="sea-tip">💡 ${c.tip}</p>`:''}`,buttons:[{label:'Compris',value:true,primary:true}]});
+    await eventPopup({kicker:c.kicker,title:c.title,cls:`capital lost sea ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>${c.tip&&hintsOn()?`<p class="sea-tip">💡 ${c.tip}</p>`:''}`,buttons:[{label:'Compris',value:true,primary:true}]});
 }
 async function showProposalPopups(){
   for(const p of safeEngine(()=>proposalsToAnswer(state,state.playerNationId,{fresh:true}),[])){
@@ -583,7 +587,7 @@ function beginNewGame(){
 }
 function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();state=applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)}));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
     await showGameStartAd({profile});selected=null;moveSource=null;scale=1;tx=ty=0;updateLabelScale();showGame();await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;}tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
   $('#nationDialog').showModal();
@@ -643,7 +647,7 @@ $('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn')
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
-$('#resetHints').onclick=()=>{state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
+$('#resetHints').onclick=()=>{state.tutorial.forced=true;state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
 $('#endNewGame').onclick=()=>{$('#endDialog').close();beginNewGame();};$('#endJournal').onclick=()=>{$('#endDialog').close();renderJournal(true);};
 // Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
