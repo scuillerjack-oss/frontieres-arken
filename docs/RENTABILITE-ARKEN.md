@@ -91,3 +91,17 @@ Ne PAS faire : pubs pendant la partie ou le tutoriel, pub forcée après un refu
 node tools/economie-v14-4.mjs
 ```
 Version lisible par un programme : `node tools/economie-v14-4.mjs --json`. Pour tester d'autres hypothèses, modifier les valeurs en tête de `tools/economie-v14-4.mjs`, puis lancer `npm test` (le test `tests/economie-v14-4.test.js` vérifie que les résultats restent positifs et dans l'ordre bas < central < haut).
+
+
+## 7. Décision du 31/10/2026 : pub bonus adoptée (ajustement A)
+
+Jack a validé l'ajustement A. Codé en V14.4 :
+- bouton « Pub bonus (facultatif) » dans l'écran Atouts & missions, **sans limite par jour**, jamais proposé de force ;
+- **3 pubs regardées en entier = +1 jeton** (compteur conservé dans le profil) ; une pub fermée avant la fin ne compte pas
+  et, comme partout, aucune pub n'est imposée derrière ;
+- désactivé pendant le tutoriel ; reste disponible avec le Pack débutant (c'est le joueur qui choisit).
+
+Pourquoi 3 pubs par jeton : tout maximiser demande 50 jetons, soit environ 7 semaines avec les missions seules. Avec la pub
+bonus, un joueur très motivé peut aller plus vite (150 pubs pour 50 jetons), mais ça reste un vrai effort ; et chaque pub
+regardée rapporte. Revenu estimé avec cette variante : ~130 € (bas), ~510 € (central), ~1 740 € (haut) par mois pour
+10 000 joueurs actifs (`node tools/economie-v14-4.mjs`, ligne « variante ajustée »).

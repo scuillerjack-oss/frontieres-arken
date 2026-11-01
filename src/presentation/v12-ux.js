@@ -1,6 +1,6 @@
 // V12 — Écran « Atouts & missions » (rendu HTML pur, testable sous Node ; branché dans app.js).
 import { BOOST_KEYS, BOOST_MAX_LEVEL, BOOST_STEP_PCT } from '../domain/boosts.js';
-import { BOOST_INFO, missionStatus, STARTER_PACK_TOKENS, DAILY_REWARD_TOKENS, canUpgradeBoost } from '../domain/profile.js';
+import { BOOST_INFO, missionStatus, STARTER_PACK_TOKENS, DAILY_REWARD_TOKENS, canUpgradeBoost, BONUS_ADS_PER_TOKEN } from '../domain/profile.js';
 import { storeItems, BILLING_ENABLED } from './store.js';
 
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -25,6 +25,7 @@ export function boostScreenHtml(profile, date, { inGame = false } = {}) {
   <h3 class="v12-h">Atouts</h3><div class="boost-list">${boosts}</div>
   <h3 class="v12-h">Missions du jour <small>${status.done}/${status.total}${status.rewarded ? ' · jeton du jour reçu ✔' : ` · ${status.total}/${status.total} = +${DAILY_REWARD_TOKENS} jeton`}</small></h3>
   <div class="mission-list">${missions}</div><p class="v12-note">La progression compte sur toutes tes parties de la journée. Nouvelles missions à minuit.</p>
+  <div class="mission ad bonus-ad" data-bonus-row><span class="mission-check" aria-hidden="true">▶</span><span class="mission-main"><b>Pub bonus (facultatif)</b><small>${BONUS_ADS_PER_TOKEN} pubs regardées = +1 jeton, autant de fois que tu veux.</small><span class="mission-bar"><i style="width:${Math.round(100 * (profile.bonusAds || 0) / BONUS_ADS_PER_TOKEN)}%"></i></span></span><span class="mission-count">${profile.bonusAds || 0}/${BONUS_ADS_PER_TOKEN}</span><button class="mission-ad" data-bonus-ad>Regarder</button></div>
   <h3 class="v12-h">Boutique ${BILLING_ENABLED ? '' : '<span class="test-badge">BÊTA · AUCUN PAIEMENT</span>'}</h3>${packHtml}
   <div class="token-shop">${tokenItems}</div>
   <p class="v12-note">On n’achète jamais d’or ni de troupes : seulement des jetons d’atouts et la suppression des publicités.</p>

@@ -15,6 +15,8 @@ export const PROFILE_EXPORT_PREFIX = 'ARKEN-PROFIL-1:';
 export const DAILY_MISSION_COUNT = 5;
 export const DAILY_REWARD_TOKENS = 1;
 export const STARTER_PACK_TOKENS = 3;
+/** V14.4 : pub bonus facultative et illimitée (idée validée par Jack le 31/10/2026) — 1 jeton toutes les 3 pubs regardées en entier. */
+export const BONUS_ADS_PER_TOKEN = 3;
 export const AD_DAY_RATE = 7; // sur 10 : la 5e mission est une publicité environ 7 jours sur 10
 
 /** Catalogue des achats intégrés. `grants` ne peut contenir QUE `tokens` et `adsRemoved` (règle d'or, testé). */
@@ -88,7 +90,7 @@ const freshDaily = date => ({ date: isDate(date) ? date : null, progress: emptyP
 export function createProfile() {
   return {
     version: PROFILE_VERSION, tokens: 0, boosts: sanitizeLevels({}), adsRemoved: false, starterPack: false,
-    purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0 }
+    purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0, bonus: 0 }, bonusAds: 0
   };
 }
 
@@ -115,7 +117,8 @@ export function sanitizeProfile(raw) {
     purchases,
     daily,
     rewardedDates: (Array.isArray(raw.rewardedDates) ? raw.rewardedDates : []).filter(isDate).slice(-90),
-    earned: { missions: int(raw.earned?.missions), purchases: int(raw.earned?.purchases) }
+    earned: { missions: int(raw.earned?.missions), purchases: int(raw.earned?.purchases), bonus: int(raw.earned?.bonus) },
+    bonusAds: Math.min(int(raw.bonusAds), BONUS_ADS_PER_TOKEN - 1)
   };
 }
 
@@ -201,6 +204,22 @@ export function addMissionProgress(profile, date, deltas = {}) {
   for (const k of METRICS) if (deltas[k]) profile.daily.progress[k] = int(profile.daily.progress[k]) + int(deltas[k]);
   const after = missionStatus(profile, date).missions.filter(m => m.done && !before.has(m.id));
   return { completed: after, tokens: settleDay(profile, date) };
+}
+
+/**
+ * V14.4 — Pub bonus regardée EN ENTIER (récompense accordée par la régie). Facultative, sans limite par jour.
+ * Renvoie { tokens: jetons gagnés (0 ou 1), progress: pubs vers le prochain jeton (0 à BONUS_ADS_PER_TOKEN-1) }.
+ */
+export function recordBonusAd(profile) {
+  profile.bonusAds = int(profile.bonusAds) + 1;
+  if (!profile.earned) profile.earned = { missions: 0, purchases: 0, bonus: 0 };
+  let tokens = 0;
+  if (profile.bonusAds >= BONUS_ADS_PER_TOKEN) {
+    profile.bonusAds = 0; tokens = 1;
+    profile.tokens = int(profile.tokens) + 1;
+    profile.earned.bonus = int(profile.earned.bonus) + 1;
+  }
+  return { tokens, progress: profile.bonusAds };
 }
 
 /** Publicité de mission regardée (récompensée). */
