@@ -69,6 +69,16 @@ export const RULES = Object.freeze({
   // V10 marine (docs/V10-marine.md) : durée d'une traversée = max(minTurns, arrondi supérieur de length / stageLength)
   // tours, length = longueur de la route en unités de la carte (1536 × 1536). 1 tour = 1 étape en mer.
   naval:{ stageLength:150, minTurns:2 },
+  // V14.4 (retour de Jack : « débarquements presque toujours repoussés par les forteresses ») : bombardement d'une
+  // forteresse côtière par les navires de guerre. Brèche = part de la protection de la forteresse neutralisée (en %).
+  // Calibré par simulation : docs/V14.4-cahier-des-charges.md, Réalisé, Équipe gameplay.
+  bombard:{
+    breachPerShip:12,      // brèche ouverte par un navire de guerre intact (proportionnelle à la puissance de feu)
+    maxPerTurn:30,         // plafond de brèche ajoutée en un tour (toutes flottes confondues) : jamais tout en un tour
+    repairPerTurn:10,      // un tour sans bombardement : la brèche se referme de 10 points
+    garrisonShare:.2,      // dégâts à la garnison = 20 % de la puissance de feu…
+    garrisonMaxShare:.05   // … plafonnés à 5 % des PV de la garnison par tour (blessures seulement, aucun mort)
+  },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
   gameLength:80

@@ -122,13 +122,14 @@ export const regimentText = stats => stats ? `Régiment : ${stats.hp} PV · ${st
  * @returns {{defender, attackers:Array<{id,force,lossesByType,hpLost}>, passes, captured, winnerId,
  *            defenderLossesByType, defenderHpLost}}
  */
-export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes, fortBonus = 1, defenderWarshipFactor = 1 }) {
+export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes, fortBonus = 1, defenderWarshipFactor = 1, fortBreach = 0 }) {
   let d = normalizeForce(defender);
   let atk = attackers.map(a => ({ id: a.id, mode: naval ? 'naval' : (a.mode || 'land'), force: normalizeForce(a.force), warshipFactor: Number(a.warshipFactor) > 0 ? Number(a.warshipFactor) : 1 }));
   const start = { d: normalizeForce(d), atk: atk.map(a => normalizeForce(a.force)) };
   const level = Math.max(0, Math.min(3, int(fortLevel)));
   // V12 : atout « défense des forts » du joueur (fortBonus = 1 + N %) : multiplie l'effet d'un fort construit.
-  const fort = naval ? 1 : (RULES.fortDefense[level] || 1) * (level > 0 && Number(fortBonus) > 0 ? Number(fortBonus) : 1);
+  // V14.4 : forteresse bombardée — fortBreach (0 à 100) = part de sa protection neutralisée pour ce tour.
+  const fort = naval ? 1 : breachedFactor((RULES.fortDefense[level] || 1) * (level > 0 && Number(fortBonus) > 0 ? Number(fortBonus) : 1), fortBreach);
   const dWarship = Number(defenderWarshipFactor) > 0 ? Number(defenderWarshipFactor) : 1;
   const output = (force, k, mode, warshipFactor = 1) => typeFire(force, k, naval ? 'naval' : mode, warshipFactor);
   const canFight = (force, mode) => COMBAT_TYPES.some(k => output(force, k, mode) > 0);
@@ -189,18 +190,28 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
  * dégâts reçus par la garnison d'une forteresse, en %, calculée exactement comme dans resolveBattle :
  * dégâts reçus ÷ (RULES.fortDefense[niveau] × atout fort) → réduction = 1 − 1 / facteur. Arrondie à l'unité.
  */
-export function fortReductionPct(level, fortBonus = 1) {
+export function fortReductionPct(level, fortBonus = 1, fortBreach = 0) {
   const l = Math.max(0, Math.min(RULES.fortDefense.length - 1, int(level)));
   if (!l) return 0;
-  const factor = (RULES.fortDefense[l] || 1) * (Number(fortBonus) > 0 ? Number(fortBonus) : 1);
+  const factor = breachedFactor((RULES.fortDefense[l] || 1) * (Number(fortBonus) > 0 ? Number(fortBonus) : 1), fortBreach);
   return Math.round((1 - 1 / factor) * 100);
+}
+/**
+ * V14.4 : facteur de forteresse après une brèche de `breach` % (bombardement). La réduction des dégâts reçus
+ * (1 − 1/facteur) est multipliée par la protection restante (100 − brèche) % : brèche 50 % sur un fort −30 % → −15 %.
+ */
+export function breachedFactor(factor, breach = 0) {
+  const b = Math.max(0, Math.min(100, Number(breach) || 0));
+  if (!b || !(factor > 1)) return factor || 1;
+  const reduction = (1 - 1 / factor) * (1 - b / 100);
+  return 1 / (1 - reduction);
 }
 /** Niveau maximal de la forteresse (lu dans les règles). */
 export const FORT_MAX_LEVEL = () => RULES.fortDefense.length - 1;
 
 /** Raccourci à un seul attaquant. mode : 'land' | 'landing' | 'naval'. */
-export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land', passes }) {
-  const r = resolveBattle({ defender, attackers: [{ id: 'attacker', force: attacker, mode: mode === 'naval' ? 'land' : mode }], fortLevel, naval: mode === 'naval', passes });
+export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land', passes, fortBreach = 0 }) {
+  const r = resolveBattle({ defender, attackers: [{ id: 'attacker', force: attacker, mode: mode === 'naval' ? 'land' : mode }], fortLevel, naval: mode === 'naval', passes, fortBreach });
   const a = r.attackers[0];
   return {
     attacker: a.force, defender: r.defender, passes: r.passes, captured: r.captured,

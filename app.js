@@ -32,6 +32,8 @@ import { hasPassage, stationedAt, guestsAt } from './src/domain/game-engine.js';
 import { truceWarning } from './src/presentation/v14-ux.js';
 import { shipRepairChip, recruitDetailHtml } from './src/presentation/v14-2-ux.js'; // V14.2 : convalescence des navires, détail des troupes
 import { shipRepairInfo } from './src/domain/game-engine.js';
+import { queueBombard, bombardStatus } from './src/domain/game-engine.js'; // V14.4 : bombardement des forteresses côtières
+import { canBombardFrom, bombardPreviewText, BOMBARD_RULE_TEXT, pendingBombardChip, bombardSummary } from './src/presentation/v14-4-ux.js';
 // V14.1 : carte centrée sur la capitale au lancement, bouton « Voir toute la carte ».
 import { launchView, wholeMapView, showsWholeMap, WHOLE_MAP_LABEL, BACK_TO_CAPITAL_LABEL } from './src/presentation/v14-1-ux.js';
 import { PASSAGE_TEXT, passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from './src/presentation/v13-4-ux.js';
@@ -235,7 +237,7 @@ function render(){
   const convoyLayer=E('g',{class:'convoys'});for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
   svg.append(...routeLayer,labelLayer,convoyLayer);
   for(const order of playerOrderArrows(state,map)){
-    const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`});
+    const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button','aria-label':`${order.kind==='bombard'?'Bombardement':order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`});
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;$('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;$('#armyTotal').textContent=army.total;
@@ -268,12 +270,27 @@ function showProvinceSheet(){
   const mineChip=mineHere?`<span class="info-chip passage-chip">⚔ Vos troupes stationnées ici : ${unitsText(mineHere)}</span>`:'';
   // V14.2 (Jack) : navires en convalescence expliqués, avec PV actuels et tours restants (mes navires, ici ou chez l'allié).
   const shipChip=(mine||mineHere)?shipRepairChip(safeEngine(()=>shipRepairInfo(state,selected,state.playerNationId),null)):'';
-  $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
+  const bombardChips=mine?pendingBombardChip(state,selected,id=>province(id).name).map(c=>`<span class="info-chip bombard-chip">${c.text} <button class="chip-cancel" data-cancel-bombard="${c.id}">Annuler</button></span>`).join(''):''; // V14.4
+  $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
-  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire']]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
+  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire'],...(canBombardFrom(state,map,selected)?[['bombard','💥 Bombarder']]:[])]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').dataset.province=selected;$('#provinceSheet').hidden=false;placeTutorial();
-  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
+  document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,bombard:openBombard,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
+  document.querySelectorAll('[data-cancel-bombard]').forEach(b=>b.onclick=()=>{const r=cancelPendingOrder(state,b.dataset.cancelBombard);if(!r.ok)return toast(r.error);render();showProvinceSheet();toast('Bombardement annulé ; les navires sont de nouveau disponibles.');});
   if(!mine&&troops.known)tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
+}
+// V14.4 : ordre « Bombarder » — navires à quai sur un point de port, contre la forteresse côtière ennemie au bout de la route.
+// Aperçu lu dans le moteur (protection restante avant / après, dégâts à la garnison) ; gros boutons − / + (doigt, 360 px).
+function openBombard(){
+  const fromId=selected,st=bombardStatus(map,state,{nationId:state.playerNationId,fromId}),targets=st.targets,max=st.warships;
+  if(!st.ok)return toast(st.reason);
+  let ships=max,toId=targets[0];
+  const draw=()=>{const v=bombardPreviewText(state,{fromId,toId,warships:ships,name:id=>province(id).name});
+    actionModal('💥 Bombarder',`${province(fromId).name} → ${province(toId).name} · ${nation(state.provinces[toId].ownerId).short}`,`${targets.length>1?`<div class="force-presets">${targets.map(id=>`<button data-bombard-target="${id}" class="${id===toId?'primary':''}">${province(id).name}</button>`).join('')}</div>`:''}<div class="unit-row bombard-ships"><span>Navires de guerre</span><button class="step" data-ships="-1" aria-label="Un navire de moins">−</button><b>${ships} / ${max}</b><button class="step" data-ships="1" aria-label="Un navire de plus">+</button></div><p class="bombard-protection"><b>${v.text}</b></p><p class="sea-note">${v.detail}</p><p class="sea-note">${BOMBARD_RULE_TEXT()}</p><button id="confirmBombard" class="primary">💥 Bombarder ${province(toId).name}</button>`);
+    document.querySelectorAll('[data-ships]').forEach(b=>b.onclick=()=>{ships=Math.max(1,Math.min(max,ships+Number(b.dataset.ships)));draw();});
+    document.querySelectorAll('[data-bombard-target]').forEach(b=>b.onclick=()=>{toId=b.dataset.bombardTarget;draw();});
+    $('#confirmBombard').onclick=()=>{const r=queueBombard(state,map,{nationId:state.playerNationId,fromId,toId,warships:ships});if(!r.ok)return toast(r.error);$('#actionDialog').close();render();showProvinceSheet();toast(`Bombardement de ${province(toId).name} ajouté aux ordres du tour`);};};
+  $('#provinceSheet').hidden=true;draw();
 }
 function startMove(){moveSource=selected;$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;$('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte${state.diplomacy.treaties.some(t=>t.active!==false&&t.type==='alliance'&&t.parties.includes(state.playerNationId))?' (liseré vert = allié : passage libre)':''}`;if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Touchez une province verte. Liseré vert autour d’une nation : votre allié, qu’on ne peut pas attaquer.');}
 function cancelMove(){moveSource=null;$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}
@@ -283,8 +300,8 @@ function pendingFrom(id){return state.orders.filter(o=>o.status==='pending'&&o.f
 function openPendingOrder(orderId){
   const order=state.orders.find(item=>item.id===orderId&&item.nationId===state.playerNationId&&item.status==='pending');if(!order)return;
   const amount=Object.entries(order.units||{}).filter(([,n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(order.warships?[`${order.warships} navires`]:[]).join(', ')||'aucune force';
-  const isAttack=state.provinces[order.toId].ownerId!==state.playerNationId&&!order.passage;
-  actionModal(isAttack?'Ordre d’attaque':'Ordre de déplacement',`${province(order.fromId).name} → ${province(order.toId).name}`,`<div class="order-detail"><b>${isAttack?'Attaque programmée':'Déplacement programmé'}</b><span>Forces : ${amount}</span><span>Coût : 0 or</span><span>Ordre non résolu avant Fin du tour.</span></div><div class="confirm-actions"><button class="cancel" data-close-order>Fermer</button><button id="cancelPendingOrder" class="primary">Annuler cet ordre</button></div>`);
+  const isAttack=state.provinces[order.toId].ownerId!==state.playerNationId&&!order.passage,isBombard=order.kind==='bombard';
+  actionModal(isBombard?'Ordre de bombardement':isAttack?'Ordre d’attaque':'Ordre de déplacement',`${province(order.fromId).name} → ${province(order.toId).name}`,`<div class="order-detail"><b>${isBombard?'Bombardement programmé (les navires restent au port)':isAttack?'Attaque programmée':'Déplacement programmé'}</b><span>Forces : ${amount}</span><span>Coût : 0 or</span><span>Ordre non résolu avant Fin du tour.</span></div><div class="confirm-actions"><button class="cancel" data-close-order>Fermer</button><button id="cancelPendingOrder" class="primary">Annuler cet ordre</button></div>`);
   $('[data-close-order]').onclick=()=>$('#actionDialog').close();$('#cancelPendingOrder').onclick=()=>{const result=cancelPendingOrder(state,order.id);if(!result.ok)return toast(result.error);$('#actionDialog').close();render();toast('Ordre annulé ; les forces sont de nouveau disponibles.');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);};
 }
 function openForceSelection(fromId,toId){
@@ -488,7 +505,7 @@ function showEndScreen(){
 function resolveTurn(){
   if(showEndScreen())return;
   const count=state.orders.filter(o=>o.status==='pending').length;
-  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'})[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
+  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='bombard'?bombardSummary(o,id=>province(id).name):o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'})[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction : ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
   $('#confirmEndTurn').onclick=async()=>{ const game=state,same=()=>state===game; $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions

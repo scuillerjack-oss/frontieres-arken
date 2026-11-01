@@ -6,6 +6,7 @@
 import { fortReductionPct, FORT_MAX_LEVEL } from '../domain/combat.js';
 import { fortBonusFactor } from '../domain/boosts.js';
 import { hasPassage, PASSAGE_TEXT } from '../domain/passage.js';
+import { fortBreach } from '../domain/game-engine.js'; // V14.4 : forteresse bombardée
 
 // --- 1. Passage entre alliés -----------------------------------------------------------------------------------
 export { PASSAGE_TEXT };
@@ -23,8 +24,11 @@ export function fortInfo(state, provinceId) {
   const p = state.provinces?.[provinceId], level = p?.buildings?.fort || 0, max = FORT_MAX_LEVEL();
   const bonus = fortBonusFactor(state, p?.ownerId);
   const pct = fortReductionPct(level, bonus), nextPct = level < max ? fortReductionPct(level + 1, bonus) : null;
-  const text = level ? `▣ Forteresse niveau ${level} : −${pct} % de dégâts reçus par la garnison en défense` : '';
-  return { level, max, pct, nextPct, text };
+  // V14.4 : bombardée — protection réelle de ce tour, et part qui tient encore.
+  const breach = level ? fortBreach(state, provinceId) : 0, nowPct = fortReductionPct(level, bonus, breach);
+  const text = !level ? '' : breach ? `▣ Forteresse niveau ${level} bombardée : −${nowPct} % de dégâts reçus (au lieu de −${pct} %), protection restante ${100 - breach} %`
+    : `▣ Forteresse niveau ${level} : −${pct} % de dégâts reçus par la garnison en défense`;
+  return { level, max, pct, nextPct, text, breach, nowPct };
 }
 /** Ligne du menu Construction pour la forteresse (niveau suivant, ou niveau maximal). */
 export function fortBuildText(state, provinceId) {
@@ -35,7 +39,8 @@ export function fortBuildText(state, provinceId) {
 /** Avertissement avant une attaque contre une province fortifiée ('' sans forteresse). */
 export function fortAttackWarning(state, provinceId) {
   const f = fortInfo(state, provinceId);
-  return f.level ? `▣ Forteresse niveau ${f.level} : ses défenseurs reçoivent −${f.pct} % de dégâts.` : '';
+  return !f.level ? '' : f.breach ? `▣ Forteresse niveau ${f.level} bombardée (protection restante ${100 - f.breach} %) : ses défenseurs reçoivent −${f.nowPct} % de dégâts.`
+    : `▣ Forteresse niveau ${f.level} : ses défenseurs reçoivent −${f.pct} % de dégâts.`;
 }
 
 // --- 3. Mini tutoriel ------------------------------------------------------------------------------------------
