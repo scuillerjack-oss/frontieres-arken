@@ -34,7 +34,7 @@ test('explications : ancien profil (V12-V14.3, sans compteur) = a déjà joué, 
   assert.equal(p.gamesStarted, LEGACY_GAMES_STARTED);
   assert.equal(hintsActive(p), false);
   assert.equal(p.tokens, 7); assert.equal(p.boosts.gold, 3); assert.equal(p.adsRemoved, true); assert.equal(p.purchases.length, 1);
-  assert.equal(p.daily.progress.turns, 2); assert.deepEqual(p.earned, { missions: 4, purchases: 3 });
+  assert.equal(p.daily.progress.turns, 2); assert.deepEqual(p.earned, { missions: 4, purchases: 3, bonus: 0 }); assert.equal(p.bonusAds, 0);
   // Profil illisible : profil neuf (explications activées), jamais d'erreur.
   assert.equal(decodeProfile('{cassé').gamesStarted, 0);
   assert.equal(sanitizeProfile({ gamesStarted: -4 }).gamesStarted, 0);
