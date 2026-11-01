@@ -113,7 +113,8 @@ export function seaFatePopups(events, playerId, names) {
         text: `${names.nation(e.defender)} tient la province et perd ${plural(killed, 'unité')}. ` +
           (stranded ? `${plural(num(stranded.amount), 'survivant')} n’${num(stranded.amount) > 1 ? 'ont' : 'a'} plus de port où rentrer (${names.province(stranded.provinceId)} est tombée) : perdu${num(stranded.amount) > 1 ? 's' : ''} en mer.` : back ? `${plural(num(back.amount), 'survivant')} rembarque${num(back.amount) > 1 ? 'nt' : ''} et rentre${num(back.amount) > 1 ? 'nt' : ''} à ${home} (${plural(num(back.turns) || 2, 'tour')}).`
                 : 'Aucun survivant : tes troupes sont tombées sur la plage.'),
-        tip: `Un débarquement se bat à ${Math.round(RULES.combat.landingPenalty * 100)} % de sa force, souvent sans voir la garnison d’en face. Débarque en nombre, escorté de navires de guerre, ou envoie d’abord une troupe voisine pour voir.`
+        // V14.4 (Jack) : explication de la règle seulement, plus la « solution » (les joueurs la trouvent eux-mêmes).
+        tip: `Un débarquement se bat à ${Math.round(RULES.combat.landingPenalty * 100)} % de sa force, souvent sans voir la garnison d’en face.`
       });
     } else if (e.type === 'interception' && e.defender === playerId && e.convoyDestroyed) {
       const lost = lossOf(e, playerId) ?? num(e.defenderLosses);
@@ -122,7 +123,7 @@ export function seaFatePopups(events, playerId, names) {
         kicker: `${names.nation(e.attacker).toUpperCase()} · INTERCEPTION`, title: '⚓ Convoi coulé',
         lead: `${names.province(e.fromId)} → ${names.province(e.toId)} : ${plural(lost, 'unité')} perdue${lost > 1 ? 's' : ''}`,
         text: e.kind === 'port' ? `La flotte du port de ${names.province(e.provinceId)} a coulé ton convoi juste avant l’arrivée.` : `Des navires de ${names.nation(e.attacker)} ont coulé ton convoi en pleine mer.`,
-        tip: 'Sans navires de guerre, un convoi ne peut pas se défendre. Construis un port et une usine pour l’escorter.'
+        tip: 'Sans navires de guerre, un convoi ne peut pas se défendre.'
       });
     } else if (e.type === 'retreat-lost' && e.naval && e.nationId === playerId && !merged.has(e)) {
       const lost = num(e.amount);

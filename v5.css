@@ -432,3 +432,12 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 @keyframes tutoPulse{50%{box-shadow:0 0 0 10px #3fcf7422}}
 @keyframes tutoPulseSvg{50%{opacity:.75}}
 @media (prefers-reduced-motion:reduce){.tuto-target,g.tuto-target{animation:none}}
+/* V14.4 : bombardement des forteresses côtières (flèche orange, puce, gros boutons − / +) */
+.order-arrow.bombard{stroke:#ffa53a;marker-end:url(#arrow-red)}
+.bombard-chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bombard-chip .chip-cancel{min-height:36px;padding:4px 12px}
+.bombard-ships{display:flex;align-items:center;gap:10px;margin:.4em 0}
+.bombard-ships span{flex:1}
+.bombard-ships b{min-width:3.2em;text-align:center}
+.bombard-ships .step{flex:0 0 48px;width:48px;min-height:48px;padding:0;font-size:1.4rem}
+.bombard-protection{margin:.6em 0}

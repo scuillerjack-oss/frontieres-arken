@@ -4,6 +4,8 @@ import { chance, pickFrom, atWar, allied, treatyOf, archetypeOf, getTension, add
   reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION, talkTensionDelta, talkTensionWorst, noteTalkEffect, charmOf, tensionCap, HOSTILITY_WAR, HOSTILITY_WARNING } from './leaders.js';
 export { tensionLevel, leaderHint } from './leaders.js';
 import { MORE_LINES } from './talk-v14-2.js';
+// V14.4 : répliques composées (ouverture + fond + contexte réel + chute) et mémoire anti-répétition par dirigeant.
+import { composeLine, rememberTalk, coreUsed } from './talk-compose.js';
 
 export const TONES = Object.freeze(['hostile', 'neutre', 'amical']);
 export const TALK_LIMIT = 60;          // fil public : 60 derniers échanges (B8, taille de la sauvegarde)
@@ -358,12 +360,13 @@ export const usedRecently = (state, from, line) => { const re = linePattern(line
 export function pickLine(state, list, from, ...keys) {
   const start = Math.floor(chance(state, ...keys) * list.length) % list.length;
   const recent = recentTexts(state, from), others = sameTurnTexts(state, from);
-  if (!recent.length && !others.length) return list[start];
+  if (!recent.length && !others.length && !state.talkMemory) return list[start];
   const free = (line, texts) => { const re = linePattern(line); return !texts.some(t => re.test(t)); };
   // 1. ni parmi ses derniers messages, ni déjà dite ce tour par un autre dirigeant ; 2. au moins pas déjà dite ce tour.
-  for (const texts of [[...recent, ...others], others]) for (let i = 0; i < list.length; i++) {
+  // V14.4 : les messages publiés sont composés (le fond n'est plus le texte entier) : la mémoire des fonds compte aussi.
+  for (const [texts, recentCores] of [[[...recent, ...others], RECENT_LINES], [others, 0]]) for (let i = 0; i < list.length; i++) {
     const line = list[(start + i) % list.length];
-    if (free(line, texts)) return line;
+    if (free(line, texts) && !coreUsed(state, from, line, { recent: recentCores })) return line;
   }
   return list[start];
 }
@@ -415,11 +418,12 @@ function previewOf(state, from, to, tone) {
 export function talkOptions(state, map, { from, to = null, replyTo = null } = {}) {
   const sit = talkSituation(state, map, { from, to, replyTo });
   const table = sit.kind === 'reply' ? LINES.reply[sit.original.tone] || LINES.reply.neutre : LINES[sit.kind];
-  return TONES.map(tone => ({
-    tone, situation: sit.kind,
-    text: fill(pickLine(state, table[tone], from, 'talk', state.turn, from, to ?? '*', tone, sit.kind, replyTo ?? ''), map, from, to),
-    preview: previewOf(state, from, to, tone)
-  }));
+  return TONES.map(tone => {
+    const core = pickLine(state, table[tone], from, 'talk', state.turn, from, to ?? '*', tone, sit.kind, replyTo ?? '');
+    // V14.4 : réplique composée (ouverture + fond + contexte réel).
+    const text = composeLine(state, map, { from, to, tone, core: fill(core, map, from, to), keys: ['talk', state.turn, sit.kind, replyTo ?? ''] });
+    return { tone, situation: sit.kind, text, core, preview: previewOf(state, from, to, tone) };
+  });
 }
 
 function nextOrderId(state) {
@@ -444,7 +448,7 @@ export function queueTalk(state, map, { from, to = null, tone, replyTo = null } 
   state.orders ||= [];
   const old = state.orders.findIndex(o => o.kind === 'talk' && o.status === 'pending' && o.nationId === from && (o.to ?? null) === to);
   if (old >= 0) state.orders.splice(old, 1);
-  const order = { id: nextOrderId(state), kind: 'talk', nationId: from, to, tone, text: option.text, replyTo, turn: state.turn, status: 'pending' };
+  const order = { id: nextOrderId(state), kind: 'talk', nationId: from, to, tone, text: option.text, core: option.core, replyTo, turn: state.turn, status: 'pending' };
   state.orders.push(order);
   return { ok: true, orderId: order.id, text: order.text, replaced: old >= 0 };
 }
@@ -458,12 +462,13 @@ export function alreadyAnswered(state, from, talkId) {
  * V13 : `awaitReply: false` = message qui n'appelle pas de réponse (réponse à une demande d'aide, par exemple) ;
  * une réponse (replyTo) n'appelle jamais de réponse : la conversation est close.
  */
-export function publishTalk(state, { from, to = null, tone, text, replyTo = null, ai = false, awaitReply = true, tension = true }) {
+export function publishTalk(state, { from, to = null, tone, text, replyTo = null, ai = false, awaitReply = true, tension = true, core = null }) {
   state.talk ||= []; state.talkPending ||= {};
   state.talkSequence = Math.max(1, Number(state.talkSequence) || 1);
   while (state.talk.some(m => m.id === `t${state.talkSequence}`)) state.talkSequence++;
   const msg = { id: `t${state.talkSequence++}`, turn: state.turn, from, to, tone, text, replyTo };
   state.talk.push(msg);
+  rememberTalk(state, from, text, core); // V14.4 : mémoire anti-répétition (par dirigeant, toute la partie)
   if (state.talk.length > TALK_LIMIT) state.talk.splice(0, state.talk.length - TALK_LIMIT);
   // Répondre à un message le retire de la liste d'attente.
   if (replyTo && state.talkPending[from]) state.talkPending[from] = state.talkPending[from].filter(id => id !== replyTo);
@@ -516,7 +521,9 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
   // Les propositions diplomatiques publiées plus tôt dans ce tour comptent dans le quota.
   let budget = AI_TALK_PER_TURN - (state.talk || []).filter(m => m.turn === state.turn && state.controllers?.[m.from] === 'ai').length;
   const ais = aliveNations(state).filter(id => state.controllers?.[id] === 'ai');
-  const say = (from, to, tone, text, replyTo = null) => { if (budget <= 0) return false; budget--; publishTalk(state, { from, to, tone, text: fill(text, map, from, to), replyTo, ai: true }); return true; };
+  // V14.4 : `core` = réplique de situation (fond) ; le message publié est composé (ouverture, contexte réel, chute).
+  const say = (from, to, tone, core, replyTo = null) => { if (budget <= 0) return false; budget--;
+    publishTalk(state, { from, to, tone, text: composeLine(state, map, { from, to, tone, core: fill(core, map, from, to), keys: ['ai', state.turn, replyTo ?? ''] }), core, replyTo, ai: true }); return true; };
   // 1. Réponses.
   for (const m of published) {
     if (!m.to || state.controllers?.[m.to] !== 'ai' || state.nations[m.to]?.eliminated) continue;
@@ -575,6 +582,7 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
 /** Message d'une IA qui propose une trêve ou une alliance (au joueur, qui répond via la diplomatie). */
 export function aiOfferTalk(state, map, from, to, kind, { again = false, gold = 0 } = {}) {
   const set = kind !== 'ceasefire' ? AI_LINES.traitorCharm : gold > 0 ? (again ? AI_LINES.ceasefireGoldAgain : AI_LINES.ceasefireGold) : again ? AI_LINES.ceasefireAgain : AI_LINES.ceasefireOffer;
-  const text = fill(pickLine(state, set, from, 'offer', state.turn, from, to), map, from, to).replaceAll('{gold}', String(gold));
-  return publishTalk(state, { from, to, tone: kind === 'ceasefire' ? 'neutre' : 'amical', text, ai: true });
+  const core = pickLine(state, set, from, 'offer', state.turn, from, to), tone = kind === 'ceasefire' ? 'neutre' : 'amical';
+  const text = composeLine(state, map, { from, to, tone, core: fill(core, map, from, to).replaceAll('{gold}', String(gold)), keys: ['offer', state.turn, kind] });
+  return publishTalk(state, { from, to, tone, text, core, ai: true });
 }

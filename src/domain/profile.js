@@ -18,6 +18,10 @@ export const STARTER_PACK_TOKENS = 3;
 /** V14.4 : pub bonus facultative et illimitée (idée validée par Jack le 31/10/2026) — 1 jeton toutes les 3 pubs regardées en entier. */
 export const BONUS_ADS_PER_TOKEN = 3;
 export const AD_DAY_RATE = 7; // sur 10 : la 5e mission est une publicité environ 7 jours sur 10
+// V14.4 (Jack, 29/10) : les messages d'explication ne s'affichent que pendant les 2 premières parties du joueur.
+export const HINT_GAMES = 2;
+/** Profil existant (créé avant la V14.4, sans compteur) : il a déjà joué → plus d'explications. */
+export const LEGACY_GAMES_STARTED = HINT_GAMES + 1;
 
 /** Catalogue des achats intégrés. `grants` ne peut contenir QUE `tokens` et `adsRemoved` (règle d'or, testé). */
 export const PRODUCTS = Object.freeze([
@@ -90,7 +94,8 @@ const freshDaily = date => ({ date: isDate(date) ? date : null, progress: emptyP
 export function createProfile() {
   return {
     version: PROFILE_VERSION, tokens: 0, boosts: sanitizeLevels({}), adsRemoved: false, starterPack: false,
-    purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0, bonus: 0 }, bonusAds: 0
+    purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0, bonus: 0 }, bonusAds: 0,
+    gamesStarted: 0 // V14.4 : vraies parties lancées (le tutoriel ne compte pas)
   };
 }
 
@@ -118,9 +123,20 @@ export function sanitizeProfile(raw) {
     daily,
     rewardedDates: (Array.isArray(raw.rewardedDates) ? raw.rewardedDates : []).filter(isDate).slice(-90),
     earned: { missions: int(raw.earned?.missions), purchases: int(raw.earned?.purchases), bonus: int(raw.earned?.bonus) },
-    bonusAds: Math.min(int(raw.bonusAds), BONUS_ADS_PER_TOKEN - 1)
+    bonusAds: Math.min(int(raw.bonusAds), BONUS_ADS_PER_TOKEN - 1),
+    // V14.4 : migration sans perte — un profil d'avant la V14.4 (sans compteur) compte comme ayant déjà joué.
+    gamesStarted: raw.gamesStarted === undefined ? LEGACY_GAMES_STARTED : Math.min(int(raw.gamesStarted), 1000000)
   };
 }
+
+// --- V14.4 : messages d'explication pendant les 2 premières parties --------------------------------------------
+/** Nouvelle VRAIE partie lancée (pas le tutoriel) : +1. Renvoie le numéro de cette partie. */
+export function recordGameStarted(profile) {
+  profile.gamesStarted = Math.min(int(profile.gamesStarted) + 1, 1000000);
+  return profile.gamesStarted;
+}
+/** Les explications s'affichent-elles ? Oui pendant la 1re et la 2e partie (et avant la toute première). */
+export const hintsActive = profile => int(profile?.gamesStarted) <= HINT_GAMES;
 
 export const encodeProfile = profile => JSON.stringify(sanitizeProfile(profile));
 /** Décodage tolérant : texte absent ou corrompu → profil neuf (jamais d'exception). */
