@@ -223,6 +223,6 @@ test('tutoriel : surlignage et bulle — la cible visible la plus précise, la b
   assert.match(css, /#miniTuto\{position:fixed;z-index:31;inset:calc\(70px \+ env\(safe-area-inset-top\)\)/, 'safe area en haut');
 });
 
-test('version 14.3.0', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '14.3.0');
+test('version 14.3.0 ou suivante (V14.4 : 14.4.0)', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '14.4.0');
 });
