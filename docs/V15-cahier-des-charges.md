@@ -154,7 +154,7 @@ Le bruit entre deux séries de 200 parties est réel : une autre série (`d1`) d
 - Dès le tour 45, ces deux caractères visent le plus faible et le plus fort à leur portée, et dénoncent les trêves de plus de 10 tours (déclaration ordinaire, pas une trahison).
 - Marge de débarquement sur une capitale déjà occupée ailleurs : 0,25 (0,35 sinon). Tard dans la partie, une côte invisible compte double (sauf nation à 2 provinces ou moins).
 - Le Héros garde son caractère : sans agression de moins de 5 tours, il n'attaque plus, sauf pacte d'aide, coalition ou ennemi à bout de forces.
-- « Pas suicidaire » reste vert et son seuil n'a pas bougé. **Un test modifié** : « la carte a bougé » regardait l'état au tour 200, où une partie peut être revenue à son point de départ ; il regarde désormais toutes les conquêtes. **À surveiller** : le test « Conquérant > 2 × Héros » passe sur ses 12 graines, mais sur 20 autres graines le rapport n'est que de 147 / 120.
+- « Pas suicidaire » reste vert et son seuil n'a pas bougé. **Un test avait été affaibli à tort** : l'assertion « la carte a bougé » (`tests/v9-map.test.js`) avait été remplacée au motif qu'une partie pouvait revenir à son point de départ au tour 200 ; ce n'est pas le cas (3 à 11 provinces déplacées sur ces 5 parties). L'assertion d'origine est restaurée en V15.2. **À surveiller** : le test « Conquérant > 2 × Héros » passe sur ses 12 graines, mais sur 20 autres graines le rapport n'est que de 147 / 120.
 
 **Contrôle avec des joueurs scriptés** (`tools/joueurs-scriptes.mjs`, 100 parties, 20 par nation, mêmes ordres que le vrai joueur)
 | | Prudent V15.0 | Prudent V15.1 | Dominant V15.0 | Dominant V15.1 | Dominant V15.1 sans coalition |
@@ -176,3 +176,32 @@ Le joueur dominant ainsi visé gagne **14 fois sur 15** : ni injouable, ni punit
 - Chrome mobile simulé (Playwright, 390 × 844) : partie réelle sur 6 tours ; écrans de fin victoire, fin de partie perdue, cinq capitales, élimination ; sauvegarde V14.4 en cours jouée jusqu'à la fin et V14.4 déjà finie ; coalition déclenchée sur sauvegarde préparée (fenêtre, bandeau, détail, journal, échanges). 0 erreur JavaScript, 0 débordement. Captures regardées : un chevauchement du bandeau avec les boutons, corrigé.
 - Sur téléphone, à regarder : la longueur de l'écran de fin (il défile quand il y a beaucoup à raconter), et le rythme réel de la coalition.
 - `tools/empreintes-v15.1.json` remplace `tools/empreintes-v14.4.json` : c'est la référence du gameplay V15.1 (`node tools/equilibre.mjs --empreintes --verifier=tools/empreintes-v15.1.json`).
+
+### V15.2 — sons et animations (02/11/2026)
+
+**Corrections héritées de la relecture V15.1**
+- `tests/v9-map.test.js` : assertion « la carte a bougé » restaurée, justification corrigée ci-dessus.
+- Coalition à 0 membre (constatée sur 291 tours pour 2 282 tours de coalition, 200 parties) : dissoute, raison `deserted`, texte propre au journal et dans la fenêtre. Elle peut se reformer : sur ces 200 parties, 24 dissolutions de ce type, 17 reformations contre la même nation, le plus souvent 10 tours plus tard (fin de la trêve récente), une seule au tour suivant. Une ancienne sauvegarde avec une coalition vide n'affiche plus de bandeau et se corrige au tour suivant.
+- Hors quota d'attaques : le code est aligné sur le cahier, réservé au Conquérant et au Traître. Mesure sur 400 parties (`fin`, `fin2`), avant / après : élimination 25 et 27 % / 25 et 26 %, tous les autres chiffres identiques (tranche 100 %, capitales 1,335, victoires par nation et par caractère). Effet presque nul : ces deux caractères n'attaquent déjà presque pas au-delà de leur quota. La cible d'élimination (30 %) restait et reste non tenue.
+- Un membre d'une coalition ne propose plus d'alliance à la cible, joueur ou IA. Une offre partie le tour de la formation est retirée avec son message, et `proposalsToAnswer` l'ignore.
+- **Effet sur les parties** : `tools/empreintes-v15.2.json` remplace `tools/empreintes-v15.1.json` ; 9 entrées sur 81 changent. Contrôle joueurs scriptés (`--joueur`, graines `eq`, 100 parties), V15.1 et V15.2 identiques : dominant 18 victoires, 9 éliminations ; prudent 0 victoire, 1 élimination au tour 74. Ces graines diffèrent de celles du tableau V15.1, d'où des chiffres différents de ce tableau.
+
+**Animations** (`src/presentation/turn-animation.js`, plan pur ; `src/presentation/ui/turn-anim.js`, affichage)
+- Trajets (troupes du joueur, attaques terrestres, convois), puis combats et conquêtes l'un après l'autre, avec une courte légende. Le joueur passe d'abord. Au plus 6 trajets et 8 effets.
+- **Durée totale maximale : 2,4 secondes** (`MAX_ANIMATION_MS`), une seule minuterie. Un toucher la termine aussitôt et ne relance rien. Passer en arrière-plan la termine aussi. Rien n'attend `requestAnimationFrame`.
+- Le toucher agit au clic, à la fin du geste : il ne peut pas atteindre la fenêtre suivante. Le retour Android passe l'animation. Le calque couvre tout l'écran : pas de second « Fin du tour » pendant l'animation.
+- Si un événement sort du cadrage, la carte entière s'affiche le temps de l'animation, puis le cadrage du joueur revient.
+- Brouillard : seuls les événements que le journal peut citer sont montrés ; l'origine d'une attaque étrangère n'est dessinée que si elle se voit. Un débarquement n'a pas de trajet, seulement son combat ; les convois avancent d'étape en étape.
+- `prefers-reduced-motion` : aucun calque, aucun mouvement ; le son principal reste, le journal s'ouvre tout de suite.
+- **Pas d'animation dans le tutoriel ni le mini tuto** : leurs bulles suivent les gestes du joueur.
+
+**Sons** (`src/presentation/sound-engine.js`, `src/presentation/ui/audio.js`)
+- Synthèse Web Audio, sans fichier ni dépendance : bouton, ordre donné, fin de tour, bataille, conquête, trahison, victoire, défaite. Un son par sorte à chaque animation.
+- « Mélodie calme » : une vraie mélodie lente, en boucle, à la place de l'ancien accord tenu. **Changement visible** : l'ancien code ne la lançait que si l'on touchait au réglage ; activée par défaut, elle joue maintenant dès le premier geste. Réglages « Effets sonores » et « Mélodie calme » respectés.
+- Le contexte audio ne naît qu'au premier geste. Web Audio absent, cassé, suspendu ou `resume()` refusé : aucune erreur, et un son demandé pendant une suspension est abandonné, pas empilé.
+- Arrière-plan (`visibilitychange`, `pagehide`, `freeze`) : mélodie arrêtée, contexte suspendu, reprise au retour. Silence aussi le temps d'une pub (ajout non demandé). Aucune pub ajoutée.
+
+**Vérification**
+- `npm test` vert. `src/domain/` ne contient que les corrections ci-dessus : aucune animation ni aucun son n'y entre, et `--empreintes --verifier=tools/empreintes-v15.2.json` reste identique après le travail d'interface.
+- Chrome mobile simulé (Playwright, 390 × 844 tactile) : partie réelle sur plusieurs dizaines de tours ; animation à son terme (2,4 s au plus, mesure comprise) ; passée au toucher (fenêtre suivante restée ouverte) ; arrière-plan simulé ; retour ; `reducedMotion: 'reduce'` ; son coupé (0 oscillateur) ; Web Audio absent ou cassé ; écrans de fin ; élimination ; sauvegardes anciennes reprises ; tutoriel. 0 erreur JavaScript, 0 débordement. Captures regardées.
+- **Non vérifié** : le rendu d'un vrai haut-parleur (la simulation compte les notes, elle ne les entend pas) ; la coupure du son sur une vraie appli Android, simulée ici par `visibilitychange` ; la fluidité sur un téléphone moyen.

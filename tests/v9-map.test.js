@@ -204,8 +204,8 @@ for (const player of NATIONS) {
     assert.ok(crossIsland.some(e => e.type === 'conquest'), 'au moins une conquête par la mer');
     assert.ok(crossIsland.every(e => e.naval), 'tout combat inter-îles passe par la mer');
     // Plus aucune île n'appartient entièrement à sa nation d'origine au bout de 200 tours dans au moins un cas.
-    // V15.1 : au tour 200 (une partie s'arrête à 80), toutes les terres peuvent être revenues à leurs nations : on regarde tout le trajet.
-    assert.ok(s.events.filter(e => e.type === 'conquest').length > 0, 'la carte a bougé');
+    const moved = map.provinces.filter(p => s.provinces[p.id].ownerId !== p.initialOwner).length;
+    assert.ok(moved > 0, 'la carte a bougé');
   });
 }
 

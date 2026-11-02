@@ -1,12 +1,29 @@
-// Interface — sons et musique (Web Audio).
+// Interface — sons et musique (Web Audio) : branchement du moteur de sons sur la page (gestes, arrière-plan, réglages).
 
+import { createSoundEngine } from '../sound-engine.js';
 import { state } from './session.js';
 
-let audioCtx, musicNodes = [];
-export function playSfx(){if(!state.settings.sfx)return;audioCtx ||= new AudioContext();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=330;
-  g.gain.setValueAtTime(.035,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.12);o.connect(g).connect(audioCtx.destination);o.start();
-  o.stop(audioCtx.currentTime+.12);}
-export function setMusic(on){if(!on){musicNodes.forEach(n=>n.stop?.());musicNodes=[];return;}audioCtx ||= new AudioContext();if(musicNodes.length)return;
-  [110,146.8,164.8].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.009/(i+1);o.connect(g).connect(audioCtx.destination);
-  o.start();musicNodes.push(o);});}
-// Sauvegarde d'une autre carte (ex. V6 'arken-v1-original-map') : elle n'est plus ignorée en silence (B14).
+const engine = createSoundEngine({
+  getContextClass: () => window.AudioContext || window.webkitAudioContext,
+  settings: () => state?.settings,
+  isHidden: () => document.visibilityState === 'hidden'
+});
+export const playSfx = name => engine.play(name);
+export const syncMusic = () => engine.syncMusic();
+export const setMusic = () => engine.syncMusic();
+/** Silence pendant une publicité, quoi qu'il arrive à la fin de celle-ci. */
+export async function quietDuring(task) { engine.hold(true); try { return await task(); } finally { engine.hold(false); } }
+
+let installed = false;
+export function installAudio() {
+  if (installed) return; installed = true;
+  const gesture = () => engine.unlock();
+  // Android : touchend et click ouvrent le droit au son, pas pointerdown au doigt.
+  for (const type of ['pointerup', 'touchend', 'click', 'keydown']) addEventListener(type, gesture, { capture: true, passive: true });
+  addEventListener('click', event => { if (event.target?.closest?.('button')) engine.play('button'); }, { capture: true, passive: true });
+  // Appli Android en arrière-plan, écran coupé, onglet caché : tout se coupe.
+  const away = () => engine.background(), back = () => engine.foreground();
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' ? away() : back());
+  addEventListener('pagehide', away); document.addEventListener('freeze', away);
+  addEventListener('pageshow', back); document.addEventListener('resume', back);
+}

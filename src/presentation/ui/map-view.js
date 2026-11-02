@@ -11,6 +11,7 @@ import {
   territoryOutline, trimPolyline
 } from '../map-orders-view.js';
 import { coalitionBanner } from '../coalition-view.js';
+import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { knownTroopProvinces } from '../vision-view.js';
@@ -88,6 +89,9 @@ function provinceLabel(d,p,troopsKnown=true){
 // V13.2 : une province alliée n'est plus proposée en vert (on ne peut pas l'attaquer) ; elle est marquée « alliée ».
 // V13.4 : l'alliance donne le passage libre — une province alliée redevient une destination verte (on y stationne).
 function destinations(){return new Set(moveSource?legalDestinations(map,state,moveSource).map(x=>x.id):[]);}
+// V15.2 : un seul point pour le son « ordre donné » : le nombre d'ordres en attente vient de monter, dans la même partie.
+let orderCount=0,orderGame=null;
+function announceOrder(){const count=state.orders.filter(o=>o.status==='pending').length;if(orderGame===state&&count>orderCount)playSfx('order');orderGame=state;orderCount=count;}
 export function render(){
   const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),known=safeEngine(()=>knownTroopProvinces(state,map),null);
   for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',
@@ -134,7 +138,7 @@ export function render(){
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;
     $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
     $('#armyTotal').textContent=army.total;
-  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();if(tutoStep!==null)queueMicrotask(refreshTuto);
+  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();announceOrder();syncMusic();if(tutoStep!==null)queueMicrotask(refreshTuto);
   if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)
 }
 export function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;

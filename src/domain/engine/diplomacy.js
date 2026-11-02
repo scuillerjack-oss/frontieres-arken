@@ -256,6 +256,7 @@ export function resolveDiplomacy(state, orders, random, map = null) {
 export function proposalsToAnswer(state, nationId = state.playerNationId, { fresh = false } = {}) {
   return (state.diplomacy?.proposals || []).filter(p => p.to === nationId && p.turn > state.turn - PROPOSAL_TURNS && (!fresh || p.turn === state.turn - 1)
     && !state.nations[p.from]?.eliminated
+    && !(p.action === 'alliance' && state.coalition?.target === nationId && state.coalition.members?.includes(p.from)) // V15.2
     && (p.action === 'alliance' ? !pairTreaty(state, p.from, nationId, 'alliance') && !pairWar(state, p.from, nationId) : pairWar(state, p.from, nationId)));
 }
 /** V13.2 : refus mémorisés d'une proposition (de `from` vers `to`), pour qu'une nouvelle offre en tienne compte. */
