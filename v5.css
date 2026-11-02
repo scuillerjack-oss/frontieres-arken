@@ -488,7 +488,9 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 #lengthChoices{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
 .palmares-entry{width:100%;min-height:48px;margin-top:10px;border:1.5px solid #3c5868;background:#0a2433;color:var(--ink);border-radius:10px;font-weight:800;font-size:.98rem}
 .palmares-head{margin:14px 0 4px;font-size:.95rem}
-.palmares-block .unit-row{min-width:0}
+.palmares-block .unit-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-width:0}
+.palmares-block .unit-row span{flex:1;min-width:0}
+.palmares-block .unit-row b{text-align:right;margin:0;flex:0 1 auto}
 .palmares-note{display:block;margin:4px 0;font-size:.8rem;opacity:.8}
 .palmares-titles{list-style:none;margin:0;padding:0}
 .palmares-titles li{padding:6px 0;border-bottom:1px solid #2b4656}

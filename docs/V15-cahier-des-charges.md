@@ -262,3 +262,44 @@ Victoires : bon sens net. Éliminations : Difficile ne dépasse pas Normal pour 
 
 **Vérification** : `npm test` vert. Chrome mobile simulé (Playwright, 390 × 844 tactile), voir le compte rendu pour le commit : nouvelle partie à chaque niveau, 6 tours chacune ; Normal présélectionné ; 5 bonus lisibles (captures regardées) ; annonce du bonus d'or au journal et à la fin ; tutoriel qui démarre ; sauvegardes schémas 8, 9 et 10 reprises en Normal ; écrans de fin. 0 erreur JavaScript, 0 débordement.
 - **Non vérifié** : le ressenti des trois niveaux par un vrai joueur ; un vrai téléphone ; le test « toucher » reproduit des touchers simulés, pas un vrai doigt ; la relecture par un sous-agent indépendant et les workflows GitHub, restent à faire avant fusion.
+
+### V15.4 — mode 40 tours, palmarès, titres (02/11/2026)
+
+**Mode court** (`src/domain/game-length.js`) : choix « 80 tours » / « Courte · 40 tours » à côté du niveau, 80 présélectionné. `state.gameLength` n'est écrite que pour une partie courte ; absente, la partie dure 80 tours. Suivent la longueur : fin de partie, alerte des 5 derniers tours (tour 36 à 40), affichage du tour, aide, annonces des dirigeants (`left` de `talk-compose.js`, qui avait 80 en dur). Seuils ramenés à la moitié par `scaleTurn` : relance de la guerre 45 → 23, réveil du Bâtisseur 45 → 23, coalition dès le tour 10 → 5, cour du Traître 10 → 5, alliance du Bâtisseur 6 → 3, Bâtisseur reconnu (tour 20 et 8 chantiers → 10 et 4). Conservés tels quels car ce sont des durées de règle, pas des étapes de partie : trêve de 10 tours, refus oubliés après 20 tours, délais de frappe du Traître, recrutement et traversées. L'histoire de la partie n'a pas de tranche fixe : courbes et tournant se règlent sur les mesures réelles. Tutoriel inchangé (80 tours, pas de longueur). Pub de début de partie : même appel, aucune condition sur la durée.
+
+**Écart assumé sur le schéma** : le schéma monte à **12 pour les seules parties courtes** ; une partie de 80 tours reste au schéma 11 (`saveSchemaOf`). Raison précise : `schemaVersion` entre dans l'état complet que hachent les empreintes ; le monter partout change `etat` et `chaine` des 81 parties sans changer une seule décision, et la vérification demandée tombe. Écrit ainsi, l'ancien code refuse bien une partie courte (`unsupported_save_schema:12`) au lieu de la jouer en 80, et une partie de 80 tours reste lisible partout. Longueur illisible : retour à 80 tours, schéma 11.
+
+**Preuve du mode 80** : `node tools/equilibre.mjs --empreintes --verifier=tools/empreintes-v15.3.json` passe sans modifier ce fichier : 81 parties strictement identiques, `RULES`, carte et API comprises. `RULES` n'a donc rien reçu : les réglages sont dans le nouveau module. Empreintes courtes : `--empreintes --longueur=40 --graines=4 --verifier=tools/empreintes-v15.4-40-tours.json` (35 parties).
+
+**Mesures en 40 tours** (`node tools/equilibre.mjs 200 40 c40a --longueur=40` puis `c40b`, 400 parties, IA contre IA, Normal, graines fixées avant de regarder, aucun réglage après). « Coupée » : parties de 80 tours arrêtées au tour 40, mêmes graines `c40a`, 200 parties, soit le mode sans aucun seuil ajusté.
+
+| Mesure | c40a | c40b | Total | Coupée (c40a) |
+|---|---|---|---|---|
+| Vainqueur net (seul en tête en provinces, ou 5 capitales) | 146 / 200 | 140 / 200 | 286 / 400, **71,5 %** | 154 / 200 |
+| Capitales perdues par partie | 0,67 | 0,59 | **0,63** | 0,66 |
+| Parties avec une nation éliminée | 4 % | 5 % | **4,5 %** | 6 % |
+| Parties avec coalition | 17 % | 21 % | **19 %** | 17 % |
+| Victoires par les 5 capitales | 0 | 0 | **0** | 0 |
+| Conquêtes, tours 1-10 / 11-20 / 21-30 / 31-40 | 601 / 502 / 585 / 520 | 562 / 493 / 595 / 509 | **1163 / 995 / 1180 / 1029** | 1-20 : 1124, 21-40 : 1025 |
+| Dernière conquête (médiane) | tour 36 | tour 37 | | tour 35 |
+| Vainqueur / 2e (provinces, médiane) | 5 / 4 | 5 / 4 | | 5 / 4 |
+
+| Victoires | Valmorne | Roc-Épine | Noireflamme | Oroël | Solmara | Conquérant | Traître | Héros | Bâtisseur |
+|---|---|---|---|---|---|---|---|---|---|
+| Total sur 400 | 39 (**9,75 %**) | 101 (25,25 %) | 109 (27,25 %) | 37 (**9,25 %**) | 114 (28,5 %) | 149 (37,25 %) | 99 (24,75 %) | 103 (25,75 %) | 49 (12,25 %) |
+| Coupée sur 200 | 12 (6 %) | 54 (27 %) | 49 (24,5 %) | 18 (9 %) | 67 (33,5 %) | 83 (41,5 %) | 58 (29 %) | 45 (22,5 %) | 14 (7 %) |
+
+- **Lecture franche** : la carte ne fige pas (dernière tranche à 88 % de la première) et la coalition agit dans 19 % des parties : le cas prévu pour ajuster n'est pas atteint, **aucun seuil de coalition ni de carte n'a été touché après mesure**. Les seuils ajustés aident surtout le Bâtisseur (7 → 12 %).
+- **Faiblesses réelles, non corrigées** : Valmorne et Oroël sous 10 % ; une partie sur 3,5 finit à égalité de provinces en tête, départagée aux capitales puis au trésor ; élimination rare (4,5 %) et aucune victoire par les capitales : 40 tours laissent peu de temps pour achever une nation. C'est la nature d'une partie plus courte plus qu'un défaut, à juger en bêta. Les cibles de V15.1 et V15.3 n'ont pas été écrites pour ce mode.
+- **Contrôle joueur scripté** (`--joueur=… 200 40 c40ctl --longueur=40`) : dominant 32 victoires, 1 élimination, coalition contre lui dans 7 parties ; prudent 0 victoire, 0 élimination, rang moyen 4,49. Le scripté dominant gagne 0 fois sur 40 avec Valmorne, 16 sur 40 avec Noireflamme.
+
+**Palmarès** (`src/domain/palmares.js`, `profile.palmares`, écran depuis l'accueil, `src/presentation/palmares-view.js`) : parties terminées, victoires, par nation et par niveau, meilleur classement, plus rapide victoire. Une partie est reconnue par sa graine, déjà unique et déjà sauvegardée, ce qui n'ajoute rien à l'état ; le comptage se fait à l'écran de fin, seul passage obligé, et la mémoire garde 200 identifiants. Sans graine utilisable : **jamais comptée**. Une ancienne partie finie avec une graine est comptée une fois à sa première réouverture : c'est une vraie partie. Tutoriel jamais compté. La plus rapide victoire ne distingue pas les modes : une victoire au tour 40 d'une partie courte bat tout ce qui finit plus tard en 80. Rien n'en sort dans la sauvegarde (testé). Importer un ancien profil remplace aussi le palmarès, comme le reste du profil.
+
+**Titres** (11, cachés jusqu'à l'obtention, seul leur nombre restant est affiché, rien dans le moteur) : Première page, Première couronne, Longue marche, Vif comme l'éclair, Maître d'Arken, Cinq bannières, Contre vents et marées, Seul contre tous, Retour de loin, Cendres, Chroniqueur. Affichés aussi sur l'écran de fin de la partie qui les donne. Un test interdit tout vocabulaire d'avantage, de pub ou d'achat.
+
+**Tests modifiés** (valeurs, aucun seuil) : `version` 15.4.0 (2) ; schéma inconnu 12 → 13 dans `save-codec` ; `Math.min(state.turn,RULES.gameLength)` → `gameLengthOf(state)` dans `v14-4-bombardement`. Ajout : `tests/v15-4.test.js`, 23 tests.
+
+**Remarque hors périmètre, non corrigée** : le tournant de l'écran de fin peut écrire « perd 1 provinces » (`story.js`, déjà en V15.3).
+
+**Vérification** : `npm test` vert, 607 tests. Chrome mobile simulé (Playwright, 390 × 844 tactile), sur le commit donné dans le compte rendu : partie courte choisie à l'écran, 6 vrais tours, reprise au tour 35 et 40 par sauvegarde préparée, alerte, écran de fin au tour 40, palmarès à 1, non doublé après rechargement ni écran rouvert, titres visibles (captures regardées) ; 80 tours affichés comme tels, sans fin au tour 41, sauvegarde en schéma 11 ; sauvegarde schéma 10 reprise ; partie finie sans graine non comptée ; profil sans palmarès, jetons gardés ; tutoriel qui démarre, non compté. 0 erreur JavaScript, 0 débordement.
+- **Non vérifié** : une partie courte réellement jouée à la main du tour 8 au tour 34 ; un vrai téléphone ; le ressenti du mode ; la vraie pub (simulée) ; la relecture par un sous-agent indépendant et les workflows GitHub, restent à faire avant fusion.
