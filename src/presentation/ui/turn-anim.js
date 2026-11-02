@@ -5,7 +5,7 @@
 
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { wholeMapView } from '../launch-view.js';
-import { MAX_ANIMATION_MS, planTurnAnimation, soundCues } from '../turn-animation.js';
+import { MAX_ANIMATION_MS, guardTouches, planTurnAnimation, soundCues } from '../turn-animation.js';
 import { playSfx } from './audio.js';
 import { $, E, nation, province } from './base.js';
 import { clampTransform, minZoom, scale, setScale, setTx, setTy, tx, ty, updateLabelScale } from './map-view.js';
@@ -72,6 +72,7 @@ export function playTurnAnimation(events) {
       document.removeEventListener('visibilitychange', onHide); removeEventListener('pagehide', onPageHide);
       for (const node of [overlay, layer]) try { node.remove(); } catch {}
       if (restore) try { setView(restore); } catch {} // le joueur retrouve son cadrage
+      guardTouches(document, { pressing }); // V15.3 : un deuxième toucher ne ferme pas la fenêtre qui s'ouvre
       resolve();
     };
     finishCurrent = finish;
@@ -90,16 +91,7 @@ export function playTurnAnimation(events) {
         timers.push(setTimeout(() => { label.textContent = step.text; }, step.at));
       }
       for (const cue of soundCues(plan)) timers.push(setTimeout(() => playSfx(cue.sound), cue.at));
-      timers.push(setTimeout(() => {
-        // Doigt encore posé à la fin : la fenêtre suivante ne doit pas recevoir ce toucher. Elle s'ouvre quand même tout de suite.
-        if (pressing) swallowNextClick();
-        finish();
-      }, Math.min(plan.total, MAX_ANIMATION_MS)));
+      timers.push(setTimeout(finish, Math.min(plan.total, MAX_ANIMATION_MS)));
     } catch { finish(); }
   });
-}
-function swallowNextClick() {
-  const stop = event => { event.stopPropagation(); event.preventDefault(); };
-  document.addEventListener('click', stop, { capture: true, once: true });
-  setTimeout(() => document.removeEventListener('click', stop, { capture: true }), 400);
 }

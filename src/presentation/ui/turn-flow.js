@@ -1,7 +1,9 @@
 // Interface — journal, aide, armée, fin de partie et enchaînement de la fin de tour.
 
 import { RULES } from '../../domain/constants.js';
+import { aiGoldPct, difficultyLabel, difficultyOf } from '../../domain/difficulty.js';
 import { journalEntry, nextTurn } from '../../domain/game-engine.js';
+import { nationBonusInfo } from '../../domain/nations.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { buildEndStory } from '../../domain/story.js';
 import { bombardSummary } from '../bombard-view.js';
@@ -30,7 +32,9 @@ export function renderJournal(permanent=false){
   document.querySelectorAll('[data-journal]').forEach(b=>b.onclick=()=>renderJournal(b.dataset.journal==='history'));
   $('#journalDialog').showModal();if(!permanent)tutorial('history','Deux journaux','Le récapitulatif inter-tour montre les événements importants. L’historique garde le détail connu des productions et du monde.');
 }
-export function openHelp(){const entries=TUTORIAL_GUIDE;$('#helpBody').innerHTML=entries.map(x=>`<article class="help-item"><b>${x.title}</b><p>${x.text.replace('{nation}',nation(state.playerNationId).name)}</p></article>`).join('');$('#helpDialog').showModal();}
+/** V15.3 : le niveau de la partie et le bonus de la nation, écrits noir sur blanc (tout avantage des IA y figure). */
+export function levelSummary(){const pct=aiGoldPct(state);return `Niveau ${difficultyLabel(difficultyOf(state))}${pct?` : les IA reçoivent +${pct} % d’or à chaque tour`:''}.`;}
+export function openHelp(){const bonus=nationBonusInfo(state.playerNationId),entries=[{title:'Cette partie',text:`${levelSummary()}${bonus&&!state.tutorialMode?` Votre bonus de nation, ${bonus.title} : ${bonus.text}. Chaque IA a aussi le sien.`:''}`},...TUTORIAL_GUIDE];$('#helpBody').innerHTML=entries.map(x=>`<article class="help-item"><b>${x.title}</b><p>${x.text.replace('{nation}',nation(state.playerNationId).name)}</p></article>`).join('');$('#helpDialog').showModal();}
 export function openArmy(){const army=totalArmy(state,state.playerNationId);actionModal('Armée totale',`TOUR ${state.turn}`,Object.entries(army.byType).map(([key,value])=>`<div class="unit-row"><span>${unitKeys[key]}</span><b>${value}</b></div>`).join(''));}
 // --- V10 : fin de partie --------------------------------------------------------------------------------------
 // Le récit ne doit jamais empêcher d'afficher la fin : sans données exploitables, on garde un classement simple.
@@ -42,7 +46,7 @@ export function showEndScreen(){
   const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:`Les ${go.turn} tours sont écoulés.`;
   $('#endKicker').textContent=`TOUR ${go.turn} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':`FIN DES ${go.turn} TOURS`}`;
   $('#endTitle').textContent=title;$('#endDialog').dataset.result=go.reason==='player-eliminated'||!won&&go.reason==='capitals'?'defeat':won?'victory':'end';
-  $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`}</p>\
+  $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`} ${levelSummary()}</p>\
 ${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
 }

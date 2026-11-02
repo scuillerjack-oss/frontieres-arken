@@ -77,15 +77,22 @@ function migrate9to10(copy) {
   copy.schemaVersion = 10;
   return copy;
 }
+/** V10 (V15.1 et V15.2) -> V11 (V15.3) : une partie commencée avant les niveaux de difficulté se joue en Normal. */
+function migrate10to11(copy) {
+  copy.difficulty = 'normal';
+  copy.schemaVersion = 11;
+  return copy;
+}
 export function migrateSave(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
   if (copy.schemaVersion === SAVE_SCHEMA_VERSION) return copy;
-  if (copy.schemaVersion === 9) return migrate9to10(copy);
-  if (copy.schemaVersion === 8) return migrate9to10(migrate8to9(copy));
-  if (copy.schemaVersion === 7) return migrate9to10(migrate8to9(migrate7to8(copy)));
-  if (copy.schemaVersion === 6) return migrate9to10(migrate8to9(migrate7to8(migrate6to7(copy))));
-  if (copy.schemaVersion === 5) return migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy)))));
+  if (copy.schemaVersion === 10) return migrate10to11(copy);
+  if (copy.schemaVersion === 9) return migrate10to11(migrate9to10(copy));
+  if (copy.schemaVersion === 8) return migrate10to11(migrate9to10(migrate8to9(copy)));
+  if (copy.schemaVersion === 7) return migrate10to11(migrate9to10(migrate8to9(migrate7to8(copy))));
+  if (copy.schemaVersion === 6) return migrate10to11(migrate9to10(migrate8to9(migrate7to8(migrate6to7(copy)))));
+  if (copy.schemaVersion === 5) return migrate10to11(migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))))));
   if ([1, 2, 3, 4].includes(copy.schemaVersion)) {
     const previous = copy.schemaVersion;
     copy.schemaVersion=5; copy.settings={music:true,sfx:true,hints:true,...copy.settings};
@@ -99,7 +106,7 @@ export function migrateSave(raw) {
     if(previous===4)for(const order of copy.orders)if(order.kind==='diplomacy'&&order.action==='ceasefire'&&order.status==='pending'&&order.offerLevel==null){order.legacyFree=true;order.amount=0;order.acceptanceProbability=1;}
     // Existing buildings and active projects survive migration; only new games omit free setup.
     if (previous < 4) for (const province of Object.values(copy.provinces||{})) province.portSite ??= Boolean(province.buildings?.port);
-    return migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy)))));
+    return migrate10to11(migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))))));
   }
   throw new Error(`unsupported_save_schema:${copy.schemaVersion}`);
 }

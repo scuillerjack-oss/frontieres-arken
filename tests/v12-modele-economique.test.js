@@ -101,14 +101,15 @@ test('V12 atout Recrutement : 100 fantassins commandés → 110 livrés au nivea
     resolveInterturn(s, { ...map() });
     return { gained: s.provinces[pid].units.infantry - before, s };
   };
-  assert.equal(run({}).gained, 100);
+  // V15.3 : Valmorne a son bonus de nation (+15 %) ; l'atout s'y ajoute.
+  assert.equal(run({}).gained, 115);
   const top = run({ recruit: 10 });
-  assert.equal(top.gained, 110);
-  assert.ok(top.s.events.some(e => e.type === 'production-complete' && e.bonus === 10));
-  assert.equal(run({ recruit: 5 }).gained, 105);
+  assert.equal(top.gained, 125);
+  assert.ok(top.s.events.some(e => e.type === 'production-complete' && e.bonus === 25));
+  assert.equal(run({ recruit: 5 }).gained, 120);
   assert.equal(run({ recruit: 10 }, 'noireflamme').gained, 100, 'une IA ne reçoit rien');
   const s = freshState(); setPlayerBonuses(s, { recruit: 10 });
-  assert.equal(recruitPreview(s, 'valmorne', 'infantry', 100), 110);
+  assert.equal(recruitPreview(s, 'valmorne', 'infantry', 100), 125);
   assert.equal(recruitPreview(s, 'valmorne', 'cavalry', 10), 10, 'infanterie seulement');
 });
 
@@ -125,7 +126,7 @@ test('V12 atout Construction : +10 % de vitesse = 1 tour de chantier gagné tout
   const s = freshState(); setPlayerBonuses(s, { build: 10 });
   let gained = 0; for (let i = 0; i < 10; i++) gained += buildTurnsGained(s, 'valmorne', 1);
   assert.equal(gained, 1);
-  assert.equal(buildTurnsGained(s, 'noireflamme', 50), 0);
+  assert.equal(buildTurnsGained(s, 'oroel', 50), 0, 'une IA n’a pas d’atout (V15.3 : Oroël n’a pas de bonus de chantier)');
   // Dans le moteur : avec un crédit déjà à 90 %, la banque (3 tours) est livrée un tour plus tôt.
   const finishTurn = (levels, credit) => { const g = freshState({ allHuman: true }); setPlayerBonuses(g, levels); if (credit) g.boostCredit.valmorne = { build: credit };
     const pid = Object.keys(g.provinces).find(id => g.provinces[id].ownerId === 'valmorne');
@@ -239,7 +240,7 @@ test('V12 missions : les compteurs viennent des événements réels du moteur (r
   const from = s.events.length;
   resolveInterturn(s, map());
   const d = missionDeltas(s.events.slice(from), 'valmorne');
-  assert.equal(d.infantry, 60, 'seulement les recrues du joueur');
+  assert.equal(d.infantry, 69, 'seulement les recrues du joueur (60 + 15 % de Valmorne, V15.3)');
   assert.equal(d.build, 1);
   assert.equal(d.turns, 1);
   assert.equal(d.message, 1);

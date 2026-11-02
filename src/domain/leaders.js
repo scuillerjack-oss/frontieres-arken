@@ -10,7 +10,7 @@ export const ARCHETYPE_DESCRIPTIONS = Object.freeze({
   heros: 'défend les nations attaquées et punit les agresseurs',
   conquerant: 'veut dominer le monde et frappe les plus faibles',
   traitre: 'cherche des alliés… pour mieux les poignarder',
-  batisseur: 'développe son pays et ne se bat que menacé'
+  batisseur: 'développe son pays, ne se bat que menacé… puis fait parler sa richesse en fin de partie'
 });
 // Compatibilité des sauvegardes V10 (state.ai.traits) : ancien trait -> archétype, et inversement.
 export const LEGACY_TRAIT_TO_ARCHETYPE = Object.freeze({ offensif: 'conquerant', fidele: 'heros', prudent: 'batisseur', impulsif: 'traitre' });

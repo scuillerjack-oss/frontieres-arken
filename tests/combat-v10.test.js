@@ -317,7 +317,7 @@ test('B5 : migration d\'une sauvegarde V9 (schéma 5) : PV pleins, aucune blessu
   old.productionQueue = [{ kind: 'unit', type: 'infantry', provinceId: 'p01', nationId: 'valmorne', amount: 40, remaining: 1 }, { kind: 'building', type: 'bank', provinceId: 'p02', nationId: 'valmorne', amount: 1, remaining: 2 }];
   old.transports = [{ nationId: 'valmorne', fromId: 'p03', toId: 'p13', units: { infantry: 20, cavalry: 0, armor: 0, artillery: 0 }, warships: 1, status: 'at-sea', remaining: 1 }];
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 10, 'V9 -> V10 lot 2 -> V10 marine -> V11 -> V13 -> V15.1');
+  assert.equal(m.schemaVersion, 11, 'V9 -> V10 lot 2 -> V10 marine -> V11 -> V13 -> V15.1 -> V15.3');
   for (const p of Object.values(m.provinces)) assert.deepEqual(p.wounds, { infantry: 0, cavalry: 0, armor: 0, artillery: 0, warship: 0 });
   assert.deepEqual(m.productionQueue.map(q => q.cost), [40, 30]);
   assert.equal(m.transports[0].wounds.infantry, 0);
@@ -351,6 +351,6 @@ test('recrutement inchangé : les unités recrutées arrivent sans blessure', ()
   const s = freshState({ allHuman: true });
   queueRecruitment(s, { nationId: 'valmorne', provinceId: 'p02', type: 'infantry' });
   resolveInterturn(s, map);
-  assert.equal(s.provinces.p02.units.infantry, 60);
+  assert.equal(s.provinces.p02.units.infantry, 63, '40 + 20 commandés + 15 % de Valmorne (V15.3)');
   assert.equal(s.provinces.p02.wounds.infantry, 0);
 });

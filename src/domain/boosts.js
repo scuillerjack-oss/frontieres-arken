@@ -9,6 +9,11 @@
 // Les petits pourcentages ne doivent pas disparaître dans les arrondis (+3 % de 16 or = 0,48 or) : le surplus
 // fractionnaire est cumulé, en centièmes, dans `state.boostCredit[nation][clé]` et versé dès qu'il fait une unité
 // entière. Sur la durée, le gain est donc exactement de +N %.
+//
+// V15.3 : le bonus de nation (RULES.nationBonus, pour toutes les nations, IA comprises) passe par les mêmes mécaniques et
+// s'ajoute à l'atout. `bonusPct` reste l'atout seul (joueur humain) ; le moteur lit `effectPct`. Pas de bonus dans le tutoriel.
+import { RULES } from './constants.js';
+import { aiGoldPct } from './difficulty.js';
 
 export const BOOST_KEYS = Object.freeze(['gold', 'recruit', 'build', 'fort', 'naval']);
 export const BOOST_MAX_LEVEL = 10;
@@ -37,6 +42,11 @@ export function bonusPct(state, nationId, key) {
   return Math.min(BOOST_MAX_LEVEL, int(state.bonuses?.[nationId]?.[key])) * BOOST_STEP_PCT;
 }
 
+/** V15.3 : bonus de nation, en %. */
+export const nationBonusPct = (state, nationId, key) => state?.tutorialMode ? 0 : int(RULES.nationBonus[nationId]?.[key]);
+/** V15.3 : effet total sur une mécanique = atout du joueur + bonus de la nation. */
+export const effectPct = (state, nationId, key) => bonusPct(state, nationId, key) + nationBonusPct(state, nationId, key);
+
 function creditOf(state, nationId) {
   state.boostCredit ||= {};
   return (state.boostCredit[nationId] ||= {});
@@ -52,33 +62,34 @@ function addCredit(state, nationId, key, hundredths) {
 
 /** Or : surplus de revenu du tour (à ajouter au revenu de base). Met à jour le crédit. */
 export function goldBonus(state, nationId, baseIncome) {
-  const pct = bonusPct(state, nationId, 'gold');
+  // V15.3 : Difficile peut ajouter un bonus d'or aux IA (annoncé au joueur, jamais à l'humain).
+  const pct = effectPct(state, nationId, 'gold') + (state.controllers?.[nationId] === 'ai' ? aiGoldPct(state) : 0);
   if (!pct || baseIncome <= 0) return 0;
   return addCredit(state, nationId, 'gold', int(baseIncome) * pct);
 }
 
 /** Recrutement : nombre de fantassins réellement livrés pour `amount` commandés (sans modifier l'état). */
 export function recruitPreview(state, nationId, type, amount) {
-  const pct = type === 'infantry' ? bonusPct(state, nationId, 'recruit') : 0;
+  const pct = type === 'infantry' ? effectPct(state, nationId, 'recruit') : 0;
   if (!pct) return int(amount);
   const c = int(state.boostCredit?.[nationId]?.recruit);
   return int(amount) + Math.floor((c + int(amount) * pct) / 100);
 }
 /** Recrutement : idem, en consommant le crédit (appelé par le moteur quand l'ordre est passé). */
 export function recruitAmount(state, nationId, type, amount) {
-  const pct = type === 'infantry' ? bonusPct(state, nationId, 'recruit') : 0;
+  const pct = type === 'infantry' ? effectPct(state, nationId, 'recruit') : 0;
   if (!pct) return int(amount);
   return int(amount) + addCredit(state, nationId, 'recruit', int(amount) * pct);
 }
 
 /** Construction : tours de chantier gagnés ce tour pour `activeSites` chantiers en cours (+N % de vitesse). */
 export function buildTurnsGained(state, nationId, activeSites) {
-  const pct = bonusPct(state, nationId, 'build');
+  const pct = effectPct(state, nationId, 'build');
   if (!pct || !activeSites) return 0;
   return addCredit(state, nationId, 'build', int(activeSites) * pct);
 }
 
 /** Forteresse : multiplicateur supplémentaire du facteur de fort (défenseur joueur, fort construit). */
-export const fortBonusFactor = (state, nationId) => 1 + bonusPct(state, nationId, 'fort') / 100;
+export const fortBonusFactor = (state, nationId) => 1 + effectPct(state, nationId, 'fort') / 100;
 /** Marine : multiplicateur des dégâts des navires de guerre du joueur. */
-export const navalBonusFactor = (state, nationId) => 1 + bonusPct(state, nationId, 'naval') / 100;
+export const navalBonusFactor = (state, nationId) => 1 + effectPct(state, nationId, 'naval') / 100;

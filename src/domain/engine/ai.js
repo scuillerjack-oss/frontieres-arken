@@ -6,6 +6,7 @@ import {
   resolveCombat, scaleForce, splitForce
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
+import { levelOf } from '../difficulty.js';
 import {
   HOSTILITY_WARNING, aliveNations, archetypeOf, chance, charmOf, ensureLeaders, getTension, pickFrom, provokers,
   recentAggressions, reputation, strengthOf
@@ -41,7 +42,7 @@ function warTargets(state, map, id, arch) {
   if (arch === 'conquerant') {
     // Domination : il choisit tôt une proie (la plus faible qu'il peut atteindre), sans attendre la tension,
     // et ne respecte une trêve que le temps qu'elle cesse d'être une trahison (V14.0 : 10 tours, avant 5).
-    const startTurn = 2 + Math.floor(chance(state, 'conq-start', id) * 3);
+    const startTurn = 2 + Math.floor(chance(state, 'conq-start', id) * 3) + levelOf(state).warDelay;
     // Proie atteignable depuis sa base navale (là où sont sa flotte et son armée) ou par la terre.
     const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === id), base = navalBase(map, state, owned);
     const coast = new Set([...(base ? seaDestinations(map, base.id).map(d => d.id) : []), ...owned.flatMap(p => p.landConnections || [])]);
@@ -87,6 +88,7 @@ function warTargets(state, map, id, arch) {
  * Alliances et trêves récentes restent respectées.
  */
 function addAmbition(state, map, id, arch, alive, out) {
+  if (!levelOf(state).ambition) return; // V15.3 : Facile
   const free = n => !pairTreaty(state, id, n, 'alliance') && !recentTruce(state, id, n) && reachable(state, map, id, n);
   const count = n => map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
   if (arch === 'conquerant' || arch === 'traitre') for (const n of alive) if (count(n) <= RULES.ai.finishProvinces && free(n)) out.add(n);
@@ -173,10 +175,22 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
     if (arch === 'batisseur' && state.turn >= 6 && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
   }
 }
+/**
+ * V15.3 : la fin de partie du Bâtisseur. Il a bâti pendant que les autres se battaient ; passé RULES.ai.builderLateTurn, s'il pèse
+ * au moins autant que le plus faible de ceux qu'il peut atteindre, sa richesse devient une armée, et il joue comme un Conquérant.
+ * S'il a été saigné entre-temps, il reste prudent. Mêmes règles et mêmes ordres que tout le monde.
+ */
+export function builderAwake(state, map, id) {
+  if (archetypeOf(state, id) !== 'batisseur' || state.turn < RULES.ai.builderLateTurn) return false;
+  const near = aliveNations(state).filter(n => n !== id && !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n));
+  return near.some(n => strengthOf(state, id) >= RULES.ai.builderLateStrength * perceivedStrength(state, map, id, n));
+}
 function aiPlan(state, map, nationId) {
   const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === nationId);
   if (!owned.length) return;
-  const arch = archetypeOf(state, nationId) || 'batisseur';
+  const awake = builderAwake(state, map, nationId);
+  // Réveillé, le Bâtisseur fait la guerre comme un Conquérant ; son économie et ses forteresses restent les siennes (`nature`).
+  const nature = archetypeOf(state, nationId) || 'batisseur', arch = awake ? 'conquerant' : nature;
   const base = navalBase(map, state, owned);
   const targets = warTargets(state, map, nationId, arch);
   // V13 : engagements pris auprès d'un allié (demande d'aide acceptée) : guerre déclarée et attaques contre X.
@@ -202,7 +216,7 @@ function aiPlan(state, map, nationId) {
   }
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);
-  const treasury = () => spendableTreasury(state, nationId);
+  const treasury = () => spendableTreasury(state, nationId), level = levelOf(state);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
@@ -210,7 +224,7 @@ function aiPlan(state, map, nationId) {
   // (sauf pour en finir avec un ennemi à bout de forces, ou si un allié le lui demande) : il garde son caractère en fin de partie.
   if (arch === 'heros') for (const n of [...targets]) if (!helpTargets.has(n) && !recentAggressions(state, HERO_MEMORY_TURNS).some(a => a.attacker === n) && map.provinces.filter(p => state.provinces[p.id].ownerId === n).length > RULES.ai.finishProvinces) targets.delete(n);
   const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
-  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
+  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
   // n'achète ni infanterie ni banque (sinon le trésor ne permet jamais d'armer un navire : IA passive de la V10).
   const ships = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + (state.transports || []).filter(t => t.nationId === nationId).reduce((n, t) => n + (t.warships || 0), 0)
@@ -218,20 +232,22 @@ function aiPlan(state, map, nationId) {
     + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
   const saving = warlike && base && ships < (arch === 'conquerant' ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0);
   if (!factory && treasury() >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
-  const banks = arch === 'batisseur' ? owned : owned.filter(p => p.id !== source.id);
+  const banks = nature === 'batisseur' ? owned : owned.filter(p => p.id !== source.id);
   const bankProvince = banks.find(p => !hasOrQueued(state, p.id, 'bank'));
   if (bankProvince && !saving && treasury() >= RULES.buildings.bank.cost + (warlike ? 40 : 0)) { if (queueConstruction(state, { nationId, provinceId:bankProvince.id, type:'bank' }).ok) reputation(state, nationId).builds++; }
-  if (arch === 'batisseur' || arch === 'heros') {
+  if (nature === 'batisseur' || nature === 'heros') {
     // Défense : fortifie la capitale puis la base navale quand la tension monte ou à mesure que le trésor grossit.
     const worry = aliveNations(state).some(n => n !== nationId && getTension(state, nationId, n) >= 50);
     for (const p of [owned.find(x => state.nations[nationId].capitalId === x.id), base].filter(Boolean)) {
       const lvl = buildingCount(state, p.id, 'fort');
-      if (lvl < 3 && (worry || arch === 'batisseur') && treasury() >= RULES.buildings.fort.costs[lvl] + 40) { if (queueConstruction(state, { nationId, provinceId: p.id, type: 'fort' }).ok) reputation(state, nationId).builds++; break; }
+      if (lvl < 3 && (worry || nature === 'batisseur') && treasury() >= RULES.buildings.fort.costs[lvl] + 40) { if (queueConstruction(state, { nationId, provinceId: p.id, type: 'fort' }).ok) reputation(state, nationId).builds++; break; }
     }
   }
-  if (!saving && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
+    if (!saving && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
   if (arch === 'conquerant' && !saving && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
-  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
+  // V15.3 : le trésor accumulé du Bâtisseur réveillé part en blindés ; en Difficile, toutes les IA dépensent mieux leur trésor.
+  if (factory && !saving) for (let i = 0; i < Math.max(awake ? RULES.ai.builderSpendLots : 0, level.spendLots) && treasury() >= RULES.units.armor.cost + 40; i++) if (!queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' }).ok) break;
+  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
     return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||(arch==='conquerant'&&!recentTruce(state,nationId,owner)))&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
@@ -239,15 +255,16 @@ function aiPlan(state, map, nationId) {
   attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||ambitionOf(state,map,b.to)-ambitionOf(state,map,a.to)||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
-  const threshold = ARCH_MARGIN[arch];
+  const threshold = ARCH_MARGIN[arch] + level.marginAdd;
   let launched = 0;
   for (const x of attacks) {
     // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.
     // V15.2 : le Héros et le Bâtisseur restent dans leur quota, comme le dit le cahier (mesuré : pas d'effet sur les cibles).
+    if (launched && level.oneAttack) break; // V15.3 : Facile
     if (launched >= (ARCH_ATTACKS[arch] || 1) && !((arch === 'conquerant' || arch === 'traitre') && ambitionOf(state, map, x.to))) break;
     if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
-    const margin = x.atWar ? Math.max(arch === 'conquerant' ? .8 : .85, threshold - .2) : threshold;
+    const margin = x.atWar ? Math.max((arch === 'conquerant' ? .8 : .85) + level.marginAdd, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
     if (!units) continue;
     if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) launched++;

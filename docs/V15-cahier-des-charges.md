@@ -205,3 +205,60 @@ Le joueur dominant ainsi visé gagne **14 fois sur 15** : ni injouable, ni punit
 - `npm test` vert. `src/domain/` ne contient que les corrections ci-dessus : aucune animation ni aucun son n'y entre, et `--empreintes --verifier=tools/empreintes-v15.2.json` reste identique après le travail d'interface.
 - Chrome mobile simulé (Playwright, 390 × 844 tactile) : partie réelle sur plusieurs dizaines de tours ; animation à son terme (2,4 s au plus, mesure comprise) ; passée au toucher (fenêtre suivante restée ouverte) ; arrière-plan simulé ; retour ; `reducedMotion: 'reduce'` ; son coupé (0 oscillateur) ; Web Audio absent ou cassé ; écrans de fin ; élimination ; sauvegardes anciennes reprises ; tutoriel. 0 erreur JavaScript, 0 débordement. Captures regardées.
 - **Non vérifié** : le rendu d'un vrai haut-parleur (la simulation compte les notes, elle ne les entend pas) ; la coupure du son sur une vraie appli Android, simulée ici par `visibilitychange` ; la fluidité sur un téléphone moyen.
+
+### V15.3 — difficulté, nations, Bâtisseur (02/11/2026)
+
+**Bilan franc** : au niveau Normal, sur 11 cibles, **8 tenues, 3 non tenues** : Noireflamme 31 % (40,5 avant, cible 28), Valmorne 11 % (8,75 avant, cible 12), élimination **22 %** (24,5 avant, cible 30 : elle recule). Je m'arrête à ce réglage : les valeurs qui auraient pu tenir ces trois chiffres déforment le jeu ou se contredisent (ci-dessous).
+
+Mesure : `node tools/equilibre.mjs 200 80 v153a` puis `v153b`, 400 parties, graines choisies avant de lancer le code final et regardées une seule fois, aucun réglage de moteur après. « Avant » : le code de `main` (a31f00e) sur les mêmes graines.
+
+| Cible | Avant | Après | |
+|---|---|---|---|
+| Valmorne 12-28 % | 8,75 % | **11 %** (8,5 et 13,5 selon la série) | **non tenue** |
+| Roc-Épine 12-28 % | 17,25 % | 16,75 % | tenue |
+| Noireflamme 12-28 % | 40,5 % | **31 %** (33,5 et 28,5) | **non tenue** |
+| Oroël 12-28 % | 17,75 % | 17 % | tenue |
+| Solmara 12-28 % | 15,75 % | 24,25 % | tenue |
+| Bâtisseur ≥ 10 % | 5,25 % | **12,75 %** | tenue |
+| Aucun caractère > 40 % | Traître 35,25 % | Conquérant 31,5, Héros 30,25, Traître 25,5, Bâtisseur 12,75 % | tenue |
+| Nation éliminée ≥ 30 % | 24,5 % (28 et 21) | **22 %** (22 et 22) | **non tenue** |
+| Tranche 61-80 ≥ 45 % de 1-20 | 93 % | 91 % (95 et 88) | tenue |
+| Capitales perdues ≥ 1 par partie | 1,48 | 1,48 (1,55 et 1,40) | tenue |
+| Test « pas suicidaire » | vert | vert, inchangé | tenue |
+
+Bruit : une série de 200 parties bouge de ±3 points pour une nation à 30 %. Pendant les réglages (autres graines : `tn`, `tm`, `tp`, `tq`), le même code ou presque donnait Noireflamme de 25 à 36 %, Valmorne de 10 à 12,7 %.
+
+**Cause du déséquilibre, mesurée** : une chaîne de prédateurs, née du choix de la base navale. Chaque IA rassemblait son armée sur le point de port en face de la côte la plus faible. Garnison moyenne au tour 40 : Valmorne p03 5 661, Roc-Épine p05 4 969, Noireflamme p11 5 201, Oroël p14 4 724, Solmara p17 4 925 ; en face, p02 1 210, p07 1 202, p19 1 073. Noireflamme frappe Solmara à son point faible, Solmara frappe Roc-Épine, Roc-Épine frappe Valmorne, Oroël et Valmorne se neutralisent, et **personne ne vise Noireflamme** : sa province p11 n'a changé de main que 20 fois sur 100 parties, p20 (Solmara) 328 fois.
+- **Essais sans effet sur Noireflamme** (150 à 300 parties chacun) : bonus de 8 à 20 % sur les voisines, fort de départ, +40 d'or au départ, troupes de départ, défense du sol +20 %, seuils de coalition abaissés (6/2, 5/2), recrutement sur la côte menacée, viser le chef de file plus tôt, marges de capitale réduites, changement de front, siège d'une nation réduite.
+- **Ce qui agit** : garder la base à la capitale. Pour tous les caractères : Noireflamme 4 %, Solmara 45 %, élimination 6 % : le prédateur change de nom et le monde s'endort. **Retenu** : le Bâtisseur et le Traître la gardent à leur capitale (`RULES.ai.baseAtCapital`), le Héros et le Conquérant choisissent la côte faible. Le premier protège, le second attend son heure : c'est cohérent avec leur caractère. Écartés : Conquérant à 30 % (meilleur pour Noireflamme, mais le test « Conquérant > 2 × Héros » tombait, et je ne l'ai pas touché) ; Héros en plus (élimination 12,7 à 17 %).
+- **Les trois chiffres manqués se contredisent** : Valmorne est presque toujours la nation éliminée, donc la protéger baisse l'élimination, et affaiblir Noireflamme fait monter Solmara, qui écrase Roc-Épine, qui écrase Valmorne. Baser le Bâtisseur et le Traître à la capitale a coûté environ 8 points d'élimination pour 15 de gagnés sur Noireflamme (graines `tn`, 150 parties) : c'est un choix, à valider par Jack. Sortir de cette contradiction demanderait la carte ou des bonus hors de proportion.
+
+**Niveaux** (`src/domain/difficulty.js`, `state.difficulty`, Normal présélectionné, schéma de sauvegarde **11** : anciennes parties en Normal, migration testée)
+- **Facile** : marge d'attaque +0,3, une seule attaque terrestre par tour, Conquérant retardé de 8 tours, pas d'acharnement ni de visée du plus fort.
+- **Normal** : aucun réglage ; même partie à l'octet près que sans niveau.
+- **Difficile** : marge −0,05, jusqu'à 2 blindés de plus par tour, et **+15 % d'or pour les IA**. Sans cet or, Difficile ne se distinguait pas de Normal (dominant 13 victoires et 5 éliminations contre 13 et 6, sur 100 parties). Annoncé au choix du niveau, à l'entrée en partie, au journal du tour 1, dans l'aide et sur l'écran de fin.
+- **Jetons et atouts** : identiques à tous les niveaux ; aucun niveau n'en rapporte plus. Le bonus d'or des IA ne passe pas par les atouts. Le jeu le dit au choix du niveau. Ni achat ni monétisation modifiés.
+
+| Joueur scripté (`--joueur=… --difficulte=… 200 80 v153ctl`, 200 parties) | Facile | Normal | Difficile |
+|---|---|---|---|
+| Dominant : victoires | 37 | 24 | 14 |
+| Dominant : éliminations | 13 | 16 | 16 |
+| Prudent : victoires | 0 | 0 | 0 |
+| Prudent : éliminations | 2 | 0 | 5 |
+
+Victoires : bon sens net. Éliminations : Difficile ne dépasse pas Normal pour le dominant (16 et 16), et le prudent, trop rarement éliminé pour conclure, fait 2 / 0 / 5. Ces scripts sont sommaires : la difficulté ressentie reste à juger en bêta.
+
+**Bonus de nation** (`RULES.nationBonus`, `src/domain/nations.js`, mêmes mécaniques que les atouts : ils s'ajoutent à eux ; un par nation ; aussi pour les IA ; pas dans le tutoriel, dont les chiffres sont écrits à la main) : Valmorne, Levées des bois, +15 % d'infanterie recrutée ; Roc-Épine, Murs de pierre, forteresses 15 % plus solides ; Noireflamme, Forges noires, chantiers 10 % plus rapides ; Oroël, Marins du Nord, navires de guerre 10 % plus puissants ; Solmara, Comptoirs du Sud, +4 % d'or. Visibles au choix de la nation et dans l'aide. Effet sur les victoires faible, mesuré : ±3 points, dans le bruit ; ils donnent une couleur, ils n'équilibrent pas. **Une partie en cours les reçoit à la reprise**, sans message : choix assumé, ils sont modestes.
+
+**Bâtisseur** : passé le tour 45 (`builderLateTurn`), s'il pèse au moins autant que le plus faible de ceux qu'il atteint, il fait la guerre comme un Conquérant et change son trésor en blindés (3 par tour). Saigné, il reste prudent. Sa description change en conséquence. 5,25 → 12,75 % de victoires.
+
+**Corrections héritées**
+- **Mélodie à l'accueil** : `showWelcome` remet la musique en accord aussitôt ; le retour Android, sans geste, ne laisse plus aucune note (Chrome simulé : 0 note en 6 s). Elle reprend aussi en revenant en partie.
+- **Deuxième toucher** : le bug **existait**. Non vérifié en V15.2, reproduit ici : un toucher juste après la fin de l'animation fermait le journal 6 fois sur 6, au toucher de passage comme à la fin naturelle. Corrigé : les clics sont ignorés 400 ms à la fin de l'animation, et jusqu'à ce que le doigt se lève (`guardTouches`). Après : 0 sur 6 dans les deux cas.
+
+**Tests modifiés** (valeurs, jamais de seuil) : numéro de schéma 10 → 11 ; `version` 15.3.0 (2) ; recrues de Valmorne +15 % (4 tests, atout toujours vérifié par-dessus) ; forteresse niveau 3 de Roc-Épine affichée −39 % ; test « une IA n'a pas d'atout de chantier » passé sur Oroël, Noireflamme ayant son bonus. « Pas suicidaire » et « Conquérant > 2 × Héros » n'ont pas bougé.
+
+**Empreintes** : `tools/empreintes-v15.3.json` est la référence ; 81 parties sur 81 changent, carte et API identiques. Pourquoi : `state.difficulty` et le schéma 11 entrent dans l'état complet de toutes les parties, tutoriel compris ; `RULES` a de nouvelles valeurs ; bonus de nation, base navale et Bâtisseur changent les parties elles-mêmes. `tools/empreintes-v15.2.json` ne vaut plus que pour le code V15.2.
+
+**Vérification** : `npm test` vert. Chrome mobile simulé (Playwright, 390 × 844 tactile), voir le compte rendu pour le commit : nouvelle partie à chaque niveau, 6 tours chacune ; Normal présélectionné ; 5 bonus lisibles (captures regardées) ; annonce du bonus d'or au journal et à la fin ; tutoriel qui démarre ; sauvegardes schémas 8, 9 et 10 reprises en Normal ; écrans de fin. 0 erreur JavaScript, 0 débordement.
+- **Non vérifié** : le ressenti des trois niveaux par un vrai joueur ; un vrai téléphone ; le test « toucher » reproduit des touchers simulés, pas un vrai doigt ; la relecture par un sous-agent indépendant et les workflows GitHub, restent à faire avant fusion.

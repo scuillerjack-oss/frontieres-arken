@@ -5,6 +5,7 @@ import {
   resolveCombat, scaleForce, splitForce
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
+import { archetypeOf, chance } from '../leaders.js';
 import { perceivedForce, visibleProvinces } from '../vision.js';
 import { aiAttackSlice, ambitionOf, holds, rememberedGarrison } from './ai.js';
 import { bombardStatus, fortBreach, queueBombard } from './bombard.js';
@@ -38,8 +39,9 @@ export function navalBase(map, state, owned) {
   const score = p => (hasOrQueued(state, p.id, 'port') ? 2 : 0) + (hasOrQueued(state, p.id, 'factory') ? 1 : 0);
   const nationId = state.provinces[owned[0]?.id]?.ownerId;
   const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
+  const capital = state.nations[nationId]?.capitalId, home = chance(state, 'base-home', nationId) < (RULES.ai.baseAtCapital[archetypeOf(state, nationId)] || 0), atCapital = p => home && p.id === capital ? 1 : 0;
   return owned.filter(p => isPortPoint(map, p.id))
-    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
 }
 export function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null, focus = new Set()) {
   const treasury = () => state.nations[nationId].treasury;
