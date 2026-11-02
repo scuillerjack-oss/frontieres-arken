@@ -1,5 +1,6 @@
 // Interface — dessin de la carte (provinces, routes, convois, flèches), cadrage et zoom.
 
+import { gameLengthOf } from '../../domain/game-length.js';
 import { RULES } from '../../domain/constants.js';
 import { guestsAt, legalDestinations } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
@@ -135,8 +136,8 @@ export function render(){
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
   const coalition=coalitionBanner(state,id=>nation(id).short),chip=$('#coalitionBtn');chip.hidden=!coalition;if(coalition){chip.textContent=coalition.text;chip.dataset.mine=coalition.mine?'1':'0';}
-  const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;
-    $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
+  const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,gameLengthOf(state))}<span class="turn-max">/${gameLengthOf(state)}</span>`;
+    $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>gameLengthOf(state)-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
     $('#armyTotal').textContent=army.total;
   $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();announceOrder();syncMusic();if(tutoStep!==null)queueMicrotask(refreshTuto);
   if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)

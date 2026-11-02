@@ -19,7 +19,7 @@ import { cancelMove } from './src/presentation/ui/province-sheet.js';
 import { moveSource, save, selected, setSelected, state } from './src/presentation/ui/session.js';
 import { openTalk } from './src/presentation/ui/talk-screen.js';
 import { openCoalition } from './src/presentation/ui/event-popups.js';
-import { openArmy, openHelp, renderJournal, resolveTurn } from './src/presentation/ui/turn-flow.js';
+import { openArmy, openHelp, openPalmares, renderJournal, resolveTurn } from './src/presentation/ui/turn-flow.js';
 import {
   endMiniTuto, miniStep, placeTutorial, raiseMiniTuto, refreshTuto, setMiniStep, showMiniTuto, startMiniTuto,
   startTutorial, tuto, tutoNext, tutoStep, tutorial, tutorialShown
@@ -58,7 +58,7 @@ document.addEventListener('click',e=>{const t=e.target.closest?.('.tuto-target')
 $('#replayMiniTuto').onclick=()=>{if(tutoStep!==null)return toast('Terminez ou quittez d’abord le tutoriel');resetMiniTuto();$('#settingsDialog').close();startMiniTuto();};
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();
-$('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
+$('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#welcomePalmares').onclick=openPalmares;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
 $('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=()=>{if(!turnAnimating())resolveTurn();}; /* V15.2 : un seul tour à la fois (clavier compris : au doigt, le calque couvre le bouton) */
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};

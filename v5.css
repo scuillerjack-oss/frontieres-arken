@@ -485,6 +485,15 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 #nationDialog h1{margin:0 0 4px;font-size:1.25rem}
 #nationDialog .kicker{margin:10px 0 4px}
 #levelChoices{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#lengthChoices{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.palmares-entry{width:100%;min-height:48px;margin-top:10px;border:1.5px solid #3c5868;background:#0a2433;color:var(--ink);border-radius:10px;font-weight:800;font-size:.98rem}
+.palmares-head{margin:14px 0 4px;font-size:.95rem}
+.palmares-block .unit-row{min-width:0}
+.palmares-note{display:block;margin:4px 0;font-size:.8rem;opacity:.8}
+.palmares-titles{list-style:none;margin:0;padding:0}
+.palmares-titles li{padding:6px 0;border-bottom:1px solid #2b4656}
+.palmares-titles b{display:block}
+.palmares-titles small{display:block;font-size:.8rem;opacity:.8;overflow-wrap:anywhere}
 .level-choice{min-height:44px;padding:6px 4px;border:1px solid #3c5868;border-radius:8px;background:#0a2433;color:var(--ink);font-weight:700}
 .level-choice[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#10202b}
 #levelText{margin:6px 0 2px;font-size:.84rem;line-height:1.3;min-height:2.2em}

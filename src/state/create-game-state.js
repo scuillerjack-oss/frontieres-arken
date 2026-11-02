@@ -1,4 +1,5 @@
-import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
+import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
+import { DEFAULT_GAME_LENGTH, sanitizeGameLength } from '../domain/game-length.js';
 import { validateMapDefinition } from '../map/validate-map.js';
 import { emptyStory } from '../domain/story.js';
 import { aiGoldPct, sanitizeDifficulty } from '../domain/difficulty.js';
@@ -8,7 +9,7 @@ const emptyUnits = () => Object.fromEntries(LAND_UNIT_TYPES.map(id => [id, 0]));
 // V10 : blessures (PV perdus) par type d'unité, navires compris. Voir src/domain/combat.js.
 export const emptyWounds = () => Object.fromEntries([...LAND_UNIT_TYPES, 'warship'].map(id => [id, 0]));
 
-export function createGameState({ map, playerNationId, seed = 'arken-v0', difficulty }) {
+export function createGameState({ map, playerNationId, seed = 'arken-v0', difficulty, gameLength }) {
   const checked = validateMapDefinition(map);
   if (!checked.valid) throw new Error(`invalid_map:${checked.errors.join(',')}`);
   const nationIds = map.nations.map(n => n.id);
@@ -45,6 +46,8 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0', diffic
     settings:{music:true,sfx:true,hints:true}, tutorial:{seen:[],stage:0,turn:1,shown:[]}, transports:[], transportSequence:1, messages:[], events: [],
     warChestsClaimed:{}, journal:[], turnJournal:[], chronicle:[], lastJournalEventIndex:0
   };
+  // V15.4 : écrite seulement pour une Partie courte ; absente, la partie dure 80 tours (état identique à la V15.3).
+  if (sanitizeGameLength(gameLength) !== DEFAULT_GAME_LENGTH) { state.gameLength = sanitizeGameLength(gameLength); state.schemaVersion = SHORT_GAME_SCHEMA_VERSION; }
   // V15.3 : un bonus d'or des IA est annoncé dans le journal dès le premier tour (et au choix du niveau).
   if (aiGoldPct(state)) state.events.push({ turn: 1, type: 'difficulty-gold', pct: aiGoldPct(state) });
   state.tension = initialTension(state);

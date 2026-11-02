@@ -205,7 +205,7 @@ export function journalEntry(event, map, playerNationId = null) {
           : event.amount > 0 ? `Cessez-le-feu accepté par ${who} contre ${safeNum(event.amount)} or, versés par ${by}.` : `Cessez-le-feu sans paiement accepté par ${who}.` }; }
       return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,
         event.target)}.`:`Cessez-le-feu refusé par ${nationName(map,event.target)} ; aucun paiement n’a été débité.`};
-    case 'final-turns': return { priority:2, type:'FIN DE PARTIE', category:'endgame', text:`⏳ Plus que ${safeNum(event.remaining)} tours avant la fin de la partie (tour ${RULES.gameLength}). Classement : provinces, puis capitales, puis trésor.` };
+    case 'final-turns': return { priority:2, type:'FIN DE PARTIE', category:'endgame', text:`⏳ Plus que ${safeNum(event.remaining)} tours avant la fin de la partie (tour ${safeNum(event.length)||RULES.gameLength}). Classement : provinces, puis capitales, puis trésor.` };
     case 'war-chest': return { priority:2,type:'économie',category:'neutral',text:`Trésor de guerre reçu après la prise de ${where} : +${safeNum(event.amount)}.` };
     case 'diplomacy': return { priority:2,type:'diplomatie',category:'blue',text:event.relation==='war'?(event.reason==='combat'?`${nationName(map,event.nationId)} attaque ${nationName(map,
       event.target)} : les deux nations sont désormais en guerre.`:`${nationName(map,event.nationId)} et ${nationName(map,

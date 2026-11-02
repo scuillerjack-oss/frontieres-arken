@@ -1,5 +1,6 @@
 // V11 — personnalités des dirigeants IA, tension entre nations, impression laissée au joueur.
 // Module pur (aucun DOM, aucun Math.random) : tout aléa est dérivé de state.seed (docs/V11-contrat.md).
+import { scaleTurn } from './game-length.js';
 import { combatValue, provinceForce, legacyForce } from './combat.js';
 
 /** V15.1 : une nation réduite à ce nombre de provinces peut être achevée (doit rester égal à RULES.ai.finishProvinces). */
@@ -221,7 +222,7 @@ export function observeLeaders(state) {
   for (const [id, l] of Object.entries(state.leaders || {})) {
     if (l.revealed || state.controllers?.[id] !== 'ai' || state.nations?.[id]?.eliminated) continue;
     const r = state.ai?.reputation?.[id];
-    if (l.archetype === 'batisseur' && state.turn >= 20 && r && !r.attacks && r.builds >= 8) reveal(state, id, 'builder');
+    if (l.archetype === 'batisseur' && state.turn >= scaleTurn(state, 20) && r && !r.attacks && r.builds >= scaleTurn(state, 8)) reveal(state, id, 'builder');
   }
 }
 /**
