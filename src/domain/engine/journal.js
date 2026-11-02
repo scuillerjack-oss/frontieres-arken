@@ -12,7 +12,7 @@ export function eventKnownToPlayer(state, map, event) {
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war'].includes(event.type)) return true;
+  if (['bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved'].includes(event.type)) return true;
   if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
   if (event.type === 'tension') return false;
@@ -167,6 +167,16 @@ export function journalEntry(event, map, playerNationId = null) {
       text:`${nationName(map,event.nationId)} rompt son alliance avec ${event.target === playerNationId ? 'vous' : nationName(map,event.target)}.` };
     case 'help-answer': case 'help-broken': case 'help-ended': return { priority: event.type === 'help-ended' ? 2 : 4, type:'AIDE',
       category: event.type === 'help-broken' || (event.type === 'help-answer' && !event.accepted) ? 'help-refused' : 'help', text: helpJournalText(event, map, playerNationId) };
+    // V15.1 : coalition, publique. Le journal dit la règle, jamais quoi faire.
+    case 'coalition-formed': {
+      const members = (event.members || []).map(id => nationName(map, id)).join(', '), mine = event.nationId === playerNationId && playerNationId !== null;
+      return { priority:5, type:'COALITION', category: mine ? 'under-attack' : 'foreign-conflict', public:true,
+        text: `${mine ? 'Vous tenez' : `${nationName(map,event.nationId)} tient`} ${safeNum(event.provinces)} provinces, nettement plus que ${mine ? 'les autres' : 'toute autre nation'} : ${members} se ${(event.members || []).length > 1 ? 'liguent' : 'dresse'} contre ${mine ? 'vous' : nationName(map,event.nationId)}. La coalition se dissoudra à ${RULES.coalition.dissolveProvinces} provinces ou moins.` };
+    }
+    case 'coalition-joined': return { priority:4, type:'COALITION', category:'foreign-conflict', public:true, text:`${nationName(map,event.nationId)} rejoint la coalition contre ${event.target === playerNationId ? 'vous' : nationName(map,event.target)}.` };
+    case 'coalition-left': return { priority:3, type:'COALITION', category:'foreign-conflict', public:true, text:`${nationName(map,event.nationId)} quitte la coalition contre ${event.target === playerNationId ? 'vous' : nationName(map,event.target)}.` };
+    case 'coalition-dissolved': return { priority:5, type:'COALITION', category:'neutral', public:true,
+      text: event.reason === 'eliminated' ? `${nationName(map,event.nationId)} a disparu : la coalition n’a plus d’objet.` : `${event.nationId === playerNationId ? 'Vous ne tenez' : `${nationName(map,event.nationId)} ne tient`} plus que ${safeNum(event.provinces)} provinces : la coalition est dissoute. Les guerres déjà ouvertes continuent.` };
     case 'game-over': return { priority:5, type:'FIN DE PARTIE', category: event.winnerId===playerNationId?'conquest':'foreign-conflict', public:true,
       text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,
         event.winnerId)} mène le classement.` : `Fin de la partie au tour ${safeNum(event.turn)} : ${nationName(map,event.winnerId)} termine en tête du classement.` };
@@ -245,7 +255,7 @@ function aggregateEntries(entries) {
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['bombardment','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
     'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
-    'convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
+    'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;

@@ -187,8 +187,8 @@ test('sauvegarde : migration 8 → 9, les ballons disparaissent sans rembourseme
   ];
   const treasury = old.nations.valmorne.treasury;
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 9);
-  assert.equal(SAVE_SCHEMA_VERSION, 9);
+  assert.equal(m.schemaVersion, 10);
+  assert.equal(SAVE_SCHEMA_VERSION, 10);
   assert.equal(JSON.stringify(m).includes('balloon'), false, 'plus aucun ballon nulle part');
   assert.equal(m.nations.valmorne.treasury, treasury, 'pas de remboursement');
   assert.deepEqual(m.orders.map(o => o.id), ['o1', 'o3'], 'recrutement de ballon retiré, le reste gardé');

@@ -498,6 +498,39 @@ export const MORE_LINES = Object.freeze({
     "{to}, la paix est notre plus belle fondation."
   ],
   // Messages que les dirigeants IA envoient d’eux-mêmes (trahisons, avertissements, offres de trêve…).
+  "ai.coalitionCall": [
+    "{to}, nos cartes racontent la même histoire : la vôtre prend trop de place.",
+    "Trop de provinces sous une seule bannière, {to}. Nous ne resterons pas spectateurs.",
+    "{to}, chaque terre que vous prenez nous rapproche les uns des autres.",
+    "Vous nous avez réunis, {to}. Personne d’autre n’y était parvenu.",
+    "{to}, voici la réponse d’Arken à votre appétit.",
+    "{to}, votre gloire a un prix : nos armées réunies.",
+    "On ne prend pas tant de terres sans se faire remarquer, {to}.",
+    "{to}, vos victoires ont fait de vos rivaux des frères d’armes.",
+    "Arken a choisi son adversaire, {to}. Nous vous saluons."
+  ],
+  "ai.coalitionJoin": [
+    "{to}, nous ne pouvons plus regarder ailleurs. Comptez-nous parmi vos adversaires.",
+    "Notre neutralité s’arrête ici, {to}.",
+    "{to}, votre puissance a fait de nous des alliés de circonstance.",
+    "La coalition compte un membre de plus, {to}.",
+    "{to}, nos voisins avaient raison. Nous les rejoignons.",
+    "Nous ne resterons pas les derniers à vous tenir tête, {to}.",
+    "{to}, voici une bannière de plus face aux vôtres.",
+    "La balance penchait trop, {to}. Nous y ajoutons notre poids.",
+    "{to}, ne cherchez pas d’offense : vous êtes simplement trop grand."
+  ],
+  "ai.coalitionEnd": [
+    "{to}, la menace est passée. Nous rangeons cette bannière-là.",
+    "Il n’y a plus de coalition, {to}. Il reste de la mémoire.",
+    "{to}, vos terres ont rétréci, et nos craintes aussi.",
+    "La coalition s’achève, {to}. Restez à votre place.",
+    "{to}, nous n’avons plus besoin de nous unir contre vous.",
+    "Le danger a reculé, {to}. Notre front commun aussi.",
+    "{to}, cette alliance de circonstance n’a plus d’objet.",
+    "Nos armées rentrent sous leurs propres couleurs, {to}.",
+    "{to}, vous revoilà une nation comme les autres."
+  ],
   "ai.betrayal": [
     "{to}, nos serments étaient de l’encre. L’encre s’efface.",
     "Vous avez cru en nous, {to}. Voilà ce qu’il en coûte.",

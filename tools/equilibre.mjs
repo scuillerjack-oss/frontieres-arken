@@ -3,6 +3,9 @@
 //   node tools/equilibre.mjs [parties=60] [tours=80] [préfixe=eq]
 //     Parties IA contre IA : mêmes mesures que le constat de docs/V15-cahier-des-charges.md (signaux, pas preuves).
 //
+//   node tools/equilibre.mjs --joueur=prudent|dominant [parties=100] [tours=80] [préfixe=eq]
+//     Contrôle V15.1 : un joueur humain scripté (tools/joueurs-scriptes.mjs) contre 4 IA. Aucune triche, ordres ordinaires.
+//
 //   node tools/equilibre.mjs --empreintes [--graines=10] [--ecrire=fichier.json] [--verifier=fichier.json]
 //     Empreintes (SHA-256) de l'état complet de parties à graine fixe : sert à prouver qu'un découpage du code ne change
 //     pas le jeu. Rien n'est écarté de l'état : événements, journal, clé `tutorial`, compteurs, tout compte.
@@ -17,6 +20,7 @@ import * as engine from '../src/domain/game-engine.js';
 import { setPlayerBonuses } from '../src/domain/boosts.js';
 import { talkOptions, queueTalk } from '../src/domain/talk.js';
 import { queueHelpRequest } from '../src/domain/alliances.js';
+import { joueurPrudent, joueurDominant } from './joueurs-scriptes.mjs';
 
 // Le tutoriel a changé de nom de fichier en V15.0 ; l'outil tourne aussi sur l'ancien code pour pouvoir comparer.
 const tutorialModule = await import('../src/presentation/tutorial.js')
@@ -38,7 +42,7 @@ Math.random = () => { throw new Error('Math.random appelé pendant une simulatio
 function mesurer(parties, tours, prefixe) {
   const tranches = [0, 0, 0, 0], derniere = [], premier = [], second = [], eliminees = [];
   const parNation = Object.fromEntries(NATIONS.map(id => [id, 0])), parCaractere = {};
-  let capitales5 = 0, capitalesPerdues = 0;
+  let capitales5 = 0, capitalesPerdues = 0, avecElimination = 0, avecCoalition = 0, coalitionsTours = 0;
   for (let g = 0; g < parties; g++) {
     const s = createGameState({ map, playerNationId: NATIONS[g % NATIONS.length], seed: `${prefixe}-${g}` });
     for (const id of NATIONS) s.controllers[id] = 'ai';
@@ -56,6 +60,8 @@ function mesurer(parties, tours, prefixe) {
     const rank = gameRanking(s), winner = s.gameOver?.winnerId || rank[0].nationId;
     premier.push(rank[0].provinces); second.push(rank[1]?.provinces || 0);
     eliminees.push(NATIONS.filter(id => s.nations[id].eliminated).length);
+    if (eliminees.at(-1) > 0) avecElimination++;
+    if (s.events.some(e => e.type === 'coalition-formed')) avecCoalition++;
     parNation[winner]++;
     const arch = s.leaders?.[winner]?.archetype || 'joueur';
     parCaractere[arch] = (parCaractere[arch] || 0) + 1;
@@ -63,11 +69,34 @@ function mesurer(parties, tours, prefixe) {
   }
   return { parties, tours, prefixe, changementsParTranche20: tranches, derniereConqueteMediane: median(derniere),
     vainqueurProvincesMediane: median(premier), secondProvincesMediane: median(second), nationsElimineesMediane: median(eliminees),
-    victoiresParCapitales: capitales5, capitalesPerduesParPartie: +(capitalesPerdues / Math.max(1, parties)).toFixed(2), victoiresParNation: parNation, victoiresParCaractere: parCaractere };
+    victoiresParCapitales: capitales5, capitalesPerduesParPartie: +(capitalesPerdues / Math.max(1, parties)).toFixed(2),
+    partiesAvecElimination: Math.round(100 * avecElimination / Math.max(1, parties)), partiesAvecCoalition: Math.round(100 * avecCoalition / Math.max(1, parties)),
+    tranche4SurTranche1: Math.round(100 * tranches[3] / Math.max(1, tranches[0])), victoiresParNation: parNation, victoiresParCaractere: parCaractere };
 }
 
 // --- Empreintes -------------------------------------------------------------------------------------------------
 /** Joueur scripté : essaie un peu de tout, de façon déterministe. Chaque réponse du moteur (même un refus) est journalisée. */
+/** V15.1 : un joueur scripté contre 4 IA, toutes nations à tour de rôle. Ce qui compte : vit-il, gagne-t-il, la coalition le vise-t-elle ? */
+function controle(type, parties, tours, prefixe) {
+  const script = type === 'dominant' ? joueurDominant : joueurPrudent;
+  const r = { type, parties, victoires: 0, elimines: 0, eliminationTours: [], provincesFinMediane: 0, rangMoyen: 0, coalitionContreLui: 0, toursSousCoalition: 0, sousCoalitionGagne: 0, parCapitales: 0, parNation: Object.fromEntries(NATIONS.map(n => [n, [0, 0]])) };
+  const prov = [];
+  for (let g = 0; g < parties; g++) {
+    const nation = NATIONS[g % NATIONS.length], s = createGameState({ map, playerNationId: nation, seed: `${prefixe}-${type}-${g}` });
+    let sous = 0;
+    for (let i = 0; i < tours && !s.gameOver; i++) { script(s, map, engine); resolveInterturn(s, map); if (s.coalition?.target === nation) sous++; }
+    const rank = gameRanking(s), mine = rank.find(x => x.nationId === nation), won = (s.gameOver?.winnerId || rank[0].nationId) === nation && s.gameOver?.reason !== 'player-eliminated';
+    r.parNation[nation][1]++;
+    if (won) { r.victoires++; r.parNation[nation][0]++; if (sous) r.sousCoalitionGagne++; if (s.gameOver?.reason === 'capitals') r.parCapitales++; }
+    if (s.nations[nation].eliminated) { r.elimines++; r.eliminationTours.push(s.nations[nation].eliminatedTurn); }
+    if (sous) r.coalitionContreLui++;
+    r.toursSousCoalition += sous; r.rangMoyen += mine.rank; prov.push(mine.provinces);
+  }
+  r.rangMoyen = +(r.rangMoyen / parties).toFixed(2); r.toursSousCoalition = +(r.toursSousCoalition / Math.max(1, r.coalitionContreLui)).toFixed(1);
+  r.provincesFinMediane = median(prov); r.eliminationTours.sort((a, b) => a - b);
+  return r;
+}
+
 function ordresScriptes(s, log) {
   const me = s.playerNationId, mine = owned(s, me), t = s.turn;
   const note = (what, r) => log.push(`${t}:${what}:${r?.ok === undefined ? JSON.stringify(r) : r.ok ? 'ok' : r.error}`);
@@ -164,6 +193,8 @@ if (args.includes('--empreintes')) {
   }
   if (!option('ecrire') && !option('verifier')) console.log(JSON.stringify(resultat, null, 1));
 } else {
-  const [parties = 60, tours = 80, prefixe = 'eq'] = args;
-  console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe), null, 1));
+  const positional = args.filter(a => !a.startsWith('--'));
+  const [parties = 60, tours = 80, prefixe = 'eq'] = positional;
+  if (option('joueur')) console.log(JSON.stringify(controle(option('joueur'), Number(parties), Number(tours), prefixe)));
+  else console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe), null, 1));
 }

@@ -17,6 +17,7 @@ import {
 import { cancelMove } from './src/presentation/ui/province-sheet.js';
 import { moveSource, save, selected, setSelected, state } from './src/presentation/ui/session.js';
 import { openTalk } from './src/presentation/ui/talk-screen.js';
+import { openCoalition } from './src/presentation/ui/event-popups.js';
 import { openArmy, openHelp, renderJournal, resolveTurn } from './src/presentation/ui/turn-flow.js';
 import {
   endMiniTuto, miniStep, placeTutorial, raiseMiniTuto, refreshTuto, setMiniStep, showMiniTuto, startMiniTuto,
@@ -64,6 +65,7 @@ for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.setti
 $('#resetHints').onclick=()=>{state.tutorial.forced=true;state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();
   tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
+$('#coalitionBtn').onclick=openCoalition;
 $('#endNewGame').onclick=()=>{$('#endDialog').close();beginNewGame();};$('#endJournal').onclick=()=>{$('#endDialog').close();renderJournal(true);};
 // Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
 $('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{setScale(1);setTx(0);setTy(0);clampTransform();applyLaunchView();updateLabelScale();};

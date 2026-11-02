@@ -10,6 +10,7 @@ import {
   convoyMarkers, mapFrameTransform, nationsAtWarWith, orderPath, outlinePath, playerOrderArrows, territoryBorders,
   territoryOutline, trimPolyline
 } from '../map-orders-view.js';
+import { coalitionBanner } from '../coalition-view.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { knownTroopProvinces } from '../vision-view.js';
@@ -129,6 +130,7 @@ export function render(){
       );
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
   }
+  const coalition=coalitionBanner(state,id=>nation(id).short),chip=$('#coalitionBtn');chip.hidden=!coalition;if(coalition){chip.textContent=coalition.text;chip.dataset.mine=coalition.mine?'1':'0';}
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,RULES.gameLength)}<span class="turn-max">/${RULES.gameLength}</span>`;
     $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>RULES.gameLength-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
     $('#armyTotal').textContent=army.total;

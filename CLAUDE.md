@@ -4,7 +4,7 @@ Jack est le propriétaire et le décideur. Il pilote depuis son téléphone Andr
 un chantier : messages courts, en français, livrables prêts à l'emploi.
 
 ## Documents de référence (`docs/`)
-- `V9-cahier-des-charges.md` … `V13-cahier-des-charges.md` : feuille de route validée avec Jack (section « Réalisé » à la fin).
+- `V9-cahier-des-charges.md` … `V15-cahier-des-charges.md` : feuille de route validée avec Jack (section « Réalisé » à la fin).
 - Règles détaillées par thème : `V10-moteur.md`, `V13-marine.md` (mer en anneau), `V13-vision.md` (brouillard),
   `V13-alliances-echanges.md`, `V11-contrat.md`.
 - Un cahier en préparation peut n'exister que sur une branche `mission/…` : toujours regarder les branches non fusionnées.

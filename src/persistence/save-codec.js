@@ -1,4 +1,5 @@
 import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
+import { storyFromOldSave } from '../domain/story.js';
 import { ensureLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
 
 const WOUND_TYPES = [...LAND_UNIT_TYPES, 'warship'];
@@ -69,14 +70,22 @@ function migrate8to9(copy) {
   return copy;
 }
 
+/** V9 (V14) -> V10 (V15.1) : pas de coalition en cours ; histoire reprise de ce que la sauvegarde sait vraiment (partielle). */
+function migrate9to10(copy) {
+  copy.coalition = null;
+  copy.story = storyFromOldSave(copy);
+  copy.schemaVersion = 10;
+  return copy;
+}
 export function migrateSave(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
   if (copy.schemaVersion === SAVE_SCHEMA_VERSION) return copy;
-  if (copy.schemaVersion === 8) return migrate8to9(copy);
-  if (copy.schemaVersion === 7) return migrate8to9(migrate7to8(copy));
-  if (copy.schemaVersion === 6) return migrate8to9(migrate7to8(migrate6to7(copy)));
-  if (copy.schemaVersion === 5) return migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))));
+  if (copy.schemaVersion === 9) return migrate9to10(copy);
+  if (copy.schemaVersion === 8) return migrate9to10(migrate8to9(copy));
+  if (copy.schemaVersion === 7) return migrate9to10(migrate8to9(migrate7to8(copy)));
+  if (copy.schemaVersion === 6) return migrate9to10(migrate8to9(migrate7to8(migrate6to7(copy))));
+  if (copy.schemaVersion === 5) return migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy)))));
   if ([1, 2, 3, 4].includes(copy.schemaVersion)) {
     const previous = copy.schemaVersion;
     copy.schemaVersion=5; copy.settings={music:true,sfx:true,hints:true,...copy.settings};
@@ -90,7 +99,7 @@ export function migrateSave(raw) {
     if(previous===4)for(const order of copy.orders)if(order.kind==='diplomacy'&&order.action==='ceasefire'&&order.status==='pending'&&order.offerLevel==null){order.legacyFree=true;order.amount=0;order.acceptanceProbability=1;}
     // Existing buildings and active projects survive migration; only new games omit free setup.
     if (previous < 4) for (const province of Object.values(copy.provinces||{})) province.portSite ??= Boolean(province.buildings?.port);
-    return migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy))));
+    return migrate9to10(migrate8to9(migrate7to8(migrate6to7(migrate5to6(copy)))));
   }
   throw new Error(`unsupported_save_schema:${copy.schemaVersion}`);
 }

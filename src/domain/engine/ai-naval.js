@@ -6,7 +6,7 @@ import {
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { perceivedForce, visibleProvinces } from '../vision.js';
-import { aiAttackSlice, holds, rememberedGarrison } from './ai.js';
+import { aiAttackSlice, ambitionOf, holds, rememberedGarrison } from './ai.js';
 import { bombardStatus, fortBreach, queueBombard } from './bombard.js';
 import { availableForces, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
 import { isPortPoint, seaDestinations } from './sea-routes.js';
@@ -74,13 +74,17 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
     // V13 : les nations visées au titre d'une aide promise à un allié passent en premier.
-    targets.sort((a, b) => Number(focus.has(b.owner)) - Number(focus.has(a.owner)) || Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state,
+    targets.sort((a, b) => Number(focus.has(b.owner)) - Number(focus.has(a.owner)) || ambitionOf(state, map, b.to) - ambitionOf(state, map, a.to) || Number(b.atWar) - Number(a.atWar) || Number(a.owner === state.playerNationId) - Number(b.owner === state.playerNationId) || defenseOf(state,
       a.to, map, nationId) - defenseOf(state, b.to, map, nationId) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
     // Marge plus prudente que sur terre : la cible a plusieurs tours pour se renforcer pendant la traversée.
     // V14.1 (cahier V14 §3 point 4) : un peu plus de goût pour la mer — marge réduite (0,25 → 0,10) sauf vers une
     // capitale (0,35 : pas de débarquement suicide sur les capitales).
     const isCap = id => Object.values(state.nations).some(n => n.capitalId === id);
-    const margin = (x) => (x.atWar ? Math.max(1.1, threshold - .2) : threshold) + (isCap(x.to) ? RULES.ai.capitalLandingMargin : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns);
+    // V15.1 : une capitale dont la nation se bat déjà contre un tiers est moins périlleuse à viser (elle a moins de renforts à y envoyer).
+    const busy = owner => Object.keys(state.nations).some(n => n !== nationId && n !== owner && pairWar(state, owner, n));
+    // V15.1 : tard dans la partie, une côte qu'on ne voit pas est sûrement bien plus garnie que l'estimation prudente.
+    const seenCoasts = visibleProvinces(state, map, nationId), blind = x => (state.turn >= RULES.ai.lateTurn && !seenCoasts.has(x.to) && map.provinces.filter(p => state.provinces[p.id].ownerId === x.owner).length > 2 ? RULES.ai.lateBlindFactor : 1);
+    const margin = (x) => blind(x) * ((x.atWar ? Math.max(1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
     let launched = false;
     for (const x of targets) {
       const warships = availableForces(state, x.from.id).warships;

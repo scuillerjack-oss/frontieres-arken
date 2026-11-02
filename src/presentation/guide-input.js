@@ -18,6 +18,7 @@ export const TUTORIAL_GUIDE = Object.freeze([
 peut intercepter le convoi. Débarquer chez l’ennemi : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` }
     ,
   { id:'endgame', title:'Fin de partie', text:`La partie dure ${RULES.gameLength} tours. Classement : provinces, puis capitales, puis trésor. Tenir les 5 capitales : victoire immédiate.` },
+  { id:'coalition', title:'Coalition', text:`Une nation qui tient ${RULES.coalition.formProvinces} provinces, avec ${RULES.coalition.formLead} d’avance sur la deuxième, déclenche une coalition : selon leur caractère, les dirigeants IA se liguent contre elle, vous compris si c’est vous. Elle prend fin à ${RULES.coalition.dissolveProvinces} provinces ou moins. Mêmes règles pour tous : ni or ni troupes offerts.` },
   { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes.' }
 ]);
 

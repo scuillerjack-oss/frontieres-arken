@@ -2,6 +2,8 @@
 // Module pur (aucun DOM, aucun Math.random) : tout aléa est dérivé de state.seed (docs/V11-contrat.md).
 import { combatValue, provinceForce, legacyForce } from './combat.js';
 
+/** V15.1 : une nation réduite à ce nombre de provinces peut être achevée (doit rester égal à RULES.ai.finishProvinces). */
+export const FINISH_PROVINCES = 3;
 export const ARCHETYPES = Object.freeze(['heros', 'conquerant', 'traitre', 'batisseur']);
 export const ARCHETYPE_LABELS = Object.freeze({ heros: 'Le Héros', conquerant: 'Le Conquérant', traitre: 'Le Traître', batisseur: 'Le Bâtisseur' });
 export const ARCHETYPE_DESCRIPTIONS = Object.freeze({
@@ -310,6 +312,8 @@ export function ceasefireBias(state, target, from) {
   const arch = archetypeOf(state, target);
   if (!arch || state.controllers?.[target] !== 'ai') return 0;
   const losing = strengthOf(state, target) < strengthOf(state, from) * .8;
+  // V15.1 : ambition — Conquérant et Traître ne laissent pas filer une nation qu'ils peuvent achever (hors partie, même règle pour tous).
+  if ((arch === 'conquerant' || arch === 'traitre') && Object.values(state.provinces || {}).filter(p => p.ownerId === from).length <= FINISH_PROVINCES) return -1;
   switch (arch) {
     case 'traitre': return 1;
     case 'batisseur': return .35;
