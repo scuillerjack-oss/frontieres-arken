@@ -2,7 +2,7 @@
 
 import { expireHelpPacts, resolveHelpRequests } from '../alliances.js';
 import { goldBonus, nationBonusPct } from '../boosts.js';
-import { RULES } from '../constants.js';
+import { gameLengthOf } from '../game-length.js';
 import { driftTension, hostilityWars, observeLeaders } from '../leaders.js';
 import { settleStationed } from '../passage.js';
 import { aiTalk, pruneTalkPending, publishTalk } from '../talk.js';
@@ -51,14 +51,14 @@ export function capitalsVictor(state) {
  * Fin de partie, vérifiée à la fin de chaque inter-tour, enregistrée UNE fois dans state.gameOver :
  *  - 'capitals' : une nation tient les 5 capitales (victoire anticipée) ;
  *  - 'player-eliminated' : le joueur humain n'a plus rien (défaite) ;
- *  - 'turn-limit' : fin du tour RULES.gameLength (80 depuis V13.2) ou d'un tour suivant pour une ancienne sauvegarde.
+ *  - 'turn-limit' : fin du dernier tour de la partie (80, ou 40 en Partie courte : gameLengthOf) ou d'un tour suivant pour une ancienne sauvegarde.
  * Le moteur ne bloque rien (les simulations IA continuent) ; c'est l'interface qui arrête la partie.
  */
 export function checkGameOver(state) {
   if (state.gameOver) return state.gameOver;
   const victor = capitalsVictor(state), player = state.playerNationId;
   const playerOut = state.controllers?.[player] === 'human' && state.nations[player]?.eliminated;
-  const reason = victor ? 'capitals' : playerOut ? 'player-eliminated' : state.turn >= RULES.gameLength ? 'turn-limit' : null;
+  const reason = victor ? 'capitals' : playerOut ? 'player-eliminated' : state.turn >= gameLengthOf(state) ? 'turn-limit' : null;
   if (!reason) return null;
   const ranking = gameRanking(state);
   state.gameOver = { reason, turn: state.turn, winnerId: victor || ranking[0].nationId, ranking };
@@ -99,7 +99,7 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   checkGameOver(state);
   recordStory(state,eventStart);
   // V13.2 : prévenir quand il ne reste que 5 tours (le tour qui commence compris).
-  if (!state.gameOver && state.turn + 1 === RULES.gameLength - 4) state.events.push({ turn: state.turn, type: 'final-turns', remaining: 5 });
+  if (!state.gameOver && state.turn + 1 === gameLengthOf(state) - 4) state.events.push({ turn: state.turn, type: 'final-turns', remaining: 5, ...(state.gameLength ? { length: state.gameLength } : {}) });
   state.orders = []; state.lockedOrders = [];
   buildPermanentJournal(state,map,fromIndex);
   buildTurnJournal(state,map,fromIndex);

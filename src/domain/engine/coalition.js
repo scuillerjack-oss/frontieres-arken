@@ -7,6 +7,7 @@
 // changent les choix des dirigeants IA, selon leur caractère. Le joueur n'est jamais enrôlé d'office.
 // V15.2 : elle se dissout aussi quand plus personne n'en fait partie (raison 'deserted') ; un membre ne propose pas d'alliance à la cible.
 import { RULES } from '../constants.js';
+import { scaleTurn } from '../game-length.js';
 import { aliveNations, allied, archetypeOf, charmOf } from '../leaders.js';
 import { neighbors } from '../talk.js';
 import { aiMemory } from './ai.js';
@@ -47,7 +48,7 @@ function refreshMembers(state, c) {
 }
 /** Fin de chaque inter-tour : formation, ralliements, départs, dissolution. Événements publics. */
 export function updateCoalition(state) {
-  if (state.turn < RULES.coalition.minTurn || state.tutorialMode) return state.coalition ?? null;
+  if (state.turn < scaleTurn(state, RULES.coalition.minTurn) || state.tutorialMode) return state.coalition ?? null;
   let c = state.coalition || null;
   if (c) {
     const out = state.nations[c.target]?.eliminated, low = provinceCount(state, c.target) <= RULES.coalition.dissolveProvinces;

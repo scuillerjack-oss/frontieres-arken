@@ -11,6 +11,7 @@
 //
 // Brouillard de guerre respecté : un nombre de troupes n'est cité que pour une province que l'auteur ET le destinataire
 // voient (vision.js) ; provinces, nombre de provinces, tour, guerre, alliance, trêve et tension sont publics entre eux.
+import { gameLengthOf, scaleTurn } from './game-length.js';
 import { chance, archetypeOf, atWar, treatyOf, getTension } from './leaders.js';
 import { visibleProvinces } from './vision.js';
 import { hashString } from './profile.js';
@@ -84,8 +85,8 @@ function facing(state, map, from, to) {
  */
 export function contextFragments(state, map, { from, to = null, tone }) {
   const T = state.turn || 1, out = [], add = (id, byTone) => out.push({ id, text: byTone[tone] || byTone.neutre });
-  const left = 80 - T;
-  if (left > 0 && left <= 10) add('fin', { hostile: `Plus que ${plural(left, 'tour')} : le temps vous est compté.`, neutre: `Plus que ${plural(left, 'tour')} avant la fin : chacun fait ses comptes.`, amical: `Plus que ${plural(left, 'tour')} : finissons-les en bons termes.` });
+  const left = gameLengthOf(state) - T;
+  if (left > 0 && left <= scaleTurn(state, 10)) add('fin', { hostile: `Plus que ${plural(left, 'tour')} : le temps vous est compté.`, neutre: `Plus que ${plural(left, 'tour')} avant la fin : chacun fait ses comptes.`, amical: `Plus que ${plural(left, 'tour')} : finissons-les en bons termes.` });
   else add('tour', { hostile: `Nous voici au tour ${T}, et notre patience s’use.`, neutre: `Nous sommes au tour ${T} : rien n’est encore joué.`, amical: `Au tour ${T}, notre estime reste intacte.` });
   if (to) {
     const war = (state.diplomacy?.wars || []).find(w => w.active !== false && w.participants?.includes(from) && w.participants?.includes(to));

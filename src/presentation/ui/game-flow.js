@@ -1,6 +1,7 @@
 // Interface — accueil, nouvelle partie, reprise, choix de la nation.
 
 import { DEFAULT_DIFFICULTY, DIFFICULTY_IDS, aiGoldPct, difficultyLabel, difficultyText } from '../../domain/difficulty.js';
+import { DEFAULT_GAME_LENGTH, GAME_LENGTHS, gameLengthLabel, gameLengthText } from '../../domain/game-length.js';
 import { nationBonusInfo } from '../../domain/nations.js';
 import { recordGameStarted } from '../../domain/profile.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
@@ -59,9 +60,14 @@ function openNationChoice(){
   $('#levelChoices').innerHTML=DIFFICULTY_IDS.map(id=>`<button type="button" class="level-choice" data-level="${id}" aria-pressed="${id===level}">${difficultyLabel(id)}</button>`).join('');
   const showLevel=()=>{document.querySelectorAll('[data-level]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.level===level)));$('#levelText').textContent=difficultyText(level);};
   document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;showLevel();});showLevel();
+  // V15.4 : longueur de la partie (80 tours présélectionné), même présentation que le niveau.
+  let gameLength=DEFAULT_GAME_LENGTH;
+  $('#lengthChoices').innerHTML=GAME_LENGTHS.map(n=>`<button type="button" class="level-choice" data-length="${n}" aria-pressed="${n===gameLength}">${gameLengthLabel(n)}</button>`).join('');
+  const showLength=()=>{document.querySelectorAll('[data-length]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.length)===gameLength)));$('#lengthText').textContent=gameLengthText(gameLength);};
+  document.querySelectorAll('[data-length]').forEach(b=>b.onclick=()=>{gameLength=Number(b.dataset.length);showLength();});showLength();
   $('#nationChoices').innerHTML=map.nations.map(n=>{const bonus=nationBonusInfo(n.id);return `<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><span class="nation-choice"><b>${n.name}</b>\
 <small data-nation-bonus>${bonus.title} : ${bonus.text}</small></span></button>`;}).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level})));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength})));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
     await quietDuring(()=>showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()}));setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();if(aiGoldPct(state))toast(`Niveau Difficile : les IA reçoivent +${aiGoldPct(state)} % d’or à chaque tour.`);showGame();
       await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;

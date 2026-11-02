@@ -6,6 +6,7 @@ import {
   resolveCombat, scaleForce, splitForce
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
+import { scaleTurn } from '../game-length.js';
 import { levelOf } from '../difficulty.js';
 import {
   HOSTILITY_WARNING, aliveNations, archetypeOf, chance, charmOf, ensureLeaders, getTension, pickFrom, provokers,
@@ -92,7 +93,7 @@ function addAmbition(state, map, id, arch, alive, out) {
   const free = n => !pairTreaty(state, id, n, 'alliance') && !recentTruce(state, id, n) && reachable(state, map, id, n);
   const count = n => map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
   if (arch === 'conquerant' || arch === 'traitre') for (const n of alive) if (count(n) <= RULES.ai.finishProvinces && free(n)) out.add(n);
-  if (state.turn >= RULES.ai.lateTurn && (arch === 'conquerant' || arch === 'traitre')) {
+  if (state.turn >= scaleTurn(state, RULES.ai.lateTurn) && (arch === 'conquerant' || arch === 'traitre')) {
     const ranked = alive.filter(free).sort((a, b) => count(b) - count(a) || a.localeCompare(b));
     if (ranked.length) { out.add(ranked.at(-1)); if (out.size < 2) out.add(ranked[0]); }
   }
@@ -169,10 +170,10 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
     if (arch === 'traitre') {
       const t = traitorState(state, map, id), allies = alive.filter(x => pairTreaty(state, id, x, 'alliance')).length;
       if (n === t.mark && state.turn >= 2 && state.turn < t.strikeTurn) propose(n, 'alliance');
-      else if (state.turn >= 10 && allies < 2 && reachable(state, map, id, n) && getTension(state, id, n) < 40 && chance(state, 'traitor-court', state.turn, id, n) < .35) propose(n, 'alliance');
+      else if (state.turn >= scaleTurn(state, 10) && allies < 2 && reachable(state, map, id, n) && getTension(state, id, n) < 40 && chance(state, 'traitor-court', state.turn, id, n) < .35) propose(n, 'alliance');
     }
     if (arch === 'heros' && recentAggressions(state, 6).some(a => a.victim === n && a.attacker !== id) && getTension(state, id, n) < 40) propose(n, 'alliance');
-    if (arch === 'batisseur' && state.turn >= 6 && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
+    if (arch === 'batisseur' && state.turn >= scaleTurn(state, 6) && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
   }
 }
 /**
@@ -181,7 +182,7 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
  * S'il a été saigné entre-temps, il reste prudent. Mêmes règles et mêmes ordres que tout le monde.
  */
 export function builderAwake(state, map, id) {
-  if (archetypeOf(state, id) !== 'batisseur' || state.turn < RULES.ai.builderLateTurn) return false;
+  if (archetypeOf(state, id) !== 'batisseur' || state.turn < scaleTurn(state, RULES.ai.builderLateTurn)) return false;
   const near = aliveNations(state).filter(n => n !== id && !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n));
   return near.some(n => strengthOf(state, id) >= RULES.ai.builderLateStrength * perceivedStrength(state, map, id, n));
 }
@@ -212,7 +213,7 @@ function aiPlan(state, map, nationId) {
   // achever une nation affaiblie ou, en fin de partie, pour continuer à gagner du terrain (déclaration ordinaire, visible).
   if (arch === 'conquerant' || arch === 'traitre') for (const n of targets) {
     const count = map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
-    if ((count <= RULES.ai.finishProvinces || state.turn >= RULES.ai.lateTurn) && pairTreaty(state, nationId, n, 'ceasefire') && !recentTruce(state, nationId, n) && !pairWar(state, nationId, n) && !pendingDiplo(state, nationId, n)) queueDiplomaticOrder(state, { nationId, target: n, action: 'war' });
+    if ((count <= RULES.ai.finishProvinces || state.turn >= scaleTurn(state, RULES.ai.lateTurn)) && pairTreaty(state, nationId, n, 'ceasefire') && !recentTruce(state, nationId, n) && !pairWar(state, nationId, n) && !pendingDiplo(state, nationId, n)) queueDiplomaticOrder(state, { nationId, target: n, action: 'war' });
   }
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);

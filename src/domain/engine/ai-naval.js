@@ -5,6 +5,7 @@ import {
   resolveCombat, scaleForce, splitForce
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
+import { scaleTurn } from '../game-length.js';
 import { archetypeOf, chance } from '../leaders.js';
 import { perceivedForce, visibleProvinces } from '../vision.js';
 import { aiAttackSlice, ambitionOf, holds, rememberedGarrison } from './ai.js';
@@ -85,7 +86,7 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     // V15.1 : une capitale dont la nation se bat déjà contre un tiers est moins périlleuse à viser (elle a moins de renforts à y envoyer).
     const busy = owner => Object.keys(state.nations).some(n => n !== nationId && n !== owner && pairWar(state, owner, n));
     // V15.1 : tard dans la partie, une côte qu'on ne voit pas est sûrement bien plus garnie que l'estimation prudente.
-    const seenCoasts = visibleProvinces(state, map, nationId), blind = x => (state.turn >= RULES.ai.lateTurn && !seenCoasts.has(x.to) && map.provinces.filter(p => state.provinces[p.id].ownerId === x.owner).length > 2 ? RULES.ai.lateBlindFactor : 1);
+    const seenCoasts = visibleProvinces(state, map, nationId), blind = x => (state.turn >= scaleTurn(state, RULES.ai.lateTurn) && !seenCoasts.has(x.to) && map.provinces.filter(p => state.provinces[p.id].ownerId === x.owner).length > 2 ? RULES.ai.lateBlindFactor : 1);
     const margin = (x) => blind(x) * ((x.atWar ? Math.max(1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
     let launched = false;
     for (const x of targets) {

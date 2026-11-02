@@ -191,5 +191,5 @@ test('80 tours : fin de partie au tour 80 (IA contre IA), jamais au-delà ; anci
   // L'interface refuse de résoudre un tour après la fin (écran de fin à la place) ; le compteur ne dépasse jamais 80.
   const app = readSource('app.js');
   assert.match(app, /function resolveTurn\(\)\{\s*if\(showEndScreen\(\)\)return;/);
-  assert.match(app, /Math\.min\(state\.turn,RULES\.gameLength\)/);
+  assert.match(app, /Math\.min\(state\.turn,gameLengthOf\(state\)\)/); // V15.4 : la longueur est celle de la partie
 });

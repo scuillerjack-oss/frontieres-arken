@@ -1,4 +1,5 @@
-import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
+import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES, saveSchemaOf } from '../domain/constants.js';
+import { SHORT_GAME_LENGTH } from '../domain/game-length.js';
 import { storyFromOldSave } from '../domain/story.js';
 import { ensureLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
 
@@ -86,7 +87,12 @@ function migrate10to11(copy) {
 export function migrateSave(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
-  if (copy.schemaVersion === SAVE_SCHEMA_VERSION) return copy;
+  // V15.4 : schéma 12 = Partie courte. Une longueur illisible redevient 80 tours (absence de `gameLength`, schéma 11).
+  if (copy.schemaVersion === SHORT_GAME_SCHEMA_VERSION) {
+    if (copy.gameLength !== SHORT_GAME_LENGTH) { delete copy.gameLength; copy.schemaVersion = SAVE_SCHEMA_VERSION; }
+    return copy;
+  }
+  if (copy.schemaVersion === SAVE_SCHEMA_VERSION) { delete copy.gameLength; return copy; } // ancienne partie : 80 tours
   if (copy.schemaVersion === 10) return migrate10to11(copy);
   if (copy.schemaVersion === 9) return migrate10to11(migrate9to10(copy));
   if (copy.schemaVersion === 8) return migrate10to11(migrate9to10(migrate8to9(copy)));
@@ -110,5 +116,5 @@ export function migrateSave(raw) {
   }
   throw new Error(`unsupported_save_schema:${copy.schemaVersion}`);
 }
-export const encodeSave = state => JSON.stringify({ ...state, schemaVersion: SAVE_SCHEMA_VERSION });
+export const encodeSave = state => JSON.stringify({ ...state, schemaVersion: saveSchemaOf(state) });
 export const decodeSave = text => migrateSave(JSON.parse(text));

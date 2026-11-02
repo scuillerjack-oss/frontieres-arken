@@ -9,6 +9,7 @@
 // RÈGLE D'OR : aucun achat ne donne d'or ni de troupes. Un achat ne peut donner que des JETONS et la suppression
 // des publicités ; les jetons ne servent qu'aux atouts (pourcentages plafonnés à +10 %).
 import { BOOST_KEYS, BOOST_MAX_LEVEL, BOOST_COST_TOKENS, sanitizeLevels } from './boosts.js';
+import { emptyPalmares, sanitizePalmares } from './palmares.js';
 
 export const PROFILE_VERSION = 1;
 export const PROFILE_EXPORT_PREFIX = 'ARKEN-PROFIL-1:';
@@ -95,7 +96,8 @@ export function createProfile() {
   return {
     version: PROFILE_VERSION, tokens: 0, boosts: sanitizeLevels({}), adsRemoved: false, starterPack: false,
     purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0, bonus: 0 }, bonusAds: 0,
-    gamesStarted: 0 // V14.4 : vraies parties lancées (le tutoriel ne compte pas)
+    gamesStarted: 0, // V14.4 : vraies parties lancées (le tutoriel ne compte pas)
+    palmares: emptyPalmares() // V15.4 : parties finies et titres, jamais dans la sauvegarde de partie
   };
 }
 
@@ -125,7 +127,8 @@ export function sanitizeProfile(raw) {
     earned: { missions: int(raw.earned?.missions), purchases: int(raw.earned?.purchases), bonus: int(raw.earned?.bonus) },
     bonusAds: Math.min(int(raw.bonusAds), BONUS_ADS_PER_TOKEN - 1),
     // V14.4 : migration sans perte — un profil d'avant la V14.4 (sans compteur) compte comme ayant déjà joué.
-    gamesStarted: raw.gamesStarted === undefined ? LEGACY_GAMES_STARTED : Math.min(int(raw.gamesStarted), 1000000)
+    gamesStarted: raw.gamesStarted === undefined ? LEGACY_GAMES_STARTED : Math.min(int(raw.gamesStarted), 1000000),
+    palmares: sanitizePalmares(raw.palmares) // V15.4 : un profil ancien repart d'un palmarès vide, sans rien perdre d'autre
   };
 }
 

@@ -14,6 +14,9 @@ const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battle
 /** V15.3 : modules du domaine ajoutés hors de engine/ (lus par tests/v15-3.test.js, qui vérifie qu'ils restent purs). */
 export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', 'src/domain/nations.js']);
 
+/** V15.4 : nouveaux modules du domaine, lus par tests/v15-4.test.js (purs, sans date). */
+export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 'src/domain/palmares.js']);
+
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
   if (present.join() !== [...names].sort().join()) throw new Error(`${dir} : liste à tenir à jour dans tests/helpers/sources.js`);

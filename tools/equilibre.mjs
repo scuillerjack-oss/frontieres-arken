@@ -8,6 +8,8 @@
 //
 //   --difficulte=facile|normal|difficile (V15.3) : pour les deux usages ci-dessus, niveau des parties (Normal par défaut).
 //
+//   --longueur=40 (V15.4) : parties courtes, pour les mesures comme pour les empreintes ; tranches au quart de la longueur.
+//
 //   node tools/equilibre.mjs --empreintes [--graines=10] [--ecrire=fichier.json] [--verifier=fichier.json]
 //     Empreintes (SHA-256) de l'état complet de parties à graine fixe : sert à prouver qu'un découpage du code ne change
 //     pas le jeu. Rien n'est écarté de l'état : événements, journal, clé `tutorial`, compteurs, tout compte.
@@ -41,12 +43,14 @@ const sha = text => createHash('sha256').update(text).digest('hex');
 Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
 
 // --- Mesures du constat -----------------------------------------------------------------------------------------
-function mesurer(parties, tours, prefixe, difficulty) {
+function mesurer(parties, tours, prefixe, difficulty, gameLength) {
+  const pasTranche = (gameLength || 80) / 4;
   const tranches = [0, 0, 0, 0], derniere = [], premier = [], second = [], eliminees = [];
   const parNation = Object.fromEntries(NATIONS.map(id => [id, 0])), parCaractere = {};
+  let vainqueurNet = 0;
   let capitales5 = 0, capitalesPerdues = 0, avecElimination = 0, avecCoalition = 0, coalitionsTours = 0;
   for (let g = 0; g < parties; g++) {
-    const s = createGameState({ map, playerNationId: NATIONS[g % NATIONS.length], seed: `${prefixe}-${g}`, difficulty });
+    const s = createGameState({ map, playerNationId: NATIONS[g % NATIONS.length], seed: `${prefixe}-${g}`, difficulty, gameLength });
     for (const id of NATIONS) s.controllers[id] = 'ai';
     let last = 0;
     for (let i = 0; i < tours && !s.gameOver; i++) {
@@ -54,12 +58,13 @@ function mesurer(parties, tours, prefixe, difficulty) {
       resolveInterturn(s, map);
       const after = ownersOf(s);
       for (const p of Object.keys(after)) if (after[p] !== before[p]) {
-        tranches[Math.min(3, Math.floor((turn - 1) / 20))]++; last = turn;
+        tranches[Math.min(3, Math.floor((turn - 1) / pasTranche))]++; last = turn;
         if (s.nations[before[p]]?.capitalId === p) capitalesPerdues++;
       }
     }
     derniere.push(last);
     const rank = gameRanking(s), winner = s.gameOver?.winnerId || rank[0].nationId;
+    if (s.gameOver?.reason === 'capitals' || rank[0].provinces > (rank[1]?.provinces || 0)) vainqueurNet++;
     premier.push(rank[0].provinces); second.push(rank[1]?.provinces || 0);
     eliminees.push(NATIONS.filter(id => s.nations[id].eliminated).length);
     if (eliminees.at(-1) > 0) avecElimination++;
@@ -69,7 +74,7 @@ function mesurer(parties, tours, prefixe, difficulty) {
     parCaractere[arch] = (parCaractere[arch] || 0) + 1;
     if (s.gameOver?.reason === 'capitals') capitales5++;
   }
-  return { parties, tours, prefixe, changementsParTranche20: tranches, derniereConqueteMediane: median(derniere),
+  return { parties, tours, prefixe, longueur: gameLength || 80, partiesAvecVainqueurNet: vainqueurNet, changementsParTranche: tranches, derniereConqueteMediane: median(derniere),
     vainqueurProvincesMediane: median(premier), secondProvincesMediane: median(second), nationsElimineesMediane: median(eliminees),
     victoiresParCapitales: capitales5, capitalesPerduesParPartie: +(capitalesPerdues / Math.max(1, parties)).toFixed(2),
     partiesAvecElimination: Math.round(100 * avecElimination / Math.max(1, parties)), partiesAvecCoalition: Math.round(100 * avecCoalition / Math.max(1, parties)),
@@ -79,12 +84,12 @@ function mesurer(parties, tours, prefixe, difficulty) {
 // --- Empreintes -------------------------------------------------------------------------------------------------
 /** Joueur scripté : essaie un peu de tout, de façon déterministe. Chaque réponse du moteur (même un refus) est journalisée. */
 /** V15.1 : un joueur scripté contre 4 IA, toutes nations à tour de rôle. Ce qui compte : vit-il, gagne-t-il, la coalition le vise-t-elle ? */
-function controle(type, parties, tours, prefixe, difficulty) {
+function controle(type, parties, tours, prefixe, difficulty, gameLength) {
   const script = type === 'dominant' ? joueurDominant : joueurPrudent;
   const r = { type, parties, victoires: 0, elimines: 0, eliminationTours: [], provincesFinMediane: 0, rangMoyen: 0, coalitionContreLui: 0, toursSousCoalition: 0, sousCoalitionGagne: 0, parCapitales: 0, parNation: Object.fromEntries(NATIONS.map(n => [n, [0, 0]])) };
   const prov = [];
   for (let g = 0; g < parties; g++) {
-    const nation = NATIONS[g % NATIONS.length], s = createGameState({ map, playerNationId: nation, seed: `${prefixe}-${type}-${g}`, difficulty });
+    const nation = NATIONS[g % NATIONS.length], s = createGameState({ map, playerNationId: nation, seed: `${prefixe}-${type}-${g}`, difficulty, gameLength });
     let sous = 0;
     for (let i = 0; i < tours && !s.gameOver; i++) { script(s, map, engine); resolveInterturn(s, map); if (s.coalition?.target === nation) sous++; }
     const rank = gameRanking(s), mine = rank.find(x => x.nationId === nation), won = (s.gameOver?.winnerId || rank[0].nationId) === nation && s.gameOver?.reason !== 'player-eliminated';
@@ -146,8 +151,8 @@ const finale = (s, log = []) => {
     tour: s.turn, fin: s.gameOver?.reason || null, vainqueur: s.gameOver?.winnerId || null, evenements: s.events.length };
 };
 
-function partie({ seed, nation, tours = 80, script = false, bonus = null, sauvegarde = false, etat = null }) {
-  let s = etat || createGameState({ map, playerNationId: nation, seed });
+function partie({ seed, nation, tours = 80, script = false, bonus = null, sauvegarde = false, etat = null, gameLength }) {
+  let s = etat || createGameState({ map, playerNationId: nation, seed, gameLength });
   if (!script) for (const id of NATIONS) s.controllers[id] = 'ai';
   if (bonus) setPlayerBonuses(s, bonus);
   const log = [];
@@ -159,6 +164,18 @@ function partie({ seed, nation, tours = 80, script = false, bonus = null, sauveg
     if (sauvegarde && i % 10 === 9) s = decodeSave(encodeSave(s));
   }
   return { ...finale(s, log), chaine };
+}
+
+/** V15.4 : empreintes des Parties courtes, dans leur propre fichier ; celui des 80 tours ne bouge pas. */
+function empreintesCourtes(graines, gameLength) {
+  const out = { regles: sha(JSON.stringify(RULES)), carte: sha(JSON.stringify(map)), api: Object.keys(engine).sort(), parties: {} };
+  for (let g = 0; g < graines; g++) for (const nation of NATIONS) {
+    const seed = `empreinte-${gameLength}-${g}`;
+    out.parties[`ia/${seed}/${nation}`] = partie({ seed, nation, gameLength });
+    if (g < 2) out.parties[`script/${seed}/${nation}`] = partie({ seed, nation, script: true, gameLength });
+  }
+  for (const nation of NATIONS) out.parties[`sauvegarde/${nation}`] = partie({ seed: `empreinte-${gameLength}-sauve`, nation, script: true, sauvegarde: true, gameLength });
+  return out;
 }
 
 function empreintes(graines) {
@@ -180,7 +197,7 @@ const args = process.argv.slice(2);
 const option = name => args.find(a => a.startsWith(`--${name}=`))?.split('=')[1];
 if (args.includes('--empreintes')) {
   const graines = Number(option('graines') || 10);
-  const resultat = empreintes(graines);
+  const resultat = option('longueur') ? empreintesCourtes(graines, Number(option('longueur'))) : empreintes(graines);
   const n = Object.keys(resultat.parties).length;
   if (option('ecrire')) { writeFileSync(option('ecrire'), JSON.stringify(resultat, null, 1) + '\n'); console.log(`${n} parties écrites dans ${option('ecrire')}`); }
   if (option('verifier')) {
@@ -197,6 +214,6 @@ if (args.includes('--empreintes')) {
 } else {
   const positional = args.filter(a => !a.startsWith('--'));
   const [parties = 60, tours = 80, prefixe = 'eq'] = positional;
-  if (option('joueur')) console.log(JSON.stringify(controle(option('joueur'), Number(parties), Number(tours), prefixe, option('difficulte'))));
-  else console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe, option('difficulte')), null, 1));
+  if (option('joueur')) console.log(JSON.stringify(controle(option('joueur'), Number(parties), Number(tours), prefixe, option('difficulte'), option('longueur') ? Number(option('longueur')) : undefined)));
+  else console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe, option('difficulte'), option('longueur') ? Number(option('longueur')) : undefined), null, 1));
 }
