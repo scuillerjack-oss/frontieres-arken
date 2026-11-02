@@ -2,7 +2,15 @@
 //  5. Recrutement : chaque type de troupe s'ouvre sur un panneau PV / dégâts (par lot ou par unité, c'est écrit).
 //  6. Navires en convalescence : ce que ça veut dire, PV actuels et tours restants.
 import { RULES } from '../domain/constants.js';
+import { bonusPct, nationBonusPct } from '../domain/boosts.js';
 import { SHIP_REPAIR_TURNS } from '../domain/game-engine.js';
+
+/** V15.3 : d'où viennent les fantassins en plus. L'atout du profil et le bonus de nation s'additionnent. */
+export function recruitBonusLabels(state, nationId) {
+  const atout = bonusPct(state, nationId, 'recruit'), nation = nationBonusPct(state, nationId, 'recruit');
+  const parts = [...(atout ? [`Atout Recrutement +${atout} %`] : []), ...(nation ? [`Bonus de nation +${nation} %`] : [])];
+  return { short: atout && nation ? 'bonus et atout' : nation ? 'bonus' : 'atout', long: parts.join(' et ') };
+}
 
 const fr = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const tours = n => `${n} tour${n > 1 ? 's' : ''}`;

@@ -13,14 +13,14 @@ import { TUTORIAL_GUIDE, forceSelection } from '../guide-input.js';
 import { buildingUnavailableReason, cancelPendingOrder, unitPrerequisiteText } from '../map-orders-view.js';
 import { compactForces, relationWithPlayer } from '../overview-view.js';
 import { PASSAGE_TEXT, fortAttackWarning, fortBuildText, fortInfo, passageChip } from '../passage-fort-view.js';
-import { recruitDetailHtml, shipRepairChip } from '../recruit-repair-view.js';
+import { recruitBonusLabels, recruitDetailHtml, shipRepairChip } from '../recruit-repair-view.js';
 import { truceWarning } from '../truce-warning.js';
 import { moveEvent } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
 import { openDiplomacy } from './diplomacy-screen.js';
 import { render } from './map-view.js';
-import { moveSource, profile, selected, setMoveSource, setSelected, state } from './session.js';
+import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
 import { miniTuto, placeTutorial, tuto, tutorial } from './tutorials.js';
 
@@ -155,7 +155,7 @@ function openRecruit(){
   const update=()=>{const total=Object.entries(lots).reduce((n,[k,v])=>n+v*RULES.units[k].cost,0),available=spendableTreasury(state,state.playerNationId);$('#recruitCost').textContent=`${total} or`;
     $('#recruitWarning').textContent=total>available?'Trésor insuffisant après les sommes réservées.':'';for(const {key,r,blocked} of items){$(`#lot-count-${key}`).textContent=lots[key];
     const extra=recruitPreview(state,state.playerNationId,key,lots[key]*r.amount)-lots[key]*r.amount;
-    $(`#lot-amount-${key}`).innerHTML=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}${extra>0?` <em class="boost-extra">+${extra} atout</em>`:''}`;
+    $(`#lot-amount-${key}`).innerHTML=`${lots[key]*r.amount} unité${lots[key]*r.amount===1?'':'s'}${extra>0?` <em class="boost-extra">+${extra} ${recruitBonusLabels(state,state.playerNationId).short}</em>`:''}`;
     const plus=document.querySelector(`[data-lot-plus="${key}"]`);if(plus)plus.disabled=blocked||total+r.cost>available;}};
   // V14.2 (Jack) : toucher le nom d'une troupe ouvre / ferme son détail (PV, dégâts) ; jamais de recrutement par ce bouton.
   document.querySelectorAll('[data-unit-info]').forEach(b=>b.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();const slot=$(`#unit-detail-${b.dataset.unitInfo}`);slot.hidden=!slot.hidden;b.setAttribute('aria-expanded',String(!slot.hidden));if(!slot.hidden)tuto('unit-info');}));
@@ -165,7 +165,7 @@ function openRecruit(){
     confirmationModal('Confirmer le recrutement',
       `<div class="order-detail"><span>Action : recrutement</span><span>Province : ${province(selected).name}</span><span>Quantité : ${quantity} unité(s) en ${Object.values(lots).filter(Boolean).reduce((n,
       v)=>n+v,0)} lot(s)</span>${(()=>{const extra=recruitPreview(state,state.playerNationId,'infantry',lots.infantry*RULES.units.infantry.amount)-lots.infantry*RULES.units.infantry.amount;
-      return extra>0?`<span class="boost-extra">Atout Recrutement +${profile.boosts.recruit} % : +${extra} fantassins à la livraison</span>`:'';
+      return extra>0?`<span class="boost-extra">${recruitBonusLabels(state,state.playerNationId).long} : +${extra} fantassins à la livraison</span>`:'';
       })()}<span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
       state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,
       provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de recrutement ajouté à l’inter-tour');

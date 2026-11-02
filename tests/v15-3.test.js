@@ -11,6 +11,7 @@ import { navalBase } from '../src/domain/engine/ai-naval.js';
 import { journalEntry, planAIOrders, queueRecruitment, resolveInterturn } from '../src/domain/game-engine.js';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { decodeSave, encodeSave, migrateSave } from '../src/persistence/save-codec.js';
+import { recruitBonusLabels } from '../src/presentation/recruit-repair-view.js';
 import { createSoundEngine } from '../src/presentation/sound-engine.js';
 import { TOUCH_GUARD_MS, guardTouches } from '../src/presentation/turn-animation.js';
 import { createTutorialState } from '../src/presentation/tutorial.js';
@@ -185,4 +186,14 @@ test('Difficile : l’annonce du bonus d’or arrive dans le journal du premier 
   assert.ok(s.turnJournal.some(e => /Niveau Difficile/.test(e.text)));
   const n = game(); resolveInterturn(n, map);
   assert.ok(!n.turnJournal.some(e => /Niveau Difficile/.test(e.text)));
+});
+
+test('V15.3 : le recrutement nomme la vraie source des fantassins en plus', () => {
+  const s = createGameState({ map, playerNationId: 'valmorne', seed: 'libelle' });
+  assert.deepEqual(recruitBonusLabels(s, 'valmorne'), { short: 'bonus', long: 'Bonus de nation +15 %' });
+  setPlayerBonuses(s, { recruit: 10 });
+  assert.deepEqual(recruitBonusLabels(s, 'valmorne'), { short: 'bonus et atout', long: 'Atout Recrutement +10 % et Bonus de nation +15 %' });
+  const o = createGameState({ map, playerNationId: 'oroel', seed: 'libelle' });
+  setPlayerBonuses(o, { recruit: 10 });
+  assert.deepEqual(recruitBonusLabels(o, 'oroel'), { short: 'atout', long: 'Atout Recrutement +10 %' });
 });
