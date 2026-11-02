@@ -13,7 +13,7 @@ import { RULES } from '../domain/constants.js';
 import { seaTravelTurns } from '../domain/game-engine.js';
 import { HELP_TURNS } from '../domain/alliances.js';
 import { HOSTILITY_WARNING, HOSTILITY_WAR, TALK_TENSION } from '../domain/leaders.js';
-import { SAVE_KEY } from './v4-ux.js';
+import { SAVE_KEY } from './guide-input.js';
 
 export const TUTO_SAVE_KEY = 'frontieres-arken-tutoriel-save';
 export const TUTO_OFFER_KEY = 'frontieres-arken-tutoriel-propose';

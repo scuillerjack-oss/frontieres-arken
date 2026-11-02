@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { RULES } from '../src/domain/constants.js';
-import { mapFrameTransform, territoryOutline, territoryBorders, nationsAtWarWith, trimPolyline, orderPath, missingUnitPrerequisites, unitPrerequisiteText, buildingUnavailableReason } from '../src/presentation/v5-ux.js';
+import { mapFrameTransform, territoryOutline, territoryBorders, nationsAtWarWith, trimPolyline, orderPath, missingUnitPrerequisites, unitPrerequisiteText, buildingUnavailableReason } from '../src/presentation/map-orders-view.js';
 
 const fresh = () => createGameState({ map, playerNationId: 'valmorne' });
 
@@ -98,8 +98,8 @@ test('V10 point 8 : raisons en clair pour une construction indisponible', () => 
 });
 
 // --- V10 marine et moteur : affichage (convois, PV, journal) ------------------------------------------------------
-import { convoyMarkers, convoySeaPath, pointAlong, forceHealthRows, journalCategoryClass } from '../src/presentation/v5-ux.js';
-import { TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
+import { convoyMarkers, convoySeaPath, pointAlong, forceHealthRows, journalCategoryClass } from '../src/presentation/map-orders-view.js';
+import { TUTORIAL_GUIDE } from '../src/presentation/guide-input.js';
 import { journalEntry } from '../src/domain/game-engine.js';
 
 test('V10 marine : jeton de convoi placé à son étape sur la route, tours restants, points d\'étape', () => {

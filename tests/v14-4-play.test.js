@@ -1,6 +1,7 @@
 // V14.4 — Équipe Google Play : publicités AdMob et achats Play Billing UNIQUEMENT dans le build Play, règles du studio
 // (jamais de pub en jeu ni dans le tutoriel, refus = rien d'imposé, jetons jamais perdus), build, fiche, secrets.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -15,7 +16,7 @@ import { initPlay } from '../src/presentation/play.js';
 import { createNativePlay, orderIdOf } from '../src/presentation/native-play.js';
 import { adsConfig, injectPlayConfig, configureManifest, ADMOB_TEST_IDS } from '../scripts/play-config.js';
 import { playDependencies } from '../scripts/play-deps.js';
-import { boostScreenHtml } from '../src/presentation/v12-ux.js';
+import { boostScreenHtml } from '../src/presentation/boosts-screen.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
@@ -90,7 +91,7 @@ test('V14.4 pubs Play : refus d\'une pub proposée = aucune pub imposée derriè
 });
 
 test('V14.4 pubs : app.js ne demande une pub qu\'avant une nouvelle partie (hors tutoriel) ou sur clic du joueur dans le menu', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   const starts = [...app.matchAll(/showGameStartAd\(/g)];
   assert.equal(starts.length, 1);
   assert.match(app, /showGameStartAd\(\{profile,inTutorial:isTutorial\(state\)\|\|shouldStartMiniTuto\(\)\}\)/);
@@ -98,7 +99,7 @@ test('V14.4 pubs : app.js ne demande une pub qu\'avant une nouvelle partie (hors
   assert.equal([...app.matchAll(/showRewardedAd\(/g)].length, 2);
   assert.match(app, /data-bonus-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub bonus pendant le tutoriel');
   assert.match(app, /data-watch-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub récompensée pendant le tutoriel');
-  for (const f of ['src/domain/game-engine.js', 'src/presentation/v14-3-tutoriel.js']) assert.doesNotMatch(read(f), /ads\.js|showGameStartAd|showRewardedAd/);
+  for (const f of ['src/domain/game-engine.js', 'src/presentation/tutorial.js']) assert.doesNotMatch(readSource(f), /ads\.js|showGameStartAd|showRewardedAd/);
 });
 
 test('V14.4 consentement : bouton « Choix de confidentialité des publicités » dans les paramètres, masqué hors build Play', () => {

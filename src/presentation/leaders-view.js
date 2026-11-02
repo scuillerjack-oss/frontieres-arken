@@ -1,6 +1,6 @@
 // V11 — interface des personnalités : fil d'échanges, tension, impression sur les dirigeants.
 // Fonctions pures, sans DOM ni dépendance au moteur : testables sous Node (docs/V11-contrat.md).
-import { pointAlong } from './v5-ux.js';
+import { pointAlong } from './map-orders-view.js';
 
 // Tons proposés au joueur (jamais de texte libre) : icône + classe CSS discrète.
 export const TONES = Object.freeze({

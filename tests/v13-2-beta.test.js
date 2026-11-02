@@ -7,20 +7,21 @@
 //  6. « Je ne peux pas attaquer un allié, mais j'ai mis trop de temps à comprendre » → signalé avant la saisie.
 //  7. Descriptions parfois trop longues → textes d'aide raccourcis.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULES } from '../src/domain/constants.js';
 import { queueDiplomaticOrder, setRelation, resolveInterturn, spendableTreasury, respondToProposal, proposalsToAnswer, refusalsOf,
   aiCeasefireGold, ceasefireChance, journalEntry, legalDestinations } from '../src/domain/game-engine.js';
 import { leaderHint, recordStrike, strengthOf } from '../src/domain/leaders.js';
-import { ceasefireRange, clampCeasefireAmount, ceasefireEstimate, ceasefireOrder, allyBlockedTarget } from '../src/presentation/v13-2-ux.js';
-import { diplomacyActions } from '../src/presentation/v3-ux.js';
-import { territoryBorders } from '../src/presentation/v5-ux.js';
-import { TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
+import { ceasefireRange, clampCeasefireAmount, ceasefireEstimate, ceasefireOrder, allyBlockedTarget } from '../src/presentation/ceasefire-view.js';
+import { diplomacyActions } from '../src/presentation/overview-view.js';
+import { territoryBorders } from '../src/presentation/map-orders-view.js';
+import { TUTORIAL_GUIDE } from '../src/presentation/guide-input.js';
 import { map, freshState } from './helpers/fixtures.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
 
-const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const app = readSource('app.js');
 const atWar = (s, a, b) => s.diplomacy.wars.some(w => w.participants.includes(a) && w.participants.includes(b));
 const nation = id => arkenV9Map.nations.find(n => n.id === id);
 

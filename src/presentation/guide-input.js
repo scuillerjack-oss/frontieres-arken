@@ -13,7 +13,10 @@ export const TUTORIAL_GUIDE = Object.freeze([
   { id:'diplomacy', title:'Diplomatie', text:'En guerre, proposez un cessez-le-feu : payez pour l’obtenir, ou exigez de l’or si vous dominez. S’il refuse, aucun or ne bouge.' },
   { id:'history', title:'Journaux', text:'Le journal du tour résume l’essentiel. Le bouton Journal garde tout l’historique.' },
   { id:'orders', title:'Ordres en attente', text:'Flèche verte : déplacement. Flèche rouge : attaque. Touchez une flèche pour revoir ou annuler l’ordre.' },
-  { id:'maritime', title:'Routes maritimes', text:`Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi peut intercepter le convoi. Débarquer chez l’ennemi : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` },
+  { id:'maritime', title:'Routes maritimes',
+    text:`Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi \
+peut intercepter le convoi. Débarquer chez l’ennemi : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` }
+    ,
   { id:'endgame', title:'Fin de partie', text:`La partie dure ${RULES.gameLength} tours. Classement : provinces, puis capitales, puis trésor. Tenir les 5 capitales : victoire immédiate.` },
   { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes.' }
 ]);

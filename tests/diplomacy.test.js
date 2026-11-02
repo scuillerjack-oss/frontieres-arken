@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { queueDiplomaticOrder, setRelation, resolveInterturn, spendableTreasury, queueRecruitment, queueMoveOrder } from '../src/domain/game-engine.js';
-import { diplomacyActions, relationWithPlayer } from '../src/presentation/v3-ux.js';
-import { ceasefireOffers } from '../src/presentation/v5-ux.js';
+import { diplomacyActions, relationWithPlayer } from '../src/presentation/overview-view.js';
+import { ceasefireOffers } from '../src/presentation/map-orders-view.js';
 import { map, freshState } from './helpers/fixtures.js';
 
 const atWar = (s, a, b) => s.diplomacy.wars.some(w => w.participants.includes(a) && w.participants.includes(b));

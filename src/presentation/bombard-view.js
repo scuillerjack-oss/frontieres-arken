@@ -28,7 +28,8 @@ export function bombardPreviewText(state, { fromId, toId, warships, nationId = s
 }
 
 /** Rappel des règles affiché sous l'aperçu (explication de la commande, pas de conseil). */
-export const BOMBARD_RULE_TEXT = () => `Vos navires restent à quai, réservés pour ce tour. Une attaque ou un débarquement qui arrive ce tour profite de la brèche. Sans bombardement, la forteresse se répare de ${RULES.bombard.repairPerTurn} points par tour. Une flotte ennemie au port se bat d’abord.`;
+export const BOMBARD_RULE_TEXT = () => `Vos navires restent à quai, réservés pour ce tour. Une attaque ou un débarquement qui arrive ce tour profite de la brèche. Sans bombardement, la forteresse se \
+répare de ${RULES.bombard.repairPerTurn} points par tour. Une flotte ennemie au port se bat d’abord.`;
 
 /** Puce de la fiche : ordre de bombardement prévu depuis cette province. */
 export function pendingBombardChip(state, fromId, name = id => id) {

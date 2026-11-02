@@ -1,0 +1,30 @@
+// V15.0 : app.js et game-engine.js sont découpés en modules. Les tests qui inspectent le code source lisent donc
+// l'ENSEMBLE des morceaux, dans l'ordre logique : une règle vérifiée sur « app.js » reste vérifiée sur toute l'interface.
+// Un nouveau fichier oublié dans ces listes fait échouer les tests : aucun morceau ne peut échapper à l'inspection.
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
+  'turn-flow', 'audio', 'boosts-ui', 'game-flow'];
+const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
+  'ai-naval', 'ai', 'ai-help', 'journal', 'turn'];
+
+function group(dir, names, first) {
+  const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
+  if (present.join() !== [...names].sort().join()) throw new Error(`${dir} : liste à tenir à jour dans tests/helpers/sources.js`);
+  return [first, ...names.map(n => `${dir}/${n}.js`)];
+}
+export const appFiles = () => group('src/presentation/ui', UI, 'app.js');
+export const engineFiles = () => group('src/domain/engine', ENGINE, 'src/domain/game-engine.js');
+const raw = p => readFileSync(join(root, p), 'utf8');
+
+/** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur. */
+export function readSource(p) {
+  const files = p === 'app.js' ? appFiles() : p === 'src/domain/game-engine.js' ? engineFiles() : [p];
+  return files.map(raw).join('\n');
+}
+
+/** Même code, sans les retours à la ligne de mise en forme : pour vérifier un enchaînement exact quelle que soit la coupure. */
+export const flatSource = p => readSource(p).replace(/\\\n/g, '').replace(/\n\s*/g, '');

@@ -6,6 +6,7 @@
 //  5. Carte centrée sur la capitale au lancement, bouton « Voir toute la carte ».
 //  6. Trêve signée pendant le départ d'un convoi : demi-tour ; plus de va-et-vient des troupes en escale.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { queueMoveOrder, queueDiplomaticOrder, setRelation, resolveInterturn, journalEntry, planAIOrders, buildTurnJournal,
@@ -13,8 +14,8 @@ import { queueMoveOrder, queueDiplomaticOrder, setRelation, resolveInterturn, jo
 import { reputation, ensureLeaders } from '../src/domain/leaders.js';
 import { pickLine, publishTalk, talkLineLists, allTalkLines, sameTurnTexts } from '../src/domain/talk.js';
 import { RULES } from '../src/domain/constants.js';
-import { launchView, wholeMapView, showsWholeMap, screenPoint, WHOLE_MAP_LABEL, LAUNCH_MAX_ZOOM } from '../src/presentation/v14-1-ux.js';
-import { journalCategoryClass } from '../src/presentation/v5-ux.js';
+import { launchView, wholeMapView, showsWholeMap, screenPoint, WHOLE_MAP_LABEL, LAUNCH_MAX_ZOOM } from '../src/presentation/launch-view.js';
+import { journalCategoryClass } from '../src/presentation/map-orders-view.js';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { assertInvariants } from './helpers/fixtures.js';
@@ -284,12 +285,12 @@ test('carte au lancement : la capitale du joueur est au centre de l\'écran du t
   assert.equal(showsWholeMap(minZoom, minZoom), true);
   assert.equal(showsWholeMap(1.4, minZoom), false);
   assert.equal(WHOLE_MAP_LABEL, 'Voir toute la carte');
-  const html = read('index.html'), app = read('app.js');
+  const html = read('index.html'), app = readSource('app.js');
   assert.match(html, /<button id="wholeMapBtn" class="whole-map-btn">🗺 Voir toute la carte<\/button>/);
   assert.match(app, /requestAnimationFrame\(\(\)=>\{measureFrame\(\);render\(\);applyLaunchView\(\);/, 'au lancement (nouvelle partie et reprise)');
   assert.match(app, /\$\('#wholeMapBtn'\)\.onclick=/);
   assert.match(read('v5.css'), /\.whole-map-btn\{/);
-  assert.match(read('sw.js'), /v14-1-ux\.js/);
+  assert.match(read('sw.js'), /launch-view\.js/);
 });
 
 // --- 6. « À surveiller » de la V14.0 ---------------------------------------------------------------------------------------

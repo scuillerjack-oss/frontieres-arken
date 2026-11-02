@@ -2,12 +2,13 @@
 // lieu de « canon », combat expliqué (forces engagées, PV perdus, forteresse −10/−20/−30 %), attaque bien visible
 // au journal, un seul bouton pour parler à un dirigeant, liserés de la même épaisseur.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULES } from '../src/domain/constants.js';
 import { queueConstruction, resolveInterturn, journalEntry, FORT_IN_PROGRESS, buildingCount } from '../src/domain/game-engine.js';
 import { resolveBattle } from '../src/domain/combat.js';
-import { buildingUnavailableReason, journalCategoryClass } from '../src/presentation/v5-ux.js';
+import { buildingUnavailableReason, journalCategoryClass } from '../src/presentation/map-orders-view.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
 import { map, freshState } from './helpers/fixtures.js';
 
@@ -27,7 +28,7 @@ test('forteresse : un niveau à la fois (moteur et écran)', () => {
 });
 
 test('« artilleur(s) » partout, plus jamais « canon(s) » pour l\'unité', () => {
-  for (const f of ['src/presentation/v5-ux.js', 'src/presentation/v13-vision-ui.js', 'src/domain/game-engine.js']) assert.doesNotMatch(read(f), /'canons?'/, f);
+  for (const f of ['src/presentation/map-orders-view.js', 'src/presentation/vision-view.js', 'src/domain/game-engine.js']) assert.doesNotMatch(readSource(f), /'canons?'/, f);
   const ev = { type: 'battle', attacker: 'oroel', attackers: ['oroel'], defender: 'valmorne', provinceId: 'p03', naval: false,
     lossesByNation: { oroel: { infantry: 0, cavalry: 0, armor: 0, artillery: 1, warship: 0 }, valmorne: { infantry: 5, cavalry: 0, armor: 0, artillery: 0, warship: 0 } } };
   assert.match(journalEntry(ev, arkenV9Map, 'valmorne').text, /1 artilleur[ ;.]/);
@@ -60,6 +61,6 @@ test('combat expliqué : forces engagées, PV perdus, forteresse et débarquemen
 });
 
 test('interface : plus de bouton « Échanger » dans la fiche ; liserés de 28 px partout', () => {
-  assert.doesNotMatch(read('app.js'), /\['talk','Échanger'\]/);
+  assert.doesNotMatch(readSource('app.js'), /\['talk','Échanger'\]/);
   assert.match(read('v5.css'), /\.territory\.war,\.territory\.ally,\.territory\.brink\{stroke-width:calc\(28px/);
 });

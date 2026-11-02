@@ -16,7 +16,7 @@ import {
 import { loadProfile, saveProfile, todayLocal, PROFILE_KEY } from '../src/presentation/profile-storage.js';
 import { storeItems, purchase, BILLING_ENABLED } from '../src/presentation/store.js';
 import { ADS_ENABLED, shouldShowGameStartAd, showGameStartAd } from '../src/presentation/ads.js';
-import { SAVE_KEY } from '../src/presentation/v4-ux.js';
+import { SAVE_KEY } from '../src/presentation/guide-input.js';
 import { freshState, NATIONS } from './helpers/fixtures.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -297,7 +297,7 @@ function map() { return mapRef; }
 import { map as mapRef } from './helpers/fixtures.js';
 
 // --- Interface ------------------------------------------------------------------------------------------------------
-import { boostScreenHtml } from '../src/presentation/v12-ux.js';
+import { boostScreenHtml } from '../src/presentation/boosts-screen.js';
 test('V12 interface : écran Atouts & missions (jetons, 5 atouts, missions du jour, Pack, achat de test clairement marqué)', () => {
   const p = createProfile(); p.tokens = 2; p.boosts.recruit = 10;
   const html = boostScreenHtml(p, '2026-10-16');
@@ -311,7 +311,7 @@ test('V12 interface : écran Atouts & missions (jetons, 5 atouts, missions du jo
   assert.match(boostScreenHtml(p, '2026-10-16'), /Pack débutant actif/);
   const index = read('index.html');
   for (const id of ['welcomeBoosts', 'boostBtn', 'boostDialog', 'settingsBoosts']) assert.match(index, new RegExp(`id="${id}"`));
-  for (const f of ['./src/domain/boosts.js', './src/domain/profile.js', './src/presentation/ads.js', './src/presentation/store.js', './src/presentation/profile-storage.js', './src/presentation/v12-ux.js'])
+  for (const f of ['./src/domain/boosts.js', './src/domain/profile.js', './src/presentation/ads.js', './src/presentation/store.js', './src/presentation/profile-storage.js', './src/presentation/boosts-screen.js'])
     assert.ok(read('sw.js').includes(`'${f}'`), f);
   assert.match(JSON.parse(read('package.json')).version, /^1[2-9]\./);
 });

@@ -9,7 +9,7 @@
 // l'agresseur. Le Traître accepte toujours… et ne vient jamais (engagement `fake`), ce qui se voit à l'échéance.
 import { chance, archetypeOf, allied, atWar, aliveNations, getTension, addTension, recentAggressions, reputation, charmOf } from './leaders.js';
 import { publishTalk, neighbors, pickLine } from './talk.js';
-import { MORE_HELP_LINES } from './alliances-v14-2.js';
+import { MORE_HELP_LINES } from './alliances-more-lines.js';
 import { composeLine } from './talk-compose.js'; // V14.4 : réponses d'aide composées (ouverture + fond + contexte réel)
 
 export const HELP_KINDS = Object.freeze(['defend', 'attack']);
@@ -122,7 +122,7 @@ const HELP_LINES = {
     'Hélas, {to}, {x} est hors de notre portée. Aucune de nos routes n’y mène.']
 };
 
-// V14.2 : chaque liste reçoit ses nouvelles variantes (alliances-v14-2.js) ; le nombre de réponses double.
+// V14.2 : chaque liste reçoit ses nouvelles variantes (alliances-more-lines.js) ; le nombre de réponses double.
 for (const [path, extra] of Object.entries(MORE_HELP_LINES)) {
   const list = path.split('.').reduce((o, k) => o?.[k], HELP_LINES);
   if (Array.isArray(list)) for (const line of extra) if (!list.includes(line)) list.push(line);
@@ -222,7 +222,8 @@ export function resolveHelpRequests(state, map, locked, routes = null) {
       if (!d.fake && req.target) addTension(state, o.to, req.target, req.kind === 'attack' ? 20 : 10, 'help');
       reputation(state, o.to).friendly++;
     }
-    state.events.push({ turn: state.turn, type: 'help-answer', nationId: o.to, target: o.nationId, help: req.kind, against: req.target, provinceId: req.provinceId, accepted: d.accept, turns: HELP_TURNS, ...(d.accept ? { travel, until: state.turn + travel + HELP_TURNS, ...(reach === null ? { noRoute: true } : {}) } : {}), talkId: msg.id });
+    state.events.push({ turn: state.turn, type: 'help-answer', nationId: o.to, target: o.nationId, help: req.kind, against: req.target, provinceId: req.provinceId, accepted: d.accept,
+      turns: HELP_TURNS, ...(d.accept ? { travel, until: state.turn + travel + HELP_TURNS, ...(reach === null ? { noRoute: true } : {}) } : {}), talkId: msg.id });
   }
 }
 /** Engagements réellement tenus par `ally` ce tour-ci (le Traître n'en tient aucun). */

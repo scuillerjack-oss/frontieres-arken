@@ -4,6 +4,7 @@
 //  « C'est pas marqué le/les bonus en pourcentage offert par la forteresse. »
 //  « Il faudrait également un genre de mini tuto lors de la première game. »
 import { test } from 'node:test';
+import { readSource, flatSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULES } from '../src/domain/constants.js';
@@ -12,10 +13,10 @@ import { queueMoveOrder, queueDiplomaticOrder, setRelation, resolveInterturn, re
 import { resolveBattle, fortReductionPct } from '../src/domain/combat.js';
 import { visibleProvinces } from '../src/domain/vision.js';
 import { setPlayerBonuses } from '../src/domain/boosts.js';
-import { passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_KEY, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from '../src/presentation/v13-4-ux.js';
-import { SAVE_KEY, TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
-import { playerOrderArrows } from '../src/presentation/v5-ux.js';
-import { provinceTroopView } from '../src/presentation/v13-vision-ui.js';
+import { passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_KEY, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from '../src/presentation/passage-fort-view.js';
+import { SAVE_KEY, TUTORIAL_GUIDE } from '../src/presentation/guide-input.js';
+import { playerOrderArrows } from '../src/presentation/map-orders-view.js';
+import { provinceTroopView } from '../src/presentation/vision-view.js';
 import { COMBAT_TYPES } from '../src/domain/combat.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
 import { map, freshState } from './helpers/fixtures.js';
@@ -145,9 +146,9 @@ test('forteresse : le % affiché est celui du moteur (RULES.fortDefense + atout)
 });
 
 test('forteresse : affichée sur la fiche, le menu Construction, l\'attaque, le journal de combat et l\'aide', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /fortInfo\(state,selected\)/, 'fiche de province');
-  assert.match(app, /fortBuildText\(state,selected\)/, 'menu Construction');
+  assert.match(flatSource('app.js'), /fortBuildText\(state,selected\)/, 'menu Construction');
   assert.match(app, /fortAttackWarning\(state,toId\)/, 'préparation d\'une attaque');
   assert.doesNotMatch(app, /\(x\.built\+1\)\*10/, 'plus de % recopié à la main');
   const ev = { type: 'battle', attacker: 'oroel', attackers: ['oroel'], defender: 'valmorne', provinceId: 'p03', fortLevel: 2, fortPct: 20,
@@ -186,13 +187,13 @@ test('mini tuto : affiché une seule fois (clé séparée), jamais la clé de sa
 });
 
 test('mini tuto : bouton « Passer », lancement à la première partie seulement, relance dans les Paramètres', () => {
-  const html = read('index.html'), app = read('app.js');
+  const html = read('index.html'), app = readSource('app.js');
   assert.match(html, /id="miniTutoSkip"[^>]*>Passer</);
   assert.match(html, /id="replayMiniTuto">Relancer le mini tuto</);
   assert.match(app, /\$\('#miniTutoSkip'\)\.onclick=endMiniTuto/);
-  assert.match(app, /if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\}/);
+  assert.match(flatSource('app.js'), /if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\}/);
   assert.doesNotMatch(app.match(/function continueSavedGame[^\n]*/)[0], /MiniTuto/, 'pas en reprenant une partie');
-  assert.doesNotMatch(read('src/presentation/v13-4-ux.js'), /frontieres-arken-v2-save/);
+  assert.doesNotMatch(read('src/presentation/passage-fort-view.js'), /frontieres-arken-v2-save/);
 });
 
 // --- Corrections après relecture indépendante ------------------------------------------------------------------

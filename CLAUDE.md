@@ -52,6 +52,8 @@ suivant, sans retélécharger l'APK. L'AAB Google Play, lui, garde le jeu embarq
 - PWA sans étape de compilation : les fichiers à la racine sont servis tels quels ; `scripts/build.js`
   copie vers `dist/` et remplace `__VERSION__` par `version+commit`.
 - Tous les chemins sont relatifs : le site vit sous `/frontieres-arken/`.
+- Depuis la V15.0 : moteur dans `src/domain/engine/` (`game-engine.js` réexporte), écrans dans `src/presentation/ui/` (`app.js` = démarrage).
+  Nouveau module : l'ajouter à ASSETS de `sw.js` et à `tests/helpers/sources.js`.
 - Le moteur (`src/domain/`) ne dépend pas de la géométrie ; garder `src/domain/` sans DOM, testable sous Node.
 
 ## Règles du studio (valables pour tous les projets de Jack)

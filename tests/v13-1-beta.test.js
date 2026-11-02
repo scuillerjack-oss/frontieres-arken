@@ -4,16 +4,17 @@
 //  2. « Mes troupes envoyées par la mer ne sont jamais arrivées, elles ont disparu. » → elles étaient anéanties au
 //     débarquement (ligne noyée dans le journal) : fenêtre dédiée « Débarquement repoussé » / « Convoi coulé ».
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { RULES } from '../src/domain/constants.js';
 import { incomeFor, incomeBreakdown, buildingIncome, resolveInterturn, queueMoveOrder, availableForces, legalDestinations } from '../src/domain/game-engine.js';
-import { seaFatePopups } from '../src/presentation/v13-ux.js';
+import { seaFatePopups } from '../src/presentation/alliances-view.js';
 
 const names = { nation: id => map.nations.find(n => n.id === id).short, province: id => map.provinces.find(p => p.id === id).name };
-const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const app = readSource('app.js');
 
 test('revenus : 4 or par province, +3 par banque, +3 par usine, +2 par port construit', () => {
   assert.equal(RULES.portIncome, 2);

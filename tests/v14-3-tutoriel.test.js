@@ -1,6 +1,7 @@
 // V14.3 — tutoriel facultatif et rejouable (docs/V14-cahier-des-charges.md, section 2 point 9).
 // Le parcours est rejoué ici avec le VRAI moteur : chaque étape doit être réalisable, et ce que dit la bulle doit être vrai.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
@@ -10,10 +11,10 @@ import { queueHelpRequest, HELP_TURNS } from '../src/domain/alliances.js';
 import { getTension, HOSTILITY_WARNING, HOSTILITY_WAR } from '../src/domain/leaders.js';
 import { RULES } from '../src/domain/constants.js';
 import { encodeSave, decodeSave } from '../src/persistence/save-codec.js';
-import { SAVE_KEY } from '../src/presentation/v4-ux.js';
-import { MINI_TUTO_KEY } from '../src/presentation/v13-4-ux.js';
+import { SAVE_KEY } from '../src/presentation/guide-input.js';
+import { MINI_TUTO_KEY } from '../src/presentation/passage-fort-view.js';
 import { TUTORIAL_STEPS, TUTORIAL_THEMES, TUTO_SAVE_KEY, TUTO_OFFER_KEY, TUTO_LANDING, TUTO_SEA_ROUTE_LENGTH, createTutorialState, isTutorial, saveKeyFor, storeGame, loadTutorial, clearTutorial,
-  tutorialOffered, markTutorialOffered, tutorialCompleted, tutorialStepView, tutorialAdvance, tutorialHint, moveEvent, firstVisibleTarget, bubblePlacement, landingFailed, allyGuestProvince } from '../src/presentation/v14-3-tutoriel.js';
+  tutorialOffered, markTutorialOffered, tutorialCompleted, tutorialStepView, tutorialAdvance, tutorialHint, moveEvent, firstVisibleTarget, bubblePlacement, landingFailed, allyGuestProvince } from '../src/presentation/tutorial.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
 const read = f => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -95,7 +96,7 @@ test('tutoriel : les chiffres des bulles sont lus dans le moteur (aucune règle 
   assert.equal(map.seaLanes.find(l => l.from === 'p03' && l.to === 'p14').length, TUTO_SEA_ROUTE_LENGTH);
   assert.match(all, new RegExp(`Par la mer : ${route.turns} tours de traversée`));
   // Le classement réel : provinces, puis capitales, puis trésor.
-  assert.match(read('src/domain/game-engine.js'), /b\.provinces - a\.provinces \|\| b\.capitals - a\.capitals \|\| b\.treasury - a\.treasury/);
+  assert.match(readSource('src/domain/game-engine.js'), /b\.provinces - a\.provinces \|\| b\.capitals - a\.capitals \|\| b\.treasury - a\.treasury/);
 });
 
 test('tutoriel : scénario fixe — partie d\'entraînement séparée, IA seulement pour l\'allié, forces prêtes pour la mer', () => {
@@ -183,7 +184,7 @@ test('tutoriel : proposé une seule fois au premier lancement, jamais imposé ; 
   markTutorialOffered(store); assert.equal(tutorialOffered(store), true); assert.equal(tutorialCompleted(store), false);
   markTutorialOffered(store, 'termine'); assert.equal(tutorialCompleted(store), true);
   assert.ok(![TUTO_OFFER_KEY, TUTO_SAVE_KEY].includes(MINI_TUTO_KEY) && ![TUTO_OFFER_KEY, MINI_TUTO_KEY].includes(SAVE_KEY));
-  const html = read('index.html'), app = read('app.js');
+  const html = read('index.html'), app = readSource('app.js');
   assert.match(html, /id="welcomeTutorial"/, 'entrée sur l\'accueil');
   assert.match(html, /id="replayTutorial">🎓 Jouer le tutoriel</, 'entrée dans les Paramètres');
   assert.match(app, /label:'Passer',value:false\},\{label:'Jouer le tutoriel',value:true,primary:true\}/, 'Jouer le tutoriel / Passer');
@@ -193,7 +194,7 @@ test('tutoriel : proposé une seule fois au premier lancement, jamais imposé ; 
 });
 
 test('tutoriel : quitter à tout moment, retrouver sa partie ; sauvegarde par la bonne clé', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /const save = \(\) => \{ if \(state\) localStorage\.setItem\(saveKeyFor\(state\), encodeSave\(state\)\); \};/);
   assert.doesNotMatch(app, /localStorage\.setItem\(SAVE_KEY/, 'plus aucune écriture directe sur la clé de la vraie partie');
   assert.match(app, /function endMiniTuto\(\)\{if\(tutoStep!==null\)return quitTutorial\(\);/, 'le bouton « Quitter » de la bulle');
@@ -207,8 +208,8 @@ test('tutoriel : quitter à tout moment, retrouver sa partie ; sauvegarde par la
   assert.match(app, /host=\[\.\.\.document\.querySelectorAll\('dialog\[open\]'\)\]\.at\(-1\)\|\|document\.body/, 'relecture : la bulle va dans la fenêtre ouverte (sinon « Quitter » serait inerte)');
   assert.match(app, /if\(!isTutorial\(state\)\)trackMissions\(events\)/, 'le tutoriel ne compte pas pour les missions');
   assert.match(app, /game && !isTutorial\(game\) \? setPlayerBonuses/, 'pas d\'atouts dans le tutoriel');
-  assert.ok(read('sw.js').includes("'./src/presentation/v14-3-tutoriel.js'"));
-  assert.doesNotMatch(read('src/presentation/v14-3-tutoriel.js'), /frontieres-arken-v2-save/);
+  assert.ok(read('sw.js').includes("'./src/presentation/tutorial.js'"));
+  assert.doesNotMatch(read('src/presentation/tutorial.js'), /frontieres-arken-v2-save/);
 });
 
 test('tutoriel : surlignage et bulle — la cible visible la plus précise, la bulle à l\'opposé', () => {
@@ -223,6 +224,6 @@ test('tutoriel : surlignage et bulle — la cible visible la plus précise, la b
   assert.match(css, /#miniTuto\{position:fixed;z-index:31;inset:calc\(70px \+ env\(safe-area-inset-top\)\)/, 'safe area en haut');
 });
 
-test('version 14.3.0 ou suivante (V14.4 : 14.4.1)', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '14.4.1');
+test('version 14.3.0 ou suivante (V15.0 : 15.0.0)', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '15.0.0');
 });

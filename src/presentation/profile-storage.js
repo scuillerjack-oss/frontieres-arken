@@ -2,7 +2,7 @@
 // Toute lecture/écriture est protégée : navigation privée, stockage plein ou bloqué → le jeu continue avec un
 // profil en mémoire. La logique (jetons, atouts, missions, achats) est dans src/domain/profile.js (pur).
 import { decodeProfile, encodeProfile, createProfile, LEGACY_GAMES_STARTED } from '../domain/profile.js';
-import { SAVE_KEY } from './v4-ux.js';
+import { SAVE_KEY } from './guide-input.js';
 
 export const PROFILE_KEY = 'frontieres-arken-profil';
 

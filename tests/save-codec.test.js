@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encodeSave, decodeSave, migrateSave } from '../src/persistence/save-codec.js';
 import { resolveInterturn, queueMoveOrder, queueConstruction, setRelation, queueDiplomaticOrder } from '../src/domain/game-engine.js';
-import { SAVE_KEY } from '../src/presentation/v4-ux.js';
+import { SAVE_KEY } from '../src/presentation/guide-input.js';
 import { map, freshState } from './helpers/fixtures.js';
 
 test('clé de stockage localStorage figée', () => {

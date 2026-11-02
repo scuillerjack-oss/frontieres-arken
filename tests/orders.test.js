@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { legalDestinations, queueMoveOrder, availableForces, resolveInterturn } from '../src/domain/game-engine.js';
-import { cancelPendingOrder, playerOrderArrows } from '../src/presentation/v5-ux.js';
+import { cancelPendingOrder, playerOrderArrows } from '../src/presentation/map-orders-view.js';
 import { map, freshState } from './helpers/fixtures.js';
 
 test('destinations légales = voisins terrestres + (V13) points de port au bout des routes, port construit ou non', () => {

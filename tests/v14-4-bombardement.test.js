@@ -1,6 +1,7 @@
 // V14.4 — équipe gameplay, points A3 (bombardement des forteresses côtières) et A4 (parties limitées à 80 tours).
 // Règles et chiffres : docs/V14.4-cahier-des-charges.md, Réalisé, Équipe gameplay.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
@@ -167,7 +168,7 @@ test('bombardement : ancienne sauvegarde sans brèche, et brèche conservée par
 });
 
 test('interface : bouton « Bombarder » sur la fiche, avec la protection restante affichée', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /\['bombard','💥 Bombarder'\]/);
   assert.match(app, /protection restante/i);
   assert.match(app, /queueBombard\(state,map,/);
@@ -188,7 +189,7 @@ test('80 tours : fin de partie au tour 80 (IA contre IA), jamais au-delà ; anci
   old.turn = 95;
   assert.equal(checkGameOver(old).reason, 'turn-limit');
   // L'interface refuse de résoudre un tour après la fin (écran de fin à la place) ; le compteur ne dépasse jamais 80.
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /function resolveTurn\(\)\{\s*if\(showEndScreen\(\)\)return;/);
   assert.match(app, /Math\.min\(state\.turn,RULES\.gameLength\)/);
 });

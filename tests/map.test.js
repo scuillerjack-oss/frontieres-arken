@@ -73,7 +73,7 @@ test('deux listes de nations : NATION_IDS (constants.js) ne correspond pas à la
 });
 
 test('BUG CONNU : zones tactiles qui se chevauchent (p04/p06 et p08/p10) — à corriger par la carte V9', async () => {
-  const { pointInPolygon } = await import('../src/presentation/v4-ux.js');
+  const { pointInPolygon } = await import('../src/presentation/guide-input.js');
   const overlaps = new Set();
   for (let x = 0; x < 400; x++) for (let y = 0; y < 260; y++) {
     const hit = map.provinces.filter(p => pointInPolygon({ x, y }, p.geometry.points)).map(p => p.id);

@@ -44,7 +44,8 @@ function placeholder(doc, { kind, ms }) {
     overlay.className = 'ad-overlay';
     overlay.setAttribute('aria-label', 'Publicité (emplacement de test)');
     overlay.addEventListener('cancel', event => event.preventDefault()); // le bouton retour ne la ferme pas : elle se ferme seule
-    overlay.innerHTML = `<div class="ad-card"><p class="ad-tag">EMPLACEMENT DE TEST · AUCUNE VRAIE PUBLICITÉ</p><h2>Publicité</h2><p>${kind === 'rewarded' ? 'Publicité de mission (récompensée)' : 'Publicité de début de partie'}</p><p class="ad-note">Ici s’affichera une publicité dans la version Google Play. Le Pack débutant les supprime.</p><div class="ad-bar"><i></i></div><small class="ad-count">Fermeture automatique dans <b>${Math.ceil(ms / 1000)}</b> s</small></div>`;
+    overlay.innerHTML = `<div class="ad-card"><p class="ad-tag">EMPLACEMENT DE TEST · AUCUNE VRAIE PUBLICITÉ</p><h2>Publicité</h2><p>${kind === 'rewarded' ? 'Publicité de mission (récompensée)' : 'Publicité de début de partie'}</p>\
+<p class="ad-note">Ici s’affichera une publicité dans la version Google Play. Le Pack débutant les supprime.</p><div class="ad-bar"><i></i></div><small class="ad-count">Fermeture automatique dans <b>${Math.ceil(ms / 1000)}</b> s</small></div>`;
     overlay.style.setProperty('--ad-ms', `${ms}ms`);
     doc.body.append(overlay);
     try { overlay.showModal(); } catch { overlay.setAttribute('open', ''); }

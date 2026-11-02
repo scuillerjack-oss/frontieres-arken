@@ -1,12 +1,13 @@
 // V14.4 — équipe gameplay, point A1 : messages d'explication seulement pendant les 2 premières parties du joueur
 // (compteur dans le PROFIL, jamais dans la sauvegarde de partie), conseils « solution » retirés, tutoriel rejouable.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createProfile, decodeProfile, encodeProfile, sanitizeProfile, recordGameStarted, hintsActive, HINT_GAMES, LEGACY_GAMES_STARTED } from '../src/domain/profile.js';
 import { loadProfile, saveProfile, PROFILE_KEY } from '../src/presentation/profile-storage.js';
-import { SAVE_KEY } from '../src/presentation/v4-ux.js';
-import { seaFatePopups } from '../src/presentation/v13-ux.js';
+import { SAVE_KEY } from '../src/presentation/guide-input.js';
+import { seaFatePopups } from '../src/presentation/alliances-view.js';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 
@@ -53,7 +54,7 @@ test('explications : stockage — pas de profil mais une partie sauvegardée = a
 });
 
 test('explications : interface — bulles filtrées, compteur à chaque vraie partie (pas le tutoriel), tutoriel rejouable', () => {
-  const app = read('app.js'), html = read('index.html');
+  const app = readSource('app.js'), html = read('index.html');
   assert.match(app, /function hintsOn\(\)\{return hintsActive\(profile\)/);
   assert.match(app, /if \(!state\.settings\.hints \|\| !hintsOn\(\)/, 'toutes les bulles passent par hintsOn');
   // Le compteur avance au choix de la nation d'une nouvelle partie, et nulle part ailleurs (le tutoriel ne compte pas).
