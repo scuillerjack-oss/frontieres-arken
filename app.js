@@ -5,7 +5,8 @@ import { TUTORIAL_GUIDE } from './src/presentation/guide-input.js';
 import { showsWholeMap, wholeMapView } from './src/presentation/launch-view.js';
 import { pinchTransform } from './src/presentation/map-orders-view.js';
 import { MINI_TUTO_STEPS, resetMiniTuto } from './src/presentation/passage-fort-view.js';
-import { setMusic } from './src/presentation/ui/audio.js';
+import { installAudio, setMusic } from './src/presentation/ui/audio.js';
+import { skipTurnAnimation, turnAnimating } from './src/presentation/ui/turn-anim.js';
 import { $, nation, toast } from './src/presentation/ui/base.js';
 import { openBoosts, startPlay } from './src/presentation/ui/boosts-ui.js';
 import { beginNewGame, continueSavedGame, setup, showWelcome } from './src/presentation/ui/game-flow.js';
@@ -58,7 +59,7 @@ $('#replayMiniTuto').onclick=()=>{if(tutoStep!==null)return toast('Terminez ou q
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();
 $('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
-$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
+$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=()=>{if(!turnAnimating())resolveTurn();}; /* V15.2 : un seul tour à la fois (clavier compris : au doigt, le calque couvre le bouton) */
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
@@ -72,6 +73,7 @@ $('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('
 $('#wholeMapBtn').onclick=()=>{if(showsWholeMap(scale,minZoom))return applyLaunchView();const v=wholeMapView(minZoom);setScale(v.scale);setTx(v.x);setTy(v.y);clampTransform(0);updateLabelScale();};
 $('#mapShell').addEventListener('click',event=>{if(event.target.closest('.order-arrow'))tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
 function handleAppBack(){
+  if(skipTurnAnimation()){history.pushState({arkenScreen:'game'},'',location.href);return;} // V15.2 : le retour Android passe l'animation
   if(document.querySelector('#adOverlay[open]')){history.pushState({arkenScreen:$('#gameScreen').hidden?'home':'game'},'',location.href);return;} // V12 : la pub de test se ferme seule
   const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);
   if(dialog){dialog.close();if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);return;}
@@ -81,5 +83,5 @@ function handleAppBack(){
   else showWelcome();
   if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);
 }
-addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();
+installAudio();addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();
 

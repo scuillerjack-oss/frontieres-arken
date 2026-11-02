@@ -12,7 +12,7 @@ import {
 } from '../leaders.js';
 import { neighbors } from '../talk.js';
 import { perceivedForce, perceivedStrength, visibleProvinces } from '../vision.js';
-import { coalitionPartners, coalitionTargetFor } from './coalition.js';
+import { coalitionPartners, coalitionTargetFor, inCoalitionAgainst } from './coalition.js';
 import { helpReinforce, helpStation, recallStationed } from './ai-help.js';
 import { aiNavalOrders, defenseOf, hasOrQueued, landThreat, landThreatForce, navalBase } from './ai-naval.js';
 import { fortBreach } from './bombard.js';
@@ -136,6 +136,7 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
   const alive = aliveNations(state).filter(n => n !== id), mem = aiMemory(state, id);
   const propose = (target, action, level = .25) => {
     if (pendingDiplo(state, id, target) || state.nations[target]?.eliminated) return;
+    if (action === 'alliance' && inCoalitionAgainst(state, id, target)) return; // V15.2 : on ne courtise pas celle qu'on combat
     const key = `${action}:${target}`; mem.lastOffer ||= {};
     if (state.turn - (mem.lastOffer[key] ?? -99) < 5) return;
     // V13.2 : face au joueur, une offre refusée n'est pas reproposée avant 6 tours ; après deux refus, l'IA
@@ -242,7 +243,8 @@ function aiPlan(state, map, nationId) {
   let launched = 0;
   for (const x of attacks) {
     // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.
-    if (launched >= (ARCH_ATTACKS[arch] || 1) && !ambitionOf(state, map, x.to)) break;
+    // V15.2 : le Héros et le Bâtisseur restent dans leur quota, comme le dit le cahier (mesuré : pas d'effet sur les cibles).
+    if (launched >= (ARCH_ATTACKS[arch] || 1) && !((arch === 'conquerant' || arch === 'traitre') && ambitionOf(state, map, x.to))) break;
     if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
     const margin = x.atWar ? Math.max(arch === 'conquerant' ? .8 : .85, threshold - .2) : threshold;

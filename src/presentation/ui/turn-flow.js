@@ -10,6 +10,7 @@ import { TUTORIAL_GUIDE, sanitizeJournalEntry } from '../guide-input.js';
 import { journalCategoryClass } from '../map-orders-view.js';
 import { totalArmy } from '../overview-view.js';
 import { isTutorial } from '../tutorial.js';
+import { endSound } from '../turn-animation.js';
 import { playSfx } from './audio.js';
 import { $, buildingNames, nation, province, unitKeys } from './base.js';
 import { trackMissions } from './boosts-ui.js';
@@ -17,7 +18,8 @@ import { dialogClosed, showCapitalPopups, showCoalitionPopups, showProposalPopup
 import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
-import { miniTuto, tutorial, tutorialShown } from './tutorials.js';
+import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
+import { playTurnAnimation } from './turn-anim.js';
 
 export function renderJournal(permanent=false){
   const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
@@ -55,12 +57,14 @@ export function resolveTurn(){
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
   $('#confirmEndTurn').onclick=async()=>{ const game=state,same=()=>state===game; $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();
-    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx();miniTuto('end-turn');const events=state.events.slice(eventStart);
+    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
     if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
     // V14.3 : si le joueur quitte (tutoriel → accueil) pendant ces fenêtres, la suite s'arrête : jamais sur une autre partie.
+    // V15.2 : animation entre les tours, jamais dans un tutoriel (ses bulles suivent les gestes du joueur).
+    if(!isTutorial(state)&&miniStep===null&&tutoStep===null){await playTurnAnimation(events);if(!same())return;}
     await showCapitalPopups(events);if(!same())return;
     await showSeaPopups(events);if(!same())return;
-    if(state.gameOver){showEndScreen();return;}
+    if(state.gameOver){playSfx(endSound(state.gameOver,state.playerNationId));showEndScreen();return;}
     await showCoalitionPopups(events);if(!same())return;
     renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;
     await showProposalPopups(); };

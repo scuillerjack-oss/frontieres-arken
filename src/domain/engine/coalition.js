@@ -5,6 +5,7 @@
 // nation retombe à RULES.coalition.dissolveProvinces provinces ou moins. La décision ne lit que ce qui est public (qui
 // possède quelle province) : ni trésor, ni troupes cachées. Aucune aide : pas d'or offert, pas de troupes offertes, seuls
 // changent les choix des dirigeants IA, selon leur caractère. Le joueur n'est jamais enrôlé d'office.
+// V15.2 : elle se dissout aussi quand plus personne n'en fait partie (raison 'deserted') ; un membre ne propose pas d'alliance à la cible.
 import { RULES } from '../constants.js';
 import { aliveNations, allied, archetypeOf, charmOf } from '../leaders.js';
 import { neighbors } from '../talk.js';
@@ -62,6 +63,7 @@ export function updateCoalition(state) {
     if (!members.length) return (state.coalition = null);
     state.coalition = c = { target, since: state.turn, members };
     state.events.push({ turn: state.turn, type: 'coalition-formed', nationId: target, members: [...members], provinces: provinceCount(state, target) });
+    dropMemberOffers(state, c);
     armTraitors(state, c);
     return c;
   }
@@ -69,8 +71,22 @@ export function updateCoalition(state) {
   for (const id of next) if (!c.members.includes(id)) state.events.push({ turn: state.turn, type: 'coalition-joined', nationId: id, target: c.target });
   for (const id of c.members) if (!next.includes(id) && !state.nations[id]?.eliminated) state.events.push({ turn: state.turn, type: 'coalition-left', nationId: id, target: c.target });
   c.members = next;
+  if (!next.length) { // V15.2 : plus aucun membre (trêves, alliances, caractères) : il n'y a plus de coalition.
+    state.events.push({ turn: state.turn, type: 'coalition-dissolved', nationId: c.target, reason: 'deserted', provinces: provinceCount(state, c.target), since: c.since });
+    return (state.coalition = null);
+  }
+  dropMemberOffers(state, c);
   armTraitors(state, c);
   return c;
+}
+/** V15.2 : une offre d'alliance partie le tour où son auteur entre dans la coalition est retirée, avec son message. */
+function dropMemberOffers(state, c) {
+  const offers = state.diplomacy?.proposals || [], stale = offers.filter(p => p.action === 'alliance' && p.to === c.target && c.members.includes(p.from));
+  if (!stale.length) return;
+  state.diplomacy.proposals = offers.filter(p => !stale.includes(p));
+  const ids = new Set(stale.map(p => p.talkId).filter(Boolean));
+  if (state.talk) state.talk = state.talk.filter(m => !ids.has(m.id));
+  if (state.talkPending?.[c.target]) state.talkPending[c.target] = state.talkPending[c.target].filter(id => !ids.has(id));
 }
 /** Un Traître allié de la cible en fait sa marque : la rupture passe par son coup habituel, publique, sans passe-droit. */
 function armTraitors(state, c) {
@@ -84,5 +100,7 @@ export function coalitionTargetFor(state, map, id) {
   const c = state.coalition;
   return c && c.members.includes(id) && neighbors(state, map, id, c.target) ? c.target : null;
 }
+/** V15.2 : ce dirigeant fait-il partie de la coalition dressée contre cette nation ? */
+export const inCoalitionAgainst = (state, id, target) => Boolean(state.coalition?.target === target && state.coalition.members?.includes(id));
 /** Autre membre de la coalition : les membres n'ouvrent pas de nouvelle guerre entre eux. */
 export const coalitionPartners = (state, a, b) => Boolean(state.coalition?.members?.includes(a) && state.coalition.members.includes(b));

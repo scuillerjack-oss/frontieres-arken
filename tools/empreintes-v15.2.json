@@ -141,15 +141,15 @@
    "chaine": "900b1f07b87bec1929d4f086b5a5b7f7e45201fdf4e589b6daee08cfba154c86"
   },
   "script/empreinte-0/noireflamme": {
-   "etat": "6e5ad3c191d85d2f03f08145108ad71e1abb4e0b42c1996f4eac530bc36c8ac9",
-   "journal": "75986b2cfe6439afcd3701e843bb897c1788c9cb3656d5b3eb24c32498850b05",
+   "etat": "79d938156584e20afe08bcd33bba849922339a48b40ef91bf5372d9e722f4ebc",
+   "journal": "de52f678b793dbaa3900fad03b879fd9047432b0b75be7b5ed6ef88d850cdc46",
    "classement": "e54cd8411e6cf86bf8dcbd697c475607a9937d68550b5cde5ad16a561d6ce1e1",
    "ordres": "f574dae47c64891bf138127db8d1b46002c1067e4568ef62c1934a6b73aea3ea",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "roc-epine",
-   "evenements": 1368,
-   "chaine": "6acdfefe2da84806717fdc0bb7f8cb35d6cd1f41aeb7ad569063dfae58f35f44"
+   "evenements": 1367,
+   "chaine": "0fea6aebf132f5224c159de2a1f6acf558d7a81b4a90c33a4bec1ab0108b2734"
   },
   "ia/empreinte-0/oroel": {
    "etat": "eb07198171831666a18c1d8abe166d6e792c0f8cc35bb1600e3f3d7d7b30c2a1",
@@ -229,15 +229,15 @@
    "chaine": "425d659c62784d2dffd9f464d538cff03f103b02918817a47971a3e40c2d016d"
   },
   "script/empreinte-1/roc-epine": {
-   "etat": "fd0a50041bccded859d6b573a19580ffe6f52a01e105385cdff04a1ac4054392",
-   "journal": "6c6be4a9532403913fec750f6c644dc974caffcd54632c8d18c5d903a2cd57e6",
-   "classement": "837dad7ca0f0f0a5ca12c57ab33be188c09a59ee14119a3fc8de52957d8c5f4e",
-   "ordres": "b51967628e3f1bbb7a2db290ca4dc874332120b6cf36b99fe8d77af3b4c0b5b5",
-   "tour": 48,
+   "etat": "62ae8a4df7a2d497fa3b8497dc2591a1b4b4f3c832c007019bbee3eb79aa2102",
+   "journal": "26ccb59366670bb383fa54caf19bc5332eee84bd152451f3ecc47184a06764d9",
+   "classement": "4c37f88f6bd498cc38e87b11352a5c9538071b6144dfbf986ae84e563525badc",
+   "ordres": "2afb963f4cd561f6eed6034c4ad2940ba1e40a297f7186b432d70a572ca16066",
+   "tour": 49,
    "fin": "player-eliminated",
    "vainqueur": "aurel",
-   "evenements": 855,
-   "chaine": "ea0846ef79d6e1ebaf151bda49bb1e64f5992d5800662dd7810583629c22044e"
+   "evenements": 872,
+   "chaine": "ea10458332f52024042a4a7c4bc040e1e6192574ef22a89e59cacbb15526109e"
   },
   "ia/empreinte-1/noireflamme": {
    "etat": "a018980d748043e89789c3affcac634a4c24f037923fd5884add96ede669da75",
@@ -416,15 +416,15 @@
    "chaine": "a3851b3fdb12947239eda53f0c6019b0c7af5bdf0c77c052a842ffcb8d5bd7cc"
   },
   "ia/empreinte-3/valmorne": {
-   "etat": "5d3bb94948b3de27630ab99114d41c4a86e11d011a354b4be1c6d3015c76147d",
-   "journal": "c05e8974b84e8896dd134454bdcb7554ffff1cb64db9395b1c3aea3d2b013be2",
+   "etat": "fbe0b46972e69fcc6bed2e568914b8624884a2d3289f93ae04989adfdf8c1005",
+   "journal": "da9e628d1ecbcaa4f08cc3ed87c918f07032115d7f5419397c09d03609478e7c",
    "classement": "0e94a1d0e6c0ee5581cc3ed07753a4ca043bcf0ff5b551581c693adf183a41bd",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "noireflamme",
    "evenements": 1262,
-   "chaine": "006ec7d05960318a73785736ceccb196080651df31f5579dba20a25f9f79b3ad"
+   "chaine": "ef3bbb2c2a968af3e7d0c65b9e3825e1ef6471f7b861c181b4533a6215bca719"
   },
   "script/empreinte-3/valmorne": {
    "etat": "c180be789cc42dccde204d621f511ee02c37f964d50039936b6c95321d1efd56",
@@ -460,15 +460,15 @@
    "chaine": "cc2be79298528266e4d635ee57b421889d8e360a97136b2b5e61866b7a2472c0"
   },
   "ia/empreinte-3/noireflamme": {
-   "etat": "af2e86453f0151fe6699dde69b69d0ec9a8ba50ea8f6e7bf7e3d22ba3ec92481",
-   "journal": "842907a4655660e11e873309ad4fc52a181bb54e048b05157e0e05b2cb213c4f",
-   "classement": "cd7744025e2afcef3f2a692c37d0f4f2c297ff4025004feaedc4dab967c54f00",
+   "etat": "850e888b0bbabffa12ee9081096af726fa6a120d854dd56da41c4d6a2761ddc5",
+   "journal": "db5e7040a42e4958f1cebfbf23040ac7fe30643d87b309751902f35b17a7d200",
+   "classement": "a3e6f2945e13e191ef7de78709ba5d77a0f1c8d753b6f7582291b0bf4e8f2f0e",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "valmorne",
-   "evenements": 1313,
-   "chaine": "22733e0e00c918a57ceeb365927bd2b81162fc39ae838aafae199e51cca015c3"
+   "evenements": 1314,
+   "chaine": "175517560181cb2f11b7cb83f2726b39bc1d9968e92e7249049097d7cbc496a9"
   },
   "script/empreinte-3/noireflamme": {
    "etat": "ce715a683483d7c345001be53fa738ebb33b1e663190ae6c820a4b4e264ac51f",
@@ -570,15 +570,15 @@
    "chaine": "5fa8df63fd387d0b0c3002a97fa554f0be94753ddd77c2644eaf14493805cfda"
   },
   "ia/empreinte-4/aurel": {
-   "etat": "88e6268c9d6082f7b7ed01f50e082154c23073dfd4c61005d380ed236beaa275",
-   "journal": "821df530394baf339ef14195b62e68d146f3eb524e69d5e3a779916fdc6c0fcd",
+   "etat": "119b1acc4c5e4185e0486f1a84f52cf67cfada8f21101fa6e5c09fbce0200978",
+   "journal": "7d73c612b5c71d3b93e48a3a656849c457911f5cadeae0eb486c3a672de4ef44",
    "classement": "d82a1a9bccbf8c9c909eca55f09e8a05c7a1394a9ba0509fdd81e3aff498330f",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "roc-epine",
-   "evenements": 1278,
-   "chaine": "2b04fc0b696c15c9e68e37d37007b1a95b28cfc8979c49a7d671bb8c75a050f5"
+   "evenements": 1277,
+   "chaine": "52711eb539f4ede1dee668873bb61fa5a2879ff896145c5a3d18da0f0cf90e6b"
   },
   "ia/empreinte-5/valmorne": {
    "etat": "8e8f698544eec744ebafd0d3bf48d8be3fd895da45ef641046177be1327d3d06",
@@ -779,15 +779,15 @@
    "chaine": "a9707f3f7c8a75c9130ad4e046b92ba19b704843b7520078e91661493618c6a6"
   },
   "ia/empreinte-8/oroel": {
-   "etat": "c074de3dab80a8d83725c45cd534bc4e5d18a21b89168ecaca456cb898d4e40d",
-   "journal": "1dabb1ea3788164d4f66af47077f08a67fc251f6ce8ad3fe3455dc49021b78f1",
+   "etat": "c5a1507d3160c5505b9592dee5f96e18a09f4fc0ff789cedd70bc1d9c5334524",
+   "journal": "bc246f70afada2cf1b1cea77b22c2bcd7659e1528dbdced4c81434983293bb8a",
    "classement": "c88389efe53bdf2a70edc27f7816780bcfd9c90381dd111e279ae89aefba61dc",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "noireflamme",
-   "evenements": 1335,
-   "chaine": "a4126d25edcfe900fad7ebae1c292dd0c7aeb17ee613fd4a87e190dbb6ebd107"
+   "evenements": 1336,
+   "chaine": "53892501a6ddc9853d064015968421a3eae4183331e825e63b2179e072542995"
   },
   "ia/empreinte-8/aurel": {
    "etat": "30aac0f5a160bab0298dd6858c338458c85d9b9bb35eaf6119c694806aa91ca6",
@@ -823,15 +823,15 @@
    "chaine": "9fffa4f98d07904ad18760b139934a93ccef5ea25af4be462e4aef00b6a252c4"
   },
   "ia/empreinte-9/noireflamme": {
-   "etat": "bea690d5ceef77678a185a41da8af2079b19494198fe3beb2145cc33720b0f65",
-   "journal": "1a14ea1ba552cd0cdc4f3be778621cfb7538a947611d78b90007f0c87b11ad8c",
+   "etat": "b146e55ecdc109407e0db02b2b522801df333a5d6a30946d92872f4a22646d71",
+   "journal": "e41e0402e2c7499c45a7b5041e8f725682d3de0de40970c8526ecacffb8c4211",
    "classement": "bd9757b9ec9ad0e3fcabb3bcc3717e0f77edaba8559f4bb86f5cb21d5fe48099",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "oroel",
-   "evenements": 1113,
-   "chaine": "ae6d32cd077395be689795fbf5d0431b0553013839cc58b32e943fde1cb1494f"
+   "evenements": 1111,
+   "chaine": "8af76f5fcfc400db9fe272798ba6e2ddfb608cdc91537be27cd1ad0d684dde17"
   },
   "ia/empreinte-9/oroel": {
    "etat": "92f04ebcea7d558168a8267eda9fd3ac425963f0bfb8496da51970f43446d9b9",
@@ -845,15 +845,15 @@
    "chaine": "a0f006b5a9357f025735480bfe55187388c81bdd5ec48a6aac616a76c518d1de"
   },
   "ia/empreinte-9/aurel": {
-   "etat": "cfadf26adee6b4ee83fc401d6c976d5ed50e81ebcfef972158b3efb16323c3bb",
-   "journal": "4dc98f2727a03b6a3bd86a50c31d069073e336df0671c7b0ce607da80c11cd62",
+   "etat": "9485fec722a0f7e47895175de317431ef383b3b90ca00280fa8d6e4f666cad5f",
+   "journal": "77d4fc09d719e97b3daf987e8c0a282c6205614405fcfb544f602aab8e03422f",
    "classement": "6076980fc69d23ce673005b4eb682363dbfe49939e14626eaf4c31576f694f72",
    "ordres": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "noireflamme",
-   "evenements": 1139,
-   "chaine": "562c306b3fec21782e763e9e5f2a8b9a7d150097e744b58dc347d20a906d1f6a"
+   "evenements": 1137,
+   "chaine": "8e55fa6274ffd4bf5010a130e0595a077c4d66c3bea8f7115c1c1d2805bfbc32"
   },
   "sauvegarde/valmorne": {
    "etat": "08d9d30a215d37cbc94a8e30a7f199b6cc7735c2103ad8c1afac24ea762b1d47",
@@ -878,15 +878,15 @@
    "chaine": "acfc8629bfc9a326e22fbddbff94a6320626cf59867a971074c6159f98d26a58"
   },
   "sauvegarde/roc-epine": {
-   "etat": "0d4d143e9f716ec4d5c20c160e87f4f29c9855d2a5520ace09c8a6ec6eeace8c",
-   "journal": "b82d57616b2a12aa0a8da895ce7f1d16af08e5c9499fba19428d40bec1fb6034",
+   "etat": "ec0085bf39f0c098328a5dbe45b1b1442ef542b8daf5bffeae0aa64fb6d9e277",
+   "journal": "cd4d3a6d572c6235643b1b3b93240b06fe6584c9b9f1d7b83c844b3413289e80",
    "classement": "891f33e7f381c2e9d52eb69ec9cb832c110577afb0a9299f47307eb46ad425c8",
    "ordres": "0eb6e4913742af204203cc835ca2dc69cb40aa6064b8c62676967fa5c85aa638",
    "tour": 81,
    "fin": "turn-limit",
    "vainqueur": "oroel",
-   "evenements": 1351,
-   "chaine": "af5603df1579dc3e5ffdcd2b963cfdc86025a50ada4045ffba1fff92f7e4c8b1"
+   "evenements": 1352,
+   "chaine": "46822d9e4447944466bc5cc057173bcfdd10cc5ae2128ba41ff9a7de761b5cd0"
   },
   "atouts/roc-epine": {
    "etat": "56cc4ab08af79466a72b7300134ebbc24d957654aa82db9390c21d62a7ab7449",

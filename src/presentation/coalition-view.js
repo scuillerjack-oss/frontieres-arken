@@ -7,14 +7,14 @@ const verb = (n, one, many) => n > 1 ? many : one;
 /** Bandeau de la carte, ou null s'il n'y a pas de coalition. */
 export function coalitionBanner(state, nation) {
   const c = state?.coalition;
-  if (!c || state.gameOver) return null;
+  if (!c || !c.members?.length || state.gameOver) return null; // V15.2 : ancienne sauvegarde avec une coalition vide
   const me = state.playerNationId, mine = c.target === me;
   return { mine, text: mine ? `⚔ Coalition contre vous · ${c.members.length} ${verb(c.members.length, 'nation', 'nations')}` : `⚔ Coalition contre ${nation(c.target)}` };
 }
 /** Détail affiché quand on touche le bandeau : qui, depuis quand, et la règle. Ne dit jamais quoi faire. */
 export function coalitionDetails(state, nation) {
   const c = state?.coalition;
-  if (!c) return null;
+  if (!c || !c.members?.length) return null;
   const me = state.playerNationId, mine = c.target === me, names = c.members.map(nation);
   const count = Object.values(state.provinces).filter(p => p.ownerId === c.target).length;
   return {
@@ -34,7 +34,7 @@ export function coalitionPopups(events, state, nation) {
     if (e.type === 'coalition-formed') out.push({ kind: mine ? 'against' : 'other', kicker: 'COALITION', title: mine ? 'Arken se ligue contre vous' : `Arken se ligue contre ${nation(e.nationId)}`,
       lead: `${list((e.members || []).map(nation))} ${verb((e.members || []).length, 'se dresse', 'se dressent')} contre ${mine ? 'vous' : nation(e.nationId)}.`, text: coalitionRule(mine, nation(e.nationId)) });
     if (e.type === 'coalition-dissolved') out.push({ kind: 'ended', kicker: 'COALITION', title: 'La coalition est dissoute',
-      lead: e.reason === 'eliminated' ? `${nation(e.nationId)} a disparu de la carte.` : `${mine ? 'Vous ne tenez' : `${nation(e.nationId)} ne tient`} plus que ${e.provinces} provinces.`, text: 'Les guerres déjà ouvertes ne s’arrêtent pas d’elles-mêmes.' });
+      lead: e.reason === 'eliminated' ? `${nation(e.nationId)} a disparu de la carte.` : e.reason === 'deserted' ? `Plus personne ne fait front contre ${mine ? 'vous' : nation(e.nationId)}.` : `${mine ? 'Vous ne tenez' : `${nation(e.nationId)} ne tient`} plus que ${e.provinces} provinces.`, text: 'Les guerres déjà ouvertes ne s’arrêtent pas d’elles-mêmes.' });
   }
   return out;
 }

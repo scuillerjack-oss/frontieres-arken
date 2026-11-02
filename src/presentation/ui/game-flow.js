@@ -4,6 +4,7 @@ import { recordGameStarted } from '../../domain/profile.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { createGameState } from '../../state/create-game-state.js';
 import { showGameStartAd } from '../ads.js';
+import { quietDuring } from './audio.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../guide-input.js';
 import { shouldStartMiniTuto } from '../passage-fort-view.js';
 import { setActiveScreen } from '../screen-flow.js';
@@ -54,7 +55,7 @@ function openNationChoice(){
   $('#nationChoices').innerHTML=map.nations.map(n=>`<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><b>${n.name}</b></button>`).join('');
   document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36)})));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
-    await showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()});setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();showGame();
+    await quietDuring(()=>showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()}));setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();showGame();
       await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;
       }tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));
       tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});
