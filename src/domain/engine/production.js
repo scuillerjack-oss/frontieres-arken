@@ -1,6 +1,6 @@
 // Moteur — chantiers et recrutements en cours.
 
-import { buildTurnsGained, recruitAmount } from '../boosts.js';
+import { buildTurnsGained, nationBonusPct, recruitAmount } from '../boosts.js';
 import { RULES } from '../constants.js';
 import { refundProduction } from './battles.js';
 
@@ -12,9 +12,9 @@ export function resolveProjects(state, orders) {
     state.events.push({ turn: state.turn, type: 'project-started', kind: o.kind, productionType: o.type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1 });
   }
   for (const q of state.productionQueue) q.remaining--;
-  // V12 : atout « construction » (+N % de vitesse) — le joueur gagne un tour de chantier supplémentaire chaque fois
+  // V12 : atout « construction » (+N % de vitesse), V15.3 : et bonus de nation — la nation gagne un tour de chantier supplémentaire chaque fois
   // que le crédit cumulé (N % par chantier actif et par tour) atteint un tour entier ; le chantier le plus avancé d'abord.
-  for (const nationId of Object.keys(state.bonuses || {})) {
+  for (const nationId of Object.keys(state.nations)) {
     const sites = state.productionQueue.filter(q => q.kind === 'building' && q.nationId === nationId && q.remaining > 0)
       .sort((a, b) => a.remaining - b.remaining || String(a.provinceId).localeCompare(String(b.provinceId)) || String(a.type).localeCompare(String(b.type)));
     let gained = buildTurnsGained(state, nationId, sites.length);
@@ -31,9 +31,9 @@ export function resolveProjects(state, orders) {
         // V12 : atout « recrutement » (+N % d'infanterie livrée, joueur humain seulement).
         const delivered = q.kind === 'unit' ? recruitAmount(state, q.nationId, q.type, q.amount) : q.amount;
         p.units[q.type] = (p.units[q.type] || 0) + delivered;
-        if (delivered !== q.amount) { q.bonus = delivered - q.amount; q.amount = delivered; }
+        if (delivered !== q.amount) { q.bonus = delivered - q.amount; q.amount = delivered; q.nationBonus = nationBonusPct(state, q.nationId, 'recruit') > 0; }
       }
-      state.events.push({ turn: state.turn, type: 'production-complete', kind: q.kind, productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1, ...(q.bonus ? { bonus: q.bonus } : {}) });
+      state.events.push({ turn: state.turn, type: 'production-complete', kind: q.kind, productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1, ...(q.bonus ? { bonus: q.bonus, ...(q.nationBonus ? { nationBonus: true } : {}) } : {}) });
     }
   }
   state.productionQueue = state.productionQueue.filter(q => q.remaining > 0);

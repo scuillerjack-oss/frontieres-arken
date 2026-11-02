@@ -1,6 +1,7 @@
 // V13 : schéma 9 = suppression du ballon d'observation (migration 8 → 9 dans save-codec.js).
 // V15.1 : schéma 10 = coalition et histoire de la partie (migration 9 → 10 dans save-codec.js).
-export const SAVE_SCHEMA_VERSION = 10;
+// V15.3 : schéma 11 = niveau de difficulté de la partie (migration 10 → 11 : les anciennes parties valent Normal).
+export const SAVE_SCHEMA_VERSION = 11;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
 // V13 : le ballon d'observation est supprimé (remplacé par la vision : src/domain/vision.js, docs/V13-vision.md).
@@ -59,7 +60,16 @@ export const RULES = Object.freeze({
   // V14.1 : marge de débarquement 0,25 → 0,10, sauf vers une capitale (0,35) ; rassemblement dès la moitié des forces utiles.
   // V15.1 : `lateTurn` = à partir de ce tour, plus personne ne s'endort ; `finishProvinces` = nation assez affaiblie pour être achevée ;
   // `capitalBusyMargin` = marge de débarquement sur une capitale dont la nation se bat déjà ailleurs.
-  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.1, capitalLandingMargin:.35, capitalBusyMargin:.25, stagingFactor:.5, lateTurn:45, lateBlindFactor:2, finishProvinces:3 },
+  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.1, capitalLandingMargin:.35, capitalBusyMargin:.25, stagingFactor:.5, lateTurn:45, lateBlindFactor:2, finishProvinces:3, builderLateTurn:45, builderLateStrength:1, builderSpendLots:3, baseAtCapital:{ batisseur:1, traitre:1 } },
+  // V15.3 : bonus de chaque nation, en %, sur les mêmes mécaniques que les atouts (src/domain/nations.js pour les textes).
+  // Modestes et servant aussi aux IA. Calibrés par simulation : docs/V15-cahier-des-charges.md, Réalisé V15.3.
+  nationBonus:{ valmorne:{ recruit:15 }, 'roc-epine':{ fort:15 }, noireflamme:{ build:10 }, oroel:{ naval:10 }, aurel:{ gold:4 } },
+  // V15.3 : niveaux de difficulté (src/domain/difficulty.js). Normal n'a aucun réglage. marginAdd : marge d'attaque en plus ; oneAttack : une seule attaque
+  // terrestre par tour ; warDelay : tours d'attente du Conquérant ; ambition : achever et viser le plus fort ; spendLots : blindés
+  // en plus par tour quand le trésor le permet ; aiGoldPct : or en plus pour les IA, annoncé au joueur.
+  difficulty:{ facile:{ marginAdd:.3, oneAttack:true, warDelay:8, ambition:false }, normal:{}, difficile:{ marginAdd:-.05, spendLots:2, aiGoldPct:15 } },
+  // V15.3 : `builderLateTurn`, `builderLateStrength`, `builderSpendLots` = fin de partie du Bâtisseur (engine/ai.js) ; `baseAtCapital` = part des
+  // dirigeants de ce caractère qui gardent leur base navale à leur capitale (graine de la partie) : docs/V15-cahier-des-charges.md, Réalisé V15.3.
   // V15.1 : coalition (engine/coalition.js). Seuils calibrés par simulation : docs/V15-cahier-des-charges.md, Réalisé V15.1.
   coalition:{ formProvinces:7, formLead:3, dissolveProvinces:5, builderExtra:2, minTurn:10 },
   // V13 : vision (brouillard de guerre, src/domain/vision.js). Quand les troupes d'une province ne sont pas connues,

@@ -80,3 +80,20 @@ export function soundCues(plan) {
 
 /** Son de l'écran de fin. */
 export const endSound = (gameOver, me) => gameOver?.winnerId === me && gameOver.reason !== 'player-eliminated' ? 'victory' : 'defeat';
+
+/** V15.3 : durée pendant laquelle les touchers sont ignorés à la fin d'une animation. Plus court qu'une vraie réaction à la fenêtre qui s'ouvre. */
+export const TOUCH_GUARD_MS = 400;
+/**
+ * V15.3 : la fenêtre suivante s'ouvre aussitôt l'animation finie. Un toucher parti pour passer l'animation (double toucher, doigt encore
+ * posé) ne doit pas fermer cette fenêtre sans qu'on l'ait lue : les clics sont ignorés TOUCH_GUARD_MS, et jusqu'à ce que le doigt se lève.
+ */
+export function guardTouches(target, { pressing = false, ms = TOUCH_GUARD_MS, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  const swallow = event => { event.stopPropagation(); event.preventDefault(); };
+  let timer = null;
+  const off = () => { clearTimer(timer); target.removeEventListener('click', swallow, true); for (const type of ['pointerup', 'pointercancel']) target.removeEventListener(type, lifted, true); };
+  // Le clic arrive juste après que le doigt s'est levé : on le laisse passer par la garde, puis on la retire.
+  const lifted = () => { clearTimer(timer); timer = setTimer(off, Math.min(ms, 100)); };
+  target.addEventListener('click', swallow, true);
+  if (pressing) { for (const type of ['pointerup', 'pointercancel']) target.addEventListener(type, lifted, true); timer = setTimer(off, ms * 10); } else timer = setTimer(off, ms);
+  return off;
+}

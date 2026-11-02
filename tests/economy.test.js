@@ -70,7 +70,7 @@ test('recrutement : par lots, usine requise pour les blindés, unités livrées 
   assert.equal(r.ok, true); assert.equal(r.cost, 40); assert.equal(r.amount, 40);
   assert.equal(s.nations.valmorne.treasury, 80);
   resolveInterturn(s, map); // infanterie : 1 tour -> livrée dès cet inter-tour
-  assert.equal(s.provinces.p02.units.infantry, 80);
+  assert.equal(s.provinces.p02.units.infantry, 86, '40 + 40 commandés + 15 % de Valmorne (V15.3)');
 });
 
 test('trésor insuffisant refusé ; province étrangère refusée', () => {

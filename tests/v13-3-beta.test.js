@@ -52,7 +52,7 @@ test('combat expliqué : forces engagées, PV perdus, forteresse et débarquemen
   const forDefender = journalEntry(ev, map, 'roc-epine');
   assert.match(forDefender.text, /Forces engagées : .*15 blindés/);
   assert.match(forDefender.text, /PV perdus, blessés compris/);
-  assert.match(forDefender.text, /forteresse niveau 3 : −30 % de dégâts reçus/);
+  assert.match(forDefender.text, /forteresse niveau 3 : −39 % de dégâts reçus/);
   assert.equal(journalCategoryClass(forDefender.type), 'under-attack');
   assert.match(forDefender.type, /⚠/);
   assert.notEqual(journalCategoryClass(journalEntry(ev, map, 'valmorne').type), 'under-attack', 'l\'attaquant n\'a pas l\'alerte');

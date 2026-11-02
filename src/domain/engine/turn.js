@@ -1,7 +1,7 @@
 // Moteur — résolution d'un tour complet et fin de partie (docs/V10-marine.md §5).
 
 import { expireHelpPacts, resolveHelpRequests } from '../alliances.js';
-import { goldBonus } from '../boosts.js';
+import { goldBonus, nationBonusPct } from '../boosts.js';
 import { RULES } from '../constants.js';
 import { driftTension, hostilityWars, observeLeaders } from '../leaders.js';
 import { settleStationed } from '../passage.js';
@@ -90,9 +90,9 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   for (const id of Object.keys(state.nations)) {
     const base = incomeFor(state,id), extra = goldBonus(state, id, base); // V12 : atout « or » (joueur humain seulement)
     state.nations[id].treasury += base + extra;
-    if (extra) state.events.push({ turn: state.turn, type: 'boost-gold', nationId: id, amount: extra });
+    if (extra && id === state.playerNationId) state.events.push({ turn: state.turn, type: 'boost-gold', nationId: id, amount: extra });
     // V13.1 : le joueur voit chaque tour ce que rapportent ses provinces et ses bâtiments.
-    if (id === state.playerNationId && !state.nations[id].eliminated) state.events.push({ turn: state.turn, type: 'income', nationId: id, amount: base + extra, bonus: extra, ...incomeBreakdown(state, id) });
+    if (id === state.playerNationId && !state.nations[id].eliminated) state.events.push({ turn: state.turn, type: 'income', nationId: id, amount: base + extra, bonus: extra, ...(nationBonusPct(state, id, 'gold') ? { nationBonus: true } : {}), ...incomeBreakdown(state, id) });
   }
   updateCoalition(state);
   resolveTalk(state,map,locked,eventStart);

@@ -6,6 +6,8 @@
 //   node tools/equilibre.mjs --joueur=prudent|dominant [parties=100] [tours=80] [préfixe=eq]
 //     Contrôle V15.1 : un joueur humain scripté (tools/joueurs-scriptes.mjs) contre 4 IA. Aucune triche, ordres ordinaires.
 //
+//   --difficulte=facile|normal|difficile (V15.3) : pour les deux usages ci-dessus, niveau des parties (Normal par défaut).
+//
 //   node tools/equilibre.mjs --empreintes [--graines=10] [--ecrire=fichier.json] [--verifier=fichier.json]
 //     Empreintes (SHA-256) de l'état complet de parties à graine fixe : sert à prouver qu'un découpage du code ne change
 //     pas le jeu. Rien n'est écarté de l'état : événements, journal, clé `tutorial`, compteurs, tout compte.
@@ -39,12 +41,12 @@ const sha = text => createHash('sha256').update(text).digest('hex');
 Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
 
 // --- Mesures du constat -----------------------------------------------------------------------------------------
-function mesurer(parties, tours, prefixe) {
+function mesurer(parties, tours, prefixe, difficulty) {
   const tranches = [0, 0, 0, 0], derniere = [], premier = [], second = [], eliminees = [];
   const parNation = Object.fromEntries(NATIONS.map(id => [id, 0])), parCaractere = {};
   let capitales5 = 0, capitalesPerdues = 0, avecElimination = 0, avecCoalition = 0, coalitionsTours = 0;
   for (let g = 0; g < parties; g++) {
-    const s = createGameState({ map, playerNationId: NATIONS[g % NATIONS.length], seed: `${prefixe}-${g}` });
+    const s = createGameState({ map, playerNationId: NATIONS[g % NATIONS.length], seed: `${prefixe}-${g}`, difficulty });
     for (const id of NATIONS) s.controllers[id] = 'ai';
     let last = 0;
     for (let i = 0; i < tours && !s.gameOver; i++) {
@@ -77,12 +79,12 @@ function mesurer(parties, tours, prefixe) {
 // --- Empreintes -------------------------------------------------------------------------------------------------
 /** Joueur scripté : essaie un peu de tout, de façon déterministe. Chaque réponse du moteur (même un refus) est journalisée. */
 /** V15.1 : un joueur scripté contre 4 IA, toutes nations à tour de rôle. Ce qui compte : vit-il, gagne-t-il, la coalition le vise-t-elle ? */
-function controle(type, parties, tours, prefixe) {
+function controle(type, parties, tours, prefixe, difficulty) {
   const script = type === 'dominant' ? joueurDominant : joueurPrudent;
   const r = { type, parties, victoires: 0, elimines: 0, eliminationTours: [], provincesFinMediane: 0, rangMoyen: 0, coalitionContreLui: 0, toursSousCoalition: 0, sousCoalitionGagne: 0, parCapitales: 0, parNation: Object.fromEntries(NATIONS.map(n => [n, [0, 0]])) };
   const prov = [];
   for (let g = 0; g < parties; g++) {
-    const nation = NATIONS[g % NATIONS.length], s = createGameState({ map, playerNationId: nation, seed: `${prefixe}-${type}-${g}` });
+    const nation = NATIONS[g % NATIONS.length], s = createGameState({ map, playerNationId: nation, seed: `${prefixe}-${type}-${g}`, difficulty });
     let sous = 0;
     for (let i = 0; i < tours && !s.gameOver; i++) { script(s, map, engine); resolveInterturn(s, map); if (s.coalition?.target === nation) sous++; }
     const rank = gameRanking(s), mine = rank.find(x => x.nationId === nation), won = (s.gameOver?.winnerId || rank[0].nationId) === nation && s.gameOver?.reason !== 'player-eliminated';
@@ -195,6 +197,6 @@ if (args.includes('--empreintes')) {
 } else {
   const positional = args.filter(a => !a.startsWith('--'));
   const [parties = 60, tours = 80, prefixe = 'eq'] = positional;
-  if (option('joueur')) console.log(JSON.stringify(controle(option('joueur'), Number(parties), Number(tours), prefixe)));
-  else console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe), null, 1));
+  if (option('joueur')) console.log(JSON.stringify(controle(option('joueur'), Number(parties), Number(tours), prefixe, option('difficulte'))));
+  else console.log(JSON.stringify(mesurer(Number(parties), Number(tours), prefixe, option('difficulte')), null, 1));
 }
