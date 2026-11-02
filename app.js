@@ -6,7 +6,7 @@ import { showsWholeMap, wholeMapView } from './src/presentation/launch-view.js';
 import { pinchTransform } from './src/presentation/map-orders-view.js';
 import { MINI_TUTO_STEPS, resetMiniTuto } from './src/presentation/passage-fort-view.js';
 import { installAudio, setMusic } from './src/presentation/ui/audio.js';
-import { skipTurnAnimation } from './src/presentation/ui/turn-anim.js';
+import { skipTurnAnimation, turnAnimating } from './src/presentation/ui/turn-anim.js';
 import { $, nation, toast } from './src/presentation/ui/base.js';
 import { openBoosts, startPlay } from './src/presentation/ui/boosts-ui.js';
 import { beginNewGame, continueSavedGame, setup, showWelcome } from './src/presentation/ui/game-flow.js';
@@ -59,7 +59,7 @@ $('#replayMiniTuto').onclick=()=>{if(tutoStep!==null)return toast('Terminez ou q
 $('#closeSheet').onclick=()=>{$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();};
 $('#talkBtn').onclick=()=>openTalk();
 $('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
-$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=resolveTurn;
+$('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=()=>{if(!turnAnimating())resolveTurn();}; /* V15.2 : un seul tour à la fois (clavier compris : au doigt, le calque couvre le bouton) */
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
 $('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};

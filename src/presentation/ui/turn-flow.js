@@ -19,7 +19,7 @@ import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
 import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
-import { playTurnAnimation, turnAnimating } from './turn-anim.js';
+import { playTurnAnimation } from './turn-anim.js';
 
 export function renderJournal(permanent=false){
   const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
@@ -47,7 +47,6 @@ ${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
 }
 export function resolveTurn(){
-  if(turnAnimating())return; // V15.2 : un seul tour à la fois (clavier compris : au doigt, le calque couvre le bouton)
   if(showEndScreen())return;
   const count=state.orders.filter(o=>o.status==='pending').length;
   const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='bombard'?bombardSummary(o,

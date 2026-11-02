@@ -40,11 +40,11 @@ export function openBoosts(){
     if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();
     toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
   $('[data-watch-ad]')?.addEventListener('click',async e=>{if(tutoStep!==null)return toast('Les publicités sont désactivées pendant le tutoriel');const btn=e.currentTarget;if(btn.disabled)return;
-    btn.disabled=true;const r=await quietDuring(showRewardedAd);if(!r.rewarded){btn.disabled=false;
+    btn.disabled=true;const r=await quietDuring(()=>showRewardedAd());if(!r.rewarded){btn.disabled=false;
     return toast(r.dismissed?'Publicité fermée : aucune récompense, et plus aucune publicité ne te sera imposée':'Publicité indisponible pour le moment');
     }const res=recordAdWatched(profile,todayLocal());saveMyProfile();openBoosts();toast(`Mission publicité accomplie${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`);});
   $('[data-bonus-ad]')?.addEventListener('click',async e=>{if(tutoStep!==null)return toast('Les publicités sont désactivées pendant le tutoriel');const btn=e.currentTarget;if(btn.disabled)return;
-    btn.disabled=true;const r=await quietDuring(showRewardedAd);if(!r.rewarded){btn.disabled=false;
+    btn.disabled=true;const r=await quietDuring(()=>showRewardedAd());if(!r.rewarded){btn.disabled=false;
     return toast(r.dismissed?'Publicité fermée avant la fin : rien de gagné, et aucune publicité ne te sera imposée':'Publicité indisponible pour le moment');}const res=recordBonusAd(profile);
     saveMyProfile();openBoosts();toast(res.tokens?'Pub bonus : +1 jeton !':`Pub bonus : ${res.progress}/${BONUS_ADS_PER_TOKEN} vers le prochain jeton`);});
   $('#copyProfile').onclick=copyProfile;$('#restoreProfile').onclick=restoreProfileView;refreshPlayPrivacy();

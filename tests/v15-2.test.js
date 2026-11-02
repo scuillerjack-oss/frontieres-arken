@@ -152,7 +152,7 @@ test('turn-flow : animation attendue avant les fenêtres, jamais en tutoriel ; u
   const flow = readSource('src/presentation/ui/turn-flow.js');
   assert.ok(flow.indexOf('playTurnAnimation(events)') < flow.indexOf('await showCapitalPopups(events)'));
   assert.match(flow, /!isTutorial\(state\)&&miniStep===null&&tutoStep===null/);
-  assert.match(flow, /if\(turnAnimating\(\)\)return/);
+  assert.match(readSource('app.js'), /\$\('#nextTurn'\)\.onclick=\(\)=>\{if\(!turnAnimating\(\)\)resolveTurn\(\);\}/);
   const anim = readSource('src/presentation/ui/turn-anim.js');
   assert.match(anim, /visibilitychange/); assert.match(anim, /pagehide/);
   assert.match(anim, /prefers-reduced-motion/);
