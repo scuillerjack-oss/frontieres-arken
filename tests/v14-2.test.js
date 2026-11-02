@@ -494,5 +494,5 @@ test('rapport de conquête : saut de ligne entre le récap et les pertes totales
 
 // --- Version visible -----------------------------------------------------------------------------------------------------------
 test('version 14.2.0 ou suivante (V15.0 : 15.0.0)', () => {
-  assert.match(JSON.parse(read('package.json')).version, /^14\.([2-9]|\d\d)\.\d+$/);
+  assert.match(JSON.parse(read('package.json')).version, /^(14\.([2-9]|\d\d)|1[5-9]\.\d+)\.\d+$/);
 });
