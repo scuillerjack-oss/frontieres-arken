@@ -80,3 +80,43 @@ le parcours réel, relecture par un sous-agent indépendant, cahier mis à jour 
 Cible non tenue : le dire avec le chiffre réel, ne pas maquiller.
 
 ## Réalisé
+
+### V15.0 — découpage du code (02/11/2026)
+- **Moteur** : `src/domain/game-engine.js` (190 Ko, 2 159 lignes) ne fait plus que réexporter la même API publique ; le code est
+  dans `src/domain/engine/` (15 modules : `shared`, `income`, `sea-routes`, `orders`, `diplomacy`, `battles`, `production`,
+  `convoys`, `bombard`, `recovery`, `ai-naval`, `ai`, `ai-help`, `journal`, `turn`).
+- **Interface** : `app.js` (100 Ko) ne garde que le démarrage et le branchement des boutons et gestes ; les écrans sont dans
+  `src/presentation/ui/` (12 modules : `base`, `session`, `tutorials`, `map-view`, `province-sheet`, `diplomacy-screen`,
+  `event-popups`, `talk-screen`, `turn-flow`, `audio`, `boosts-ui`, `game-flow`). Les variables partagées se lisent directement ;
+  depuis un autre module on les remplace par `setState(…)`, `setSelected(…)`, etc.
+- **Noms de thème** : `v3-ux` → `overview-view`, `v4-ux` → `guide-input`, `v5-ux` → `map-orders-view`, `v11-ux` → `leaders-view`,
+  `v11-talk-ui` → `talk-facade`, `v12-ux` → `boosts-screen`, `v13-ux` → `alliances-view`, `v13-2-ux` → `ceasefire-view`,
+  `v13-4-ux` → `passage-fort-view`, `v13-vision-ui` → `vision-view`, `v14-ux` → `truce-warning`, `v14-1-ux` → `launch-view`,
+  `v14-2-ux` → `recruit-repair-view`, `v14-3-tutoriel` → `tutorial`, `v14-4-ux` → `bombard-view`, et dans `src/domain/`,
+  `talk-v14-2` → `talk-more-lines`, `alliances-v14-2` → `alliances-more-lines`. Non renommés : `v5.css` et `arken-v9-*`
+  (carte générée, hors de la liste du cahier). Les anciens cahiers gardent les anciens noms : c'est leur historique.
+- **Lignes de plus de 300 caractères** : plus aucune dans `app.js`, `sw.js`, `update-check.js` et `src/` (seule exception : le
+  fichier généré `arken-v9-data.js`). Dans le HTML des gabarits, la coupure est une continuation `\` : le texte produit ne change pas.
+- `sw.js` : ASSETS à jour (tous les modules de `src/`). `tests/helpers/sources.js` : les tests qui lisent le code lisent tous les
+  morceaux, et échouent si un nouveau fichier n'est pas dans la liste. Aucun test supprimé.
+- **Bug trouvé en route** : `app.js` de la V14.4.0 avait une accolade manquante, le jeu ne démarrait plus, tests au vert. Corrigé sur
+  `main` en parallèle (14.4.1, `tests/syntaxe-js.test.js`), fusionné ici. Ajout de `tests/modules-chargement.test.js` : tout le graphe
+  de modules est lié par le moteur JavaScript (un import nommé absent fait échouer le test).
+
+**Preuve d'absence de changement**
+- `tools/equilibre.mjs --empreintes --verifier=tools/empreintes-v14.4.json` : 81 parties (10 graines × 5 nations IA contre IA sur
+  80 tours ; 4 graines × 5 nations avec ordres de joueur scriptés ; 5 avec sauvegarde/relecture tous les 10 tours ; 5 avec atouts ;
+  1 tutoriel sur 30 tours). Empreinte de l'état complet (événements, journal, clé `tutorial` compris) à chaque tour et à la fin, plus les
+  réponses aux ordres, le journal en texte, les règles, la carte et la liste des exports du moteur.
+  Référence écrite avant le découpage ; **résultat identique** avec le code découpé et avec le code de `main` (4d869f0).
+- Chrome mobile simulé (Playwright, 390 × 844) : même parcours sur le build de `main` et sur celui-ci, date figée, 17 instantanés
+  (carte, fiches, fenêtres, sauvegarde) : **0 différence**. Parcours : nouvelle partie, recruter, déplacer, diplomatie, échanges, atouts,
+  3 fins de tour, reprise après rechargement, puis chargement et un tour hors ligne. 0 erreur JavaScript, 0 débordement horizontal.
+- La carte et les gestes au doigt (pincer, glisser) ne sont pas rejoués par ce parcours : à regarder sur téléphone.
+
+**Mesures de départ** (`node tools/equilibre.mjs 60`, graines `eq-*`, autres graines que le constat, donc chiffres voisins mais pas égaux) :
+changements de province par tranche 315 / 294 / 147 / 157, dernière conquête médiane tour 63, vainqueur / 2e 5 / 5 provinces, 0 nation
+éliminée en médiane, 0 victoire par les capitales, 0,4 capitale perdue par partie, victoires Valmorne 2, Roc-Épine 14, Noireflamme 20,
+Oroël 11, Solmara 13 ; Conquérant 27, Traître 24, Héros 9, Bâtisseur 0.
+
+`tools/empreintes-v14.4.json` ne vaut que pour le code V14.4 : à partir de V15.1 le gameplay change, et les empreintes aussi.
