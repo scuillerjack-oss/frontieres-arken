@@ -248,6 +248,16 @@ export const ARCHETYPE_LINES = Object.freeze({
 });
 // Répliques propres aux personnalités des dirigeants IA (initiatives).
 const AI_LINES = {
+  // V15.1 : coalition (publique). Aucune phrase ne dit quoi faire pour gagner.
+  coalitionCall: ['{to}, vos frontières ont trop grandi. Nous sommes plusieurs à l’avoir remarqué.', 'Arken ne se donnera pas à vous, {to}. Nos bannières se rassemblent.', '{to}, personne ne régnera seul sur ces îles. Vous voilà prévenus.',
+    'Vos conquêtes ont réveillé vos voisins, {to}. Nous parlons désormais d’une seule voix.', '{to}, votre carte est bien remplie. La nôtre se dessine contre vous.',
+    '{to}, tant de provinces pour une seule couronne : Arken s’en inquiète.', 'Nos dirigeants se sont enfin mis d’accord, {to}. C’est à propos de vous.', '{to}, on ne parle plus que de vous dans les conseils d’Arken.', 'Le temps des querelles entre nous attendra, {to}. Il y a plus pressé.'],
+  coalitionJoin: ['{to}, votre ombre s’étend trop loin. Nous rejoignons ceux qui lui font face.', 'Nous nous joignons à la coalition, {to}. Ne le prenez pas pour une surprise.', '{to}, nous avons pesé la situation : notre place est contre vous.',
+    'Une nation de plus se dresse devant vous, {to} : la nôtre.', '{to}, nous avons longtemps attendu. Nos bannières rejoignent les autres.',
+    '{to}, nous avions d’autres projets. Vous les avez changés.', 'Ne cherchez plus qui nous soutenons, {to}. Ce n’est pas vous.', 'Comptez bien, {to} : vos adversaires sont un de plus.', '{to}, la prudence nous commande désormais de vous faire face.'],
+  coalitionEnd: ['{to}, votre puissance a reculé. Notre coalition n’a plus de raison d’être.', 'La coalition se disperse, {to}. Arken respire de nouveau.', '{to}, le danger s’est éloigné. Chacun retourne à ses affaires.',
+    'Nos bannières se séparent, {to}. Ne prenez pas cela pour un oubli.', '{to}, vous ne faites plus peur à personne. La coalition est dissoute.',
+    '{to}, le front commun se défait. Vos terres ont cessé de nous inquiéter.', 'Nos conseils se séparent, {to}. La menace n’y suffit plus.', '{to}, cette coalition a vécu.', 'Chacun reprend sa route, {to}. Nous gardons un œil sur vous.'],
   betrayal: ['{to}, une alliance n’est qu’un outil. Le vôtre est usé.', 'Vous nous faisiez confiance, {to} ? C’était votre erreur.', 'Les traités sont faits pour les naïfs, {to}. Merci de l’avoir été.',
     '{to}, la loyauté est une belle idée. Nous lui préférons la victoire.', 'Merci pour ces années d’alliance, {to}. Elles nous ont été très utiles.',
     '{to}, vous auriez dû lire notre pacte entre les lignes.', 'Rien de personnel, {to}. Vos provinces étaient simplement trop tentantes.',
@@ -546,6 +556,12 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
   }
   for (const e of turnEvents.filter(e => e.type === 'diplomacy' && e.relation === 'war' && e.reason === 'combat')) {
     if (state.controllers?.[e.target] === 'ai' && archetypeOf(state, e.target) !== 'traitre') once(e.target, e.nationId, 'hostile', pickLine(state, LINES.afterAttack.hostile, e.target, 'attacked', state.turn, e.target));
+  }
+  // V15.1 : la coalition s'annonce par les dirigeants eux-mêmes, avant les paroles ordinaires.
+  for (const e of turnEvents) {
+    if (e.type === 'coalition-formed') { const voice = (e.members || []).find(m => state.controllers?.[m] === 'ai' && !spoke.has(m)); if (voice) once(voice, e.nationId, 'hostile', line('coalitionCall', voice, e.nationId)); }
+    if (e.type === 'coalition-joined' && !spoke.has(e.nationId)) once(e.nationId, e.target, 'hostile', line('coalitionJoin', e.nationId, e.target));
+    if (e.type === 'coalition-dissolved' && e.reason === 'receded') { const voice = ais.find(m => m !== e.nationId && !spoke.has(m)); if (voice) once(voice, e.nationId, 'neutre', line('coalitionEnd', voice, e.nationId)); }
   }
   for (const id of ais) {
     if (spoke.has(id) || budget <= 0) continue;

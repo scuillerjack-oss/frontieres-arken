@@ -7,8 +7,10 @@ import { driftTension, hostilityWars, observeLeaders } from '../leaders.js';
 import { settleStationed } from '../passage.js';
 import { aiTalk, pruneTalkPending, publishTalk } from '../talk.js';
 import { planAIOrders } from './ai.js';
+import { recordStory } from '../story.js';
 import { aggregateMoves } from './battles.js';
 import { repairForts, resolveBombardments } from './bombard.js';
+import { updateCoalition } from './coalition.js';
 import { resolveTransports } from './convoys.js';
 import {
   PROPOSAL_TURNS, answerProposals, hostilityWar, resolveAllianceBreaks, resolveDiplomacy
@@ -92,8 +94,10 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
     // V13.1 : le joueur voit chaque tour ce que rapportent ses provinces et ses bâtiments.
     if (id === state.playerNationId && !state.nations[id].eliminated) state.events.push({ turn: state.turn, type: 'income', nationId: id, amount: base + extra, bonus: extra, ...incomeBreakdown(state, id) });
   }
+  updateCoalition(state);
   resolveTalk(state,map,locked,eventStart);
   checkGameOver(state);
+  recordStory(state,eventStart);
   // V13.2 : prévenir quand il ne reste que 5 tours (le tour qui commence compris).
   if (!state.gameOver && state.turn + 1 === RULES.gameLength - 4) state.events.push({ turn: state.turn, type: 'final-turns', remaining: 5 });
   state.orders = []; state.lockedOrders = [];

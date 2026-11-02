@@ -1,5 +1,6 @@
 import { SAVE_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
 import { validateMapDefinition } from '../map/validate-map.js';
+import { emptyStory } from '../domain/story.js';
 import { assignLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
 
 const emptyUnits = () => Object.fromEntries(LAND_UNIT_TYPES.map(id => [id, 0]));
@@ -43,5 +44,7 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0' }) {
     warChestsClaimed:{}, journal:[], turnJournal:[], chronicle:[], lastJournalEventIndex:0
   };
   state.tension = initialTension(state);
+  state.coalition = null;
+  state.story = emptyStory(state);
   return state;
 }

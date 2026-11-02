@@ -21,6 +21,7 @@ export { bombardPreview, bombardStatus, bombardTargets, fortBreach, queueBombard
 export { SHIP_FIELD_REPAIR, SHIP_REPAIR_TURNS, shipRepairInfo, shipRepairTurnsFor } from './engine/recovery.js';
 export { NAVAL_IDLE_CAP, NAVAL_STRIKE_MARGIN } from './engine/ai-naval.js';
 export { STATION_MIN_TURNS } from './engine/ai-help.js';
+export { coalitionTargetFor, dominantNation, joinsCoalition, updateCoalition } from './engine/coalition.js';
 export { GARRISON_MEMORY_TURNS, planAIOrders, rememberedGarrison } from './engine/ai.js';
 export {
   buildPermanentJournal, buildTurnJournal, eventInvolvesNation, eventKnownToPlayer, journalEntry

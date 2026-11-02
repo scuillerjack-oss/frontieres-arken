@@ -316,7 +316,7 @@ test('Sauvegarde : migration 7 (V10) -> 8 (V11) -> 9 (V13) depuis les anciens tr
   old.ai.traits = { 'roc-epine': 'prudent', noireflamme: 'offensif', oroel: 'fidele', aurel: 'impulsif' };
   old.diplomacy.wars.push({ active: true, participants: ['valmorne', 'aurel'], started: 1 });
   const m = migrateSave(old);
-  assert.equal(m.schemaVersion, 9);
+  assert.equal(m.schemaVersion, 10);
   assert.deepEqual(Object.fromEntries(Object.entries(m.leaders).map(([k, v]) => [k, v.archetype])), { 'roc-epine': 'batisseur', noireflamme: 'conquerant', oroel: 'heros', aurel: 'traitre' });
   assert.ok(Object.values(m.leaders).every(l => !l.revealed));
   // V13 : en guerre, le libellé est « en guerre » (la valeur reste celle de la migration : 80).

@@ -1,5 +1,6 @@
 // V13 : schéma 9 = suppression du ballon d'observation (migration 8 → 9 dans save-codec.js).
-export const SAVE_SCHEMA_VERSION = 9;
+// V15.1 : schéma 10 = coalition et histoire de la partie (migration 9 → 10 dans save-codec.js).
+export const SAVE_SCHEMA_VERSION = 10;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
 // V13 : le ballon d'observation est supprimé (remplacé par la vision : src/domain/vision.js, docs/V13-vision.md).
@@ -56,7 +57,11 @@ export const RULES = Object.freeze({
   },
   // V10 : réglages de l'IA (évaluation des attaques par simulation du combat).
   // V14.1 : marge de débarquement 0,25 → 0,10, sauf vers une capitale (0,35) ; rassemblement dès la moitié des forces utiles.
-  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.1, capitalLandingMargin:.35, stagingFactor:.5 },
+  // V15.1 : `lateTurn` = à partir de ce tour, plus personne ne s'endort ; `finishProvinces` = nation assez affaiblie pour être achevée ;
+  // `capitalBusyMargin` = marge de débarquement sur une capitale dont la nation se bat déjà ailleurs.
+  ai:{ attackShares:[.35,.5,.7,.9], landingExtraMargin:.1, capitalLandingMargin:.35, capitalBusyMargin:.25, stagingFactor:.5, lateTurn:45, lateBlindFactor:2, finishProvinces:3 },
+  // V15.1 : coalition (engine/coalition.js). Seuils calibrés par simulation : docs/V15-cahier-des-charges.md, Réalisé V15.1.
+  coalition:{ formProvinces:7, formLead:3, dissolveProvinces:5, builderExtra:2, minTurn:10 },
   // V13 : vision (brouillard de guerre, src/domain/vision.js). Quand les troupes d'une province ne sont pas connues,
   // l'IA ne lit jamais l'effectif réel : elle suppose une garnison « prudente » tirée de ce qui est public
   // (capitale ou non, port construit, tour de jeu), multipliée par (1 + growthPerTurn × (tour − 1)).

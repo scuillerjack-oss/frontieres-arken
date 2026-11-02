@@ -2,6 +2,7 @@
 
 import { proposalsToAnswer, respondToProposal } from '../../domain/game-engine.js';
 import { INTRO_STORY, capitalPopups, seaFatePopups } from '../alliances-view.js';
+import { coalitionDetails, coalitionPopups } from '../coalition-view.js';
 import { toneMeta } from '../leaders-view.js';
 import { PASSAGE_TEXT } from '../passage-fort-view.js';
 import { $, nation, province, toast } from './base.js';
@@ -30,6 +31,15 @@ export async function showCapitalPopups(events){
 export async function showSeaPopups(events){
   for(const c of seaFatePopups(events,state.playerNationId,{nation:id=>nation(id).short,province:id=>province(id).name}))
     await eventPopup({kicker:c.kicker,title:c.title,cls:`capital lost sea ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>${c.tip&&hintsOn()?`<p class="sea-tip">💡 ${c.tip}</p>`:''}`,buttons:[{label:'Compris',value:true,primary:true}]});
+}
+// V15.1 : coalition annoncée (formation, dissolution), et détail quand on touche le bandeau de la carte.
+export async function showCoalitionPopups(events){
+  for(const c of coalitionPopups(events,state,id=>nation(id).short))
+    await eventPopup({kicker:c.kicker,title:c.title,cls:`capital coalition ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>`,buttons:[{label:'Compris',value:true,primary:true}]});
+}
+export function openCoalition(){
+  const c=coalitionDetails(state,id=>nation(id).short);if(!c)return;
+  eventPopup({kicker:c.kicker,title:c.title,cls:'capital coalition',html:`<p class="capital-lead">${c.lead}</p><p>${c.rule}</p><p class="help-intro">${c.note}</p>`,buttons:[{label:'Fermer',value:true,primary:true}]});
 }
 export async function showProposalPopups(){
   for(const p of safeEngine(()=>proposalsToAnswer(state,state.playerNationId,{fresh:true}),[])){

@@ -12,12 +12,13 @@ import {
 } from '../leaders.js';
 import { neighbors } from '../talk.js';
 import { perceivedForce, perceivedStrength, visibleProvinces } from '../vision.js';
+import { coalitionPartners, coalitionTargetFor } from './coalition.js';
 import { helpReinforce, helpStation, recallStationed } from './ai-help.js';
 import { aiNavalOrders, defenseOf, hasOrQueued, landThreat, landThreatForce, navalBase } from './ai-naval.js';
 import { fortBreach } from './bombard.js';
 import { TRUCE_BETRAYAL_TURNS, queueDiplomaticOrder, recentTruce, refusalsOf } from './diplomacy.js';
 import { availableForces, buildingCount, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
-import { legalDestinations, seaDestinations } from './sea-routes.js';
+import { isPortPoint, legalDestinations, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, spendableTreasury } from './shared.js';
 
 // --- V11 : personnalités (docs/V11-contrat.md, src/domain/leaders.js) ----------------------------------------
@@ -28,6 +29,7 @@ const ARCH_MARGIN = { conquerant: .95, traitre: 1.05, heros: 1.15, batisseur: 1.
 const ARCH_ATTACKS = { conquerant: 2, traitre: 1, heros: 1, batisseur: 1 };
 // Risque de guerre par tour au-delà du seuil « au bord de la guerre » (V14.2 : 70, avant 75), par archétype (le Conquérant n'attend pas).
 // À 85 %, la guerre est de toute façon déclarée automatiquement (hostilityWars).
+const HERO_MEMORY_TURNS = 5;
 const WAR_RISK = { heros: .12, traitre: .08, batisseur: .04, conquerant: 0 };
 export const aiMemory = (state, id) => { state.ai.plans ||= {}; return state.ai.plans[id] ||= {}; };
 const reachable = (state, map, a, b) => neighbors(state, map, a, b);
@@ -59,7 +61,8 @@ function warTargets(state, map, id, arch) {
   if (arch === 'heros') {
     // Punir les agresseurs récents (sauf ses alliés : il est fidèle).
     // V14.2 : naïf, il épargne un agresseur qui l'a beaucoup flatté (3 messages amicaux récents) — sauf s'il est déjà en guerre avec lui.
-    for (const a of recentAggressions(state, 10)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id,
+    // V15.1 : la fin de partie multiplie les agressions ; le Héros répond aux plus récentes (5 tours, avant 10), sinon il attaque autant qu'un Conquérant.
+    for (const a of recentAggressions(state, HERO_MEMORY_TURNS)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id,
       a.attacker) && !(charmOf(state, id, a.attacker) >= 3 && !pairWar(state, id, a.attacker))) out.add(a.attacker);
   }
   if (arch === 'traitre') {
@@ -75,7 +78,28 @@ function warTargets(state, map, id, arch) {
     if (mem.grudges.includes(n)) { if (t >= 50) out.add(n); else mem.grudges = mem.grudges.filter(x => x !== n); continue; }
     if (t >= HOSTILITY_WARNING && chance(state, 'war-risk', state.turn, id, n) < (WAR_RISK[arch] ?? .08) * (1 + (t - HOSTILITY_WARNING) / 15)) { mem.grudges.push(n); out.add(n); }
   }
+  addAmbition(state, map, id, arch, alive, out);
   return out;
+}
+/**
+ * V15.1 : ambition. Le Conquérant et le Traître achèvent une nation affaiblie à leur portée ; en fin de partie, ils ne
+ * s'endorment pas : ils visent le plus faible et la nation de tête à leur portée. Le Héros et le Bâtisseur gardent leur caractère.
+ * Alliances et trêves récentes restent respectées.
+ */
+function addAmbition(state, map, id, arch, alive, out) {
+  const free = n => !pairTreaty(state, id, n, 'alliance') && !recentTruce(state, id, n) && reachable(state, map, id, n);
+  const count = n => map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
+  if (arch === 'conquerant' || arch === 'traitre') for (const n of alive) if (count(n) <= RULES.ai.finishProvinces && free(n)) out.add(n);
+  if (state.turn >= RULES.ai.lateTurn && (arch === 'conquerant' || arch === 'traitre')) {
+    const ranked = alive.filter(free).sort((a, b) => count(b) - count(a) || a.localeCompare(b));
+    if (ranked.length) { out.add(ranked.at(-1)); if (out.size < 2) out.add(ranked[0]); }
+  }
+}
+/** V15.1 : ce qui vaut d'être tenté d'abord : une capitale, ou la fin d'une nation affaiblie (si la simulation le permet). */
+export function ambitionOf(state, map, toId) {
+  const owner = state.provinces[toId]?.ownerId;
+  if (state.nations[owner]?.capitalId === toId) return 2;
+  return map.provinces.filter(p => state.provinces[p.id].ownerId === owner).length <= RULES.ai.finishProvinces ? 1 : 0;
 }
 /** Le Traître choisit une cible (« marque »), la courtise, puis la frappe au moment opportun. */
 function traitorState(state, map, id) {
@@ -162,12 +186,28 @@ function aiPlan(state, map, nationId) {
     targets.add(x);
     if (!pairWar(state, nationId, x) && !pendingDiplo(state, nationId, x)) queueDiplomaticOrder(state, { nationId, target: x, action: 'war' });
   }
+  // V15.1 : membre de la coalition à portée : la nation dominante passe avant tout, et pas de nouvelle guerre entre membres.
+  const foe = coalitionTargetFor(state, map, nationId);
+  if (foe && !recentTruce(state, nationId, foe)) {
+    for (const x of [...targets]) if (coalitionPartners(state, nationId, x) && !pairWar(state, nationId, x)) targets.delete(x);
+    targets.add(foe); helpTargets.add(foe);
+    if (!pairWar(state, nationId, foe) && !pairTreaty(state, nationId, foe, 'alliance') && !pendingDiplo(state, nationId, foe)) queueDiplomaticOrder(state, { nationId, target: foe, action: 'war' });
+  }
+  // V15.1 : le Conquérant et le Traître ne se laissent plus endormir : passé le délai d'une trêve, ils la dénoncent pour
+  // achever une nation affaiblie ou, en fin de partie, pour continuer à gagner du terrain (déclaration ordinaire, visible).
+  if (arch === 'conquerant' || arch === 'traitre') for (const n of targets) {
+    const count = map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
+    if ((count <= RULES.ai.finishProvinces || state.turn >= RULES.ai.lateTurn) && pairTreaty(state, nationId, n, 'ceasefire') && !recentTruce(state, nationId, n) && !pairWar(state, nationId, n) && !pendingDiplo(state, nationId, n)) queueDiplomaticOrder(state, { nationId, target: n, action: 'war' });
+  }
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);
   const treasury = () => spendableTreasury(state, nationId);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
+  // V15.1 : le Héros défend et punit. Une guerre qui traîne sans agression récente de l'adversaire ne le fait plus attaquer
+  // (sauf pour en finir avec un ennemi à bout de forces, ou si un allié le lui demande) : il garde son caractère en fin de partie.
+  if (arch === 'heros') for (const n of [...targets]) if (!helpTargets.has(n) && !recentAggressions(state, HERO_MEMORY_TURNS).some(a => a.attacker === n) && map.provinces.filter(p => state.provinces[p.id].ownerId === n).length > RULES.ai.finishProvinces) targets.delete(n);
   const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
   if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch], owner => targets.has(owner), arch, helpTargets);
   // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
@@ -195,13 +235,14 @@ function aiPlan(state, map, nationId) {
     const target=state.provinces[d.id],owner=target?.ownerId;
     return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||(arch==='conquerant'&&!recentTruce(state,nationId,owner)))&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
-  attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
+  attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||ambitionOf(state,map,b.to)-ambitionOf(state,map,a.to)||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
   const threshold = ARCH_MARGIN[arch];
   let launched = 0;
   for (const x of attacks) {
-    if (launched >= (ARCH_ATTACKS[arch] || 1)) break;
+    // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.
+    if (launched >= (ARCH_ATTACKS[arch] || 1) && !ambitionOf(state, map, x.to)) break;
     if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
     const margin = x.atWar ? Math.max(arch === 'conquerant' ? .8 : .85, threshold - .2) : threshold;
@@ -213,7 +254,29 @@ function aiPlan(state, map, nationId) {
   recallStationed(state, map, nationId, owned); // V14.0 : rappel des troupes stationnées chez un allié
   if (activeHelpPacts(state, nationId).some(p => p.kind === 'defend')) helpReinforce(state, map, nationId, owned, base);
   helpStation(state, map, nationId, owned); // V13.4 : droit de passage — stationner chez un allié menacé
+  redeployInterior(state, map, nationId, owned, base); // après l'aide aux alliés : on ne marche qu'avec ce qui reste libre
   if (arch === 'traitre') traitorStrike(state, nationId);
+}
+/** V15.1 : au-dessous de cette valeur (fantassins équivalents), une garnison de l'intérieur ne vaut pas le déplacement. */
+export const INTERIOR_STACK_INFANTRY = 60;
+export const INTERIOR_MARCH_SHARE = .85;
+/**
+ * V15.1 (cause du retard de Valmorne, docs/V15-cahier-des-charges.md) : Arken est un archipel, on n'attaque et on ne
+ * s'embarque que depuis un point de port. Une armée dans une province sans route maritime, sans ennemi voisin, ne sert à
+ * rien : elle marche vers le point de port voisin (la base navale d'abord). Valmorne est la seule nation dont la capitale,
+ * où naît son armée, n'est pas un point de port. Mêmes ordres que le joueur : un déplacement ordinaire.
+ */
+function redeployInterior(state, map, nationId, owned, base) {
+  for (const p of owned) {
+    if (isPortPoint(map, p.id) || landThreat(map, state, nationId, p.id) > 0) continue;
+    const available = availableForces(state, p.id);
+    if (combatValue({ units: available }) < combatValue({ units: { infantry: INTERIOR_STACK_INFANTRY } })) continue;
+    const to = (p.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId && isPortPoint(map, id))
+      .sort((a, b) => Number(b === base?.id) - Number(a === base?.id) || a.localeCompare(b))[0];
+    if (!to) continue;
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * INTERIOR_MARCH_SHARE)]));
+    if (LAND_UNIT_TYPES.some(k => units[k])) queueMoveOrder(state, map, { nationId, fromId: p.id, toId: to, units });
+  }
 }
 /**
  * Le coup du Traître : une invasion part vers son allié (ou le délai est largement dépassé) → il rompt l'alliance

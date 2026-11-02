@@ -3,7 +3,9 @@
 import { RULES } from '../../domain/constants.js';
 import { journalEntry, nextTurn } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
+import { buildEndStory } from '../../domain/story.js';
 import { bombardSummary } from '../bombard-view.js';
+import { endStoryHtml } from '../end-view.js';
 import { TUTORIAL_GUIDE, sanitizeJournalEntry } from '../guide-input.js';
 import { journalCategoryClass } from '../map-orders-view.js';
 import { totalArmy } from '../overview-view.js';
@@ -11,7 +13,7 @@ import { isTutorial } from '../tutorial.js';
 import { playSfx } from './audio.js';
 import { $, buildingNames, nation, province, unitKeys } from './base.js';
 import { trackMissions } from './boosts-ui.js';
-import { dialogClosed, showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
+import { dialogClosed, showCapitalPopups, showCoalitionPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
 import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
@@ -29,17 +31,17 @@ export function renderJournal(permanent=false){
 export function openHelp(){const entries=TUTORIAL_GUIDE;$('#helpBody').innerHTML=entries.map(x=>`<article class="help-item"><b>${x.title}</b><p>${x.text.replace('{nation}',nation(state.playerNationId).name)}</p></article>`).join('');$('#helpDialog').showModal();}
 export function openArmy(){const army=totalArmy(state,state.playerNationId);actionModal('Armée totale',`TOUR ${state.turn}`,Object.entries(army.byType).map(([key,value])=>`<div class="unit-row"><span>${unitKeys[key]}</span><b>${value}</b></div>`).join(''));}
 // --- V10 : fin de partie --------------------------------------------------------------------------------------
+// Le récit ne doit jamais empêcher d'afficher la fin : sans données exploitables, on garde un classement simple.
+const safeEndStory=()=>{try{return buildEndStory(state,map);}catch{return buildEndStory({...state,story:null},map);}};
 export function showEndScreen(){
   const go=state.gameOver;if(!go)return false;
   const me=state.playerNationId,mine=go.ranking.find(r=>r.nationId===me),won=go.winnerId===me;
   const title=go.reason==='player-eliminated'?'Défaite':won?'Victoire !':'Fin de la partie';
   const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:`Les ${go.turn} tours sont écoulés.`;
-  const rows=go.ranking.map(r=>`<tr class="${r.nationId===me?'me':''}${r.eliminated?' out':''}"><td>${r.rank}</td><td><i style="--nation:${nation(r.nationId).color}">\
-</i>${nation(r.nationId).short}${r.eliminated?' <small>éliminée</small>':''}</td><td>${r.provinces}</td><td>${r.capitals}</td><td>${r.treasury}</td></tr>`).join('');
   $('#endKicker').textContent=`TOUR ${go.turn} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':`FIN DES ${go.turn} TOURS`}`;
   $('#endTitle').textContent=title;$('#endDialog').dataset.result=go.reason==='player-eliminated'||!won&&go.reason==='capitals'?'defeat':won?'victory':'end';
   $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`}</p>\
-<table class="ranking"><thead><tr><th>#</th><th>Nation</th><th>Prov.</th><th>Cap.</th><th>Or</th></tr></thead><tbody>${rows}</tbody></table><p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor.</p>`;
+${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
 }
 export function resolveTurn(){
@@ -59,6 +61,7 @@ export function resolveTurn(){
     await showCapitalPopups(events);if(!same())return;
     await showSeaPopups(events);if(!same())return;
     if(state.gameOver){showEndScreen();return;}
+    await showCoalitionPopups(events);if(!same())return;
     renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;
     await showProposalPopups(); };
 }
