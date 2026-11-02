@@ -442,7 +442,7 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 .bombard-ships .step{flex:0 0 48px;width:48px;min-height:48px;padding:0;font-size:1.4rem}
 .bombard-protection{margin:.6em 0}
 /* V15.1 : coalition (bandeau sur la carte) et écran de fin qui raconte la partie. */
-.coalition-chip{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:6;max-width:calc(100% - 24px);padding:7px 12px;border-radius:16px;border:1px solid #d9a441;background:#2b2410ee;color:#ffe9b0;font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coalition-chip{position:absolute;top:60px;left:8px;z-index:3;max-width:calc(100% - 16px);min-height:36px;padding:7px 12px;border-radius:16px;border:1px solid #d9a441;background:#2b2410ee;color:#ffe9b0;font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .coalition-chip[data-mine="1"]{border-color:#ff8a80;background:#3a1512ee;color:#ffd5d0}
 #endDialog section{max-width:100%}
 .end-nations{list-style:none;margin:8px 0 2px;padding:0}
@@ -461,10 +461,11 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 .end-num{text-align:right;min-width:0}.end-num b{display:block;font-size:1rem}.end-num small{display:block;font-size:.62rem;line-height:1.2;color:#a8bbc4}
 .end-axis{font-size:.7rem;color:#a8bbc4;margin:6px 0}
 .end-partial{font-size:.76rem;color:#ffe9b0;border:1px dashed #6d5b2c;border-radius:6px;padding:6px 8px}
-.end-section{margin:10px 0 0}
+.end-section{margin:10px 0 0;padding:0;background:none;border:0;box-shadow:none;max-height:none;overflow:visible;width:auto;animation:none}
 .end-section h3{font-size:.76rem;letter-spacing:.04em;text-transform:uppercase;color:#a8bbc4;margin:0 0 4px}
 .end-section ul{list-style:none;margin:0;padding:0}
 .end-section li{font-size:.82rem;padding:3px 0;overflow-wrap:anywhere}
 .end-section li b{display:inline-block;min-width:30px;color:#ffe9b0}
 .end-section p{font-size:.84rem;margin:0}
-.end-turning{border-left:3px solid #ffe9b0;padding-left:8px}
+.end-section.end-turning{border-left:3px solid #ffe9b0;padding:2px 0 2px 8px}
+.end-section .more{color:#a8bbc4;font-size:.74rem}

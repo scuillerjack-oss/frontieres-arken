@@ -120,3 +120,59 @@ changements de province par tranche 315 / 294 / 147 / 157, dernière conquête m
 Oroël 11, Solmara 13 ; Conquérant 27, Traître 24, Héros 9, Bâtisseur 0.
 
 `tools/empreintes-v14.4.json` ne vaut que pour le code V14.4 : à partir de V15.1 le gameplay change, et les empreintes aussi.
+
+### V15.1 — fin de partie vivante, écran de fin, Valmorne (02/11/2026)
+
+**Bilan franc** : sur 4 cibles, **2 tenues, 2 non tenues** (élimination 26 % au lieu de 30 %, Valmorne 11 % au lieu de 12 %).
+
+| Mesure (`node tools/equilibre.mjs 200 80 fin` puis `fin2`, 400 parties ; avant : code V15.0, `fin`, 200 parties) | Avant | Après | Cible | |
+|---|---|---|---|---|
+| Tranche 61-80 / tranche 1-20 | 41 % (436/1073) | 100 % (2170/2167) | ≥ 45 % | tenue |
+| Capitales perdues par partie | 0,52 | 1,33 | ≥ 1 | tenue |
+| Parties avec au moins une nation éliminée | 12 % | **26 %** (25 et 27) | ≥ 30 % | **non tenue** |
+| Victoires de Valmorne | 8 % (6 % sur les graines `base`) | **11 %** (44/400) | 12 à 28 % | **non tenue** |
+| Dernière conquête (médiane) | tour 64 | tour 74-75 | | |
+| Parties avec une coalition | 0 | 46 % | | |
+| Victoires Roc-Épine / Noireflamme / Oroël / Solmara | 12 / 38,5 / 21,5 / 20 % | 16 / 40 / 16,5 / 16,5 % | V15.3 | Noireflamme reste trop haut |
+| Victoires Conquérant / Traître / Héros / Bâtisseur | 37,5 / 44 / 16,5 / 2 % | 30,5 / 31,5 / 31 / 7 % | V15.3 | |
+
+Le bruit entre deux séries de 200 parties est réel : une autre série (`d1`) donnait 33 % d'élimination avec le même code. Les valeurs ci-dessus sont celles des graines finales, sans tri.
+
+**Cause du retard de Valmorne, mesurée**
+- Valmorne est la **seule nation dont la capitale n'est pas un point de port** ; toute son armée de départ y naît, à l'intérieur des terres, sans ennemi ni embarquement possible. Contre-épreuve (200 parties, seule l'armée de départ déplacée) : armée sur Branvale 25 victoires, armée sur Sylvaren 12, armée laissée à la capitale 10.
+- **Correctif** : une IA fait marcher ses grosses garnisons de l'intérieur vers le point de port voisin, par un ordre ordinaire (`redeployInterior`). 85 % de l'armée, le reste garde la capitale. Essais écartés, mesures à l'appui : partager l'armée entre les deux ports (7,75 %), recruter sur la côte menacée (10,5 %, moins d'éliminations), reprendre d'abord ses terres (aucun effet).
+- **Deuxième cause, géographique, non corrigée** : l'anneau de routes crée une chaîne de prédateurs. Noireflamme et Oroël se font face capitale contre capitale et se neutralisent ; Roc-Épine frappe Sylvaren depuis sa capitale (1re perte de Valmorne : Sylvaren, 66 % des parties, tour 14 en moyenne), alors que la proie de Valmorne, Nordhème, touche la capitale d'Oroël, dont l'armée reste chez elle. Changer cela demanderait de toucher à la carte ou au départ ; le bonus de nation de la V15.3 est l'endroit où le traiter, Noireflamme compris.
+
+**Coalition** (`src/domain/engine/coalition.js`)
+- Se forme à **7 provinces et 3 d'avance** sur la deuxième, à partir du tour 10 ; se dissout à **5 provinces ou moins**. Ne lit que ce qui est public (qui possède quoi). Aucun or ni troupe offerts, le joueur n'est jamais enrôlé.
+- Caractères : Héros par principe, sauf allié ou charmé ; Conquérant sauf allié ; Traître quand un autre a commencé, même allié de la cible (il la trahit par son coup habituel) ; Bâtisseur si la cible tient 2 provinces de plus que le seuil ou s'il est déjà en guerre avec elle. Une trêve récente est respectée. Un membre à portée vise d'abord la cible et n'ouvre pas de nouvelle guerre contre un autre membre.
+- **Limite** : l'anneau fait que deux nations sur quatre peuvent ne pas atteindre la cible ; elles sont membres sans pouvoir frapper et gardent leurs objectifs.
+- À l'écran : fenêtre à la formation et à la dissolution, bandeau sur la carte (touchable, avec la règle), journal, répliques par `talk-compose` (3 listes, 18 répliques chacune), entrée d'aide. Aucune phrase ne dit quoi faire.
+
+**IA plus ambitieuse**
+- Capitale et nation à 3 provinces ou moins tentées d'abord, hors quota d'attaques pour le Conquérant et le Traître, qui refusent aussi la trêve à une nation qu'ils peuvent achever.
+- Dès le tour 45, ces deux caractères visent le plus faible et le plus fort à leur portée, et dénoncent les trêves de plus de 10 tours (déclaration ordinaire, pas une trahison).
+- Marge de débarquement sur une capitale déjà occupée ailleurs : 0,25 (0,35 sinon). Tard dans la partie, une côte invisible compte double (sauf nation à 2 provinces ou moins).
+- Le Héros garde son caractère : sans agression de moins de 5 tours, il n'attaque plus, sauf pacte d'aide, coalition ou ennemi à bout de forces.
+- « Pas suicidaire » reste vert et son seuil n'a pas bougé. **Un test modifié** : « la carte a bougé » regardait l'état au tour 200, où une partie peut être revenue à son point de départ ; il regarde désormais toutes les conquêtes. **À surveiller** : le test « Conquérant > 2 × Héros » passe sur ses 12 graines, mais sur 20 autres graines le rapport n'est que de 147 / 120.
+
+**Contrôle avec des joueurs scriptés** (`tools/joueurs-scriptes.mjs`, 100 parties, 20 par nation, mêmes ordres que le vrai joueur)
+| | Prudent V15.0 | Prudent V15.1 | Dominant V15.0 | Dominant V15.1 | Dominant V15.1 sans coalition |
+|---|---|---|---|---|---|
+| Victoires | 0 | 0 | 21 | **24** | 21 |
+| Éliminé | 0 | **0** | 11 | 6 | 6 |
+| Rang moyen | 4,34 | 4,17 | 3,19 | 3,00 | 3,03 |
+| Coalition contre lui | 0 | 0 | 0 | 15 parties, 34 tours en moyenne | 0 |
+
+Le joueur dominant ainsi visé gagne **14 fois sur 15** : ni injouable, ni punition automatique. Ce script est sommaire : un vrai joueur peut réagir autrement, et la force ressentie de la coalition reste à juger en bêta. Le prudent ne gagne jamais, comme avant.
+
+**Écran de fin et sauvegarde**
+- `src/domain/story.js` + `src/presentation/end-view.js` : vrai caractère de chacun, petite courbe par nation à même échelle (nom, rang et chiffres écrits à côté : jamais la couleur seule), tournant, capitales prises, trahisons, grandes batailles, coalitions, éliminations. Quatre faits par rubrique, avec le nombre des autres.
+- Rien n'est révélé pendant la partie : `buildEndStory` renvoie `null` tant que `gameOver` n'existe pas, et aucun texte de coalition ne cite un caractère.
+- Schéma de sauvegarde **10**, migration testée depuis le schéma 9 (V14.4). Une ancienne partie affiche un écran propre, déclare l'histoire partielle et ne reprend que les faits encore lisibles dans ses événements.
+- Taille de `state.story` : 950 octets en médiane, 1 286 au plus, sur 20 parties de 80 tours (0,3 % d'une sauvegarde de 321 Ko).
+
+**Vérification et référence**
+- Chrome mobile simulé (Playwright, 390 × 844) : partie réelle sur 6 tours ; écrans de fin victoire, fin de partie perdue, cinq capitales, élimination ; sauvegarde V14.4 en cours jouée jusqu'à la fin et V14.4 déjà finie ; coalition déclenchée sur sauvegarde préparée (fenêtre, bandeau, détail, journal, échanges). 0 erreur JavaScript, 0 débordement. Captures regardées : un chevauchement du bandeau avec les boutons, corrigé.
+- Sur téléphone, à regarder : la longueur de l'écran de fin (il défile quand il y a beaucoup à raconter), et le rythme réel de la coalition.
+- `tools/empreintes-v15.1.json` remplace `tools/empreintes-v14.4.json` : c'est la référence du gameplay V15.1 (`node tools/equilibre.mjs --empreintes --verifier=tools/empreintes-v15.1.json`).

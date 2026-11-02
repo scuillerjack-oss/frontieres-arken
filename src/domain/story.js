@@ -96,7 +96,7 @@ export function buildEndStory(state, map) {
   let turning = null;
   if (tp) {
     const near = marks.filter(m => Math.abs(m[0] - tp.turn) <= 2 && ['c', 'e', 't'].includes(m[1])).sort((a, b) => Math.abs(a[0] - tp.turn) - Math.abs(b[0] - tp.turn))[0];
-    const cause = !near ? '' : near[1] === 'c' ? `${name(near[2])} venait de prendre ${prov(near[4])}, capitale de ${name(near[3])}.`
+    const cause = !near ? '' : near[1] === 'c' ? `${name(near[2])} venait de prendre la capitale de ${name(near[3])}.`
       : near[1] === 'e' ? `${name(near[2])} venait de disparaître de la carte.` : `${name(near[2])} venait de trahir ${name(near[3])}.`;
     const head = tp.kind === 'lead' ? `${name(tp.nationId)} passe en tête pour de bon, avec ${tp.provinces} provinces.`
       : tp.delta > 0 ? `${name(tp.nationId)} gagne ${tp.delta} provinces en 5 tours, et en tient ${tp.provinces}.` : `${name(tp.nationId)} perd ${-tp.delta} provinces en 5 tours, et n’en tient plus que ${tp.provinces}.`;
@@ -104,7 +104,7 @@ export function buildEndStory(state, map) {
   }
   return {
     partial: !story || Boolean(story.partial), from, lastTurn: go.turn, nations, turning,
-    capitals: marks.filter(m => m[1] === 'c').map(m => ({ turn: m[0], text: `${name(m[2])} prend ${prov(m[4])} à ${name(m[3])}` })),
+    capitals: marks.filter(m => m[1] === 'c').map(m => ({ turn: m[0], text: `${name(m[2])} prend la capitale de ${name(m[3])}${prov(m[4]) === name(m[3]) ? '' : ` (${prov(m[4])})`}` })),
     betrayals: marks.filter(m => m[1] === 't').map(m => ({ turn: m[0], text: `${name(m[2])} ${m[4] ? 'rompt sa trêve avec' : 'trahit son allié,'} ${name(m[3])}` })),
     eliminations: marks.filter(m => m[1] === 'e').map(m => ({ turn: m[0], text: `${name(m[2])} est éliminée` })),
     coalitions: marks.filter(m => m[1] === 'f').map(m => ({ turn: m[0], text: `Coalition contre ${name(m[2])} : ${String(m[3] || '').split('+').filter(Boolean).map(name).join(', ')}` })),
