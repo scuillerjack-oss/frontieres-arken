@@ -50,7 +50,8 @@ export function recruitDetailHtml(key) {
 }
 
 /** Explication de la convalescence (règle du moteur, lue dans SHIP_REPAIR_TURNS). */
-export const SHIP_REPAIR_TEXT = `En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort. Dans un port construit, ils reviennent à 100 % en ${SHIP_REPAIR_TURNS.map(r => r.turns).join(', ').replace(/, (\d)$/, ' ou $1')} tours selon les dégâts ; sans port construit, ils se réparent lentement (5 % par tour) ; en mer, pas du tout.`;
+export const SHIP_REPAIR_TEXT = `En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort. Dans un port construit, ils reviennent à 100 % en ${SHIP_REPAIR_TURNS.map(r => r.turns).join(', ').replace(/, (\d)$/,
+  ' ou $1')} tours selon les dégâts ; sans port construit, ils se réparent lentement (5 % par tour) ; en mer, pas du tout.`;
 /**
  * Pastille de la fiche de province pour MES navires (info = shipRepairInfo du moteur) : '' si aucun navire.
  * Navires en bon état : PV seulement ; blessés : PV actuels / max, % et tours restants, et l'explication.

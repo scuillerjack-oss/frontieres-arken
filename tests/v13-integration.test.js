@@ -5,7 +5,7 @@ import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { resolveInterturn, respondToProposal, planAIOrders, journalEntry } from '../src/domain/game-engine.js';
 import { helpDecision, queueHelpRequest, helpEnemies } from '../src/domain/alliances.js';
-import { helpChoices } from '../src/presentation/v13-ux.js';
+import { helpChoices } from '../src/presentation/alliances-view.js';
 import { LAND_UNIT_TYPES } from '../src/domain/constants.js';
 
 const NATIONS = map.nations.map(n => n.id);

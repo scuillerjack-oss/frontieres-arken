@@ -2,6 +2,7 @@
 // (gradation des tons, conversation close, tension en %), récit d'introduction et prise de capitale.
 // Voir docs/V13-alliances-echanges.md.
 import { test } from 'node:test';
+import { readSource, flatSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -13,9 +14,9 @@ import { RULES } from '../src/domain/constants.js';
 import { tensionLevel, getTension, setTension, TALK_TENSION, recordAggression } from '../src/domain/leaders.js';
 import { talkOptions, queueTalk, publishTalk, allTalkLines, ARCHETYPE_LINES } from '../src/domain/talk.js';
 import { queueHelpRequest, helpDecision, helpPacts, HELP_TURNS, activeHelpPacts } from '../src/domain/alliances.js';
-import { diplomacyActions } from '../src/presentation/v3-ux.js';
-import { talkFeed, talkBadgeCount, tensionGauge } from '../src/presentation/v11-ux.js';
-import { INTRO_STORY, capitalPopups, tensionText, helpChoices, helpPactsFor } from '../src/presentation/v13-ux.js';
+import { diplomacyActions } from '../src/presentation/overview-view.js';
+import { talkFeed, talkBadgeCount, tensionGauge } from '../src/presentation/leaders-view.js';
+import { INTRO_STORY, capitalPopups, tensionText, helpChoices, helpPactsFor } from '../src/presentation/alliances-view.js';
 import { map as landMap, freshState, assertInvariants } from './helpers/fixtures.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -323,7 +324,7 @@ test('V13 : tension en % — une menace la fait bondir, l\'aperçu et le journal
   assert.deepEqual(tensionText({ value: 85, label: 'en guerre' }), { value: 85, short: 'En guerre', long: 'En guerre · 85 %', war: true });
   assert.equal(tensionGauge({ value: 85, label: 'en guerre' }).cls, 'tension-4');
   // Interface : % partout où la tension apparaît.
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /Tension \$\{t\.value\} % · \$\{t\.label\}/);
   assert.match(app, /En guerre/);
   assert.doesNotMatch(app, /\$\{t\.value\} \/ 100/);
@@ -353,9 +354,9 @@ test('V13 : récit d\'introduction — court, évocateur, les quatre masques et 
   assert.match(text, /[Dd]émasquez-les/);
   assert.match(text, /actes/);
   assert.ok(text.length < 600, 'texte court');
-  const app = read('app.js');
+  const app = readSource('app.js');
   // V13.4 : après le récit, le mini tuto (première partie) ou les bulles contextuelles.
-  assert.match(app, /showGame\(\);await showIntro\(\);(if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\})?tutorial\(/, 'une fois, au début d\'une nouvelle partie');
+  assert.match(flatSource('app.js'), /showGame\(\);await showIntro\(\);(if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\})?tutorial\(/, 'une fois, au début d\'une nouvelle partie');
   assert.doesNotMatch(app.match(/function continueSavedGame[^\n]*/)[0], /showIntro/, 'pas en reprenant une partie');
   assert.match(read('index.html'), /<dialog id="eventDialog"/);
 });
@@ -394,7 +395,7 @@ test('V13 : prise de capitale — minimum garanti payé même si la victime est 
 });
 
 test('V13 : enchaînement à la fin du tour — capitale, puis journal, puis une fenêtre Oui / Non par proposition', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   const flow = app.match(/\$\('#confirmEndTurn'\)\.onclick=async\(\)=>\{[\s\S]*?\};/)[0];
   const i = k => flow.indexOf(k);
   assert.ok(i('showCapitalPopups') > 0 && i('showCapitalPopups') < i('renderJournal(false)'));

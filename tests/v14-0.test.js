@@ -5,13 +5,14 @@
 //  4. Journal de combat : PV perdus par les troupes stationnées comptés à part.
 //  5. Point 1 de la section 3 (« l'allié vient vraiment défendre ») : vérifié par simulation.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { queueMoveOrder, queueDiplomaticOrder, setRelation, resolveInterturn, respondToProposal, journalEntry, planAIOrders,
   stationedAt, stationedOf, TRUCE_BETRAYAL_TURNS, recentTruce, truceBreakStatus } from '../src/domain/game-engine.js';
 import { reputation } from '../src/domain/leaders.js';
 import { talkLineLists } from '../src/domain/talk.js';
-import { truceWarning } from '../src/presentation/v14-ux.js';
+import { truceWarning } from '../src/presentation/truce-warning.js';
 import { COMBAT_TYPES, totalHp, legacyForce } from '../src/domain/combat.js';
 import { arkenV9Map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
@@ -94,7 +95,7 @@ test('le cas du dominant : guerre → trêve en exigeant de l\'or → guerre aus
 });
 
 test('IA : un Conquérant attend 10 tours avant de rompre une trêve ; s\'il la rompt plus tôt, c\'est une trahison', () => {
-  const src = read('src/domain/game-engine.js');
+  const src = readSource('src/domain/game-engine.js');
   assert.match(src, /state\.turn - t\.started >= TRUCE_BETRAYAL_TURNS/, 'le choix de la proie respecte la trêve 10 tours');
   // Une IA qui attaque pendant une trêve récente : même règle que le joueur (le moteur ne distingue pas).
   const s = freshState({ allHuman: true });
@@ -120,11 +121,11 @@ test('fenêtre avant de rompre : la déclaration de guerre et l\'attaque le dise
   assert.equal(truceWarning(s, 'valmorne', 'oroel', 'Oroël'), '', 'pas de trêve : rien');
   s.turn -= 10;
   assert.match(truceWarning(s, 'valmorne', 'roc-epine', 'Roc-Épine'), /signée avec Roc-Épine ce tour-ci/);
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /war:`Déclarer la guerre[^`]*\$\{truceWarning\(state,state\.playerNationId,target/, 'Diplomatie → Déclarer la guerre');
   assert.match(app, /const truceNote=attack&&truceWarning\(/, 'préparation d\'une attaque');
   assert.match(app, /Trésor après ordre[^\n]*truceNote\?/, 'confirmation de l\'attaque');
-  assert.match(read('sw.js'), /v14-ux\.js/);
+  assert.match(read('sw.js'), /truce-warning\.js/);
 });
 
 // --- 2. L'IA rappelle ses troupes stationnées ------------------------------------------------------------------

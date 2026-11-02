@@ -7,7 +7,7 @@ import { resolveInterturn, planAIOrders, queueDiplomaticOrder, setRelation, jour
 import { encodeSave, decodeSave, migrateSave } from '../src/persistence/save-codec.js';
 import { ARCHETYPES, assignLeaders, tensionLevel, leaderHint, getTension, setTension, acceptsAlliance, recordAggression } from '../src/domain/leaders.js';
 import { talkOptions, queueTalk, TALK_LIMIT } from '../src/domain/talk.js';
-import { talkOptions as uiTalkOptions, queueTalk as uiQueueTalk, tensionLevel as uiTension, leaderHint as uiHint } from '../src/presentation/v11-talk-ui.js';
+import { talkOptions as uiTalkOptions, queueTalk as uiQueueTalk, tensionLevel as uiTension, leaderHint as uiHint } from '../src/presentation/talk-facade.js';
 import { seededRandom, assertInvariants } from './helpers/fixtures.js';
 
 const NATIONS = map.nations.map(n => n.id);
@@ -43,7 +43,7 @@ test('V11 : 4 archétypes distincts, cachés, attribués aux 4 nations IA ; dét
   for (const id of OTHERS) assert.ok(seen[id].size >= 3, `${id} : ${[...seen[id]]}`);
 });
 
-test('V11 : façade de l\'interface (v11-talk-ui.js) branchée sur le moteur', () => {
+test('V11 : façade de l\'interface (talk-facade.js) branchée sur le moteur', () => {
   const s = createGameState({ map, playerNationId: 'valmorne' });
   assert.equal(uiTalkOptions(s, map, { from: 'valmorne', to: 'aurel' }).length, 3);
   assert.equal(uiTension(s, 'valmorne', 'aurel').label, 'calme');

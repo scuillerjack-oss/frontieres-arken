@@ -52,7 +52,8 @@ const OPENINGS = Object.freeze({
 const CLOSINGS = Object.freeze({
   conquerant: { hostile: ['La force tranchera.', 'Mes armées sont prêtes.', 'Vous voilà prévenus.'], neutre: ['Je jugerai sur les actes.', 'Le temps dira qui a raison.', 'Nous verrons bien.'], amical: ['Ne me décevez pas.', 'Restez de mon côté.', 'Cela vous honore.'] },
   heros: { hostile: ['Les peuples d’Arken nous regardent.', 'L’honneur sera vengé.', 'Je défendrai les faibles.'], neutre: ['Ma parole est donnée.', 'Je reste vigilant.', 'Que la justice nous guide.'], amical: ['Comptez sur moi.', 'Mon épée est à vos côtés.', 'Que la paix vous garde.'] },
-  batisseur: { hostile: ['Ne m’obligez pas à poser l’outil.', 'Mes murs sont solides.', 'La patience a ses limites.'], neutre: ['Chaque chose en son temps.', 'La sagesse commande d’attendre.', 'Rien ne presse.'], amical: ['Que nos peuples prospèrent.', 'Construisons l’avenir.', 'Vous serez toujours le bienvenu.'] },
+  batisseur: { hostile: ['Ne m’obligez pas à poser l’outil.', 'Mes murs sont solides.', 'La patience a ses limites.'], neutre: ['Chaque chose en son temps.', 'La sagesse commande d’attendre.',
+    'Rien ne presse.'], amical: ['Que nos peuples prospèrent.', 'Construisons l’avenir.', 'Vous serez toujours le bienvenu.'] },
   traitre: { hostile: ['Vous auriez dû vous méfier.', 'Chacun ses intérêts.', 'Le jeu ne fait que commencer.'], neutre: ['Tout dépendra de vous.', 'Nous en reparlerons.', 'Rien n’est figé.'], amical: ['Vous pouvez me croire.', 'Je ne l’oublierai pas.', 'Ensemble, rien ne nous arrête.'] },
   joueur: { hostile: ['Vous voilà prévenus.', 'Nous ne reculerons pas.', 'Méditez cela.'], neutre: ['À vous de voir.', 'Nous restons attentifs.', 'Le reste suivra.'], amical: ['Au plaisir de vous lire.', 'Nos portes vous restent accueillantes.', 'Gardons ce cap.'] }
 });

@@ -111,7 +111,9 @@ export function seaFatePopups(events, playerId, names) {
         kicker: `${names.nation(e.defender).toUpperCase()} · DÉBARQUEMENT`, title: '⚓ Débarquement repoussé',
         lead: back || stranded ? `${plural(lost, 'unité')} perdue${lost > 1 ? 's' : ''} à ${names.province(e.provinceId)}` : `Tout le convoi a péri à ${names.province(e.provinceId)}`,
         text: `${names.nation(e.defender)} tient la province et perd ${plural(killed, 'unité')}. ` +
-          (stranded ? `${plural(num(stranded.amount), 'survivant')} n’${num(stranded.amount) > 1 ? 'ont' : 'a'} plus de port où rentrer (${names.province(stranded.provinceId)} est tombée) : perdu${num(stranded.amount) > 1 ? 's' : ''} en mer.` : back ? `${plural(num(back.amount), 'survivant')} rembarque${num(back.amount) > 1 ? 'nt' : ''} et rentre${num(back.amount) > 1 ? 'nt' : ''} à ${home} (${plural(num(back.turns) || 2, 'tour')}).`
+          (stranded ? `${plural(num(stranded.amount),
+            'survivant')} n’${num(stranded.amount) > 1 ? 'ont' : 'a'} plus de port où rentrer (${names.province(stranded.provinceId)} est tombée) : perdu${num(stranded.amount) > 1 ? 's' : ''} en mer.` : back ? `${plural(num(back.amount),
+            'survivant')} rembarque${num(back.amount) > 1 ? 'nt' : ''} et rentre${num(back.amount) > 1 ? 'nt' : ''} à ${home} (${plural(num(back.turns) || 2, 'tour')}).`
                 : 'Aucun survivant : tes troupes sont tombées sur la plage.'),
         // V14.4 (Jack) : explication de la règle seulement, plus la « solution » (les joueurs la trouvent eux-mêmes).
         tip: `Un débarquement se bat à ${Math.round(RULES.combat.landingPenalty * 100)} % de sa force, souvent sans voir la garnison d’en face.`

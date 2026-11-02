@@ -1,6 +1,7 @@
 // Garde-fous de publication : le jeu doit fonctionner sous le sous-dossier
 // GitHub Pages /frontieres-arken/ et se mettre à jour à chaque déploiement.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname, normalize, relative } from 'node:path';
@@ -12,8 +13,8 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 
 test('aucun chemin absolu dans les fichiers servis', () => {
   assert.doesNotMatch(read('index.html'), /(href|src)="\/(?!\/)/);
-  assert.doesNotMatch(read('app.js'), /from '\//);
-  assert.doesNotMatch(read('app.js'), /register\('\//);
+  assert.doesNotMatch(readSource('app.js'), /from '\//);
+  assert.doesNotMatch(readSource('app.js'), /register\('\//);
   assert.doesNotMatch(read('sw.js'), /'\/[^']*'/);
   const m = JSON.parse(read('manifest.webmanifest'));
   for (const k of ['id', 'start_url', 'scope']) assert.ok(!m[k].startsWith('/'), `${k} absolu`);

@@ -1,7 +1,7 @@
 // V14.1 — fonctions pures (sans DOM) de l'interface, testables sous Node.
 //  Cahier V14, section 3, point 6 : au lancement, la carte est centrée sur la capitale du joueur (sur un téléphone, elle
 //  montrait l'ouest), avec un bouton « Voir toute la carte ».
-import { panLimit } from './v5-ux.js';
+import { panLimit } from './map-orders-view.js';
 
 export const WHOLE_MAP_LABEL = 'Voir toute la carte';
 export const BACK_TO_CAPITAL_LABEL = 'Revenir à ma capitale';

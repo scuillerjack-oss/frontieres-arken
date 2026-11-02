@@ -8,8 +8,8 @@ import { visibleProvinces, provinceIntel, perceivedForce, prudentEstimate, visio
 import { regimentStats, regimentText, firePower, resolveCombat, normalizeForce, provinceForce } from '../src/domain/combat.js';
 import { planAIOrders, queueRecruitment, resolveInterturn, eventKnownToPlayer } from '../src/domain/game-engine.js';
 import { migrateSave, encodeSave, decodeSave } from '../src/persistence/save-codec.js';
-import { provinceTroopView, knownTroopProvinces } from '../src/presentation/v13-vision-ui.js';
-import { canKnowProvinceForces } from '../src/presentation/v3-ux.js';
+import { provinceTroopView, knownTroopProvinces } from '../src/presentation/vision-view.js';
+import { canKnowProvinceForces } from '../src/presentation/overview-view.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
 const NATIONS = map.nations.map(n => n.id);

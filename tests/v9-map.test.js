@@ -7,8 +7,8 @@ import { arkenV1Map } from '../src/map/arken-v1-map.js';
 import { validateMapDefinition } from '../src/map/validate-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { legalDestinations, queueMoveOrder, resolveInterturn } from '../src/domain/game-engine.js';
-import { pointInPolygon } from '../src/presentation/v4-ux.js';
-import { playerOrderArrows, orderPath } from '../src/presentation/v5-ux.js';
+import { pointInPolygon } from '../src/presentation/guide-input.js';
+import { playerOrderArrows, orderPath } from '../src/presentation/map-orders-view.js';
 import { encodeSave, decodeSave } from '../src/persistence/save-codec.js';
 import { seededRandom, assertInvariants } from './helpers/fixtures.js';
 

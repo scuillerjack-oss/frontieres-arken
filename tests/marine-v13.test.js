@@ -2,12 +2,13 @@
 // port d'arrivée, trajets dans les deux sens, rembarquement après conquête, navires de guerre = port + usine,
 // routes neutres et ports colorés, anciens convois d'une sauvegarde. Carte V9 « Leonardo ».
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { legalDestinations, queueMoveOrder, queueRecruitment, resolveInterturn, landingCoast, embarkStatus, seaMoveRefusal, isPortPoint, planAIOrders } from '../src/domain/game-engine.js';
-import { convoyMarkers } from '../src/presentation/v5-ux.js';
+import { convoyMarkers } from '../src/presentation/map-orders-view.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
 const NATIONS = map.nations.map(n => n.id);
@@ -227,7 +228,7 @@ test('IA : en 40 tours, les convois partent et arrivent, toujours entre points d
 
 // --- Affichage ------------------------------------------------------------------------------------------------------
 test('affichage : routes neutres (plus de jaune « open »), ports colorés selon le propriétaire', () => {
-  const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../v5.css', import.meta.url), 'utf8');
+  const app = readSource('app.js'), css = readFileSync(new URL('../v5.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /\.route\.maritime\.open/);
   assert.doesNotMatch(app, /maritime\$\{built/);
   assert.match(app, /class:'route maritime'/);

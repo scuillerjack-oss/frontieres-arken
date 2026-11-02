@@ -3,7 +3,7 @@
 import { chance, pickFrom, atWar, allied, treatyOf, archetypeOf, getTension, addTension, tensionLevel, leaderHint,
   reputation, recentAggressions, aliveNations, strengthOf, TALK_TENSION, talkTensionDelta, talkTensionWorst, noteTalkEffect, charmOf, tensionCap, HOSTILITY_WAR, HOSTILITY_WARNING } from './leaders.js';
 export { tensionLevel, leaderHint } from './leaders.js';
-import { MORE_LINES } from './talk-v14-2.js';
+import { MORE_LINES } from './talk-more-lines.js';
 // V14.4 : répliques composées (ouverture + fond + contexte réel + chute) et mémoire anti-répétition par dirigeant.
 import { composeLine, rememberTalk, coreUsed } from './talk-compose.js';
 
@@ -311,7 +311,7 @@ const AI_LINES = {
     '{to}, vous avez refusé la paix seule. La voici avec {gold} or.', 'Notre trêve a été repoussée, {to}. {gold} or la rendront plus douce.',
     '{to}, malgré votre refus, nous insistons : {gold} or pour une trêve.', 'Vous avez refusé une fois, {to}. Cette fois, {gold} or accompagnent notre trêve.']
 };
-// V14.2 : chaque liste reçoit ses nouvelles variantes (talk-v14-2.js) ; le nombre de répliques double.
+// V14.2 : chaque liste reçoit ses nouvelles variantes (talk-more-lines.js) ; le nombre de répliques double.
 for (const [path, extra] of Object.entries(MORE_LINES)) {
   const parts = path.split('.'), root = parts[0] === 'archetype' ? ARCHETYPE_LINES : parts[0] === 'ai' ? AI_LINES : LINES;
   const list = (parts[0] === 'archetype' || parts[0] === 'ai' ? parts.slice(1) : parts).reduce((o, k) => o?.[k], root);
@@ -411,7 +411,8 @@ function previewOf(state, from, to, tone) {
   if (atWar(state, from, to)) return `En guerre · tension ${now} % → ${next} %`;
   const unsure = worstNext !== next ? `, jusqu’à ${worstNext} % selon son caractère` : '';
   const capped = cap < 100 && now + d > cap ? ` · plafonnée à ${cap} % par ${allied(state, from, to) ? 'votre alliance' : 'la trêve'}` : '';
-  const war = cap === 100 && Math.max(next, worstNext) >= HOSTILITY_WAR ? ` · ⚠ dès ${HOSTILITY_WAR} %, guerre déclarée automatiquement` : cap === 100 && Math.max(next, worstNext) >= HOSTILITY_WARNING && now < HOSTILITY_WARNING ? ` · ⚠ au bord de la guerre (guerre automatique à ${HOSTILITY_WAR} %)` : '';
+  const war = cap === 100 && Math.max(next, worstNext) >= HOSTILITY_WAR ? ` · ⚠ dès ${HOSTILITY_WAR} %, guerre déclarée automatiquement` : cap === 100 && Math.max(next,
+    worstNext) >= HOSTILITY_WARNING && now < HOSTILITY_WARNING ? ` · ⚠ au bord de la guerre (guerre automatique à ${HOSTILITY_WAR} %)` : '';
   return `Tension ${now} % → ${next} % (${d > 0 ? '+' : '−'}${Math.abs(d)}${unsure}) · ${effect}${capped}${war}`;
 }
 /** Exactement 3 propositions [{ tone, text, preview }] (hostile, neutre, amical), adaptées à la situation. */

@@ -1,13 +1,14 @@
 // V11 — interface des personnalités (retours bêta V9, points 17 et 18) et correctifs du testeur V10.
 import test from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
-import { journalCategoryClass, convoyMarkers } from '../src/presentation/v5-ux.js';
-import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, pendingTalkIds, tensionGauge, tensionBorderGroups, convoyTokenPosition } from '../src/presentation/v11-ux.js';
+import { journalCategoryClass, convoyMarkers } from '../src/presentation/map-orders-view.js';
+import { TONE_ORDER, toneMeta, crestGlyph, talkFeed, talkBadgeCount, pendingTalkIds, tensionGauge, tensionBorderGroups, convoyTokenPosition } from '../src/presentation/leaders-view.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
@@ -95,7 +96,7 @@ test('Testeur V10 : le jeton d\'un convoi au départ ne masque plus les ancres d
 
 test('Testeur V10 : la bulle du tutoriel passe en haut quand la fiche de province est ouverte', () => {
   assert.match(read('v5.css'), /#tutorialBubble\.top\{top:[^}]*bottom:auto/);
-  const app = read('app.js');
+  const app = readSource('app.js');
   assert.match(app, /function placeTutorial\(\)\{[^}]*classList\.toggle\('top',!\$\('#provinceSheet'\)\.hidden\)/);
   assert.match(app, /\$\('#provinceSheet'\)\.hidden=false;placeTutorial\(\)/, 'appelé à l\'ouverture de la fiche');
 });
@@ -105,11 +106,11 @@ test('V11 : barre du bas avec le bouton Échanges et son badge ; bouton Diplomat
   assert.match(html, /id="journalBtn"[\s\S]*id="talkBtn"[\s\S]*id="talkBadge"[\s\S]*id="nextTurn"/);
   assert.match(html, /<dialog id="talkDialog"/);
   // V13.3 (Jack) : plus de bouton « Échanger » dans la fiche ; on parle via Diplomatie → « Échanger publiquement ».
-  assert.match(read('app.js'), /\[\['diplo','Diplomatie'\]\];/);
-  assert.match(read('app.js'), /Échanger publiquement/);
+  assert.match(readSource('app.js'), /\[\['diplo','Diplomatie'\]\];/);
+  assert.match(readSource('app.js'), /Échanger publiquement/);
 });
 
 test('V11 : les modules du moteur des personnalités sont mis en cache hors ligne', () => {
   const sw = read('sw.js');
-  for (const p of ['./src/domain/leaders.js', './src/domain/talk.js', './src/presentation/v11-ux.js', './src/presentation/v11-talk-ui.js']) assert.ok(sw.includes(`'${p}'`), p);
+  for (const p of ['./src/domain/leaders.js', './src/domain/talk.js', './src/presentation/leaders-view.js', './src/presentation/talk-facade.js']) assert.ok(sw.includes(`'${p}'`), p);
 });

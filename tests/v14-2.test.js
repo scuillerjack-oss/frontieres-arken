@@ -8,6 +8,7 @@
 //  7. phrases deux fois plus variées ;
 //  8. rapport de conquête : saut de ligne avant les pertes totales avec blessés.
 import { test } from 'node:test';
+import { readSource } from './helpers/sources.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
@@ -17,13 +18,13 @@ import { resolveInterturn, planAIOrders, setRelation, journalEntry, buildTurnJou
 import { RULES } from '../src/domain/constants.js';
 import { getTension, setTension, HOSTILITY_WARNING, HOSTILITY_WAR, tensionLevel, talkTensionDelta, charmOf, provokers, acceptsAlliance, TALK_TENSION, ensureLeaders } from '../src/domain/leaders.js';
 import { queueTalk, talkOptions, talkLineLists, allTalkLines } from '../src/domain/talk.js';
-import { MORE_LINES } from '../src/domain/talk-v14-2.js';
-import { MORE_HELP_LINES } from '../src/domain/alliances-v14-2.js';
+import { MORE_LINES } from '../src/domain/talk-more-lines.js';
+import { MORE_HELP_LINES } from '../src/domain/alliances-more-lines.js';
 import { helpLineLists, queueHelpRequest, helpPacts, HELP_TURNS, helpTravelTurns, helpJournalText, activeHelpPacts, helpDecision } from '../src/domain/alliances.js';
-import { helpPactsFor, helpPactStatus } from '../src/presentation/v13-ux.js';
-import { recruitUnitDetail, recruitDetailHtml, shipRepairChip, SHIP_REPAIR_TEXT } from '../src/presentation/v14-2-ux.js';
-import { sanitizeJournalEntry, TUTORIAL_GUIDE } from '../src/presentation/v4-ux.js';
-import { journalCategoryClass } from '../src/presentation/v5-ux.js';
+import { helpPactsFor, helpPactStatus } from '../src/presentation/alliances-view.js';
+import { recruitUnitDetail, recruitDetailHtml, shipRepairChip, SHIP_REPAIR_TEXT } from '../src/presentation/recruit-repair-view.js';
+import { sanitizeJournalEntry, TUTORIAL_GUIDE } from '../src/presentation/guide-input.js';
+import { journalCategoryClass } from '../src/presentation/map-orders-view.js';
 import { resolveCombat, normalizeForce } from '../src/domain/combat.js';
 import { assertInvariants } from './helpers/fixtures.js';
 
@@ -64,7 +65,7 @@ test('aide d\'alliance : 5 tours une fois arrivé — le trajet s\'ajoute, le jo
   s.turn = pact.until;
   assert.equal(helpPactStatus(helpPactsFor(s, 'roc-epine')[0]), 'aide sur place : encore 1 tour');
   // Interface : la règle est écrite dans la fenêtre de demande.
-  assert.match(read('app.js'), /dure \$\{HELP_TURNS\} tours <b>une fois ses troupes arrivées<\/b>/);
+  assert.match(readSource('app.js'), /dure \$\{HELP_TURNS\} tours <b>une fois ses troupes arrivées<\/b>/);
 });
 
 test('aide d\'alliance : avant la V14.2, le trajet mangeait l\'aide ; maintenant l\'allié aide vraiment 5 tours sur place', () => {
@@ -351,7 +352,7 @@ test('débarquement : assaillant à 85 % (au lieu de 70 %), affiché partout ave
   assert.match(journalEntry(e, map, 'valmorne').text, /débarquement : assaillant à 85 %/);
   assert.match(journalEntry({ ...e, landingPct: undefined }, map, 'valmorne').text, /assaillant à 70 %/, 'ancien rapport : chiffre de l\'époque');
   assert.match(TUTORIAL_GUIDE.find(x => x.id === 'maritime').text, /combat à 85 %/);
-  assert.doesNotMatch(read('app.js'), /troupes à 70 %/);
+  assert.doesNotMatch(readSource('app.js'), /troupes à 70 %/);
 });
 
 // --- 5. Recrutement ---------------------------------------------------------------------------------------------------------
@@ -375,7 +376,7 @@ test('recrutement : PV et dégâts par lot (fantassins, cavaliers) ou par unité
 });
 
 test('recrutement : ouvrir le détail ne recrute jamais (bouton séparé des + / −, sans effet sur les lots)', () => {
-  const app = read('app.js');
+  const app = readSource('app.js');
   const fn = app.slice(app.indexOf('function openRecruit()'), app.indexOf('function openBuild()'));
   assert.match(fn, /data-unit-info="\$\{key\}"/);
   assert.match(fn, /type="button" class="unit-info-btn"/);
@@ -454,7 +455,7 @@ test('navires en convalescence : expliqué dans la fiche (PV actuels, tours rest
   assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 1000, port: false }), 'p02')), /pas de port construit ici : 100 % dans 10 tours environ \(port construit : 3 à 5 tours\)/);
   assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 0 }), 'p02')), /3 navires de guerre : 2 100 PV \(100 %\)/);
   assert.equal(shipRepairChip(null), '');
-  assert.match(read('app.js'), /shipRepairChip\(safeEngine\(\(\)=>shipRepairInfo\(state,selected,state\.playerNationId\),null\)\)/);
+  assert.match(readSource('app.js'), /shipRepairChip\(safeEngine\(\(\)=>shipRepairInfo\(state,selected,state\.playerNationId\),null\)\)/);
 });
 
 // --- 7. Phrases ---------------------------------------------------------------------------------------------------------------
@@ -492,6 +493,6 @@ test('rapport de conquête : saut de ligne entre le récap et les pertes totales
 });
 
 // --- Version visible -----------------------------------------------------------------------------------------------------------
-test('version 14.2.0 ou suivante (V14.3 : 14.3.0)', () => {
+test('version 14.2.0 ou suivante (V15.0 : 15.0.0)', () => {
   assert.match(JSON.parse(read('package.json')).version, /^14\.([2-9]|\d\d)\.\d+$/);
 });
