@@ -92,7 +92,7 @@ QUI JE SUIS
 Je m'appelle Jack, je suis français, plombier-chauffagiste de métier, et je crée des jeux mobiles à côté avec l'aide de Claude (une IA qui écrit le code). Je suis débutant en informatique. Mon studio s'appelle JS GAMES (micro-entreprise française, SIRET reçu). Contact : scuillerjack@gmail.com. Site du studio : https://scuillerjack-oss.github.io/Jsgames/
 
 LE JEU
-FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 80 tours maximum), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
+FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 40 ou 80 tours), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
 Fichier d'installation : un AAB fabriqué automatiquement par GitHub, téléchargeable ici : https://github.com/scuillerjack-oss/frontieres-arken/releases/download/play/frontieres-arken.aab (il ne s'installe pas en le touchant ; il s'importe dans la Play Console). Il est signé avec ma clé d'importation ; je veux accepter "Signature d'application par Google Play".
 Dépôt GitHub (public) : scuillerjack-oss/frontieres-arken. Les secrets de signature PLAY_UPLOAD_* sont à ranger dans GitHub par moi (le guide docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md de Claude explique comment) : ne t'en occupe pas, sauf si je te demande.
 
