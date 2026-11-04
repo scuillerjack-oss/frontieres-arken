@@ -37,6 +37,13 @@ for (const file of ['index.html', 'sw.js']) {
 // production est demandée avec un identifiant AdMob manquant ou de test. PWA et APK de bêta : bloc inchangé (tout à false).
 const configFile = join(out, 'src', 'presentation', 'play-config.js');
 writeFileSync(configFile, injectPlayConfig(readFileSync(configFile, 'utf8'), playConfig));
+// V15.5 : le joueur Google Play ne voit pas la mention « bêta » sur l'accueil (PWA et APK de bêta : inchangés).
+if (isPlayBuild(process.env)) {
+  const indexPath = join(out, 'index.html');
+  const html = readFileSync(indexPath, 'utf8');
+  if (!html.includes('VERSION BÊTA ')) throw new Error('index.html ne contient pas la mention VERSION BÊTA');
+  writeFileSync(indexPath, html.replace('VERSION BÊTA ', 'VERSION '));
+}
 if (isPlayBuild(process.env)) console.log(`Build Google Play : publicités ${playConfig.testing ? 'TEST' : 'PRODUCTION'}, achats Play Billing actifs`);
 writeFileSync(join(out, '.nojekyll'), '');
 writeFileSync(join(out, 'version.txt'), `${version}\n`);

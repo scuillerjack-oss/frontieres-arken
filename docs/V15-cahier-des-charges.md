@@ -303,3 +303,12 @@ Victoires : bon sens net. Éliminations : Difficile ne dépasse pas Normal pour 
 
 **Vérification** : `npm test` vert, 607 tests. Chrome mobile simulé (Playwright, 390 × 844 tactile), sur le commit donné dans le compte rendu : partie courte choisie à l'écran, 6 vrais tours, reprise au tour 35 et 40 par sauvegarde préparée, alerte, écran de fin au tour 40, palmarès à 1, non doublé après rechargement ni écran rouvert, titres visibles (captures regardées) ; 80 tours affichés comme tels, sans fin au tour 41, sauvegarde en schéma 11 ; sauvegarde schéma 10 reprise ; partie finie sans graine non comptée ; profil sans palmarès, jetons gardés ; tutoriel qui démarre, non compté. 0 erreur JavaScript, 0 débordement.
 - **Non vérifié** : une partie courte réellement jouée à la main du tour 8 au tour 34 ; un vrai téléphone ; le ressenti du mode ; la vraie pub (simulée) ; la relecture par un sous-agent indépendant et les workflows GitHub, restent à faire avant fusion.
+
+### V15.5 — préparation de la fiche Play (04/11/2026)
+
+Hors liste des 7 ajouts : corrections demandées par Jack (« avancer tout ce qui est avançable »), sans changement de règle du jeu.
+- Accords corrigés : « 1 province » sur l'écran de fin et la coalition, « 1 navire » sur les écrans de province et de vision.
+- Fiches française et anglaise à jour (40 ou 80 tours, difficulté, bonus de nation, palmarès, titres).
+- `store/icone-512.png` et `store/banniere-1024x500.png` ajoutées, captures d'accueil et de nouvelle partie refaites.
+- Le build Google Play n'affiche plus « VERSION BÊTA » sur l'accueil ; la PWA et l'APK de bêta le gardent.
+- Rentabilité et `docs/SORTIE-ARKEN.md` mises à jour avec l'état réel.

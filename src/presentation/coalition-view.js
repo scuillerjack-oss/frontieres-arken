@@ -34,7 +34,7 @@ export function coalitionPopups(events, state, nation) {
     if (e.type === 'coalition-formed') out.push({ kind: mine ? 'against' : 'other', kicker: 'COALITION', title: mine ? 'Arken se ligue contre vous' : `Arken se ligue contre ${nation(e.nationId)}`,
       lead: `${list((e.members || []).map(nation))} ${verb((e.members || []).length, 'se dresse', 'se dressent')} contre ${mine ? 'vous' : nation(e.nationId)}.`, text: coalitionRule(mine, nation(e.nationId)) });
     if (e.type === 'coalition-dissolved') out.push({ kind: 'ended', kicker: 'COALITION', title: 'La coalition est dissoute',
-      lead: e.reason === 'eliminated' ? `${nation(e.nationId)} a disparu de la carte.` : e.reason === 'deserted' ? `Plus personne ne fait front contre ${mine ? 'vous' : nation(e.nationId)}.` : `${mine ? 'Vous ne tenez' : `${nation(e.nationId)} ne tient`} plus que ${e.provinces} provinces.`, text: 'Les guerres déjà ouvertes ne s’arrêtent pas d’elles-mêmes.' });
+      lead: e.reason === 'eliminated' ? `${nation(e.nationId)} a disparu de la carte.` : e.reason === 'deserted' ? `Plus personne ne fait front contre ${mine ? 'vous' : nation(e.nationId)}.` : `${mine ? 'Vous ne tenez' : `${nation(e.nationId)} ne tient`} plus que ${e.provinces} province${e.provinces>1?'s':''}.`, text: 'Les guerres déjà ouvertes ne s’arrêtent pas d’elles-mêmes.' });
   }
   return out;
 }

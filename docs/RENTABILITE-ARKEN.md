@@ -105,3 +105,9 @@ Pourquoi 3 pubs par jeton : tout maximiser demande 50 jetons, soit environ 7 sem
 bonus, un joueur très motivé peut aller plus vite (150 pubs pour 50 jetons), mais ça reste un vrai effort ; et chaque pub
 regardée rapporte. Revenu estimé avec cette variante : ~130 € (bas), ~510 € (central), ~1 740 € (haut) par mois pour
 10 000 joueurs actifs (`node tools/economie-v14-4.mjs`, ligne « variante ajustée »).
+
+## Mise à jour V15.5 (04/11/2026)
+
+Calcul relancé (`node tools/economie-v14-4.mjs`) : les prix et la cadence de pub n'ont pas changé depuis la V14.4, donc la base reste **122 € / 435 € / 1 305 € nets par mois pour 10 000 joueurs actifs**. Le coût de fonctionnement reste de 0 €.
+
+Seul effet nouveau : le mode 40 tours peut augmenter le nombre de parties lancées, donc de pubs de début de partie. Si les joueurs lançaient deux fois plus de parties, ce poste gagnerait au plus **+6 € / +35 € / +127 €** par mois. Ce gain n'est pas compté dans la base : aucune donnée réelle ne le confirme. Ces chiffres restent des hypothèses, à remplacer par ceux d'AdMob et de la Play Console après le test fermé.

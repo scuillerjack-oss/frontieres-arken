@@ -48,7 +48,7 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   // V13.4 : bonus réel de la forteresse (lu dans le moteur), troupes alliées stationnées ici, mes troupes chez l'allié.
   const fort=fortInfo(state,selected),fortChip=fort.level?`<span class="info-chip fort-chip">${fort.text}${troops.entrenched?' · troupes cachées':''}</span>`:'';
   const mineHere=!mine&&stationedAt(state,selected,state.playerNationId),unitsText=e=>[['infantry','fantassins'],['cavalry','cavaliers'],['armor','blindés'],['artillery',
-    'artilleurs']].filter(([k])=>e.units?.[k]).map(([k,l])=>`${e.units[k]} ${l}`).concat(e.warships?[`${e.warships} navires`]:[]).join(' · ');
+    'artilleurs']].filter(([k])=>e.units?.[k]).map(([k,l])=>`${e.units[k]} ${l}`).concat(e.warships?[`${e.warships} navire${e.warships>1?'s':''}`]:[]).join(' · ');
   const guestChips=guestsAt(state,selected).filter(e=>e.nationId!==state.playerNationId&&(mine||relation==='alliance')).map(e=>`<span class="info-chip passage-chip">🤝 Renforts ${nation(e.nationId).short} stationnés ici (défendent la province) : ${unitsText(e)}</span>`).join('');
   const mineChip=mineHere?`<span class="info-chip passage-chip">⚔ Vos troupes stationnées ici : ${unitsText(mineHere)}</span>`:'';
   // V14.2 (Jack) : navires en convalescence expliqués, avec PV actuels et tours restants (mes navires, ici ou chez l'allié).
@@ -90,7 +90,7 @@ export function confirmationModal(title,details,onConfirm){actionModal(title,'V�
 function pendingFrom(id){return state.orders.filter(o=>o.status==='pending'&&o.fromId===id).length;}
 export function openPendingOrder(orderId){
   const order=state.orders.find(item=>item.id===orderId&&item.nationId===state.playerNationId&&item.status==='pending');if(!order)return;
-  const amount=Object.entries(order.units||{}).filter(([,n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(order.warships?[`${order.warships} navires`]:[]).join(', ')||'aucune force';
+  const amount=Object.entries(order.units||{}).filter(([,n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(order.warships?[`${order.warships} navire${order.warships>1?'s':''}`]:[]).join(', ')||'aucune force';
   const isAttack=state.provinces[order.toId].ownerId!==state.playerNationId&&!order.passage,isBombard=order.kind==='bombard';
   actionModal(isBombard?'Ordre de bombardement':isAttack?'Ordre d’attaque':'Ordre de déplacement',`${province(order.fromId).name} → ${province(order.toId).name}`,
     `<div class="order-detail"><b>${isBombard?'Bombardement programmé (les navires restent au port)':isAttack?'Attaque programmée':'Déplacement programmé'}</b><span>Forces : ${amount}</span><span>\
@@ -119,14 +119,14 @@ tour)${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landin
   const updateSummary=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),
     ships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0);
     $('#forceSummary').textContent=`${Object.entries(units).filter(([,n])=>n).map(([k,
-    n])=>`${n} ${unitKeys[k].toLowerCase()}`).concat(ships?[`${ships} navires`]:[]).join(' · ')||'Aucune unité sélectionnée'}`;};
+    n])=>`${n} ${unitKeys[k].toLowerCase()}`).concat(ships?[`${ships} navire${ships>1?'s':''}`]:[]).join(' · ')||'Aucune unité sélectionnée'}`;};
   document.querySelectorAll('[data-force]').forEach(i=>i.oninput=updateSummary);
   document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const mode=b.dataset.preset;if(mode==='manual'){document.querySelector('[data-force]')?.focus();return;
     }const chosen=forceSelection(available,mode);for(const k of LAND_UNIT_TYPES)document.querySelector(`[data-force="${k}"]`).value=chosen[k];
     const ws=document.querySelector('[data-force="warships"]');if(ws)ws.value=mode==='100'?available.warships:Math.floor(available.warships/2);updateSummary();});updateSummary();
   $('#confirmMove').onclick=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),
     warships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0),quantity=Object.values(units).reduce((a,b)=>a+b,0)+warships,description=Object.entries(units).filter(([,
-    n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(warships?[`${warships} navires`]:[]).join(', ')||'Aucune force';
+    n])=>n).map(([key,n])=>`${n} ${unitKeys[key].toLowerCase()}`).concat(warships?[`${warships} navire${warships>1?'s':''}`]:[]).join(', ')||'Aucune force';
     if(!quantity)return toast('Sélectionne au moins une unité');
     confirmationModal(attack?'Confirmer l’attaque':passage?'Confirmer le passage':'Confirmer le déplacement',
       `<div class="order-detail"><span>Action : ${attack?'attaquer':passage?`stationner chez ${nation(to.ownerId).short} (allié)`:'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span>\
