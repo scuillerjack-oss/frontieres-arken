@@ -3,6 +3,14 @@
 Pour Jack, depuis le téléphone. Écrit le 31/10/2026 (V14.4). Les étapes sont dans l'ordre : ne saute pas d'étape.
 Si un écran ne ressemble pas à ce qui est décrit, **fais une capture d'écran** et envoie-la à Claude (ou à ChatGPT avec le bloc à la fin de ce document). Google change souvent ses menus.
 
+## État réel au 04/11/2026 (V15.5)
+
+- **Blocage n°1, côté Jack :** aucun AAB n'a encore été fabriqué. Le workflow « AAB Google Play » se termine en vert mais saute toutes ses étapes, faute de clé d'importation. Il faut ranger les 4 secrets `PLAY_UPLOAD_*` (Étape 1). La fabrication repart ensuite à la prochaine fusion dans `main` ou en lançant le workflow à la main.
+- **Prêts dans `store/` :** icône 512, bannière 1024×500, 6 captures, fiches française et anglaise. La fiche mentionne le mode 40 tours.
+- **Rentabilité :** recalculée pour la V15.5 (`docs/RENTABILITE-ARKEN.md`).
+- **Nouveau côté Google (annonce du 29/10/2026) :** la Play Console demande de déclarer le statut de professionnel (« trader ») à partir de novembre 2026.
+- **Pas encore vérifié :** vrai téléphone, vraie pub, ressenti du mode 40 tours. Faiblesses connues à juger en bêta : Valmorne et Oroël gagnent moins de 10 % des parties de 40 tours en simulation.
+
 ## 1. Ce qui est prêt (fait par Claude)
 
 - **Publicités (AdMob), dans la version Google Play seulement.** Une pub au début d'une nouvelle partie, une pub facultative pour la mission « publicité ».
@@ -11,7 +19,7 @@ Si un écran ne ressemble pas à ce qui est décrit, **fais une capture d'écran
 - **Achats (Google Play Billing), dans la version Google Play seulement.** Quatre produits (voir plus bas). Les jetons ne sont crédités qu'après la confirmation de Google, sauvegardés, puis seulement alors l'achat est « consommé ». Si l'appli est fermée en plein achat, le jeu récupère l'achat au lancement suivant : un joueur ne perd jamais ses jetons. Un paiement « en attente » ne donne rien tant que Google ne l'a pas validé. On ne peut jamais acheter d'or ni de troupes.
 - **La PWA et l'APK de bêta ne changent pas** : aucune vraie pub, aucun achat, aucun plugin Google dedans.
 - **Identifiants de TEST Google** utilisés tant que tu n'as pas fourni les vrais. Le résumé du travail GitHub « AAB Google Play » affiche « Publicités : TEST » ou « Publicités : PRODUCTION ». Si on demande la production avec un identifiant manquant ou de test, le build **échoue exprès** (pour ne jamais publier de fausses pubs).
-- **Fiche Play Store** dans le dossier `store/` : textes français et anglais, classification, sécurité des données. L'icône 512, la bannière et les captures sont préparées par le chef de projet.
+- **Fiche Play Store** dans le dossier `store/` : textes français et anglais, classification, sécurité des données. L'icône 512 (`store/icone-512.png`), la bannière (`store/banniere-1024x500.png`) et les captures (`store/captures/`) sont dans le même dossier.
 - **Politique de confidentialité** : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html (publiée par le chef de projet sur le site du studio).
 
 ### Les 4 produits intégrés (identifiants à recopier EXACTEMENT)
@@ -84,7 +92,7 @@ QUI JE SUIS
 Je m'appelle Jack, je suis français, plombier-chauffagiste de métier, et je crée des jeux mobiles à côté avec l'aide de Claude (une IA qui écrit le code). Je suis débutant en informatique. Mon studio s'appelle JS GAMES (micro-entreprise française, SIRET reçu). Contact : scuillerjack@gmail.com. Site du studio : https://scuillerjack-oss.github.io/Jsgames/
 
 LE JEU
-FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 80 tours maximum), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
+FRONTIÈRES: ARKEN : jeu de stratégie au tour par tour (5 nations, 20 provinces, parties de 40 ou 80 tours), gratuit, pour Android. Application emballée avec Capacitor. Nom de package exact : io.github.scuillerjackoss.frontieresarken. Politique de confidentialité (publiée par Claude) : https://scuillerjack-oss.github.io/Jsgames/politique-de-confidentialite-arken.html
 Fichier d'installation : un AAB fabriqué automatiquement par GitHub, téléchargeable ici : https://github.com/scuillerjack-oss/frontieres-arken/releases/download/play/frontieres-arken.aab (il ne s'installe pas en le touchant ; il s'importe dans la Play Console). Il est signé avec ma clé d'importation ; je veux accepter "Signature d'application par Google Play".
 Dépôt GitHub (public) : scuillerjack-oss/frontieres-arken. Les secrets de signature PLAY_UPLOAD_* sont à ranger dans GitHub par moi (le guide docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md de Claude explique comment) : ne t'en occupe pas, sauf si je te demande.
 

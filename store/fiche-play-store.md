@@ -2,7 +2,7 @@
 
 Les lignes juste sous les commentaires `<!-- ... -->` sont à copier telles quelles dans la Play Console
 (Croissance > Présence sur le Play Store > Fiche principale). Les longueurs sont vérifiées par `npm test`.
-Captures (1080x1920), icône 512 et bannière 1024x500 : générées par le chef de projet, hors de ce fichier.
+Captures (1080x1920), icône 512 et bannière 1024x500 : dans ce dossier `store/`.
 
 ## Nom de l'application (30 caractères max)
 <!-- titre -->
@@ -19,7 +19,8 @@ FRONTIÈRES: ARKEN est un jeu de stratégie au tour par tour pour téléphone. C
 UNE PARTIE, DES CHOIX
 • Choisis ta nation parmi cinq : le Royaume de Valmorne, la Confédération de Roc-Épine, l'Empire de Noireflamme, la Ligue d'Oroël et l'Alliance de Solmara
 • Les ordres de tous les dirigeants sont joués en même temps à chaque tour
-• Une partie dure au maximum 80 tours : tu avances à ton rythme et tu peux reprendre ta partie où tu l'as laissée
+• Une partie longue de 80 tours ou une partie courte de 40 tours : tu avances à ton rythme et tu reprends où tu t'es arrêté
+• Plusieurs niveaux de difficulté, un bonus propre à chaque nation, un palmarès et des titres à débloquer
 • Aucune course contre la montre : le jeu attend que tu aies fini de réfléchir
 
 ARMÉES, MER ET FORTERESSES

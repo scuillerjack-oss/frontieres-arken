@@ -31,7 +31,7 @@ export function provinceTroopView(state, map, provinceId, nationId = state.playe
   const allies = [...new Set(guests.map(e => e.nationId))];
   return { known: true, entrenched: false, visible: true, empty, wounded: regiment.wounded, text: empty ? 'Régiment : aucune troupe' : regimentText(regiment), composition, note: '',
     guests: allies, guestNote: allies.length ? `Dont renforts alliés stationnés : ${guests.map(e => `${Object.entries(e.units || {}
-      ).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${SHORT[k]?.[n > 1 ? 1 : 0] || k}`).concat(e.warships ? [`${e.warships} navires`] : []).join(' · ')}`).join(' ; ')}` : '' };
+      ).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${SHORT[k]?.[n > 1 ? 1 : 0] || k}`).concat(e.warships ? [`${e.warships} navire${e.warships>1?'s':''}`] : []).join(' · ')}`).join(' ; ')}` : '' };
 }
 
 /** Ensemble des provinces dont le joueur voit les troupes (pour les icônes de la carte). */
