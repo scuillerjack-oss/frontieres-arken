@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
+    "campagne": "node scripts/campagne.js 300 long",
+    "campagne:ecran": "node scripts/campagne-ecran.mjs",
     "build": "node scripts/build.js",
     "android:prepare": "node scripts/build.js && npx cap add android && node scripts/android-prepare.js"
   },
