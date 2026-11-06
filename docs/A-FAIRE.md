@@ -19,4 +19,4 @@ Retours de bêta de Jack, dès qu'il y en a.
 
 ## Fait
 - 04/11/2026 : V15.5 fusionnée (Pull Request #26).
-- 06/11/2026 : relecture indépendante de V15.1 à V15.5, rien de bloquant ; bug du palmarès recompté après import corrigé en V15.5.1 (voir `docs/V15-cahier-des-charges.md`).
+- 06/11/2026 : relecture indépendante de V15.1 à V15.5, rien de bloquant (V15.5.1) (voir `docs/V15-cahier-des-charges.md`).

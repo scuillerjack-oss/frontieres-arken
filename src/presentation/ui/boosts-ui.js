@@ -5,14 +5,13 @@ import {
   recordAdWatched, recordBonusAd, upgradeBoost
 } from '../../domain/profile.js';
 import { showRewardedAd } from '../ads.js';
-import { markGameCounted } from '../../domain/palmares.js';
 import { quietDuring } from './audio.js';
 import { boostScreenHtml } from '../boosts-screen.js';
 import { initPlay } from '../play.js';
 import { todayLocal } from '../profile-storage.js';
 import { BILLING_ENABLED, purchase, restorePurchases } from '../store.js';
 import { $, toast } from './base.js';
-import { applyBoosts, load, profile, save, saveMyProfile, setProfile, state } from './session.js';
+import { applyBoosts, profile, save, saveMyProfile, setProfile, state } from './session.js';
 import { escapeHtml } from './talk-screen.js';
 import { tutoStep } from './tutorials.js';
 
@@ -62,5 +61,5 @@ function restoreProfileView(){
   $('#boostBody').innerHTML=`<p>Colle ici le texte copié avec « Copier mon profil ». Il remplacera le profil de cet appareil (jetons, atouts, achats). Ta partie en cours n’est pas touchée.</p>\
 <textarea id="restoreText" rows="6" placeholder="ARKEN-PROFIL-1:…"></textarea><div class="confirm-actions"><button class="cancel" id="restoreBack">Retour</button><button class="primary" id="restoreGo">Restaurer</button></div>`;
   $('#restoreBack').onclick=openBoosts;
-  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);markGameCounted(r.profile,state||load());setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
+  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }

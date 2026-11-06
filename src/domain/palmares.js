@@ -54,17 +54,6 @@ export function gameRecordId(state) {
   const seed = state?.seed;
   return typeof seed === 'string' && seed && seed !== DEFAULT_SEED ? seed : null;
 }
-/**
- * V15.5.1 : après l'import d'un profil, la partie finie déjà sauvegardée sur cet appareil ne doit pas être comptée une seconde
- * fois en rouvrant l'écran de fin. On la note comme déjà comptée, sans toucher aux chiffres du palmarès importé.
- */
-export function markGameCounted(profile, state) {
-  if (!profile || !state?.gameOver) return;
-  const id = gameRecordId(state);
-  if (!id) return;
-  const p = profile.palmares = sanitizePalmares(profile.palmares);
-  if (!p.counted.includes(id)) p.counted = [...p.counted, id].slice(-COUNTED_MEMORY);
-}
 /** Faits de fin de partie, lus dans l'état (rien n'est écrit dans l'état). */
 function factsOf(state) {
   const go = state.gameOver, me = state.playerNationId, marks = Array.isArray(state.story?.marks) ? state.story.marks : [];
