@@ -35,7 +35,7 @@ const raw = p => readFileSync(join(root, p), 'utf8');
 const FR_TEXTS = ['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'tuto'].map(n => `src/i18n/fr/${n}.js`);
 /** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur (et leurs textes). */
 export function readSource(p) {
-  const files = p === 'app.js' ? [...appFiles(), ...FR_TEXTS] : p === 'src/domain/game-engine.js' ? [...engineFiles(), ...FR_TEXTS] : [p];
+  const files = p === 'app.js' ? [...appFiles(), ...FR_TEXTS] : p === 'src/domain/game-engine.js' ? engineFiles() : [p];
   return files.map(raw).join('\n');
 }
 
