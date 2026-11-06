@@ -9,6 +9,7 @@ import journal from './fr/journal.js';
 import sheet from './fr/sheet.js';
 import diplo from './fr/diplo.js';
 import tuto from './fr/tuto.js';
+import story from './fr/story.js';
 import talkA from './fr/talk-a.js';
 import talkB from './fr/talk-b.js';
 import talkC from './fr/talk-c.js';
@@ -16,5 +17,5 @@ import talkD from './fr/talk-d.js';
 import talkE from './fr/talk-e.js';
 import talkF from './fr/talk-f.js';
 
-export const PARTS = Object.freeze({ core, engine, domain, journal, uiA, uiB, sheet, diplo, tuto, talkA, talkB, talkC, talkD, talkE, talkF });
+export const PARTS = Object.freeze({ core, engine, domain, journal, uiA, uiB, sheet, diplo, tuto, story, talkA, talkB, talkC, talkD, talkE, talkF });
 export default Object.freeze(Object.assign({}, ...Object.values(PARTS)));

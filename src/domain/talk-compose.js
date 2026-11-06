@@ -15,7 +15,7 @@ import { gameLengthOf, scaleTurn } from './game-length.js';
 import { chance, archetypeOf, atWar, treatyOf, getTension } from './leaders.js';
 import { visibleProvinces } from './vision.js';
 import { hashString } from './profile.js';
-import { t, tl, withLanguage } from '../i18n/i18n.js';
+import { deFr, t, tl, withLanguage } from '../i18n/i18n.js';
 
 export const SAID_MEMORY = 400;     // textes retenus par dirigeant (une partie de 80 tours en publie bien moins)
 export const CORE_MEMORY = 40;      // fonds retenus par dirigeant (anti-répétition du fond, en plus des 6 derniers messages)
@@ -31,12 +31,9 @@ const fragments = (kind, lang = 'fr') => Object.freeze(Object.fromEntries(TRAITS
 const OPENINGS = fragments('open');
 const CLOSINGS = fragments('close');
 
-// --- Français : élisions, pluriels ------------------------------------------------------------------------------
-const VOWEL = /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂHaeiouyéèêîïôöûüàâh]/;
-const H_ASPIRE = /^(Haut|Hau)/; // « de Haut-Bois », pas « d’Haut-Bois »
-/** « de Branvale », « d’Îlebrume », « de Haut-Bois ». */
-export const deName = name => VOWEL.test(name) && !H_ASPIRE.test(name) ? `d’${name}` : `de ${name}`;
-const plural = (n, one, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+// --- Français : élisions ------------------------------------------------------------------------------------------
+/** « de Branvale », « d’Îlebrume », « de Haut-Bois » (V16 : règle commune, src/i18n/i18n.js). */
+export const deName = deFr;
 const roundDown = n => n >= 100 ? Math.floor(n / 50) * 50 : Math.floor(n / 10) * 10;
 
 // --- Contexte réel ------------------------------------------------------------------------------------------------

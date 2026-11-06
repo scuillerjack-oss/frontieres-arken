@@ -31,9 +31,9 @@ const raw = (key, lang = current) => { const d = DICTS[lang]; return d && Object
 export const hasKey = (key, lang = current) => raw(key, lang) !== undefined;
 const lookup = key => { const v = raw(key); return v !== undefined ? v : raw(key, DEFAULT_LANGUAGE); };
 
-const VOWEL = /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂaeiouyéèêîïôöûüàâ]/;
-/** Élision française : « de Valmorne », « d’Oroël », « d’Îlebrume » (pas d’élision devant un h : « de Haut-Bois »). */
-export const deFr = name => VOWEL.test(String(name)) ? `d’${name}` : `de ${name}`;
+const VOWEL = /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂHaeiouyéèêîïôöûüàâh]/, H_ASPIRE = /^(Haut|Hau)/;
+/** Élision française : « de Valmorne », « d’Oroël », « d’Îlebrume », mais « de Haut-Bois » (h aspiré). */
+export const deFr = name => VOWEL.test(String(name)) && !H_ASPIRE.test(String(name)) ? `d’${name}` : `de ${name}`;
 /** Nombre lisible : « 2 100 » en français, « 2,100 » en anglais. */
 export function num(n, lang = current) {
   const v = Number(n); if (!Number.isFinite(v)) return String(n ?? '');

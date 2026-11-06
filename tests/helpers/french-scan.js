@@ -53,6 +53,8 @@ export function stringLiterals(src) {
   return out;
 }
 
+// Mots français (sans équivalent identique en anglais) qui suffisent seuls à repérer un libellé : « Recruter », « Annuler »…
+const SINGLE = /\b(annuler|fermer|retour|suivant|recruter|construire|diplomatie|infanterie|cavalerie|artillerie|banque|usine|neutre|amical|amicale|envoyer|attaquer|calme|tendu|oui|non|passer|compris|aucun|aucune|rejouer|continuer|jouer|partie|tour|tours|navire|navires|forteresse|trésor|tresor|allié|alliée|alliés|guerre|trêve|treve|paix|joueur|niveau|facile|difficile|courte|complète|atouts|jetons|jeton|palmarès|titres|missions?\s|nation\s|vos|votre|vous|nous|notre|nos|pour|avec|sans|dans|chez)\b/i;
 // Noms propres du jeu (identiques dans toutes les langues) : ils ne rendent pas une chaîne « française ».
 export const PROPER_NOUNS = Object.freeze(['FRONTIÈRES', 'Roc-Épine', 'Oroël', 'Grèsrouge', 'Cornérive', 'Nordhème', 'Îlebrume', 'Tréfond', 'Valdoré', 'Lunémont']);
 /** La chaîne ressemble-t-elle à du français visible ? (accent, ou au moins deux mots français courants). */
@@ -60,6 +62,8 @@ export function looksFrench(text) {
   let plain = text.replace(/<[^>]*>/g, ' ').replace(/\$\{[^}]*\}/g, ' ');
   for (const n of PROPER_NOUNS) plain = plain.split(n).join(' ');
   if (ACCENTS.test(plain)) return true;
+  // Identifiant (un seul mot en minuscules, tirets permis : « neutre », « nos-troupes ») : pas un texte affiché.
+  if (SINGLE.test(plain) && !/^[a-z0-9-]+$/.test(plain.trim())) return true;
   const words = plain.match(WORDS) || [];
   return words.length >= 2 && /\s/.test(plain.trim());
 }
