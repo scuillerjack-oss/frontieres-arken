@@ -24,7 +24,7 @@ export { STATION_MIN_TURNS } from './engine/ai-help.js';
 export { coalitionTargetFor, dominantNation, joinsCoalition, updateCoalition } from './engine/coalition.js';
 export { GARRISON_MEMORY_TURNS, planAIOrders, rememberedGarrison } from './engine/ai.js';
 export {
-  buildPermanentJournal, buildTurnJournal, eventInvolvesNation, eventKnownToPlayer, journalEntry
+  buildPermanentJournal, buildTurnJournal, eventInvolvesNation, eventKnownToPlayer, journalEntry, journalTypeLabel, localizeJournal
 } from './engine/journal.js';
 export { capitalsVictor, checkGameOver, gameRanking, nextTurn, resolveInterturn } from './engine/turn.js';
 

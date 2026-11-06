@@ -2,7 +2,7 @@
 
 import { RULES } from '../../domain/constants.js';
 import { aiGoldPct, difficultyLabel, difficultyOf } from '../../domain/difficulty.js';
-import { journalEntry, nextTurn } from '../../domain/game-engine.js';
+import { journalEntry, journalTypeLabel, localizeJournal, nextTurn } from '../../domain/game-engine.js';
 import { gameLengthOf } from '../../domain/game-length.js';
 import { nationBonusInfo } from '../../domain/nations.js';
 import { recordFinishedGame } from '../../domain/palmares.js';
@@ -27,10 +27,11 @@ import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutoria
 import { playTurnAnimation } from './turn-anim.js';
 
 export function renderJournal(permanent=false){
-  const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
+  // V16 : entrées réécrites dans la langue du joueur à partir de leurs événements (localizeJournal), type traduit à l'affichage.
+  const entries=localizeJournal(state,map,(permanent?state.chronicle:state.turnJournal||state.journal||[])).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
   $('#journalDialog').dataset.permanent=permanent?'true':'false';$('#journalMode').textContent=permanent?'JOURNAL PERMANENT':'RÉCAPITULATIF INTER-TOUR';
   $('#journalTabs').innerHTML=`<button data-journal="recent" class="${permanent?'':'active'}">Inter-tour</button><button data-journal="history" class="${permanent?'active':''}">Historique</button>`;
-  $('#journalBody').innerHTML=entries.length?entries.map(e=>`<div class="journal-entry ${journalCategoryClass(e.type)}"><small>${e.type||'Événement'}</small><div>${e.text}</div>\
+  $('#journalBody').innerHTML=entries.length?entries.map(e=>`<div class="journal-entry ${journalCategoryClass(e.type)}"><small>${journalTypeLabel(e.type)}</small><div>${e.text}</div>\
 </div>`).join(''):'<div class="journal-entry neutral"><small>Calme</small><div>Aucun événement important à signaler.</div></div>';
   document.querySelectorAll('[data-journal]').forEach(b=>b.onclick=()=>renderJournal(b.dataset.journal==='history'));
   $('#journalDialog').showModal();if(!permanent)tutorial('history','Deux journaux','Le récapitulatif inter-tour montre les événements importants. L’historique garde le détail connu des productions et du monde.');

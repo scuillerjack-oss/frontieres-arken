@@ -19,7 +19,7 @@ export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 
 
 /** V16 : modules de traduction (purs) : moteur, dictionnaires assemblés et leurs parties. Lus par tests/i18n.test.js. */
 export const I18N_MODULES = Object.freeze(['src/i18n/i18n.js', 'src/i18n/fr.js', 'src/i18n/en.js',
-  ...['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'tuto', 'talk-a', 'talk-b', 'talk-c', 'talk-d', 'talk-e', 'talk-f'].flatMap(p => [`src/i18n/fr/${p}.js`, `src/i18n/en/${p}.js`])]);
+  ...['core', 'engine', 'domain', 'journal', 'ui-a', 'ui-b', 'sheet', 'diplo', 'tuto', 'talk-a', 'talk-b', 'talk-c', 'talk-d', 'talk-e', 'talk-f'].flatMap(p => [`src/i18n/fr/${p}.js`, `src/i18n/en/${p}.js`])]);
 
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
@@ -32,7 +32,7 @@ const raw = p => readFileSync(join(root, p), 'utf8');
 
 // V16 : les textes affichés vivent dans src/i18n/fr/… (et en/…). Les tests plus anciens qui vérifient qu'un texte
 // français est bien présent dans « app.js » ou dans le moteur lisent donc aussi les dictionnaires français.
-const FR_TEXTS = ['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'tuto'].map(n => `src/i18n/fr/${n}.js`);
+const FR_TEXTS = ['core', 'engine', 'domain', 'journal', 'ui-a', 'ui-b', 'sheet', 'diplo', 'tuto'].map(n => `src/i18n/fr/${n}.js`);
 /** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur (et leurs textes). */
 export function readSource(p) {
   const files = p === 'app.js' ? [...appFiles(), ...FR_TEXTS] : p === 'src/domain/game-engine.js' ? engineFiles() : [p];
