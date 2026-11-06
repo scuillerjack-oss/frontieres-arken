@@ -67,3 +67,15 @@ export function tl(key, lang = current) {
 }
 /** Dictionnaires (tests). */
 export const dictionaries = () => DICTS;
+
+// --- Aides communes (libellés lus dans core.js) -------------------------------------------------------------------
+/** Libellé de tension à partir de son IDENTIFIANT français (« calme », « au bord de la guerre »… : rangé dans les événements). */
+const TENSION_KEYS = { 'calme': 'calme', 'tendu': 'tendu', 'hostile': 'hostile', 'au bord de la guerre': 'bord', 'en guerre': 'guerre' }; // i18n-id
+export const tensionLabelText = label => TENSION_KEYS[label] ? t(`tension.${TENSION_KEYS[label]}`) : String(label ?? '');
+/** « 3 fantassins », « 1 navire »… */
+export const unitCount = (type, n) => hasKey(`unit.${type}.count`, DEFAULT_LANGUAGE) ? t(`unit.${type}.count`, { n }) : `${n} ${type}`;
+/** Liste lisible « A, B et C » / « A, B and C ». */
+export function joinList(items) {
+  const a = items.filter(x => x !== undefined && x !== null && x !== '').map(String);
+  return a.length <= 1 ? (a[0] || '') : `${a.slice(0, -1).join(t('common.listSep'))} ${t('common.and')} ${a.at(-1)}`;
+}

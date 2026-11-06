@@ -17,6 +17,10 @@ export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', '
 /** V15.4 : nouveaux modules du domaine, lus par tests/v15-4.test.js (purs, sans date). */
 export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 'src/domain/palmares.js']);
 
+/** V16 : modules de traduction (purs) : moteur, dictionnaires assemblés et leurs parties. Lus par tests/i18n.test.js. */
+export const I18N_MODULES = Object.freeze(['src/i18n/i18n.js', 'src/i18n/fr.js', 'src/i18n/en.js',
+  ...['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'talk-a', 'talk-b', 'talk-c', 'talk-d', 'talk-e', 'talk-f'].flatMap(p => [`src/i18n/fr/${p}.js`, `src/i18n/en/${p}.js`])]);
+
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
   if (present.join() !== [...names].sort().join()) throw new Error(`${dir} : liste à tenir à jour dans tests/helpers/sources.js`);

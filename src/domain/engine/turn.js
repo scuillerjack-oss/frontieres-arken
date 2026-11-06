@@ -120,7 +120,7 @@ function resolveTalk(state, map, locked, eventStart) {
   const talkOrders = locked.filter(o => o.kind === 'talk').sort((a, b) => a.nationId.localeCompare(b.nationId) || String(a.to ?? '').localeCompare(String(b.to ?? '')) || String(a.id).localeCompare(String(b.id)));
   for (const o of talkOrders) {
     if (state.nations[o.nationId]?.eliminated || (o.to && state.nations[o.to]?.eliminated)) continue;
-    const msg = publishTalk(state, { from: o.nationId, to: o.to ?? null, tone: o.tone, text: o.text, replyTo: o.replyTo ?? null, core: o.core ?? null });
+    const msg = publishTalk(state, { from: o.nationId, to: o.to ?? null, tone: o.tone, text: o.text, replyTo: o.replyTo ?? null, core: o.core ?? null, ref: o.ref ?? null });
     answerProposals(state, msg);
     published.push(msg);
   }

@@ -15,49 +15,21 @@ import { gameLengthOf, scaleTurn } from './game-length.js';
 import { chance, archetypeOf, atWar, treatyOf, getTension } from './leaders.js';
 import { visibleProvinces } from './vision.js';
 import { hashString } from './profile.js';
+import { t, tl, withLanguage } from '../i18n/i18n.js';
 
 export const SAID_MEMORY = 400;     // textes retenus par dirigeant (une partie de 80 tours en publie bien moins)
 export const CORE_MEMORY = 40;      // fonds retenus par dirigeant (anti-répétition du fond, en plus des 6 derniers messages)
 export const COMPOSED_MAX = 250;    // longueur maximale (téléphone) : la chute saute si le message serait trop long
 
 // --- Fragments ------------------------------------------------------------------------------------------------
-// Trait : conquerant, heros, batisseur, traitre ; « joueur » = la nation humaine (pas de trait). Aucun nom propre
-// (le fond nomme déjà le destinataire), apostrophes typographiques, espace avant « ? ! : ».
-const OPENINGS = Object.freeze({
-  conquerant: {
-    hostile: ['Écoutez bien.', 'Soyons brefs.', 'Je ne le répéterai pas.', 'Assez de mots.', 'Voici ma réponse.', 'Retenez ceci.'],
-    neutre: ['Soit.', 'Je vous écoute.', 'Parlons franchement.', 'Allons droit au but.', 'Je prends note.', 'Bien.'],
-    amical: ['Pour une fois, soit.', 'Je vous accorde ceci.', 'Voilà qui est sage.', 'Vous me plaisez, aujourd’hui.', 'Cela me convient.', 'Bien parlé.']
-  },
-  heros: {
-    hostile: ['Je ne me tairai pas.', 'L’honneur m’oblige à parler.', 'Ceci est un avertissement.', 'La justice ne dort jamais.', 'Je vous le dis en face.', 'Écoutez la voix de l’honneur.'],
-    neutre: ['Avec franchise.', 'Je vous réponds loyalement.', 'Parlons avec honneur.', 'Je vous écoute, comme toujours.', 'Voici ma parole.', 'En toute sincérité.'],
-    amical: ['Mon ami.', 'Quelle joie de vous lire !', 'Avec tout mon cœur.', 'Votre parole me touche.', 'C’est un honneur.', 'Je vous salue chaleureusement.']
-  },
-  batisseur: {
-    hostile: ['À regret.', 'Je préférerais bâtir que me fâcher.', 'Calmement, mais fermement.', 'Ce n’est pas ma manière, pourtant.', 'Mes chantiers attendront un instant.', 'Sans colère, mais sans détour.'],
-    neutre: ['Posément.', 'Prenons le temps.', 'Pierre après pierre.', 'Avec mesure.', 'Réfléchissons ensemble.', 'Pesons nos mots.'],
-    amical: ['Avec plaisir.', 'Bâtissons ensemble.', 'Que nos chantiers prospèrent !', 'Voilà une bonne nouvelle.', 'La paix nous va bien.', 'Volontiers.']
-  },
-  traitre: {
-    hostile: ['Le masque tombe.', 'Assez de sourires.', 'Vous l’avez cherché.', 'Plus besoin de feindre.', 'Voici la vérité.', 'Fini les politesses.'],
-    neutre: ['Intéressant.', 'Voyons cela.', 'Tout se négocie.', 'Restons discrets.', 'Je réfléchis.', 'Peut-être.'],
-    amical: ['Très cher ami.', 'Comme vous êtes avisé !', 'Vous avez toute ma confiance.', 'Quel plaisir sincère !', 'Entre nous, en toute amitié.', 'Mon fidèle ami.']
-  },
-  joueur: {
-    hostile: ['Écoutez-moi bien.', 'Soyons clairs.', 'Je serai direct.', 'Prenez garde.', 'Voici notre position.', 'Assez tergiversé.'],
-    neutre: ['Parlons franchement.', 'Une remarque.', 'Restons calmes.', 'Pour mémoire.', 'Simplement ceci.', 'Mettons les choses au point.'],
-    amical: ['Avec respect.', 'Salutations amicales.', 'En toute amitié.', 'Avec estime.', 'Recevez notre salut.', 'Bonne nouvelle.']
-  }
-});
-const CLOSINGS = Object.freeze({
-  conquerant: { hostile: ['La force tranchera.', 'Mes armées sont prêtes.', 'Vous voilà prévenus.'], neutre: ['Je jugerai sur les actes.', 'Le temps dira qui a raison.', 'Nous verrons bien.'], amical: ['Ne me décevez pas.', 'Restez de mon côté.', 'Cela vous honore.'] },
-  heros: { hostile: ['Les peuples d’Arken nous regardent.', 'L’honneur sera vengé.', 'Je défendrai les faibles.'], neutre: ['Ma parole est donnée.', 'Je reste vigilant.', 'Que la justice nous guide.'], amical: ['Comptez sur moi.', 'Mon épée est à vos côtés.', 'Que la paix vous garde.'] },
-  batisseur: { hostile: ['Ne m’obligez pas à poser l’outil.', 'Mes murs sont solides.', 'La patience a ses limites.'], neutre: ['Chaque chose en son temps.', 'La sagesse commande d’attendre.',
-    'Rien ne presse.'], amical: ['Que nos peuples prospèrent.', 'Construisons l’avenir.', 'Vous serez toujours le bienvenu.'] },
-  traitre: { hostile: ['Vous auriez dû vous méfier.', 'Chacun ses intérêts.', 'Le jeu ne fait que commencer.'], neutre: ['Tout dépendra de vous.', 'Nous en reparlerons.', 'Rien n’est figé.'], amical: ['Vous pouvez me croire.', 'Je ne l’oublierai pas.', 'Ensemble, rien ne nous arrête.'] },
-  joueur: { hostile: ['Vous voilà prévenus.', 'Nous ne reculerons pas.', 'Méditez cela.'], neutre: ['À vous de voir.', 'Nous restons attentifs.', 'Le reste suivra.'], amical: ['Au plaisir de vous lire.', 'Nos portes vous restent accueillantes.', 'Gardons ce cap.'] }
-});
+// V16 : les ouvertures et les chutes vivent dans src/i18n/{fr,en}/talk-f.js (« compose.open.<trait>.<ton> »,
+// « compose.close.<trait>.<ton> »). Le moteur compose en FRANÇAIS (texte de référence rangé dans la sauvegarde) et
+// retient les numéros de variantes (`ref`) pour réafficher le message dans la langue du joueur (talkText).
+// Trait : conquerant, heros, batisseur, traitre ; « joueur » = la nation humaine (pas de trait).
+const TRAITS = ['conquerant', 'heros', 'batisseur', 'traitre', 'joueur'], TONE_IDS = ['hostile', 'neutre', 'amical'];
+const fragments = (kind, lang = 'fr') => Object.freeze(Object.fromEntries(TRAITS.map(tr => [tr, Object.freeze(Object.fromEntries(TONE_IDS.map(to => [to, tl(`compose.${kind}.${tr}.${to}`, lang)])))])));
+const OPENINGS = fragments('open');
+const CLOSINGS = fragments('close');
 
 // --- Français : élisions, pluriels ------------------------------------------------------------------------------
 const VOWEL = /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂHaeiouyéèêîïôöûüàâh]/;
@@ -83,42 +55,38 @@ function facing(state, map, from, to) {
  * Éléments de contexte disponibles (vrais) pour `from` → `to` au ton `tone` : [{ id, text }]. Au moins un (le tour).
  * Exporté pour les tests.
  */
+/** V16 : texte d'un fragment de contexte dans la langue courante (« 3 tours », « 1 province » accordés ici). */
+export const contextText = (key, params = {}) => t(key, { ...params, ...(params.n !== undefined ? { turns: t('common.turns', { n: params.n }), provinces: t('common.provinces', { n: params.n }) } : {}) });
 export function contextFragments(state, map, { from, to = null, tone }) {
-  const T = state.turn || 1, out = [], add = (id, byTone) => out.push({ id, text: byTone[tone] || byTone.neutre });
+  const T = state.turn || 1, out = [];
+  // V16 : chaque fragment = clé de traduction + paramètres ; `text` = texte français (référence).
+  const add = (id, key, params = {}) => { const k = `ctx.${key}.${TONE_IDS.includes(tone) ? tone : 'neutre'}`; out.push({ id, key: k, params, text: withLanguage('fr', () => contextText(k, params)) }); };
   const left = gameLengthOf(state) - T;
-  if (left > 0 && left <= scaleTurn(state, 10)) add('fin', { hostile: `Plus que ${plural(left, 'tour')} : le temps vous est compté.`, neutre: `Plus que ${plural(left, 'tour')} avant la fin : chacun fait ses comptes.`, amical: `Plus que ${plural(left, 'tour')} : finissons-les en bons termes.` });
-  else add('tour', { hostile: `Nous voici au tour ${T}, et notre patience s’use.`, neutre: `Nous sommes au tour ${T} : rien n’est encore joué.`, amical: `Au tour ${T}, notre estime reste intacte.` });
+  if (left > 0 && left <= scaleTurn(state, 10)) add('fin', 'fin', { n: left });
+  else add('tour', 'tour', { n: T });
   if (to) {
     const war = (state.diplomacy?.wars || []).find(w => w.active !== false && w.participants?.includes(from) && w.participants?.includes(to));
     const ally = treatyOf(state, from, to, 'alliance'), truce = treatyOf(state, from, to, 'ceasefire');
-    if (war && atWar(state, from, to)) { const k = since(state, war.started); add('guerre', k
-      ? { hostile: `Voilà ${plural(k, 'tour')} que nos nations sont en guerre, et nous tenons.`, neutre: `Notre guerre dure depuis ${plural(k, 'tour')}.`, amical: `Après ${plural(k, 'tour')} de guerre, parlons enfin.` }
-      : { hostile: 'Notre guerre ne fait que commencer.', neutre: 'Notre guerre vient de commencer.', amical: 'Notre guerre vient de commencer ; elle peut encore s’arrêter.' }); }
-    else if (ally) { const k = since(state, ally.started); add('alliance', k
-      ? { hostile: `Notre alliance a ${plural(k, 'tour')} : ne la gâchez pas.`, neutre: `Notre alliance tient depuis ${plural(k, 'tour')}.`, amical: `Notre alliance tient depuis ${plural(k, 'tour')}, c’est une fierté.` }
-      : { hostile: 'Notre alliance est toute neuve : ne la gâchez pas.', neutre: 'Notre alliance vient d’être conclue.', amical: 'Notre alliance vient d’être conclue, c’est une fierté.' }); }
-    else if (truce) { const k = since(state, truce.started); add('treve', k
-      ? { hostile: `Notre trêve n’a que ${plural(k, 'tour')} : elle reste fragile.`, neutre: `Notre trêve tient depuis ${plural(k, 'tour')}.`, amical: `Notre trêve tient depuis ${plural(k, 'tour')} : continuons.` }
-      : { hostile: 'Notre trêve vient d’être signée : elle reste fragile.', neutre: 'Notre trêve vient d’être signée.', amical: 'Notre trêve vient d’être signée : faisons-la durer.' }); }
-    else { const t = getTension(state, from, to); add('tension', { hostile: `La tension entre nous atteint ${t} %.`, neutre: `La tension entre nous est de ${t} %.`, amical: `La tension entre nous n’est que de ${t} %.` }); }
+    if (war && atWar(state, from, to)) { const k = since(state, war.started); add('guerre', k ? 'guerre' : 'guerre0', { n: k }); }
+    else if (ally) { const k = since(state, ally.started); add('alliance', k ? 'alliance' : 'alliance0', { n: k }); }
+    else if (truce) { const k = since(state, truce.started); add('treve', k ? 'treve' : 'treve0', { n: k }); }
+    else add('tension', 'tension', { n: getTension(state, from, to) });
     const face = facing(state, map, from, to);
     if (face.length) {
-      const [a, b] = face[Math.floor(chance(state, 'compose-face', T, from, to) * face.length) % face.length], A = provName(map, a), B = provName(map, b);
-      add('face', { hostile: `${A} fait face à ${B}, et nos sentinelles veillent.`, neutre: `${A} et ${B} sont voisines : restons prudents.`, amical: `Entre ${A} et ${B}, la frontière reste paisible.` });
+      const [a, b] = face[Math.floor(chance(state, 'compose-face', T, from, to) * face.length) % face.length];
+      add('face', 'face', { A: provName(map, a), B: provName(map, b) });
     }
     // Troupes : seulement dans une province que les deux voient.
     const seenTo = visibleProvinces(state, map, to), seenFrom = visibleProvinces(state, map, from);
     const mine = ownedBy(state, from).filter(id => seenTo.has(id) && soldiersAt(state.provinces[id]) >= 20).sort((x, y) => soldiersAt(state.provinces[y]) - soldiersAt(state.provinces[x]) || x.localeCompare(y))[0];
-    if (mine) { const n = roundDown(soldiersAt(state.provinces[mine])), P = provName(map, mine);
-      add('nos-troupes', { hostile: `Nos ${n} soldats tiennent ${P}, et ils ne reculeront pas.`, neutre: `${P} est gardée par ${n} de nos soldats.`, amical: `Nos ${n} soldats ${deName(P)} ne menacent personne.` }); }
+    if (mine) add('nos-troupes', 'ours', { n: roundDown(soldiersAt(state.provinces[mine])), P: provName(map, mine) });
     const yours = ownedBy(state, to).filter(id => seenFrom.has(id) && soldiersAt(state.provinces[id]) >= 20).sort((x, y) => soldiersAt(state.provinces[y]) - soldiersAt(state.provinces[x]) || x.localeCompare(y))[0];
-    if (yours) { const n = roundDown(soldiersAt(state.provinces[yours])), P = provName(map, yours);
-      add('vos-troupes', { hostile: `Vos ${n} soldats ${deName(P)} ne nous impressionnent pas.`, neutre: `Vous gardez ${n} soldats à ${P} ; nous l’avons remarqué.`, amical: `Vos ${n} soldats ${deName(P)} ne nous inquiètent pas.` }); }
+    if (yours) add('vos-troupes', 'yours', { n: roundDown(soldiersAt(state.provinces[yours])), P: provName(map, yours) });
     const a = ownedBy(state, from).length, b = ownedBy(state, to).length;
-    if (a && b) add('provinces', { hostile: `Vous tenez ${plural(b, 'province')}, nous ${a} : faites le compte.`, neutre: `Vous tenez ${plural(b, 'province')}, nous ${a}.`, amical: `Vos ${plural(b, 'province')} et nos ${a} vivent côte à côte.` });
+    if (a && b) add('provinces', 'provinces', { n: b, a });
   } else {
     const a = ownedBy(state, from).length;
-    if (a) add('provinces', { hostile: `Nos ${plural(a, 'province')} sont sur leurs gardes.`, neutre: `Nos ${plural(a, 'province')} vous saluent.`, amical: `Nos ${plural(a, 'province')} vous souhaitent la paix.` });
+    if (a) add('provinces', 'provincesAll', { n: a });
   }
   return out;
 }
@@ -156,15 +124,21 @@ const traitOf = (state, from) => state.controllers?.[from] === 'human' ? 'joueur
  * Compose une réplique. `core` = fond déjà rempli (noms, or…). Déterministe : mêmes état, graine et clés → même texte.
  * Ne modifie pas l'état (la mémoire est mise à jour à la publication, rememberTalk).
  */
-export function composeLine(state, map, { from, to = null, tone, core, keys = [] }) {
-  const trait = traitOf(state, from), t = OPENINGS[trait][tone] ? tone : 'neutre';
-  const opens = OPENINGS[trait][t], closes = CLOSINGS[trait][t], ctx = contextFragments(state, map, { from, to, tone: t });
-  const r = k => chance(state, 'compose', k, from, to ?? '*', t, ...keys);
+export function composeLine(state, map, args) { return composeLineRef(state, map, args).text; }
+/**
+ * Comme composeLine, avec la référence de la composition : { text, ref }. `coreRef` = { c: clé de la liste, i: numéro,
+ * v: { to, x, p, gold } (identifiants) } décrit le fond ; ref = { ...coreRef, o: [trait, ton, n°], x: [clé, paramètres], k: n° de chute ou -1 }.
+ */
+export function composeLineRef(state, map, { from, to = null, tone, core, keys = [], coreRef = null }) {
+  const trait = traitOf(state, from), t0 = OPENINGS[trait][tone] ? tone : 'neutre';
+  const opens = OPENINGS[trait][t0], closes = CLOSINGS[trait][t0], ctx = contextFragments(state, map, { from, to, tone: t0 });
+  const r = k => chance(state, 'compose', k, from, to ?? '*', t0, ...keys);
   const o0 = Math.floor(r('o') * opens.length), c0 = Math.floor(r('c') * ctx.length), k0 = Math.floor(r('k') * (closes.length + 2));
   const build = (o, c, k) => {
     const parts = [opens[o], core, ctx[c].text], closing = k < closes.length ? closes[k] : null; // k ≥ longueur : sans chute
     const base = parts.join(' ');
-    return closing && base.length + closing.length + 1 <= COMPOSED_MAX ? `${base} ${closing}` : base;
+    const kept = closing && base.length + closing.length + 1 <= COMPOSED_MAX;
+    return { text: kept ? `${base} ${closing}` : base, ref: coreRef ? { ...coreRef, o: [trait, t0, o], x: [ctx[c].key, ctx[c].params], k: kept ? k : -1 } : null };
   };
   const K = closes.length + 2;
   // Variété : d'abord une ouverture et un contexte absents de ses 3 derniers messages ; puis toute combinaison jamais dite.
@@ -175,9 +149,9 @@ export function composeLine(state, map, { from, to = null, tone, core, keys = []
   for (const strict of [true, false]) for (let i = 0; i < opens.length * ctx.length * K; i++) {
     const o = (o0 + i) % opens.length, c = (c0 + Math.floor(i / opens.length)) % ctx.length, k = (k0 + Math.floor(i / (opens.length * ctx.length))) % K;
     if (strict && !fresh(o, c)) continue;
-    const text = build(o, c, k);
-    first ??= text;
-    if (!alreadySaid(state, from, text)) return text;
+    const built = build(o, c, k);
+    first ??= built;
+    if (!alreadySaid(state, from, built.text)) return built;
   }
   return first ?? build(o0, c0, k0); // toutes les combinaisons ont servi (n'arrive pas en 80 tours)
 }

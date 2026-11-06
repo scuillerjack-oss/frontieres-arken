@@ -5,6 +5,7 @@ import { fortReductionPct } from '../combat.js';
 import { RULES } from '../constants.js';
 import { ARCHETYPE_LABELS, HOSTILITY_WAR } from '../leaders.js';
 import { visibleProvinces } from '../vision.js';
+import { getLanguage, t, withLanguage } from '../../i18n/i18n.js';
 import { deName, nationName, provinceDef, safeNum } from './shared.js';
 
 export function eventKnownToPlayer(state, map, event) {
@@ -241,26 +242,55 @@ export function journalEntry(event, map, playerNationId = null) {
     default: return null;
   }
 }
+// V16 : chaque entrée garde `ev` (index de ses événements dans state.events, conservés en entier dans la sauvegarde).
+// Le texte rangé dans la sauvegarde reste le texte FRANÇAIS (référence, compatible avec les versions précédentes) ;
+// l'affichage le réécrit dans la langue du joueur à partir des événements (localizeJournal).
 function aggregateEntries(entries) {
   const merged = new Map();
   for (const e of entries) {
     if (e.type === 'production') {
       const key = `${e.category}|${e.text.replace(/^\d+ /,'')}`;
-      if (merged.has(key)) { const old=merged.get(key),n=Number(old.text.match(/^\d+/)?.[0]||0)+Number(e.text.match(/^\d+/)?.[0]||0); old.text=old.text.replace(/^\d+/,String(n)); continue; }
+      if (merged.has(key)) { const old=merged.get(key),n=Number(old.text.match(/^\d+/)?.[0]||0)+Number(e.text.match(/^\d+/)?.[0]||0); old.text=old.text.replace(/^\d+/,String(n));
+        if (e.ev) old.ev = [...(old.ev || []), ...e.ev]; continue; }
       merged.set(key,e);
-    } else merged.set(`${e.type}|${e.text}`,e);
+    } else if (merged.has(`${e.type}|${e.text}`)) { const old = merged.get(`${e.type}|${e.text}`); if (e.ev) old.ev = [...(old.ev || []), ...e.ev]; }
+    else merged.set(`${e.type}|${e.text}`,e);
   }
   return [...merged.values()];
 }
+const entriesOf = (state, map, fromIndex, keep) => withLanguage('fr', () => aggregateEntries(state.events.slice(fromIndex).map((e, i) => [e, fromIndex + i]).filter(([e]) => keep(e))
+  .map(([e, i]) => { const entry = journalEntry(e, map, state.playerNationId); return entry ? { ...entry, ev: [i] } : null; }).filter(Boolean)));
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['difficulty-gold','bombardment','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
     'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
     'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
-  const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
+  const entries = entriesOf(state, map, fromIndex, e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;
 }
 export function buildPermanentJournal(state, map, fromIndex = 0) {
-  const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => eventKnownToPlayer(state,map,e)).map(e=>journalEntry(e,map,state.playerNationId)).filter(Boolean));
+  const entries = entriesOf(state, map, fromIndex, e => eventKnownToPlayer(state,map,e));
   state.chronicle.push(...entries); return entries;
 }
+/**
+ * V16 : entrées de journal dans la langue courante. En français, le texte rangé tel quel. Sinon, réécrit à partir des
+ * événements d'origine (`ev`) ; une entrée sans `ev` (sauvegarde d'avant la V16) garde son texte d'origine.
+ */
+export function localizeJournal(state, map, entries = []) {
+  if (getLanguage() === 'fr') return entries;
+  return entries.map(entry => {
+    if (!entry || !Array.isArray(entry.ev) || !entry.ev.length) return entry;
+    const events = entry.ev.map(i => state.events?.[i]).filter(Boolean);
+    if (events.length !== entry.ev.length) return entry;
+    const again = aggregateEntries(events.map(e => journalEntry(e, map, state.playerNationId)).filter(Boolean));
+    return again.length === 1 ? { ...entry, text: again[0].text } : entry;
+  });
+}
+// V16 : le type d'une entrée est un IDENTIFIANT français (rangé dans les sauvegardes, il choisit aussi la couleur de l'entrée).
+const TYPE_KEYS = { 'CONQUÊTE':'conquest','TERRITOIRE PERDU':'lost','⚠ TERRITOIRE PERDU':'lostAlert','⚠ ON VOUS ATTAQUE':'underAttack','CONFLIT ÉTRANGER':'foreign','COMBAT':'combat', // i18n-id
+  'AFFRONTEMENT':'clash','PILLAGE':'plunder','ÉLIMINATION':'elimination','ORDRE ANNULÉ':'cancelled','REVENUS':'income','INTERCEPTION':'interception','DÉBARQUEMENT':'landing', // i18n-id
+  'MARINE':'navy','FIN DE PARTIE':'endgame','DIPLOMATIE':'diplomacy','diplomatie':'diplomacy','ÉCHANGE':'talk','TRAHISON':'betrayal','GUERRE':'war','RÉVÉLATION':'reveal', // i18n-id
+  'TENSION':'tension','AIDE':'help','⚠ HOSTILITÉ':'hostility','⚔ GUERRE DÉCLARÉE':'warDeclared','COALITION':'coalition','NIVEAU':'level','PASSAGE':'passage', // i18n-id
+  'production':'production','déplacement':'movement','économie':'economy' }; // i18n-id
+/** Libellé affiché du type d'une entrée de journal. */
+export const journalTypeLabel = type => TYPE_KEYS[type] ? t(`journal.type.${TYPE_KEYS[type]}`) : (type ? String(type) : t('journal.type.event'));

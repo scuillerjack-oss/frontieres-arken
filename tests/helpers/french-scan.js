@@ -53,15 +53,22 @@ export function stringLiterals(src) {
   return out;
 }
 
+// Noms propres du jeu (identiques dans toutes les langues) : ils ne rendent pas une chaîne « française ».
+export const PROPER_NOUNS = Object.freeze(['FRONTIÈRES', 'Roc-Épine', 'Oroël', 'Grèsrouge', 'Cornérive', 'Nordhème', 'Îlebrume', 'Tréfond', 'Valdoré', 'Lunémont']);
 /** La chaîne ressemble-t-elle à du français visible ? (accent, ou au moins deux mots français courants). */
 export function looksFrench(text) {
-  const plain = text.replace(/<[^>]*>/g, ' ').replace(/\$\{[^}]*\}/g, ' ');
+  let plain = text.replace(/<[^>]*>/g, ' ').replace(/\$\{[^}]*\}/g, ' ');
+  for (const n of PROPER_NOUNS) plain = plain.split(n).join(' ');
   if (ACCENTS.test(plain)) return true;
   const words = plain.match(WORDS) || [];
   return words.length >= 2 && /\s/.test(plain.trim());
 }
 
-/** Chaînes françaises d'un source : [{ line, text }]. */
+/**
+ * Chaînes françaises d'un source : [{ line, text }]. Une ligne terminée par le commentaire « i18n-id » est exemptée :
+ * elle porte un IDENTIFIANT écrit en français (rangé dans les sauvegardes ou comparé par le code, jamais affiché tel quel).
+ */
 export function frenchStrings(src) {
-  return stringLiterals(src).filter(s => looksFrench(s.text)).map(s => ({ line: s.line, text: s.text }));
+  const exempt = new Set(src.split('\n').map((l, i) => /\/\/.*\bi18n-id\b/.test(l) ? i + 1 : 0).filter(Boolean));
+  return stringLiterals(src).filter(s => looksFrench(s.text) && !exempt.has(s.line)).map(s => ({ line: s.line, text: s.text }));
 }
