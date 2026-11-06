@@ -312,3 +312,12 @@ Hors liste des 7 ajouts : corrections demandées par Jack (« avancer tout ce qu
 - `store/icone-512.png` et `store/banniere-1024x500.png` ajoutées, captures d'accueil et de nouvelle partie refaites.
 - Le build Google Play n'affiche plus « VERSION BÊTA » sur l'accueil ; la PWA et l'APK de bêta le gardent.
 - Rentabilité et `docs/SORTIE-ARKEN.md` mises à jour avec l'état réel.
+
+### V15.5.1 — relecture indépendante de V15.1 à V15.5 (06/11/2026)
+
+Relecture du diff depuis la fusion V15.0 (`5a7afe7`) jusqu'à `0e27272` par un sous-agent indépendant. Verdict : **rien de bloquant**.
+Vérifié par lui : `npm test` 611/611 ; empreintes `tools/empreintes-v15.3.json` identiques (81 parties) ; partie scriptée de 40 puis 80 tours en Difficile avec sauvegarde et rechargement à chaque tour (schémas 12 et 11, palmarès compté une seule fois) ; moteur sans `Math.random`, `Date` ni DOM ; migrations ; aucune pub nouvelle, ni pendant l'animation ni dans le tutoriel ; ASSETS de `sw.js` complet ; aucun test affaibli.
+Corrigé : libellé du test de version (`tests/v14-3-tutoriel.test.js`).
+**Fausse alerte écartée** : la première relecture signalait qu'une partie finie était « recomptée » après l'import d'un profil. Une correction a été écrite, puis une seconde relecture indépendante a montré que ce n'est pas un double comptage : le profil exporté contient déjà la liste des parties comptées, donc la partie n'est comptée qu'une fois dans le profil restauré (elle manquait seulement si le profil avait été copié avant la fin de cette partie, et la compter est alors juste). La correction aurait fait perdre cette partie au palmarès : elle a été retirée, le comportement de la V15.5 est gardé.
+Doutes signalés, non corrigés faute de preuve : légende « Vous prenez X » lors d'un assaut commun avec un allié ; visibilité de l'origine d'une attaque étrangère calculée après le tour ; une partie de 40 tours ouverte par une version antérieure à la V15.4 est refusée proprement, mais « Nouvelle partie » l'écrase (ancien AAB ou ancien cache seulement).
+- **Vérification** : `npm test` vert ; Chrome mobile simulé (390 × 844 tactile) : accueil, Atouts, Restaurer un profil, puis « Continuer la partie » sur une partie finie jusqu'à l'écran de fin, aucune erreur console, pas de débordement horizontal.

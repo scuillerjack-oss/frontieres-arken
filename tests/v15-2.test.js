@@ -164,7 +164,7 @@ test('fichiers : nouveaux modules dans ASSETS, aucun fichier audio', () => {
   const sw = readFileSync(join(root, 'sw.js'), 'utf8');
   for (const f of ['src/presentation/turn-animation.js', 'src/presentation/sound-engine.js', 'src/presentation/ui/turn-anim.js']) assert.ok(sw.includes(`'./${f}'`), f);
   assert.doesNotMatch(sw, /\.(mp3|ogg|wav|m4a)/);
-  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '15.5.0');
+  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '15.5.1');
 });
 
 // --- Moteur de sons, avec un faux Web Audio ---------------------------------------------------------------------------
