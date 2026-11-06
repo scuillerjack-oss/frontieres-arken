@@ -42,5 +42,15 @@ export default {
   "ctx.provinces.amical": "Vos {provinces} et nos {a} vivent côte à côte.",
   "ctx.provincesAll.hostile": "Nos {provinces} sont sur leurs gardes.",
   "ctx.provincesAll.neutre": "Nos {provinces} vous saluent.",
-  "ctx.provincesAll.amical": "Nos {provinces} vous souhaitent la paix."
+  "ctx.provincesAll.amical": "Nos {provinces} vous souhaitent la paix.",
+  "nationBonus.title.valmorne": "Levées des bois",
+  "nationBonus.title.roc-epine": "Murs de pierre",
+  "nationBonus.title.noireflamme": "Forges noires",
+  "nationBonus.title.oroel": "Marins du Nord",
+  "nationBonus.title.aurel": "Comptoirs du Sud",
+  "nationBonus.effect.gold": "+{pct} % d’or chaque tour",
+  "nationBonus.effect.recruit": "+{pct} % d’infanterie recrutée",
+  "nationBonus.effect.build": "Chantiers {pct} % plus rapides",
+  "nationBonus.effect.fort": "Forteresses {pct} % plus solides",
+  "nationBonus.effect.naval": "Navires de guerre {pct} % plus puissants"
 };

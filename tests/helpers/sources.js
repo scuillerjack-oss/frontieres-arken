@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
+const UI = ['base', 'language-boot', 'language-ui', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
   'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn'];
@@ -19,7 +19,7 @@ export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 
 
 /** V16 : modules de traduction (purs) : moteur, dictionnaires assemblés et leurs parties. Lus par tests/i18n.test.js. */
 export const I18N_MODULES = Object.freeze(['src/i18n/i18n.js', 'src/i18n/fr.js', 'src/i18n/en.js',
-  ...['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'talk-a', 'talk-b', 'talk-c', 'talk-d', 'talk-e', 'talk-f'].flatMap(p => [`src/i18n/fr/${p}.js`, `src/i18n/en/${p}.js`])]);
+  ...['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'tuto', 'talk-a', 'talk-b', 'talk-c', 'talk-d', 'talk-e', 'talk-f'].flatMap(p => [`src/i18n/fr/${p}.js`, `src/i18n/en/${p}.js`])]);
 
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
@@ -30,9 +30,12 @@ export const appFiles = () => group('src/presentation/ui', UI, 'app.js');
 export const engineFiles = () => group('src/domain/engine', ENGINE, 'src/domain/game-engine.js');
 const raw = p => readFileSync(join(root, p), 'utf8');
 
-/** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur. */
+// V16 : les textes affichés vivent dans src/i18n/fr/… (et en/…). Les tests plus anciens qui vérifient qu'un texte
+// français est bien présent dans « app.js » ou dans le moteur lisent donc aussi les dictionnaires français.
+const FR_TEXTS = ['core', 'engine', 'domain', 'ui-a', 'ui-b', 'views', 'tuto'].map(n => `src/i18n/fr/${n}.js`);
+/** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur (et leurs textes). */
 export function readSource(p) {
-  const files = p === 'app.js' ? appFiles() : p === 'src/domain/game-engine.js' ? engineFiles() : [p];
+  const files = p === 'app.js' ? [...appFiles(), ...FR_TEXTS] : p === 'src/domain/game-engine.js' ? [...engineFiles(), ...FR_TEXTS] : [p];
   return files.map(raw).join('\n');
 }
 

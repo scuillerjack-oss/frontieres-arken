@@ -1,5 +1,8 @@
 // FRONTIÈRES: ARKEN — démarrage de l'interface : branche les boutons et les gestes, puis lance le jeu.
 // Les écrans vivent dans src/presentation/ui/ (découpage V15.0).
+// V16 : la langue est choisie AVANT tout le reste (premier import) : chaque texte s'affiche déjà dans la bonne langue.
+
+import './src/presentation/ui/language-boot.js';
 
 import { TUTORIAL_GUIDE } from './src/presentation/guide-input.js';
 import { showsWholeMap, wholeMapView } from './src/presentation/launch-view.js';
@@ -8,6 +11,7 @@ import { MINI_TUTO_STEPS, resetMiniTuto } from './src/presentation/passage-fort-
 import { installAudio, setMusic } from './src/presentation/ui/audio.js';
 import { skipTurnAnimation, turnAnimating } from './src/presentation/ui/turn-anim.js';
 import { $, nation, toast } from './src/presentation/ui/base.js';
+import { onLanguageChange, openLanguage } from './src/presentation/ui/language-ui.js';
 import { openBoosts, startPlay } from './src/presentation/ui/boosts-ui.js';
 import { beginNewGame, continueSavedGame, setup, showWelcome } from './src/presentation/ui/game-flow.js';
 import {
@@ -67,6 +71,9 @@ $('#resetHints').onclick=()=>{state.tutorial.forced=true;state.tutorial.seen=[];
   tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
 $('#newGame').onclick=()=>{$('#settingsDialog').close();beginNewGame();};
 $('#coalitionBtn').onclick=openCoalition;
+// V16 : langue (accueil et Paramètres) ; après un changement, l'écran en cours est redessiné dans la nouvelle langue.
+$('#welcomeLanguage').onclick=openLanguage;$('#settingsLanguage').onclick=()=>{$('#settingsDialog').close();openLanguage();};
+onLanguageChange(()=>{if(!$('#gameScreen').hidden&&state)render();});
 $('#endNewGame').onclick=()=>{$('#endDialog').close();beginNewGame();};$('#endJournal').onclick=()=>{$('#endDialog').close();renderJournal(true);};
 // Zoom par boutons autour du centre de l'écran (la vue ne dérive pas).
 $('#zoomIn').onclick=()=>zoomBy(1.4);$('#zoomOut').onclick=()=>zoomBy(1/1.4);$('#zoomReset').onclick=()=>{setScale(1);setTx(0);setTy(0);clampTransform();applyLaunchView();updateLabelScale();};

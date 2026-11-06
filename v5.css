@@ -505,3 +505,9 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 .nation-choice small{display:block;margin-top:2px;font-size:.74rem;font-weight:400;color:#c9d6db;white-space:normal}
 #nationChoices .nation{display:flex;align-items:flex-start}
 #nationChoices .nation i{flex:none;margin-top:3px}
+/* V16 : choix de la langue (accueil et Paramètres) */
+.language-entry{width:100%;min-height:44px;margin-top:10px;border:1.5px solid #3c5868;background:#0a2433;color:var(--ink);border-radius:10px;font-weight:700;font-size:.92rem}
+.language-choices{display:grid;gap:8px;margin:12px 0}
+.language-choices button{min-height:48px;border:1px solid #476174;background:#0c2b3d;color:#fff;border-radius:9px;font-weight:800;font-size:1rem}
+.language-choices button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+#settingsDialog #settingsLanguage{margin-top:8px}

@@ -1,10 +1,26 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FRONTIÈRES: ARKEN — hors ligne</title>
+<title>FRONTIÈRES: ARKEN</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#061722;color:#f7f0df;font-family:system-ui,sans-serif;text-align:center;padding:24px}
 h1{font:700 1.6rem Georgia,serif;letter-spacing:.08em;color:#e2bf73}p{max-width:22rem;line-height:1.5}
 button{margin-top:16px;border:1px solid #8a7246;background:#c79b4b;color:#07151d;border-radius:10px;padding:14px 22px;font-weight:800;font-size:1rem}</style></head>
 <body><main><h1>FRONTIÈRES<br>ARKEN</h1>
-<p>Pas de connexion internet pour charger la dernière version du jeu.</p>
-<p>Connecte-toi (Wi-Fi ou données mobiles), puis réessaie. Ensuite, le jeu fonctionnera aussi hors ligne.</p>
-<button onclick="location.reload()">Réessayer</button></main></body></html>
+<p data-i18n="offline.lead"></p>
+<p data-i18n="offline.help"></p>
+<button onclick="location.reload()" data-i18n="offline.retry"></button></main>
+<script>
+// V16 : page autonome (aucun module chargé hors ligne) : ses deux langues sont ici. Même choix que le jeu : la préférence
+// enregistrée (frontieres-arken-langue), sinon la langue du téléphone. Textes repris dans src/i18n/*/ui-a.js (offline.*).
+(function () {
+  var T = {
+    fr: { lead: 'Pas de connexion internet pour charger la dernière version du jeu.', help: 'Connecte-toi (Wi-Fi ou données mobiles), puis réessaie. Ensuite, le jeu fonctionnera aussi hors ligne.', retry: 'Réessayer' },
+    en: { lead: 'No internet connection to load the latest version of the game.', help: 'Connect (Wi-Fi or mobile data), then try again. After that, the game will also work offline.', retry: 'Try again' }
+  };
+  var lang = null;
+  try { lang = localStorage.getItem('frontieres-arken-langue'); } catch (e) { /* stockage bloqué */ }
+  if (lang !== 'fr' && lang !== 'en') lang = /^fr\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || 'fr') ? 'fr' : 'en';
+  document.documentElement.lang = lang;
+  var nodes = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < nodes.length; i++) nodes[i].textContent = T[lang][nodes[i].getAttribute('data-i18n').split('.')[1]];
+})();
+</script></body></html>

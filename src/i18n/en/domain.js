@@ -41,5 +41,15 @@ export default {
   "ctx.provinces.amical": "Your {provinces} and our {a} live side by side.",
   "ctx.provincesAll.hostile": "Our {provinces} are on their guard.",
   "ctx.provincesAll.neutre": "Our {provinces} salute you.",
-  "ctx.provincesAll.amical": "Our {provinces} wish you peace."
+  "ctx.provincesAll.amical": "Our {provinces} wish you peace.",
+  "nationBonus.title.valmorne": "Forest Levies",
+  "nationBonus.title.roc-epine": "Stone Walls",
+  "nationBonus.title.noireflamme": "Black Forges",
+  "nationBonus.title.oroel": "Northern Sailors",
+  "nationBonus.title.aurel": "Southern Trading Posts",
+  "nationBonus.effect.gold": "+{pct}% gold every turn",
+  "nationBonus.effect.recruit": "+{pct}% infantry recruited",
+  "nationBonus.effect.build": "Construction {pct}% faster",
+  "nationBonus.effect.fort": "Fortresses {pct}% stronger",
+  "nationBonus.effect.naval": "Warships {pct}% more powerful"
 };
