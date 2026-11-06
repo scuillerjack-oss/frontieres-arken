@@ -312,3 +312,13 @@ Hors liste des 7 ajouts : corrections demandées par Jack (« avancer tout ce qu
 - `store/icone-512.png` et `store/banniere-1024x500.png` ajoutées, captures d'accueil et de nouvelle partie refaites.
 - Le build Google Play n'affiche plus « VERSION BÊTA » sur l'accueil ; la PWA et l'APK de bêta le gardent.
 - Rentabilité et `docs/SORTIE-ARKEN.md` mises à jour avec l'état réel.
+
+### V15.5.1 — relecture indépendante de V15.1 à V15.5 (06/11/2026)
+
+Relecture du diff depuis la fusion V15.0 (`5a7afe7`) jusqu'à `0e27272` par un sous-agent indépendant. Verdict : **rien de bloquant**.
+Vérifié par lui : `npm test` 611/611 ; empreintes `tools/empreintes-v15.3.json` identiques (81 parties) ; partie scriptée de 40 puis 80 tours en Difficile avec sauvegarde et rechargement à chaque tour (schémas 12 et 11, palmarès compté une seule fois) ; moteur sans `Math.random`, `Date` ni DOM ; migrations ; aucune pub nouvelle, ni pendant l'animation ni dans le tutoriel ; ASSETS de `sw.js` complet ; aucun test affaibli.
+Corrigé :
+- **Palmarès recompté après import d'un profil** : importer un profil remplaçait la liste des parties déjà comptées ; rouvrir ensuite une partie finie sauvegardée la comptait une seconde fois. Reproduit dans Chrome mobile simulé (4 parties → 5). Correction : `markGameCounted` (`src/domain/palmares.js`), appelée à l'import avec la partie en mémoire ou, depuis l'accueil, la sauvegarde. Après correction, même parcours : 4 → 4. Tests dans `tests/v15-5.test.js`.
+- Libellé du test de version corrigé (`tests/v14-3-tutoriel.test.js`).
+Doutes signalés, non corrigés faute de preuve : légende « Vous prenez X » lors d'un assaut commun avec un allié ; visibilité de l'origine d'une attaque étrangère calculée après le tour ; une partie de 40 tours ouverte par une version antérieure à la V15.4 est refusée proprement, mais « Nouvelle partie » l'écrase (ancien AAB ou ancien cache seulement).
+- **Vérification** : `npm test` 613/613 ; Chrome mobile simulé (390 × 844 tactile) : accueil, Atouts, Restaurer, puis « Continuer la partie » sur la partie finie, aucune erreur console, pas de débordement horizontal.
