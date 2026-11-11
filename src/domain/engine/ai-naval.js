@@ -150,7 +150,7 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
   for (const p of ports) {
     const ships = availableForces(state, p.id).warships;
     if (ships < 2) continue;
-    const prey = (state.transports || []).filter(t => t.nationId !== nationId && pairWar(state, nationId, t.nationId) && laneKeyOf(t).split('|').includes(p.id) && t.stage + 1 < t.turns)
+    const prey = (state.transports || []).filter(t => !t.rerouted && t.nationId !== nationId && pairWar(state, nationId, t.nationId) && laneKeyOf(t).split('|').includes(p.id) && t.stage + 1 < t.turns)
       .filter(t => combatValue(legacyForce({ warships: ships - 1 }), { naval: true }) > 1.3 * combatValue(legacyForce(t), { naval: true }));
     const t = prey.sort((a, b) => String(a.id).localeCompare(String(b.id)))[0];
     if (!t) continue;
@@ -229,6 +229,6 @@ export function navalThreat(state, nationId, fromId, via, map = null) {
   // V13 : navires à quai tels que l'IA les voit (port lointain non visible : estimation prudente).
   const docked = () => map ? perceivedForce(state, map, nationId, via).units.warship : harbor.warships || 0;
   let n = harbor && harbor.ownerId !== nationId && harbor.buildings?.port && pairWar(state, nationId, harbor.ownerId) ? docked() : 0;
-  for (const t of state.transports || []) if (laneKeyOf(t) === key && t.nationId !== nationId && pairWar(state, nationId, t.nationId)) n += t.warships || 0;
+  for (const t of state.transports || []) if (!t.rerouted && laneKeyOf(t) === key && t.nationId !== nationId && pairWar(state, nationId, t.nationId)) n += t.warships || 0;
   return n;
 }

@@ -10,6 +10,7 @@ import { deName, nationName, provinceDef, safeNum } from './shared.js';
 /** Accords du journal (campagne V16, bug n° 2) : « 1 unité », « 3 unités ». */
 const plural = (n, many = 's', one = '') => safeNum(n) > 1 ? many : one;
 const units = n => `${safeNum(n)} unité${plural(n)}`;
+const theirUnits = n => safeNum(n) > 1 ? `ses ${safeNum(n)} unités` : 'son unité';
 
 export function eventKnownToPlayer(state, map, event) {
   const player = state.playerNationId;
@@ -205,7 +206,7 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:2, type:'COMBAT', category:'lost', text:`Les survivants d’une attaque n’ont pas pu se replier (province de départ perdue) : ${units(event.amount)} perdue${plural(event.amount)}.` };
     case 'ceasefire-offer': if (event.custom) { const who = nationName(map, event.target), by = nationName(map, event.nationId);
         if (!event.accepted) return { priority:2, type:'DIPLOMATIE', category:'blue', text:`${who} refuse le cessez-le-feu proposé par ${by} ; aucun or n’a changé de mains.` };
-        return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.demand > 0 ? `Cessez-le-feu : ${who} accepte vos conditions et verse ${safeNum(event.demand)} or à ${by}.`.replace('vos conditions', event.nationId === playerNationId ? 'vos conditions' : 'les conditions')
+        return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.demand > 0 ? `Cessez-le-feu : ${who} accepte vos conditions et verse ${safeNum(event.demand) + safeNum(event.received)} or à ${by}.`.replace('vos conditions', event.nationId === playerNationId ? 'vos conditions' : 'les conditions')
           : event.received > 0 ? `Cessez-le-feu accepté par ${who}, qui verse ${safeNum(event.received)} or à ${by} comme promis.`
           : event.amount > 0 ? `Cessez-le-feu accepté par ${who} contre ${safeNum(event.amount)} or, versés par ${by}.` : `Cessez-le-feu sans paiement accepté par ${who}.` }; }
       return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,
@@ -237,11 +238,11 @@ export function journalEntry(event, map, playerNationId = null) {
         : `🤝 Passage chez ${nationName(map,event.target)} (allié) : ${units(event.amount)} stationne${plural(event.amount,'nt')} à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} et la défendr${plural(event.amount,'ont','a')}.` };
       return { priority:1,type:'déplacement',category:'neutral',text:`Mouvement vers ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} effectué.` };
     case 'convoy-rerouted': return { priority:3, type:'MARINE', category:'neutral', text: event.landed
-      ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi débarque à ${where}, son point de départ, et ${plural(event.amount,'ses','son')} ${units(event.amount)} ${plural(event.amount,'sont rapatriées','est rapatriée')}.`
+      ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi débarque à ${where}, son point de départ, et ${theirUnits(event.amount)} ${plural(event.amount,'sont rapatriées','est rapatriée')}.`
       : event.toDeparture ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi (${units(event.amount)}) revient à ${provinceDef(map,event.toId)?.name || 'son point de départ'}, son point de départ, pour y débarquer (${safeNum(event.turns)} tours).`
       : `Plus d’alliance avec ${nationName(map,event.target)} : le convoi ne peut plus y accoster et rentre au port ami le plus proche, ${provinceDef(map,event.toId)?.name || 'un port ami'} (${units(event.amount)}, ${safeNum(event.turns)} tours).` };
-    case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${units(event.amount)} quitte${plural(event.amount,'nt')} ${where} et rentre${plural(event.amount,'nt')} à ${provinceDef(map,event.toId)?.name || 'leur base'}.` };
-    case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ${plural(event.amount,'ses','son')} ${units(event.amount)} stationnée${plural(event.amount)} à ${where} se disperse${plural(event.amount,'nt')}.` };
+    case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${units(event.amount)} quitte${plural(event.amount,'nt')} ${where} et rentre${plural(event.amount,'nt')} à ${provinceDef(map,event.toId)?.name || plural(event.amount,'leur base','sa base')}.` };
+    case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ${theirUnits(event.amount)} stationnée${plural(event.amount)} à ${where} se disperse${plural(event.amount,'nt')}.` };
       return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${units(event.amount)} perdue${plural(event.amount)} à ${where}.` };
     default: return null;
   }

@@ -87,3 +87,12 @@ test('BUG CAMPAGNE n° 4 (cosmétique) : l\'or offert par l\'IA avec sa trêve e
   const text = E.journalEntry(offer, map, 'valmorne')?.text || '';
   assert.doesNotMatch(text, /sans paiement/, `${text} (or reçu : ${proposal.amount})`);
 });
+
+test('V15.6 (relecture) : un convoi dérouté est dessiné sur une vraie route mais ne croise toujours personne en mer (règle inchangée)', () => {
+  const plan = campaignPlan(268, 'long')[267];
+  const s = playGame(plan, { keepState: true, stopAt: 73, views: false }).state;
+  const ev = s.events.find(e => e.type === 'convoy-rerouted' && e.convoyId);
+  assert.ok(ev, 'scénario de départ : un convoi est dérouté');
+  const t = s.transports.find(x => x.id === ev.convoyId);
+  if (t) { assert.equal(t.rerouted, true); assert.ok((map.maritimeRoutes || []).some(([a, b]) => [a, b].sort().join('|') === t.lane), t.lane); }
+});

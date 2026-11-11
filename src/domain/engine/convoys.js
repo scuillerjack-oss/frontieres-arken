@@ -62,7 +62,8 @@ function navalClash(state, { attackerId, attackerForce, t, kind, provinceId }) {
  *     appartient à une nation en guerre contre lui. Les navires du convoi (escorte) ripostent.
  */
 function navalEncounters(state) {
-  const atSea = state.transports.filter(t => t.stage < t.turns).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  // Un convoi dérouté (`rerouted`) garde sa règle d'avant la V15.6 : sa route sert au dessin, il ne croise personne en mer.
+  const atSea = state.transports.filter(t => t.stage < t.turns && !t.rerouted).sort((a, b) => String(a.id).localeCompare(String(b.id)));
   const lanes = [...new Set(atSea.map(laneKey))].sort();
   for (const lane of lanes) {
     const here = atSea.filter(t => laneKey(t) === lane);
@@ -147,7 +148,7 @@ function rescueConvoy(state, map, t, force, atId, departureId) {
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   if (port) {
     const id = `c${state.transportSequence++}`, owner = state.provinces[port.id].ownerId;
-    state.transports.push({ id, nationId: t.nationId, fromId: atId, toId: port.id, via: port.id, lane: port.lane || laneKey(t), stage: 0, turns: port.turns, returning: true, ...(owner !== t.nationId ? { allyPort: owner } : {}), ...toLegacy(force) });
+    state.transports.push({ id, nationId: t.nationId, fromId: atId, toId: port.id, via: port.id, lane: port.lane || laneKey(t), rerouted: true, stage: 0, turns: port.turns, returning: true, ...(owner !== t.nationId ? { allyPort: owner } : {}), ...toLegacy(force) });
     state.events.push({ turn: state.turn, type: 'convoy-rerouted', nationId: t.nationId, target: t.allyPort, fromId: atId, toId: port.id, provinceId: atId, convoyId: id, amount, turns: port.turns });
     return;
   }
