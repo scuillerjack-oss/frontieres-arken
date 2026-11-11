@@ -427,12 +427,10 @@ function auditViews(s, turnEvents) {
   return out;
 }
 
-// --- Bugs connus (relevés par la campagne V16, non corrigés : correction après la fusion de la V16) ------------------
-/** Une violation qui correspond à un bug déjà décrit dans docs/CAMPAGNE-TESTS-V16.md est marquée `known` ; les autres font échouer. */
-export const KNOWN_BUGS = Object.freeze([
-  { id: 2, inv: 'cosmetique', re: /« 1 unités »/, titre: 'Journal : « 1 unités » (accord du pluriel)' },
-  { id: 3, inv: 'case-impossible', re: /route inexistante/, titre: 'Convoi dérouté sur un trajet qui n’est pas une route maritime' }
-]);
+// --- Bugs connus ---------------------------------------------------------------------------------------------------
+/** Une violation qui correspond à un bug connu et pas encore corrigé est marquée `known` ; les autres font échouer.
+ *  Les bugs n° 1 à 4 de docs/CAMPAGNE-TESTS-V16.md sont corrigés (V15.6) : la liste est vide, tout écart fait échouer. */
+export const KNOWN_BUGS = Object.freeze([]);
 const knownBug = v => KNOWN_BUGS.find(b => b.inv === v.inv && b.re.test(v.msg))?.id || null;
 
 // --- Une partie -----------------------------------------------------------------------------------------------------

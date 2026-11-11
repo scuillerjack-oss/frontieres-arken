@@ -449,8 +449,9 @@ function nextOrderId(state) {
  */
 export function queueTalk(state, map, { from, to = null, tone, replyTo = null } = {}) {
   if (!TONES.includes(tone)) return { ok: false, error: 'Ton inconnu' };
-  if (!state.nations?.[from] || state.nations[from].eliminated) return { ok: false, error: 'Nation inconnue' };
-  if (to !== null && (!state.nations[to] || to === from)) return { ok: false, error: 'Destinataire invalide' };
+  const isNation = id => typeof id === 'string' && Object.hasOwn(state.nations || {}, id); // pas un nom hérité (« toString »)
+  if (!isNation(from) || state.nations[from].eliminated) return { ok: false, error: 'Nation inconnue' };
+  if (to !== null && (!isNation(to) || to === from)) return { ok: false, error: 'Destinataire invalide' };
   if (to !== null && state.nations[to].eliminated) return { ok: false, error: 'Cette nation a été éliminée' };
   if (replyTo && !(state.talk || []).some(m => m.id === replyTo)) return { ok: false, error: 'Message introuvable' };
   // V13 : une conversation se termine — on ne répond qu'une fois à un message.

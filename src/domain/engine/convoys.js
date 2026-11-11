@@ -125,15 +125,21 @@ function turnBack(state, t, force = legacyForce(t), reason = 'no-troops', map = 
  */
 function friendlyPortRoute(state, map, nationId, atId) {
   const friendly = id => state.provinces[id]?.ownerId === nationId || hasPassage(state, nationId, state.provinces[id]?.ownerId);
-  const dist = new Map([[atId, 0]]), done = new Set();
+  const dist = new Map([[atId, 0]]), done = new Set(), prev = new Map();
   for (;;) {
     let cur = null;
     for (const [id, d] of dist) if (!done.has(id) && (cur === null || d < dist.get(cur) || (d === dist.get(cur) && id < cur))) cur = id;
     if (cur === null) return null;
     done.add(cur);
-    if (cur !== atId && isPortPoint(map, cur) && friendly(cur)) return { id: cur, turns: Math.max(RULES.naval.minTurns, dist.get(cur)) };
-    const edges = [...(provinceDef(map, cur)?.landConnections || []).map(id => [id, 1]), ...seaRoutesFrom(map, cur).map(r => [r.via, r.turns])];
-    for (const [id, w] of edges) if (state.provinces[id] && !done.has(id) && (!dist.has(id) || dist.get(cur) + w < dist.get(id))) dist.set(id, dist.get(cur) + w);
+    if (cur !== atId && isPortPoint(map, cur) && friendly(cur)) {
+      // Campagne V16, bug n° 3 : le trajet peut avoir plusieurs étapes (côte, puis mer). On retient la VRAIE route
+      // maritime empruntée (la dernière du trajet), pour que le convoi soit dessiné et rencontré sur une route de la carte.
+      let lane = null;
+      for (let id = cur; prev.has(id) && !lane; id = prev.get(id).from) if (prev.get(id).sea) lane = [prev.get(id).from, id].sort().join('|');
+      return { id: cur, turns: Math.max(RULES.naval.minTurns, dist.get(cur)), lane };
+    }
+    const edges = [...(provinceDef(map, cur)?.landConnections || []).map(id => [id, 1, false]), ...seaRoutesFrom(map, cur).map(r => [r.via, r.turns, true])];
+    for (const [id, w, sea] of edges) if (state.provinces[id] && !done.has(id) && (!dist.has(id) || dist.get(cur) + w < dist.get(id))) { dist.set(id, dist.get(cur) + w); prev.set(id, { from: cur, sea }); }
   }
 }
 function rescueConvoy(state, map, t, force, atId, departureId) {
@@ -141,7 +147,7 @@ function rescueConvoy(state, map, t, force, atId, departureId) {
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   if (port) {
     const id = `c${state.transportSequence++}`, owner = state.provinces[port.id].ownerId;
-    state.transports.push({ id, nationId: t.nationId, fromId: atId, toId: port.id, via: port.id, lane: [atId, port.id].sort().join('|'), stage: 0, turns: port.turns, returning: true, ...(owner !== t.nationId ? { allyPort: owner } : {}), ...toLegacy(force) });
+    state.transports.push({ id, nationId: t.nationId, fromId: atId, toId: port.id, via: port.id, lane: port.lane || laneKey(t), stage: 0, turns: port.turns, returning: true, ...(owner !== t.nationId ? { allyPort: owner } : {}), ...toLegacy(force) });
     state.events.push({ turn: state.turn, type: 'convoy-rerouted', nationId: t.nationId, target: t.allyPort, fromId: atId, toId: port.id, provinceId: atId, convoyId: id, amount, turns: port.turns });
     return;
   }

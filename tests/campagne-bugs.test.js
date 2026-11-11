@@ -1,6 +1,5 @@
-// V16 — Bugs trouvés par la campagne de tests (docs/CAMPAGNE-TESTS-V16.md). Aucun n'est corrigé ici : la correction
-// viendra après la fusion de la V16. Chaque test reproduit le bug et est marqué `todo` : il s'affiche dans `npm test`
-// sans le faire échouer. Quand un bug est corrigé, retirer `{ todo }` : le test doit alors passer tel quel.
+// V16 — Bugs trouvés par la campagne de tests (docs/CAMPAGNE-TESTS-V16.md). Corrigés en V15.6 (11/11/2026) :
+// chaque test reproduisait le bug ; il passe désormais tel quel et empêche le bug de revenir.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
@@ -12,7 +11,7 @@ import { campaignPlan, playGame } from '../scripts/campagne-lib.js';
 const fresh = (seed = 'bug') => createGameState({ map, playerNationId: 'valmorne', seed });
 const cleanPrototype = () => { for (const k of Object.keys(Object.prototype)) delete Object.prototype[k]; };
 
-test('BUG CAMPAGNE n° 1 (gênant) : un nom hérité (« toString », « __proto__ ») est refusé comme nation cible', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 1 (gênant) : un nom hérité (« toString », « __proto__ ») est refusé comme nation cible', () => {
   // Reproduction : queueDiplomaticOrder vérifie `state.nations[target]`, qui existe pour « toString » (Object.prototype).
   for (const target of ['toString', 'valueOf', '__proto__', 'constructor', 'hasOwnProperty']) {
     const s = fresh(`bug1-${target}`);
@@ -22,7 +21,7 @@ test('BUG CAMPAGNE n° 1 (gênant) : un nom hérité (« toString », « __proto
   }
 });
 
-test('BUG CAMPAGNE n° 1 (gênant), effet : déclarer la guerre à « __proto__ » pollue Object.prototype puis fait planter l\'inter-tour', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 1 (gênant), effet : déclarer la guerre à « __proto__ » pollue Object.prototype puis fait planter l\'inter-tour', () => {
   const s = fresh('bug1-proto');
   try {
     E.queueDiplomaticOrder(s, { nationId: 'valmorne', target: '__proto__', action: 'war' });
@@ -31,18 +30,17 @@ test('BUG CAMPAGNE n° 1 (gênant), effet : déclarer la guerre à « __proto__ 
   } finally { cleanPrototype(); }
 });
 
-test('BUG CAMPAGNE n° 1 (gênant), effet : un message public à « toString » casse la publication des messages suivants', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 1 (gênant), effet : un message public à « toString » casse la publication des messages suivants', () => {
   // Reproduction exacte de la partie campagne-long-43 (avant le filtre) : `state.talkPending.toString` est la fonction héritée.
   const s = fresh('bug1-talk');
-  queueTalk(s, map, { from: 'valmorne', to: 'toString', tone: 'amical' });
+  // Depuis la correction, le message est refusé dès la saisie : rien n'entre dans la file, l'inter-tour passe.
+  assert.equal(queueTalk(s, map, { from: 'valmorne', to: 'toString', tone: 'amical' }).ok, false);
+  assert.equal(queueTalk(s, map, { from: 'toString', to: 'valmorne', tone: 'amical' }).ok, false);
   assert.doesNotThrow(() => E.resolveInterturn(s, map));
-  const msg = s.talk.find(m => m.from === 'valmorne');
-  assert.ok(msg);
-  queueTalk(s, map, { from: 'toString', to: 'valmorne', tone: 'amical', replyTo: msg.id });
-  assert.doesNotThrow(() => E.resolveInterturn(s, map));
+  assert.ok(!(s.talk || []).some(m => m.to === 'toString' || m.from === 'toString'));
 });
 
-test('BUG CAMPAGNE n° 1 (gênant), effet : un cessez-le-feu « payé » à « toString » rend le trésor NaN', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 1 (gênant), effet : un cessez-le-feu « payé » à « toString » rend le trésor NaN', () => {
   // Reproduction de la partie campagne-long-275 (avant le filtre) : or du joueur = NaN au tour 70, partie continuée avec NaN.
   // Le montant exigé vaut NaN (`state.nations.toString.treasury` n'existe pas) ; acceptée (80 % de chances), la trêve
   // retire NaN au trésor. On réessaie jusqu'à 10 tours pour tomber sur une acceptation.
@@ -56,7 +54,7 @@ test('BUG CAMPAGNE n° 1 (gênant), effet : un cessez-le-feu « payé » à « t
   }
 });
 
-test('BUG CAMPAGNE n° 2 (cosmétique) : le journal écrit « 1 unités » (retour au port, passage, stationnement)', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 2 (cosmétique) : le journal écrit « 1 unités » (retour au port, passage, stationnement)', () => {
   const where = { provinceId: 'p02', fromId: 'p02', toId: 'p05', turn: 1 };
   const texts = [
     E.journalEntry({ ...where, type: 'convoy-arrived', nationId: 'valmorne', amount: 1, returning: true }, map, 'valmorne'),
@@ -66,7 +64,7 @@ test('BUG CAMPAGNE n° 2 (cosmétique) : le journal écrit « 1 unités » (reto
   for (const t of texts) assert.doesNotMatch(t, /\b1 unités\b/, t);
 });
 
-test('BUG CAMPAGNE n° 3 (gênant) : un convoi dérouté vers un port ami prend un trajet qui n\'est pas une route maritime', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 3 (gênant) : un convoi dérouté vers un port ami prend un trajet qui n\'est pas une route maritime', () => {
   // Partie campagne-long-267 (Noireflamme, 80 tours, Facile, diplomate) : au tour 72, convoi c31 dérouté de p07 vers p11
   // (« lane » p07|p11, 5 tours) alors que les seules routes sont p02-p05, p03-p14, p07-p17, p09-p13, p11-p19.
   // friendlyPortRoute (engine/convoys.js) calcule un chemin à plusieurs étapes, mais le convoi l'enregistre comme une route
@@ -76,7 +74,7 @@ test('BUG CAMPAGNE n° 3 (gênant) : un convoi dérouté vers un port ami prend 
   assert.ok(!r.violations.some(v => v.inv === 'case-impossible'), JSON.stringify(r.violations.filter(v => v.inv === 'case-impossible')));
 });
 
-test('BUG CAMPAGNE n° 4 (cosmétique) : l\'or offert par l\'IA avec sa trêve est versé mais le journal dit « sans paiement »', { todo: 'à corriger après la V16' }, () => {
+test('BUG CAMPAGNE n° 4 (cosmétique) : l\'or offert par l\'IA avec sa trêve est versé mais le journal dit « sans paiement »', () => {
   // Partie campagne-long-25 (Valmorne, 80 tours) : au tour 76, Roc-Épine propose la trêve avec 70 or ; le joueur demande
   // lui-même une trêve à 0 or ; elle est signée, les 70 or sont bien versés (payProposalGold), mais l'événement
   // `ceasefire-offer` dit amount 0, et le journal affiche « Cessez-le-feu sans paiement accepté par Roc-Épine ».
