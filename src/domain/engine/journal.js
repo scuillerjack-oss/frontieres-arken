@@ -7,6 +7,11 @@ import { ARCHETYPE_LABELS, HOSTILITY_WAR } from '../leaders.js';
 import { visibleProvinces } from '../vision.js';
 import { deName, nationName, provinceDef, safeNum } from './shared.js';
 
+/** Accords du journal (campagne V16, bug n° 2) : « 1 unité », « 3 unités ». */
+const plural = (n, many = 's', one = '') => safeNum(n) > 1 ? many : one;
+const units = n => `${safeNum(n)} unité${plural(n)}`;
+const theirUnits = n => safeNum(n) > 1 ? `ses ${safeNum(n)} unités` : 'son unité';
+
 export function eventKnownToPlayer(state, map, event) {
   const player = state.playerNationId;
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
@@ -108,9 +113,9 @@ export function journalEntry(event, map, playerNationId = null) {
       ? `L’escorte repart de ${provinceDef(map,event.fromId)?.name || '?'} (pas de port pour mouiller) vers ${provinceDef(map,event.toId)?.name || '?'} : ${safeNum(event.turns)} tours en mer.`
       : `Convoi embarqué à ${provinceDef(map,event.fromId)?.name || '?'} vers ${provinceDef(map,event.toId)?.name || '?'} : ${safeNum(event.turns)} tours en mer${event.escort ? `, escorté par ${event.escort} navire${event.escort > 1 ? 's' : ''}` : ', sans escorte'}.` };
     case 'convoy-arrived': if (event.passage) return { priority:2, type:'PASSAGE', category:'help', text: event.target === playerNationId && playerNationId !== null
-        ? `🤝 Un convoi de ${nationName(map,event.nationId)} (allié) arrive à ${where} : ${safeNum(event.amount)} unités y stationnent et la défendront avec vous.`
-        : `🤝 Convoi arrivé chez ${nationName(map,event.target)} (allié) à ${where} : ${safeNum(event.amount)} unités y stationnent et la défendront.` };
-      return { priority:2, type:'DÉBARQUEMENT', category:'neutral', text:`${event.returning ? 'Retour au port' : 'Convoi arrivé'} à ${where} : ${safeNum(event.amount)} unités débarquées en renfort.` };
+        ? `🤝 Un convoi de ${nationName(map,event.nationId)} (allié) arrive à ${where} : ${units(event.amount)} y stationne${plural(event.amount,'nt')} et la défendr${plural(event.amount,'ont','a')} avec vous.`
+        : `🤝 Convoi arrivé chez ${nationName(map,event.target)} (allié) à ${where} : ${units(event.amount)} y stationne${plural(event.amount,'nt')} et la défendr${plural(event.amount,'ont','a')}.` };
+      return { priority:2, type:'DÉBARQUEMENT', category:'neutral', text:`${event.returning ? 'Retour au port' : 'Convoi arrivé'} à ${where} : ${units(event.amount)} débarquée${plural(event.amount)} en renfort.` };
     case 'convoy-returning': return { priority:2, type:'MARINE', category:'neutral', text: event.reason === 'repelled'
       ? `Débarquement repoussé à ${where} : ${safeNum(event.amount)} survivants rembarquent et rentrent à ${provinceDef(map,event.toId)?.name || 'leur port'} (${safeNum(event.turns)} tours).`
       : event.reason === 'strike' ? `Après l’attaque du port de ${where}, la flotte rentre à ${provinceDef(map,event.toId)?.name || 'son port'} (${safeNum(event.turns)} tours).`
@@ -197,11 +202,12 @@ export function journalEntry(event, map, playerNationId = null) {
       if (event.bonus) parts.push(`${event.nationBonus ? 'bonus' : 'atout'} +${safeNum(event.bonus)}`);
       return { priority:0, type:'REVENUS', category:'treasure', text:`💰 Revenus du tour : +${safeNum(event.amount)} or (${parts.join(' · ')}).` };
     }
-    case 'retreat-lost': if (event.naval) return { priority:2, type:'MARINE', category:'lost', text:`Des navires n’ont plus de port où rentrer (${where} perdue) : ${safeNum(event.amount)} unités perdues en mer.` };
-      return { priority:2, type:'COMBAT', category:'lost', text:`Les survivants d’une attaque n’ont pas pu se replier (province de départ perdue) : ${safeNum(event.amount)} unités perdues.` };
+    case 'retreat-lost': if (event.naval) return { priority:2, type:'MARINE', category:'lost', text:`Des navires n’ont plus de port où rentrer (${where} perdue) : ${units(event.amount)} perdue${plural(event.amount)} en mer.` };
+      return { priority:2, type:'COMBAT', category:'lost', text:`Les survivants d’une attaque n’ont pas pu se replier (province de départ perdue) : ${units(event.amount)} perdue${plural(event.amount)}.` };
     case 'ceasefire-offer': if (event.custom) { const who = nationName(map, event.target), by = nationName(map, event.nationId);
         if (!event.accepted) return { priority:2, type:'DIPLOMATIE', category:'blue', text:`${who} refuse le cessez-le-feu proposé par ${by} ; aucun or n’a changé de mains.` };
-        return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.demand > 0 ? `Cessez-le-feu : ${who} accepte vos conditions et verse ${safeNum(event.demand)} or à ${by}.`.replace('vos conditions', event.nationId === playerNationId ? 'vos conditions' : 'les conditions')
+        return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.demand > 0 ? `Cessez-le-feu : ${who} accepte vos conditions et verse ${safeNum(event.demand) + safeNum(event.received)} or à ${by}.`.replace('vos conditions', event.nationId === playerNationId ? 'vos conditions' : 'les conditions')
+          : event.received > 0 ? `Cessez-le-feu accepté par ${who}, qui verse ${safeNum(event.received)} or à ${by} comme promis.`
           : event.amount > 0 ? `Cessez-le-feu accepté par ${who} contre ${safeNum(event.amount)} or, versés par ${by}.` : `Cessez-le-feu sans paiement accepté par ${who}.` }; }
       return {priority:2,type:'DIPLOMATIE',category:'blue',text:event.accepted?`Cessez-le-feu accepté par ${nationName(map,event.target)} contre ${safeNum(event.amount)} or, versés à ${nationName(map,
         event.target)}.`:`Cessez-le-feu refusé par ${nationName(map,event.target)} ; aucun paiement n’a été débité.`};
@@ -228,16 +234,16 @@ export function journalEntry(event, map, playerNationId = null) {
       ;
     case 'project-started': return { priority:1,type:'production',category:'neutral',text:`Projet lancé : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'construction'} à ${where}.` };
     case 'movement': if (event.passage) return { priority:2, type:'PASSAGE', category:'help', text: event.target === playerNationId && playerNationId !== null
-        ? `🤝 ${nationName(map,event.nationId)} (allié) envoie ${safeNum(event.amount)} unités stationner à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} : elles défendront la province avec vous.`
-        : `🤝 Passage chez ${nationName(map,event.target)} (allié) : ${safeNum(event.amount)} unités stationnent à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} et la défendront.` };
+        ? `🤝 ${nationName(map,event.nationId)} (allié) envoie ${units(event.amount)} stationner à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} : elle${plural(event.amount)} défendr${plural(event.amount,'ont','a')} la province avec vous.`
+        : `🤝 Passage chez ${nationName(map,event.target)} (allié) : ${units(event.amount)} stationne${plural(event.amount,'nt')} à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} et la défendr${plural(event.amount,'ont','a')}.` };
       return { priority:1,type:'déplacement',category:'neutral',text:`Mouvement vers ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} effectué.` };
     case 'convoy-rerouted': return { priority:3, type:'MARINE', category:'neutral', text: event.landed
-      ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi débarque à ${where}, son point de départ, et ses ${safeNum(event.amount)} unités sont rapatriées.`
-      : event.toDeparture ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi (${safeNum(event.amount)} unités) revient à ${provinceDef(map,event.toId)?.name || 'son point de départ'}, son point de départ, pour y débarquer (${safeNum(event.turns)} tours).`
-      : `Plus d’alliance avec ${nationName(map,event.target)} : le convoi ne peut plus y accoster et rentre au port ami le plus proche, ${provinceDef(map,event.toId)?.name || 'un port ami'} (${safeNum(event.amount)} unités, ${safeNum(event.turns)} tours).` };
-    case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${safeNum(event.amount)} unités quittent ${where} et rentrent à ${provinceDef(map,event.toId)?.name || 'leur base'}.` };
-    case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ses ${safeNum(event.amount)} unités stationnées à ${where} se dispersent.` };
-      return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${safeNum(event.amount)} unités perdues à ${where}.` };
+      ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi débarque à ${where}, son point de départ, et ${theirUnits(event.amount)} ${plural(event.amount,'sont rapatriées','est rapatriée')}.`
+      : event.toDeparture ? `Plus d’alliance avec ${nationName(map,event.target)} et aucun port ami : le convoi (${units(event.amount)}) revient à ${provinceDef(map,event.toId)?.name || 'son point de départ'}, son point de départ, pour y débarquer (${safeNum(event.turns)} tours).`
+      : `Plus d’alliance avec ${nationName(map,event.target)} : le convoi ne peut plus y accoster et rentre au port ami le plus proche, ${provinceDef(map,event.toId)?.name || 'un port ami'} (${units(event.amount)}, ${safeNum(event.turns)} tours).` };
+    case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${units(event.amount)} quitte${plural(event.amount,'nt')} ${where} et rentre${plural(event.amount,'nt')} à ${provinceDef(map,event.toId)?.name || plural(event.amount,'leur base','sa base')}.` };
+    case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ${theirUnits(event.amount)} stationnée${plural(event.amount)} à ${where} se disperse${plural(event.amount,'nt')}.` };
+      return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${units(event.amount)} perdue${plural(event.amount)} à ${where}.` };
     default: return null;
   }
 }

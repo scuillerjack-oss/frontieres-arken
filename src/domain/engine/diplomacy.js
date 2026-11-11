@@ -28,7 +28,8 @@ export const CEASEFIRE_PROPOSAL_BONUS = .4;
 export const maxCeasefireDemand = (state, target) => Math.floor(Math.max(0, state.nations[target]?.treasury || 0) / 2);
 export function queueDiplomaticOrder(state, { nationId, target, action, offerLevel = .5, pay, demand }) {
   if(action==='ultimatum')action='ceasefire';
-  if (!state.nations[target] || nationId === target) return { ok: false, error: 'Cible invalide' };
+  // Campagne V16, bug n° 1 : « toString », « __proto__ »… existent sur tout objet ; seule une vraie nation est une cible.
+  if (!Object.hasOwn(state.nations, String(nationId)) || !Object.hasOwn(state.nations, String(target)) || nationId === target) return { ok: false, error: 'Cible invalide' };
   if (!['war', 'alliance', 'ceasefire', 'break'].includes(action)) return { ok: false, error: 'Action indisponible en V5' };
   if ((state.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === nationId && o.target === target && o.status === 'pending')) return { ok: false, error: 'Une action envers ce pays est déjà prévue pour l’inter-tour' };
   const atWar = pairWar(state, nationId, target), relation = (state.diplomacy.treaties || []).find(t => t.active !== false && t.parties.includes(nationId) && t.parties.includes(target))?.type || 'neutral';
@@ -211,13 +212,13 @@ export function resolveDiplomacy(state, orders, random, map = null) {
       const accepted = atWar && state.nations[o.nationId].treasury >= (o.amount || 0) && ((proposed && !demand) || random() < p);
       // L'IA proposait déjà la trêve : le joueur n'a rien à payer, et l'or qu'elle offrait lui revient.
       const owed = proposed ? 0 : (o.amount || 0);
-      if (accepted && proposed) payProposalGold(state, proposed);
+      const received = accepted && proposed ? payProposalGold(state, proposed) : 0;
       if (accepted) {
         state.nations[o.nationId].treasury -= owed; state.nations[o.target].treasury += owed;
         state.nations[o.target].treasury -= demand; state.nations[o.nationId].treasury += demand;
         makeCeasefire(state, o.nationId, o.target);
       }
-      state.events.push({ turn: state.turn, type: 'ceasefire-offer', nationId: o.nationId, target: o.target, amount: owed, demand, custom: true, acceptanceProbability: o.acceptanceProbability, accepted });
+      state.events.push({ turn: state.turn, type: 'ceasefire-offer', nationId: o.nationId, target: o.target, amount: owed, demand, custom: true, acceptanceProbability: o.acceptanceProbability, accepted, ...(received > 0 ? { received } : {}) });
       state.messages.push({ turn: state.turn, nationId: o.nationId, target: o.target, action: 'ceasefire', amount: owed, demand, status: accepted ? 'accepted' : 'refused' });
       continue;
     }

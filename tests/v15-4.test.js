@@ -275,7 +275,7 @@ test('V15.4 : modules purs : ni DOM, ni hasard, ni date ; présents hors ligne ;
     assert.ok(sw.includes(`'./${f}'`), f);
   }
   assert.ok(sw.includes("'./src/presentation/palmares-view.js'"));
-  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '15.5.1');
+  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '15.6.0');
 });
 test('V15.4 : checkGameOver : ancienne partie à 80 au-delà du tour 40 non finie ; partie courte au tour 40 finie', () => {
   const l = game(); l.turn = 40; assert.equal(checkGameOver(l), null);

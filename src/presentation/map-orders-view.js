@@ -40,7 +40,9 @@ export function pointAlong(points,f){
 export function convoySeaPath(map,t){
   const byId=id=>map.provinces.find(p=>p.id===id);
   const [a,b]=(t.lane||[t.fromId,t.via].sort().join('|')).split('|');
-  const endId=t.via,startId=endId===a?b:a,start=byId(startId),end=byId(endId);
+  // Convoi dérouté (trajet à plusieurs étapes) : `via` peut ne pas être un bout de la route ; on dessine alors la route
+  // dans le sens qui s'éloigne du point de départ.
+  const endId=[a,b].includes(t.via)?t.via:(a===t.fromId?b:(b===t.fromId?a:b)),startId=endId===a?b:a,start=byId(startId),end=byId(endId);
   if(!start||!end)return[];
   const lane=(map.seaLanes||[]).find(l=>(l.from===startId&&l.to===endId)||(l.from===endId&&l.to===startId));
   const waypoints=lane?(lane.from===startId?lane.waypoints:[...lane.waypoints].reverse()):[];
