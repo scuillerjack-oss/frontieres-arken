@@ -69,3 +69,8 @@ Branche `mission/V17.6`. Moteur (`src/domain/`) et logique des tours **non touch
   en direct.
 - `package.json` non monté (versions V17 menées en parallèle sur la branche longue : à faire à l'intégration).
 - Non vérifié sur un vrai téléphone (rendu GPU des copies, fluidité réelle).
+
+**Relecture indépendante (V17.6)** : rien de bloquant (pas de fuite dans les pastilles, toucher et choix de destination
+corrects sur les copies, 2 `<use>` seulement, ~16 ms par image en glissant). Choix assumé (façon AM 3) : en paysage, le
+zoom minimum montre une largeur de carte et environ 70 % de sa hauteur ; « Voir toute la carte » disparaît en paysage.
+À reprendre en V17.3 : l'animation de fin de tour (qui disparaît avec le temps réel) supposait la carte entière visible.
