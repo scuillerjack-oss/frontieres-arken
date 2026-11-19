@@ -529,8 +529,8 @@ résolution reste simultanée, c'est le déroulé à l'écran qui devient « en 
 | Victoires Héros / Conquérant / Traître / Bâtisseur | 42 / 21 / 15 / 22 | 41 / 17 / 15 / 27 |
 
   **L'île sur ces 100 parties** : prise dans 21 parties, entre les tours 56 et 80 (médiane 70), **toujours à deux** sauf une fois
-  (21 prises communes sur 22 prises), toujours par un couple Bâtisseur + Héros alliés (les seuls qui rassemblent leur armée en paix),
-  jamais reprise ensuite ; 96 demandes « Prends l'île avec moi » entre IA. Le propriétaire de l'île gagne 10 de ces 21 parties
+  (21 prises communes sur 22), chaque première prise par un couple Bâtisseur + Héros alliés (les seuls qui rassemblent leur armée en paix),
+  reprise une seule fois ensuite (22 prises en tout) ; 96 demandes « Prends l'île avec moi » entre IA. Le propriétaire de l'île gagne 10 de ces 21 parties
   (prise tardive : la super banque rapporte peu avant la fin). Lecture : le début de partie ne change pas ; la garnison ×3 tient
   longtemps, l'île ne décide pas la partie. **À surveiller en bêta** : un joueur humain peut la prendre bien plus tôt (avec un allié
   IA) ; si c'est trop fort, relever `garrisonFactor` (le cahier le prévoit). Les Conquérants et Traîtres ne la visent presque jamais.
