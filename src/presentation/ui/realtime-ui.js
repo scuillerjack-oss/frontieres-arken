@@ -31,13 +31,13 @@ function drawMarches() {
   const layer = E('g', { id: 'rtMarches', class: 'rt-marches' });
   for (const m of visibleMarches()) {
     const a = province(m.fromId).markerAnchor, b = province(m.toId).markerAnchor, span = Math.max(1, m.arriveDay - m.startDay);
-    const f = Math.min(1, Math.max(0, (state.day - m.startDay) / span)), x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f;
+    const f = .15 + .7 * Math.min(1, Math.max(0, (state.day - m.startDay) / span)), x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f;
     const own = m.nationId === state.playerNationId;
     const g = E('g', { class: `rt-march${own ? ' own' : ''}`, 'data-march': m.id, role: 'button', tabindex: '0', transform: `translate(${Math.round(x)} ${Math.round(y)})`,
       'aria-label': `Armée de ${nation(m.nationId).short} vers ${province(m.toId).name}, arrivée le ${formatDate(m.arriveDay)}` });
     g.append(E('line', { x1: 0, y1: 0, x2: Math.round(b.x - x), y2: Math.round(b.y - y), stroke: nation(m.nationId).color, 'stroke-width': 6, 'stroke-dasharray': '14 10', opacity: .8 }));
-    const disc = E('circle', { r: 30, fill: nation(m.nationId).color, stroke: '#fff7df', 'stroke-width': 5 });
-    const icon = E('text', { y: 11, 'text-anchor': 'middle', 'font-size': 32 }); icon.textContent = m.returning ? '↩' : '⚔';
+    const disc = E('circle', { r: 24, fill: nation(m.nationId).color, stroke: '#fff7df', 'stroke-width': 5 });
+    const icon = E('text', { y: 9, 'text-anchor': 'middle', 'font-size': 26 }); icon.textContent = m.returning ? '↩' : '⚔';
     g.append(disc, icon);
     g.addEventListener('click', event => { event.stopPropagation(); openMarch(m.id); });
     layer.append(g);
@@ -93,10 +93,10 @@ function drawBar() {
 function drawHud() {
   const turn = $('#turn');
   const text = formatShortDate(state.day);
-  if (turn && turn.textContent !== text) { turn.textContent = text; turn.dataset.rtDay = String(state.day); }
+  if (turn && turn.textContent !== text) { turn.textContent = text; turn.dataset.rtDay = String(state.day); turn.style.fontSize = '.72em'; }
   const label = turn?.closest('.hud-stat')?.querySelector('small');
   if (label && label.textContent !== 'DATE') label.textContent = 'DATE';
-  $('#nextTurn').hidden = true;
+  const next = $('#nextTurn'); next.hidden = true; next.style.display = 'none'; // la feuille de style du paysage l'affiche malgré [hidden]
 }
 function refresh() {
   render();
@@ -108,7 +108,7 @@ const chain = task => { popups = popups.then(task).catch(() => {}); };
 export function syncRealtime() {
   if (!onScreen()) {
     if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; }
-    if (!realtimeOn()) { const turn = $('#turn'); if (turn?.dataset.rtDay) { delete turn.dataset.rtDay; const l = turn.closest('.hud-stat')?.querySelector('small'); if (l) l.textContent = 'TOUR'; } $('#nextTurn').hidden = false; }
+    if (!realtimeOn()) { const turn = $('#turn'); if (turn?.dataset.rtDay) { delete turn.dataset.rtDay; turn.style.fontSize = ''; const l = turn.closest('.hud-stat')?.querySelector('small'); if (l) l.textContent = 'TOUR'; const next = $('#nextTurn'); next.hidden = false; next.style.display = ''; } }
     return;
   }
   const t = now();
