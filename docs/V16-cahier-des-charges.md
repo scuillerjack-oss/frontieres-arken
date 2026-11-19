@@ -516,7 +516,7 @@ résolution reste simultanée, c'est le déroulé à l'écran qui devient « en 
 - **Tests** : `tests/v16-2.test.js` (24 tests). Tests existants modifiés car la règle a changé (l'anneau seul n'est plus toute la
   mer) : `marine-v10` (destinations de Branvale, durée 4 tours vers l'île), `marine-v13` et `v9-map` (contrôles de l'anneau sur
   les routes hors île, p21 après p20), `vision-v13` (p21 visible au départ). Ajout aux listes `sw.js` / `tests/helpers/sources.js`.
-  `npm test` : 668 / 668.
+  `npm test` : 691 / 691 (après intégration des V16.3 et V16.4).
 - **Mesure** (`node tools/equilibre.mjs 100 80 v160a`, mêmes graines ; avant = main ee19ec1) :
 
 | Mesure | V16.1 | V16.2 |
@@ -537,3 +537,7 @@ résolution reste simultanée, c'est le déroulé à l'écran qui devient « en 
 - **Vérifié dans un Chrome mobile simulé** (390 × 844 tactile, `pw/v162.mjs`) : île visible au centre avec ses 5 routes, toucher
   de l'île → fiche complète, débarquement Branvale → île (4 tours, note de l'île), convoi en mer, débarquement repoussé annoncé
   (« Neutre tient la province »), 6 tours joués ; 0 erreur JavaScript, aucun débordement horizontal.
+- **Relecture indépendante (V16.2)** : rien de bloquant (stress de 20 parties, ancienne sauvegarde reprise octet pour
+  octet, paysage vérifié). Non corrigé, mineur : quand une 3e nation prend l'île à un couple, l'annonce « part perdue »
+  n'est pas publiée (le combat, lui, l'est) ; un allié dont toutes les troupes meurent au débarquement devient quand
+  même co-propriétaire ; « à Île mystérieuse » au lieu de « à l'Île mystérieuse » dans quelques messages génériques.
