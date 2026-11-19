@@ -71,3 +71,21 @@ test('V16.0 : toute alliance conclue est connue de toutes les nations', () => {
   // Un refus entre deux autres nations reste privé.
   assert.equal(eventKnownToPlayer(s, map, { ...ev, accepted: false }), false);
 });
+
+test('V16.0 : à terre, les troupes peuvent toujours tirer sur les navires (choix mesuré, voir cahier)', () => {
+  const r = resolveBattle({ defender: F({ warship: 2 }), attackers: [{ id: 'a', mode: 'landing', force: F({ infantry: 400 }) }], passes: 1 });
+  assert.ok(r.defenderHpLost > 0);
+});
+
+test('V16.0 : deux propositions d’alliance croisées le même tour : une seule alliance, une seule annonce', async () => {
+  const { queueDiplomaticOrder } = await import('../src/domain/game-engine.js');
+  const s = createGameState({ map, playerNationId: 'valmorne', seed: 'v16-0-croise' });
+  for (const id of NATIONS) s.controllers[id] = 'human';
+  assert.equal(queueDiplomaticOrder(s, { nationId: 'aurel', target: 'oroel', action: 'alliance' }).ok, true);
+  assert.equal(queueDiplomaticOrder(s, { nationId: 'oroel', target: 'aurel', action: 'alliance' }).ok, true);
+  resolveInterturn(s, map);
+  const alliances = s.diplomacy.treaties.filter(t => t.type === 'alliance' && t.parties.includes('aurel') && t.parties.includes('oroel') && t.active !== false);
+  assert.equal(alliances.length, 1);
+  const ann = s.events.filter(e => e.type === 'diplomatic-action' && e.action === 'alliance' && e.accepted === true);
+  assert.equal(ann.length, 1);
+});

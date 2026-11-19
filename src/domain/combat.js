@@ -139,7 +139,9 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
     const weights = targets.map(t => Object.fromEntries(COMBAT_TYPES.map(k => [k, poolOf(t, k) * (stat(k).targetWeight ?? 1)])));
     // V16.0 (Jack : « les navires de guerre ne peuvent attaquer que les troupes qui sont dans l'eau ») : à terre
     // (défense d'un port, appui d'un débarquement), un navire ne tire que sur les navires adverses ; en mer, il
-    // touche aussi les troupes embarquées. Sans cible permise, son feu est perdu.
+    // touche aussi les troupes embarquées. Sans cible permise, son feu est perdu. Les troupes, elles, peuvent
+    // toujours tirer sur les navires (essai du 19/11 : sans cela, les débarquements redevenaient presque
+    // impossibles et la carte se figeait — conquêtes de fin de partie divisées par 3).
     const allowed = (s, t) => naval || s !== 'warship' || t === 'warship';
     for (const s of COMBAT_TYPES) {
       const shot = output(shooter, s, mode, warshipFactor);

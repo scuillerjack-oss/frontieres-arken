@@ -42,8 +42,8 @@ tout retester trois fois.
   plus aucun dégât sur la garnison (aujourd'hui : 20 % de la puissance de feu, plafonné à 5 % des PV, blessures
   seulement). Ainsi la règle « navires = mer seulement » est respectée pour les troupes, et le blocage des
   débarquements ne revient pas.
-- Lors d'un débarquement, les navires d'escorte ne participent plus à l'assaut terrestre ; ils ne protègent le
-  convoi qu'en mer.
+- Lors d'un débarquement, les navires d'escorte ne tirent plus sur les troupes à terre ; ils ne frappent que les
+  navires et, en mer, les convois. (Voir « Réalisé » : les troupes peuvent encore tirer sur eux.)
 
 ### 4. Alliances et attaques communes (idées 12 et 13 de Jack)
 Ce qui existe déjà (V13 / V13.4) et couvre déjà ces idées :
@@ -176,7 +176,13 @@ mettre pause pour avoir le temps de lire et de réagir ».
 - **Banques +5** : `RULES.bankIncome` 3 → 5. Textes d'aide et de fiche lus dans `RULES` (plus de « +3 » écrit en dur).
 - **Navires** (`src/domain/combat.js`, fonction `fire`) : dans un combat à terre (port défendu, débarquement), un navire
   ne tire que sur les navires adverses ; sans navire en face, son feu est perdu. En mer, il touche toujours les troupes
-  embarquées (« troupes dans l'eau »). Les troupes à terre peuvent toujours tirer sur les navires.
+  embarquées (« troupes dans l'eau »). Les troupes à terre peuvent toujours tirer sur les navires : escortes et
+  navires à quai prennent donc encore une part des tirs (700 PV chacun).
+  **Essai écarté** : navires et troupes qui ne se touchent plus du tout à terre (escorte totalement hors de l'assaut).
+  Mesuré sur les mêmes 100 parties : conquêtes des tours 61-80 de 529 à 197, capitales perdues de 1,24 à 0,86 par
+  partie, Conquérant de 21 à 11 victoires — la carte se figeait, le blocage du 29/10 revenait. Gardé : la version
+  ci-dessus. Si Jack veut quand même l'escorte totalement hors de la plage, il faudra compenser (brèche plus forte
+  ou malus de débarquement réduit).
 - **Bombardement** (`RULES.bombard.garrisonShare` 0,2 → 0) : brèche dans les murs seulement, aucune blessure à la
   garnison. Sans forteresse en face, plus de cible (« il faut, en face, une forteresse… ») ; un ordre ancien vers une
   province sans forteresse est ignoré. Textes de l'aperçu et du journal sans ligne « Garnison ».
@@ -184,13 +190,16 @@ mettre pause pour avoir le temps de lire et de réagir ».
   Échanges, réponse Oui / Non) est connue de toutes les nations : « 🤝 Alliance conclue entre X et Y. » Un refus
   entre deux autres nations reste privé. Pas de changement d'IA (la tension +5 envisagée n'a pas été codée : inutile
   pour la règle demandée).
+- Deux propositions d'alliance croisées le même tour (A→B et B→A) : une seule alliance et une seule annonce
+  (`resolveDiplomacy`), sinon tout le monde voyait la ligne deux fois.
+- Tutoriel : « la banque rapporte +5, l'usine +3 » (le texte disait « l'usine aussi »).
 - **Idées 12 et 13** : déjà couvertes par « Attaque X avec moi » et le droit de passage (V13.4), rien à coder.
 - **Tests modifiés (règle changée, pas affaiblis)** : revenus de banque 3 → 5 (`economy`, `v13-1-beta`) ; B1 : les
   navires d'appui n'ajoutent plus de dégâts aux troupes (`combat-v10`) ; bombardement : garnison intacte, journal
   sans « Garnison » ; île bien défendue : 400 → 500 fantassins pour prendre en 3 tours de bombardement, toujours
   repoussé sans bombardement ou après 1 tour (`v14-4-bombardement`) ; Bâtisseur qui riposte : +300 fantassins
   dans le scénario, car son débarquement sur la capitale d'Aurel ne profite plus du feu des navires
-  (`v11-personnalites`). Ajout : `tests/v16-0.test.js` (6 tests).
+  (`v11-personnalites`). Ajout : `tests/v16-0.test.js` (8 tests).
 - **Mesure** (`node tools/equilibre.mjs 100 80 v160a`, mêmes graines avant / après) :
 
 | Mesure | V15.5.1 | V16.0 |
@@ -203,5 +212,8 @@ mettre pause pour avoir le temps de lire et de réagir ».
 | Victoires Héros / Conquérant / Traître / Bâtisseur | 38 / 22 / 23 / 17 | 46 / 21 / 19 / 14 |
 
   Lecture : la guerre ne fige pas ; un peu moins de conquêtes en fin de partie. **À surveiller en bêta** : les
-  débarquements sont plus durs (plus de feu des navires sur la plage). Si le blocage du 29/10 revient, on montera la
+  débarquements sont plus durs (les navires ne tirent plus sur la plage). Si le blocage du 29/10 revient, on montera la
   brèche par tour (`maxPerTurn`) plutôt que de rendre les navires aux combats terrestres.
+- **Remarques de relecture, non corrigées** : l'affichage « dégâts par assaut » d'une province compte encore le feu de
+  ses navires à quai (alors qu'il ne touche que des navires) ; on ne peut plus bombarder un port ennemi sans
+  forteresse (la bataille contre sa flotte à quai passe par une attaque navale).

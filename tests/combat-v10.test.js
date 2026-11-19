@@ -226,7 +226,7 @@ test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dég�
   const supported = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
   assert.equal(supported, landing, 'V16.0 : les navires ne tirent que sur les navires et les troupes en mer');
   const vsShips = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400, warship: 1 }), mode: 'landing', passes: 1 });
-  assert.ok(vsShips.defenderLossesByType.warship >= 0 && vsShips.defenderHpLost > landing, 'ils tirent sur les navires à quai');
+  assert.ok(vsShips.defenderHpLost > landing, 'ils tirent sur les navires à quai');
 });
 
 // --- B2. Trois passes, répartition, déterminisme ---------------------------------------------------------------

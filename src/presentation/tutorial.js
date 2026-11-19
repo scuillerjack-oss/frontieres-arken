@@ -111,7 +111,7 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: `Un lot d’infanterie = ${RULES.units.infantry.amount} fantassins pour ${RULES.units.infantry.cost} or, livrés au tour suivant. Ouvrir le détail ne recrute jamais.`,
     goal: 'Ajoutez 1 lot avec +, puis « Vérifier la commande » et « Confirmer ».' },
   { id: 'construire', theme: 'construire', title: 'Construire pour gagner plus', on: 'build', targets: [CONFIRM, '[data-build="bank"]', SHEET('p01', 'build'), P('p01')],
-    text: `Une banque coûte ${RULES.buildings.bank.cost} or, est livrée en ${RULES.buildings.bank.turns} tours, puis rapporte +${bank} or par tour (l’usine aussi, et elle permet blindés et artillerie).`,
+    text: `Une banque coûte ${RULES.buildings.bank.cost} or, est livrée en ${RULES.buildings.bank.turns} tours, puis rapporte +${bank} or par tour (l’usine +${RULES.factoryIncome}, et elle permet blindés et artillerie).`,
     goal: 'Fiche de Valmorne : « Construire » → Banque « Vérifier » → « Confirmer ».' },
   { id: 'fin-tour-2', theme: 'tour', title: 'Payé maintenant, livré plus tard', on: 'end-turn', targets: ['#confirmEndTurn', '#nextTurn'],
     text: 'L’or est payé tout de suite ; le lot arrive au prochain tour, la banque dans 3 tours.',

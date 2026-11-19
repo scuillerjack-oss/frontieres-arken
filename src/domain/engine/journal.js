@@ -220,7 +220,7 @@ export function journalEntry(event, map, playerNationId = null) {
       if (event.viaTalk) return { priority:3, type:'DIPLOMATIE', category:'blue',
         text:`${event.action==='alliance'?(event.accepted?'🤝 Alliance conclue':'Alliance refusée'):(event.accepted?'Cessez-le-feu conclu':'Cessez-le-feu refusé')} entre ${nationName(map,
         event.nationId)} et ${nationName(map,event.target)}${event.accepted&&event.amount>0?` : ${nationName(map,event.target)} verse ${safeNum(event.amount)} or`:''}.` };
-      if (event.action==='alliance' && event.accepted!==undefined) return { priority: event.accepted ? 3 : 2, type:'DIPLOMATIE', category:'blue', public: event.accepted ? true : undefined, text: event.accepted ? `🤝 Alliance conclue entre ${nationName(map,
+      if (event.action==='alliance' && event.accepted!==undefined) return { priority: event.accepted ? 3 : 2, type:'DIPLOMATIE', category:'blue', ...(event.accepted ? { public: true } : {}), text: event.accepted ? `🤝 Alliance conclue entre ${nationName(map,
         event.nationId)} et ${nationName(map,event.target)}.` : `${nationName(map,event.target)} refuse l’alliance proposée par ${nationName(map,event.nationId)}.` };
       return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,
         event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'}

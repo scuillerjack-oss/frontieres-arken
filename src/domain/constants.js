@@ -98,7 +98,7 @@ export const RULES = Object.freeze({
     // V16.0 (Jack : « les navires de guerre ne peuvent attaquer que les troupes qui sont dans l'eau ») : plus aucun
     // dégât sur la garnison ; le bombardement n'ouvre plus qu'une brèche dans les murs.
     garrisonShare:0,       // (V14.4 : 0,2) dégâts à la garnison
-    garrisonMaxShare:.05   // … plafonnés à 5 % des PV de la garnison par tour (blessures seulement, aucun mort)
+    garrisonMaxShare:.05   // plafond des dégâts à la garnison (sans effet tant que garrisonShare = 0) : à 5 % des PV de la garnison par tour (blessures seulement, aucun mort)
   },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
