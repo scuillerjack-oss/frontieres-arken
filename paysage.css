@@ -1,0 +1,95 @@
+/* V16.3 — FORMAT PAYSAGE (demande de Jack du 19/11/2026 : « que le jeu se lance couché, ce sera plus agréable »).
+   L'appli Android est verrouillée en paysage (scripts/android-orientation.js) et le manifeste demande le paysage.
+   Ces règles ne s'appliquent qu'à un écran COUCHÉ ET BAS (téléphone, ~844 × 390) : tenu droit dans un navigateur, la mise
+   en page portrait d'avant reste intacte. Chargée APRÈS v5.css : elle a le dernier mot sur les mêmes sélecteurs.
+   Gabarit : carte sur toute la hauteur à gauche ; colonne à droite = barre d'infos en haut, boutons du bas en bas ;
+   fiche de province en panneau latéral (à droite de la carte) ; fenêtres limitées à la hauteur de l'écran. */
+@media (orientation:landscape) and (max-height:560px){
+:root{--side:calc(clamp(184px,24vw,236px) + env(safe-area-inset-right,0px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+
+/* --- Gabarit du jeu : carte à gauche, colonne à droite --- */
+#gameScreen:not([hidden]){position:relative;grid-template-columns:minmax(0,1fr) var(--side);grid-template-rows:auto minmax(0,1fr) auto}
+#gameScreen .map-shell{grid-column:1;grid-row:1/-1;max-width:none}
+#gameScreen .map-frame{inset:max(4px,var(--st)) 4px max(4px,var(--sb)) max(4px,var(--sl))}
+.hud{grid-column:2;grid-row:1/3;max-width:none;min-height:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-content:start;gap:6px;padding:max(8px,var(--st)) max(8px,env(safe-area-inset-right,0px)) 6px 8px;background:linear-gradient(180deg,#0d2b3c,#0a2332);border-bottom:0;border-left:1px solid #4a6578}
+.hud .brand{grid-column:1/-1;margin:0;min-width:0;overflow:hidden}
+.hud .brand b,.hud .brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .brand b{font-size:.78rem}.hud .brand small{font-size:.58rem;letter-spacing:.08em}
+.hud .hud-stat{grid-column:span 2;min-width:0;min-height:48px;padding:3px 2px}
+.hud .hud-stat small{font-size:.58rem;letter-spacing:.04em}
+.hud .hud-stat b{font-size:1.15rem}
+.hud .icon-btn{grid-column:span 3;width:auto;height:42px}
+nav.bottom-bar{grid-column:2;grid-row:3;max-width:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:6px max(8px,env(safe-area-inset-right,0px)) max(8px,var(--sb)) 8px;background:#0a2332;border-top:0;border-left:1px solid #4a6578}
+nav.bottom-bar button{min-height:50px;min-width:0;flex-direction:column;gap:2px;padding:4px 2px;font-size:.8rem}
+nav.bottom-bar #journalBtn,nav.bottom-bar #talkBtn{gap:2px;padding:4px 2px}
+nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.78rem}
+nav.bottom-bar #journalBtn i,nav.bottom-bar #talkBtn i{font-size:1.15rem}
+nav.bottom-bar #nextTurn{grid-column:1/-1;flex-direction:row;gap:8px;min-height:58px}
+nav.bottom-bar #nextTurn span{font-size:1rem}
+#pendingCount{min-width:26px;height:26px;font-size:.9rem}
+
+/* --- Boutons posés sur la carte : zoom en colonne à gauche (la fiche de province occupe la droite) --- */
+.zoom{top:auto;right:auto;left:8px;bottom:58px;flex-direction:column}
+.zoom button{width:42px;height:42px}
+.whole-map-btn{bottom:8px}
+#moveBanner{top:8px;max-width:calc(100% - 260px);min-width:200px}
+.coalition-chip{top:58px;max-width:calc(100% - 16px - var(--sheet-w))}
+
+/* --- Fiche de province : panneau latéral à droite de la carte, sur toute la hauteur --- */
+#provinceSheet{top:calc(8px + var(--st));bottom:calc(8px + var(--sb));right:calc(var(--side) + 8px);left:auto;width:var(--sheet-w);max-height:none;overflow:auto;overscroll-behavior:contain}
+body:has(#provinceSheet:not([hidden])) #toast{left:calc((100% - var(--sheet-w) - 16px) / 2);max-width:calc(100% - var(--sheet-w) - 40px)}
+#sheetActions{flex-wrap:wrap;overflow-x:visible}
+#sheetActions button{flex:1 1 40%;white-space:normal;min-height:46px}
+
+/* --- Bulles d'aide et du tutoriel : sur la carte, jamais sur la colonne de droite --- */
+#tutorialBubble{left:calc(12px + var(--sl));right:calc(var(--side) + 12px);bottom:calc(12px + var(--sb));max-height:calc(50dvh);overflow:auto}
+#tutorialBubble.top{top:calc(12px + var(--st));bottom:auto;right:var(--beside-sheet);max-height:calc(100dvh - 24px - var(--st) - var(--sb))}
+#miniTuto,#miniTuto.tuto-full{inset:calc(8px + var(--st)) calc(var(--side) + 12px) auto calc(12px + var(--sl));max-height:48dvh}
+#miniTuto.bottom,#miniTuto.tuto-full.bottom{inset:auto calc(var(--side) + 12px) calc(8px + var(--sb)) calc(12px + var(--sl))}
+/* Fiche de province ouverte : la bulle reste à gauche de la fiche (les boutons de la fiche restent visibles). */
+body:has(#provinceSheet:not([hidden])) > #miniTuto{right:var(--beside-sheet);max-height:calc(100dvh - 16px - var(--st) - var(--sb))}
+/* Bulle remontée dans une fenêtre ouverte : la fenêtre se range à gauche, la bulle à droite (rien n'est caché). */
+dialog[open]:has(> #miniTuto:not([hidden])){margin-left:calc(8px + var(--sl));width:min(calc(100vw - 330px - var(--sl)),600px)}
+dialog[open] > #miniTuto,dialog[open] > #miniTuto.tuto-full,dialog[open] > #miniTuto.bottom,dialog[open] > #miniTuto.tuto-full.bottom{inset:calc(8px + var(--st)) calc(8px + env(safe-area-inset-right,0px)) auto auto;width:306px;max-height:calc(100dvh - 16px - var(--st) - var(--sb))}
+
+/* --- Fenêtres : jamais plus hautes que l'écran, défilement à l'intérieur --- */
+dialog{width:min(calc(100vw - 24px - var(--sl) - env(safe-area-inset-right,0px)),660px);max-height:calc(100dvh - 12px - var(--st) - var(--sb))}
+dialog section{max-height:calc(100dvh - 12px - var(--st) - var(--sb));padding:14px 18px;overscroll-behavior:contain}
+dialog h2{margin:4px 0 8px}
+dialog .close{top:2px;right:6px;min-width:40px;min-height:40px;z-index:2}
+dialog .primary{margin-top:10px}
+#nationChoices{grid-template-columns:repeat(2,minmax(0,1fr))}
+#nationDialog h1{font-size:1.1rem}
+#levelText{min-height:0}
+.order-summary{max-height:30dvh}
+#eventDialog{width:min(calc(100vw - 24px),560px)}
+#eventDialog h2{font-size:1.25rem;margin:4px 0 6px}
+#eventDialog .confirm-actions button{margin-top:8px}
+#endDialog h2{font-size:1.4rem}
+dialog.ad-overlay{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh}
+.ad-card{padding:14px 18px;max-height:calc(100dvh - 24px);overflow:auto}
+
+/* --- Accueil : titre sur une ligne, boutons sur deux colonnes --- */
+.welcome-screen{height:100dvh;min-height:0;overflow-y:auto;padding:max(10px,var(--st)) max(16px,env(safe-area-inset-right,0px)) max(10px,var(--sb)) max(16px,var(--sl))}
+.welcome-card{width:min(100%,640px);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px;align-content:start;padding:14px 22px 12px}
+.welcome-card>*{grid-column:1/-1}
+.welcome-card>button{grid-column:auto;margin:0;min-height:46px}
+.welcome-card>#continueGame{grid-column:1/-1}
+.welcome-mark{display:none}
+.welcome-card .kicker{margin:0}
+.welcome-card h1{font-size:2.1rem;line-height:1}
+.welcome-card h1 br{display:none}
+.welcome-card h1 span{margin-left:.35em}
+.welcome-copy{margin:0 auto 4px}
+.save-notice{margin:0}
+.version-tag{margin-top:2px}
+
+/* --- Animation entre deux tours et bandeau de mise à jour : au-dessus de la carte, pas de la colonne --- */
+#turnAnim{padding:calc(var(--st) + 14px) calc(var(--side) + 16px) 0 calc(16px + var(--sl))}
+#updateBanner{top:calc(var(--st) + 10px);left:calc(10px + var(--sl));right:calc(var(--side) + 10px)}
+}
+/* Très petits téléphones couchés (≤ 340 px de haut) : la colonne se resserre encore. */
+@media (orientation:landscape) and (max-height:340px){
+.hud{gap:4px}.hud .hud-stat{min-height:40px}.hud .hud-stat b{font-size:1rem}.hud .icon-btn{height:36px}
+nav.bottom-bar button{min-height:42px}nav.bottom-bar #nextTurn{min-height:48px}
+}

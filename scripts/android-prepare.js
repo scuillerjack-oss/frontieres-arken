@@ -11,12 +11,15 @@
 //     (android-apk.yml, build local), rien ne change : la bêta reste signée avec android-debug.
 //     Variables lues : ARKEN_PLAY_STORE_FILE, ARKEN_PLAY_STORE_PASSWORD, ARKEN_PLAY_KEY_ALIAS,
 //     ARKEN_PLAY_KEY_PASSWORD. Aucun secret n'est écrit dans ce fichier ni dans android/.
+//  5. V16.3 : jeu verrouillé en PAYSAGE (sensorLandscape) sur l'activité principale, APK de bêta ET AAB
+//     (scripts/android-orientation.js).
 //
 // Usage : node scripts/android-prepare.js   (après `npx cap add android`)
 import { cpSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configureManifest } from './play-config.js';
+import { configureOrientation } from './android-orientation.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = join(root, 'android', 'app');
@@ -76,4 +79,7 @@ android {
 // (APK de bêta, build local), le manifeste reste celui de Capacitor.
 const play = configureManifest(root, process.env);
 if (play.changed) console.log(`Manifeste Google Play : AdMob ${play.testing ? 'TEST' : 'PRODUCTION'} (${play.appId}), permission BILLING`);
+// 5. V16.3 : lancement couché, pour tous les builds (bêta et Google Play).
+configureOrientation(root);
+console.log('Manifeste Android : orientation paysage (sensorLandscape)');
 console.log('android/ personnalisé : icônes, version, signature (bêta, ou « play » si ARKEN_PLAY_STORE_FILE est défini au build)');
