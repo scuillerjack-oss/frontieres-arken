@@ -2,7 +2,7 @@
 
 import { RULES } from '../../domain/constants.js';
 import { aiGoldPct, difficultyLabel, difficultyOf } from '../../domain/difficulty.js';
-import { journalEntry, nextTurn } from '../../domain/game-engine.js';
+import { formatDate, journalEntry, nextTurn } from '../../domain/game-engine.js';
 import { gameLengthOf } from '../../domain/game-length.js';
 import { nationBonusInfo } from '../../domain/nations.js';
 import { recordFinishedGame } from '../../domain/palmares.js';
@@ -53,15 +53,16 @@ export function showEndScreen(){
   const record=recordFinishedGame(profile,state);if(record.counted)saveMyProfile();
   const me=state.playerNationId,mine=go.ranking.find(r=>r.nationId===me),won=go.winnerId===me;
   const title=go.reason==='player-eliminated'?'Défaite':won?'Victoire !':'Fin de la partie';
-  const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:`Les ${go.turn} tours sont écoulés.`;
-  $('#endKicker').textContent=`TOUR ${go.turn} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':`FIN DES ${go.turn} TOURS`}`;
+  const rt=state.mode==='realtime'&&Number.isFinite(go.day); // V17.1 : la date à la place du tour
+  const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:rt?`Le temps est écoulé : nous sommes le ${formatDate(go.day)}.`:`Les ${go.turn} tours sont écoulés.`;
+  $('#endKicker').textContent=`${rt?formatDate(go.day).toUpperCase():`TOUR ${go.turn}`} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':rt?'FIN DE LA PARTIE':`FIN DES ${go.turn} TOURS`}`;
   $('#endTitle').textContent=title;$('#endDialog').dataset.result=go.reason==='player-eliminated'||!won&&go.reason==='capitals'?'defeat':won?'victory':'end';
   $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`} ${levelSummary()}</p>\
 ${endTitlesHtml(record.titles)}${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
 }
 /** V16.4 : le déroulé en direct s'applique-t-il à cette partie ? (jamais en tutoriel ni pendant le mini tuto) */
-export const liveOn=()=>Boolean(state)&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});
+export const liveOn=()=>Boolean(state)&&state.mode!=='realtime'&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});
 /** V16.4 : une seule résolution à la fois (fin d'horloge, « Passer », « Verrouiller et résoudre »). */
 export const turnGate=createTurnGate();
 /** Ordres en attente du joueur, une ligne chacun (récapitulatif de fin de tour et rappel du bandeau en direct). */
@@ -74,6 +75,7 @@ export function pendingOrderLines(){
 }
 export function resolveTurn(){
   if(showEndScreen())return;
+  if(state.mode==='realtime')return; // V17.1 : pas de fin du tour en temps réel
   if(liveOn())return void playTurn({live:true}); // V16.4 : « Passer » — résolu tout de suite, sans confirmation
   const lines=pendingOrderLines(),count=lines.length;
   const summary=count?lines.join('\n'):'Aucun ordre en attente.';
@@ -87,6 +89,7 @@ export function resolveTurn(){
  */
 export async function playTurn({live=false}={}){
   if(!state||state.gameOver){showEndScreen();return;}
+  if(state.mode==='realtime')return; // V17.1 : le temps réel avance jour par jour (realtime-ui.js)
   if(!turnGate.tryStart())return;
   try{
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.

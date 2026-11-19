@@ -11,6 +11,7 @@ import { NOTHING_KNOWN, nationAnnouncements, newsAt } from '../live-news.js';
 import { $, E, nation, province } from './base.js';
 import { liveSettings, setLiveSettings, state } from './session.js';
 import { turnAnimating } from './turn-anim.js';
+import { toggleRealtimePause } from './realtime-ui.js';
 import { liveOn, pendingOrderLines, playTurn, turnGate } from './turn-flow.js';
 
 const TICK_MS = 250;
@@ -87,6 +88,7 @@ function draw(view) {
 }
 /** Un battement : met l'horloge à l'heure, applique les pauses automatiques, résout à la fin, dessine le bandeau. */
 export function syncLive() {
+  if (state?.mode === 'realtime') { clock = null; clockGame = null; return; } // V17.1 : le temps réel a sa propre horloge (realtime-ui.js)
   const on = running();
   syncNextButton(Boolean(state) && liveOn());
   document.body.classList.toggle('live-on', on);
@@ -117,7 +119,7 @@ export function renderLiveSettings() {
   document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { setLiveSettings({ speed: b.dataset.speed }); renderLiveSettings(); syncLive(); });
 }
 export function installLive() {
-  $('#livePause').onclick = toggleLivePause;
+  $('#livePause').onclick = () => { if (!toggleRealtimePause()) toggleLivePause(); }; // V17.1 : ▶ / ⏸ du temps réel
   // Pause automatique sans attendre le battement : fenêtre ouverte / fermée, page cachée / revenue.
   new MutationObserver(list => { if (list.some(m => !m.target.closest?.('#liveBar'))) syncLive(); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] });
   document.addEventListener('visibilitychange', syncLive);

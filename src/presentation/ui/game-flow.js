@@ -6,6 +6,7 @@ import { nationBonusInfo } from '../../domain/nations.js';
 import { recordGameStarted } from '../../domain/profile.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { createGameState } from '../../state/create-game-state.js';
+import { createRealtimeGame } from '../../domain/realtime/create.js';
 import { showGameStartAd } from '../ads.js';
 import { quietDuring, syncMusic } from './audio.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../guide-input.js';
@@ -20,7 +21,7 @@ import {
 } from './map-view.js';
 import {
   applyBoosts, hydrateState, load, moveSource, profile, save, saveMyProfile, selected, setMoveSource, setSelected,
-  setState, showSaveNotice, state
+  setState, showSaveNotice, state, turnBasedTest
 } from './session.js';
 import { showEndScreen } from './turn-flow.js';
 import {
@@ -67,7 +68,7 @@ function openNationChoice(){
   document.querySelectorAll('[data-length]').forEach(b=>b.onclick=()=>{gameLength=Number(b.dataset.length);showLength();});showLength();
   $('#nationChoices').innerHTML=map.nations.map(n=>{const bonus=nationBonusInfo(n.id);return `<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><span class="nation-choice"><b>${n.name}</b>\
 <small data-nation-bonus>${bonus.title} : ${bonus.text}</small></span></button>`;}).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength})));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts((turnBasedTest()?createGameState:createRealtimeGame)({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength}))); /* V17.1 : temps réel (tour par tour : réglage de test ?tour-par-tour) */$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
     document.body.dataset.adPlaying='1'; /* V16.4 : l'horloge du tour en direct s'arrête pendant la pub (pub native comprise) */
     try{await quietDuring(()=>showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()}));}finally{delete document.body.dataset.adPlaying;}setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();if(aiGoldPct(state))toast(`Niveau Difficile : les IA reçoivent +${aiGoldPct(state)} % d’or à chaque tour.`);showGame();

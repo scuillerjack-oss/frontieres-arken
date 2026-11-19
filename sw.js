@@ -28,6 +28,8 @@ const ASSETS=[
   './src/presentation/live-news.js',
   './src/presentation/map-am3-view.js',
   './src/presentation/ui/live-ui.js',
+  './src/presentation/ui/realtime-ui.js',
+  './src/presentation/realtime-clock.js',
   './src/domain/engine/ai-help.js',
   './src/domain/engine/ai-naval.js',
   './src/domain/engine/ai.js',
