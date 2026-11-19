@@ -462,3 +462,8 @@ résolution reste simultanée, c'est le déroulé à l'écran qui devient « en 
   l'ajouter à l'ordre du bandeau (`liveNationOrder`) et vérifier `actorOf` pour ses événements.
 - **À regarder en bêta avec Jack** : les échanges des IA (citations longues) prennent beaucoup de place dans le bandeau ;
   on pourra les retirer des annonces si c'est trop bavard.
+- **Relecture indépendante** : rien de bloquant pour la bêta. Corrigé ensuite : l'horloge s'arrête aussi pendant la pub de
+  début de partie (pub native AdMob comprise, qui n'est pas une fenêtre) ; une fiche de province ouverte pendant une
+  résolution en direct est remise à jour. Non corrigé (mineur) : revenir à l'accueil puis reprendre remet l'horloge à
+  zéro ; après la fin de partie, le bouton affiche encore « Passer » (il rouvre l'écran de fin) ; les rapports de vos
+  propres ballons restent dans le journal, pas dans le bandeau.

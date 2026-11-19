@@ -69,7 +69,8 @@ function openNationChoice(){
 <small data-nation-bonus>${bonus.title} : ${bonus.text}</small></span></button>`;}).join('');
   document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts(createGameState({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength})));$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V12 : une publicité (emplacement de TEST en bêta) au début de chaque nouvelle partie, sauf avec le Pack débutant.
-    await quietDuring(()=>showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()}));setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();if(aiGoldPct(state))toast(`Niveau Difficile : les IA reçoivent +${aiGoldPct(state)} % d’or à chaque tour.`);showGame();
+    document.body.dataset.adPlaying='1'; /* V16.4 : l'horloge du tour en direct s'arrête pendant la pub (pub native comprise) */
+    try{await quietDuring(()=>showGameStartAd({profile,inTutorial:isTutorial(state)||shouldStartMiniTuto()}));}finally{delete document.body.dataset.adPlaying;}setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();if(aiGoldPct(state))toast(`Niveau Difficile : les IA reçoivent +${aiGoldPct(state)} % d’or à chaque tour.`);showGame();
       await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;
       }tutorial('identity','Vous dirigez '+nation(state.playerNationId).name,TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));
       tutorial('map','Votre carte stratégique',TUTORIAL_GUIDE[1].text);});

@@ -23,8 +23,8 @@ import { $, buildingNames, nation, province, unitKeys } from './base.js';
 import { trackMissions } from './boosts-ui.js';
 import { dialogClosed, showCapitalPopups, showCoalitionPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
 import { render } from './map-view.js';
-import { actionModal } from './province-sheet.js';
-import { liveSettings, profile, saveMyProfile, state } from './session.js';
+import { actionModal, showProvinceSheet } from './province-sheet.js';
+import { liveSettings, profile, saveMyProfile, selected, state } from './session.js';
 import { createTurnGate, liveApplies } from '../live-clock.js';
 import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
 import { playTurnAnimation } from './turn-anim.js';
@@ -91,7 +91,7 @@ export async function playTurn({live=false}={}){
   try{
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
   const game=state,same=()=>state===game; const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();
-    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
+    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();if(live&&selected&&!$('#provinceSheet').hidden)showProvinceSheet(); /* V16.4 : fiche ouverte pendant la résolution : chiffres remis à jour */playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
     if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
     // V14.3 : si le joueur quitte (tutoriel → accueil) pendant ces fenêtres, la suite s'arrête : jamais sur une autre partie.
     // V15.2 : animation entre les tours, jamais dans un tutoriel (ses bulles suivent les gestes du joueur).

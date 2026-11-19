@@ -167,3 +167,11 @@ test('interface : horloge branchée, journal remplacé par les annonces, fenêtr
   const sw = readFileSync(join(root, 'sw.js'), 'utf8');
   for (const f of ['live-clock.js', 'live-news.js', 'ui/live-ui.js']) assert.ok(sw.includes(`/src/presentation/${f}'`), f);
 });
+
+test('V16.4 (relecture) : l’horloge s’arrête pendant la pub de début de partie et la fiche ouverte est remise à jour', async () => {
+  const { readSource } = await import('./helpers/sources.js');
+  const live = readSource('src/presentation/ui/live-ui.js'), flow = readSource('src/presentation/ui/game-flow.js'), turn = readSource('src/presentation/ui/turn-flow.js');
+  assert.match(live, /ad: document\.body\.dataset\.adPlaying === '1'/);
+  assert.match(flow, /dataset\.adPlaying='1'[\s\S]*showGameStartAd[\s\S]*finally\{delete document\.body\.dataset\.adPlaying;\}/);
+  assert.match(turn, /if\(live&&selected&&!\$\('#provinceSheet'\)\.hidden\)showProvinceSheet\(\)/);
+});

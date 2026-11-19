@@ -30,7 +30,7 @@ export function selectProvince(id){
   setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);if(state.provinces[id]?.ownerId===state.playerNationId)miniTuto('own-province');
   tutorial('province-sheet','Inspecter une province','Propriétaire, bâtiments, troupes connues et actions possibles : tout est sur cette fiche.');
 }
-function showProvinceSheet(){
+export function showProvinceSheet(){
   if(!selected)return;const definition=province(selected),p=state.provinces[selected],mine=p.ownerId===state.playerNationId,relation=relationWithPlayer(state,p.ownerId),forces=compactForces(state,map,selected);
   $('#sheetKicker').textContent=`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;

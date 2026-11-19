@@ -14,7 +14,7 @@ import { turnAnimating } from './turn-anim.js';
 import { liveOn, pendingOrderLines, playTurn, turnGate } from './turn-flow.js';
 
 const TICK_MS = 250;
-const HOLD_TEXT = { dialog: 'fenêtre ouverte', hidden: 'jeu en arrière-plan', tutorial: 'bulle d’aide', move: 'choix de la destination', anim: 'animation' };
+const HOLD_TEXT = { dialog: 'fenêtre ouverte', hidden: 'jeu en arrière-plan', tutorial: 'bulle d’aide', move: 'choix de la destination', anim: 'animation', ad: 'publicité' };
 let clock = null, clockGame = null, news = {}, lastSpot = '', lastHtml = '', timer = 0;
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
 
@@ -24,7 +24,8 @@ const visible = sel => { const el = $(sel); return Boolean(el && !el.hidden); };
 function holds() {
   return {
     dialog: Boolean(document.querySelector('dialog[open]')), hidden: document.visibilityState === 'hidden',
-    tutorial: visible('#tutorialBubble') || visible('#miniTuto'), move: visible('#moveBanner'), anim: turnAnimating()
+    tutorial: visible('#tutorialBubble') || visible('#miniTuto'), move: visible('#moveBanner'), anim: turnAnimating(),
+    ad: document.body.dataset.adPlaying === '1'
   };
 }
 function newClock(t) {
