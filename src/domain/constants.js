@@ -101,6 +101,12 @@ export const RULES = Object.freeze({
     garrisonShare:0,       // (V14.4 : 0,2) dégâts à la garnison
     garrisonMaxShare:.05   // plafond des dégâts à la garnison (sans effet tant que garrisonShare = 0) : à 5 % des PV de la garnison par tour (blessures seulement, aucun mort)
   },
+  // V16.1 : ballon d'observation (src/domain/engine/balloons.js, docs/V16-cahier-des-charges.md). Un objet à part
+  // (state.balloons), pas une unité : rien à voir avec l'ancien ballon supprimé en V13 (migration 8 → 9).
+  // cost / turns : construction (usine requise) ; hopTurns : tours par saut d'une nation à sa voisine par la mer ;
+  // max : ballons par nation, bonusMax si elle possède bonusProvince (île mystérieuse, V16.2) ; aiReserve : or que l'IA
+  // garde après avoir payé son ballon.
+  balloon:{ cost:30, turns:2, hopTurns:2, max:1, bonusMax:2, bonusProvince:'p21', aiReserve:60 },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
   gameLength:80

@@ -10,9 +10,12 @@
 //      (la carte politique reste connue), troupes inconnues.
 //   5. Forteresse (fort >= 1) d'une nation qui n'est ni soi ni un allié : troupes cachées même si la province est
 //      visible (« troupes retranchées »), bâtiments visibles.
+//   6. V16.1 : un ballon d'observation montre à SON PROPRIÉTAIRE (pas à ses alliés) toutes les provinces de l'île
+//      qu'il survole, troupes comprises, même derrière une forteresse (engine/balloons.js). L'IA en profite de même.
 import { RULES, LAND_UNIT_TYPES } from './constants.js';
 import { provinceForce, normalizeForce, combatValue, regimentStats, mergeForce, legacyForce } from './combat.js';
 import { navalBonusFactor } from './boosts.js';
+import { balloonSeenProvinces } from './engine/balloons.js';
 
 const allied = (state, a, b) => (state.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties?.includes(a) && t.parties?.includes(b));
 const hasLandTroops = p => LAND_UNIT_TYPES.some(k => (p?.units?.[k] || 0) > 0);
@@ -35,6 +38,7 @@ export function visibleProvinces(state, map, nationId) {
     const guests = (state.stationed || []).some(e => e.provinceId === d.id && sharers.has(e.nationId) && hasLandTroops(e));
     if (hasLandTroops(p) || guests) for (const n of d.landConnections || []) if (state.provinces[n]) out.add(n);
   }
+  for (const id of balloonSeenProvinces(state, map, nationId)) out.add(id); // V16.1
   return out;
 }
 
@@ -51,7 +55,8 @@ export function provinceIntel(state, map, nationId, provinceId, visible = null) 
   if (!p) return null;
   const sharers = visionSharers(state, nationId), friendly = sharers.has(p.ownerId);
   const seen = friendly || (visible || visibleProvinces(state, map, nationId)).has(provinceId);
-  const entrenched = seen && !friendly && (p.buildings?.fort || 0) >= 1;
+  // V16.1 : vu d'un ballon, une forteresse ne cache plus ses troupes.
+  const entrenched = seen && !friendly && (p.buildings?.fort || 0) >= 1 && !balloonSeenProvinces(state, map, nationId).has(provinceId);
   const troopsKnown = friendly || (seen && !entrenched);
   const force = troopsKnown ? provinceForce(p) : null;
   return {

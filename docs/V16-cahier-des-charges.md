@@ -73,7 +73,7 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
 
 ### Combien
 - **Un seul ballon par joueur**, quel que soit le nombre de nations conquises.
-- Il faut **au moins une usine** sur son territoire pour le construire.
+- Il faut **une usine** dans la province où on le construit.
 - **Deuxième ballon** : seulement si l'on possède l'île mystérieuse (bonus de l'île).
 - Ballon détruit → de nouveau constructible. Coût et durée **À VALIDER** : 30 or, 2 tours (prix d'une banque,
   pour que ce soit un vrai choix).
@@ -96,7 +96,37 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
   la nation la plus menaçante.
 
 ### Sauvegarde
-- Nouveau schéma (12 → 13, ou 11 → 13 selon la longueur). Les anciennes parties démarrent sans ballon.
+- Pas de nouveau schéma si possible : `state.balloons` est un champ facultatif, absent des anciennes parties (elles
+  démarrent sans ballon), comme les champs ajoutés en V13.
+
+### Règles précises retenues (19/11, pour le code)
+- **Position** : un ballon est toujours « au-dessus » d'une nation (une île entière), jamais sur une province précise,
+  ni sur l'île mystérieuse. Il naît au-dessus de sa propre nation.
+- **Construction** : depuis une province à soi qui a une **usine construite**, 30 or, livré en 2 tours, comme une
+  construction (file de production). Refus clairs : « Il faut une usine dans cette province », « Vous avez déjà un
+  ballon (1 au maximum) », « Un ballon est déjà en construction ». Maximum : 1, ou 2 si l'on possède l'île
+  mystérieuse (`p21`, à partir de la V16.2 ; la règle est écrite dès la V16.1).
+- **Voyage** : ordre « Envoyer le ballon vers X ». Il suit l'anneau des nations voisines par la mer (même graphe que
+  les routes maritimes, sens le plus court ; égalité : ordre alphabétique), **2 tours par saut**. À chaque saut, il
+  est au-dessus de la nation survolée pendant au moins un inter-tour. Arrivé, il reste au-dessus de X jusqu'à un
+  nouvel ordre. Les navires ne l'arrêtent pas.
+- **Ce qu'il montre à son propriétaire, tant qu'il est au-dessus d'une nation (survol compris)** : toutes les
+  provinces de cette nation deviennent visibles (troupes comprises, mêmes règles que la vision V13, forteresses
+  comprises), ses convois au départ de ses ports, et chaque inter-tour un **rapport privé** dans le journal :
+  « 🎈 Ballon au-dessus de X : chantiers en cours (…), recrutements (…), troupes en mouvement (…) ». L'IA profite
+  du ballon de la même façon (mêmes fonctions de vision).
+- **Être survolé** : la nation survolée voit le ballon (icône 🎈 aux couleurs du propriétaire sur son île). Pour le
+  joueur : à l'arrivée d'un ballon étranger, une fenêtre « Ballon de X au-dessus de chez vous — Détruire / Laisser
+  passer » ; il peut aussi toucher l'icône plus tard pour le détruire. Ordre « Abattre » résolu **au début de
+  l'inter-tour, avant tout déplacement** : le ballon est détruit avant d'aller plus loin.
+- **Ballon abattu** : événement privé pour le propriétaire « ⚠ X a abattu notre ballon d'observation au-dessus de
+  son territoire. » et pour celui qui tire « Ballon de Y abattu. ». **Aucune guerre, aucune tension automatique.**
+  Le ballon redevient constructible.
+- **IA** : construit un ballon quand elle a une usine et au moins 60 or d'avance ; l'envoie vers la nation avec qui
+  elle est en guerre (sinon la plus forte tension) ; abat un ballon étranger : Conquérant et Traître toujours,
+  Bâtisseur jamais, Héros seulement si le propriétaire est un agresseur récent (`recordAggression`).
+- **Nation éliminée** : ses ballons disparaissent. Ballon au-dessus d'une nation éliminée : il reste là (l'île a de
+  nouveaux propriétaires, il les observe).
 
 ---
 
@@ -246,3 +276,71 @@ mettre pause pour avoir le temps de lire et de réagir ».
 - **Remarques de relecture, non corrigées** : l'affichage « dégâts par assaut » d'une province compte encore le feu de
   ses navires à quai (alors qu'il ne touche que des navires) ; on ne peut plus bombarder un port ennemi sans
   forteresse (la bataille contre sa flotte à quai passe par une attaque navale).
+
+### V16.1 (19/11/2026)
+- **Moteur** : nouveau module `src/domain/engine/balloons.js` (pur, réexporté par `game-engine.js`), réglages dans
+  `RULES.balloon` (30 or, 2 tours, 2 tours par saut, 1 ballon ou 2 avec `p21`, IA : 60 or d'avance). Le ballon est un
+  objet à part dans `state.balloons` (champ facultatif, créé au premier ballon livré) : **pas de nouveau schéma**
+  (toujours 11 / 12), la migration 8 → 9 qui supprime l'ancien `units.balloon` n'est pas touchée, une nouvelle partie ne
+  contient toujours aucune trace de « balloon ».
+  - Construction : ordre `balloon-build`, file de production (`kind:'balloon'`) ; province prise pendant le chantier =
+    remboursé (B4) ; refus « Il faut une usine dans cette province », « Vous avez déjà un ballon (1 au maximum) »,
+    « Un ballon est déjà en construction ». Le ballon naît au-dessus de l'île de son propriétaire.
+  - Voyage : ordre `balloon-send` (un seul par ballon et par tour, le dernier remplace). Graphe des îles reliées par une
+    route maritime, chemin le plus court (égalité : alphabétique). Un saut tous les 2 inter-tours : il reste au-dessus de
+    chaque île survolée au moins un inter-tour. Changement de cap = le saut recommence ; « Rester au-dessus de X » l'arrête.
+  - Vision (`vision.js`) : `visibleProvinces` ajoute les provinces de l'île survolée **pour le propriétaire seulement**
+    (pas ses alliés) ; `provinceIntel` ne cache plus les troupes derrière une forteresse vue du ballon. L'IA passe par les
+    mêmes fonctions (`perceivedForce`).
+  - Rapport privé (`balloon-report`) chaque inter-tour : chantiers en cours, recrutements et déplacements (terre et mer)
+    ordonnés ce tour par les autres nations sur l'île survolée. Pas de rapport au-dessus d'une île entièrement à soi.
+  - Abattre : ordre `balloon-shoot` (nation qui possède une province de l'île survolée), résolu en tout premier dans
+    `resolveInterturn`, avant tout déplacement. Événement privé `balloon-shot` (propriétaire et tireur seulement),
+    aucune guerre, aucune tension, ballon reconstructible. Nation éliminée : ses ballons disparaissent.
+- **IA** (`aiBalloonOrders`, appelée après le plan de chaque dirigeant, donc avec l'or qui reste) : construit à sa
+  capitale (sinon sa première province avec usine) si elle garde 60 or après les 30 du ballon ; l'envoie vers une nation
+  en guerre avec elle (la plus forte tension d'abord), sinon vers la plus forte tension ; abat : Conquérant et Traître
+  toujours, Bâtisseur jamais, Héros si le propriétaire figure dans les agressions des 5 derniers tours (`recordAggression`,
+  même mémoire que ses guerres).
+- **Interface** : carte « 🎈 Ballon d'observation » dans l'écran Construction (refus expliqué) et pastille « commandé
+  (Annuler, remboursé) / en construction » sur la fiche ; icône 🎈 aux couleurs du propriétaire au-dessus du centre de
+  l'île survolée (visible pour le propriétaire et pour les nations qui possèdent une province de cette île ; chiffre =
+  tours avant l'arrivée, ✖ = ordre d'abattre) ; toucher son ballon → liste des nations avec durée et îles survolées ;
+  toucher un ballon étranger → « Détruire / Laisser passer » (ou « Annuler l'ordre ») ; fenêtre automatique à l'arrivée
+  d'un ballon étranger, après le journal et avant les propositions (jamais dans le tutoriel) ; lignes du récapitulatif de
+  fin de tour ; textes du journal ; ligne « Ballon d'observation » dans l'aide. Nouveaux modules
+  `src/presentation/balloon-view.js` (pur) et `src/presentation/ui/balloon-ui.js` (dans `sw.js` et `tests/helpers/sources.js`).
+- **Écarts au cahier, et pourquoi** :
+  - « Toutes les provinces de cette nation » est lu comme **toutes les provinces de l'île** survolée (le ballon est au-dessus
+    d'une île entière ; c'est aussi ce que dit « l'île a de nouveaux propriétaires, il les observe »). Les provinces que la
+    nation tient sur une autre île ne sont pas montrées.
+  - Les convois « au départ de ses ports » apparaissent dans le rapport (« par mer ») ; la composition des jetons de
+    convoi étrangers sur la carte reste inconnue (inchangée).
+  - « Être survolé » vaut pour toute nation qui possède une province de l'île (propriétaire actuel), pas seulement la
+    nation d'origine.
+- **Tests** : `tests/v16-1.test.js` (18 tests : construction et refus, maximum, voyage et durée, navires sans effet,
+  vision pendant le survol et à l'arrivée, rapport privé, survol vu, abattre avant le saut sans guerre ni tension,
+  reconstructible, élimination, IA qui construit / envoie / abat selon le caractère, parties IA complètes, sauvegarde
+  avec un ballon en vol, ancienne sauvegarde sans `balloons`, province prise, interface). Tests existants modifiés :
+  seulement le numéro de version 16.0.0 → 16.1.0 (`v14-3-tutoriel`, `v15-2`, `v15-4`).
+- **Mesure** (`node tools/equilibre.mjs 100 80 v160a`, mêmes graines avant / après) :
+
+| Mesure | V16.0 | V16.1 |
+|---|---|---|
+| Vainqueur net | 73 | 78 |
+| Conquêtes par tranche de 20 tours | 521 / 405 / 614 / 539 | 522 / 402 / 698 / 693 |
+| Capitales perdues par partie | 1,33 | 1,62 |
+| Parties avec élimination / coalition | 30 / 27 | 30 / 34 |
+| Victoires Valmorne / Roc-Épine / Noireflamme / Oroël / Aurel | 14 / 21 / 24 / 16 / 25 | 12 / 21 / 25 / 14 / 28 |
+| Victoires Héros / Conquérant / Traître / Bâtisseur | 39 / 21 / 21 / 19 | 42 / 21 / 15 / 22 |
+
+  Ballons sur ces 100 parties : 15,7 construits et 14,4 abattus par partie (premier ballon livré vers le tour 33 en
+  médiane), 15,7 sauts. Lecture : le début de partie ne change pas ; en seconde moitié, une IA qui voit la vraie garnison
+  (forteresse comprise) au lieu de l'estimation prudente attaque plus souvent : +36 % de conquêtes sur les tours 61-80,
+  plus de capitales prises, plus de coalitions. La carte bouge davantage, ce qui allait dans le sens des retours de
+  Jack. **À surveiller en bêta** : si la fin de partie devient trop sanglante, on peut monter `aiReserve` (moins de
+  ballons d'IA) ou réserver la vue à travers les forteresses au survol d'arrivée.
+- **Vérifié dans un Chrome mobile simulé** (390 × 844 tactile, `pw/v161.mjs`) : construction depuis la fiche de la
+  capitale, pastille « commandé », fenêtre « Ballon d'Oroël au-dessus de chez vous — Détruire / Laisser passer » à
+  l'arrivée, ordre d'abattre dans le récapitulatif puis « Ballon d'Oroël abattu. » au journal, choix de la destination en
+  touchant son ballon, ligne dans l'aide ; 0 erreur JavaScript, aucun débordement horizontal ; parcours V16.0 inchangé.

@@ -8,6 +8,7 @@ import { settleStationed } from '../passage.js';
 import { aiTalk, pruneTalkPending, publishTalk } from '../talk.js';
 import { planAIOrders } from './ai.js';
 import { recordStory } from '../story.js';
+import { resolveBalloonFlights, resolveBalloonShots } from './balloons.js';
 import { aggregateMoves } from './battles.js';
 import { repairForts, resolveBombardments } from './bombard.js';
 import { updateCoalition } from './coalition.js';
@@ -75,6 +76,7 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   state.turnPhase='resolving-inter-turn';
   const fought = new Set(); // provinces où un combat a eu lieu ce tour (pas de guérison)
   const eventStart = state.events.length;
+  resolveBalloonShots(state,map,locked); // V16.1 : tout début de l'inter-tour, avant tout déplacement
   resolveAllianceBreaks(state,locked);
   settleStationed(state,map); // V13.4 : alliance rompue = plus de passage, les troupes stationnées rentrent
   const bombarded = resolveBombardments(state,map,locked,fought); // V14.4 : avant les attaques et les débarquements
@@ -87,6 +89,7 @@ export function resolveInterturn(state, map, { random = () => seededRandom(state
   repairForts(state,bombarded);
   updateEliminations(state);
   settleStationed(state,map);
+  resolveBalloonFlights(state,map,locked); // V16.1 : envois, rapports privés, voyage des ballons
   for (const id of Object.keys(state.nations)) {
     const base = incomeFor(state,id), extra = goldBonus(state, id, base); // V12 : atout « or » (joueur humain seulement)
     state.nations[id].treasury += base + extra;

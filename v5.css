@@ -505,3 +505,13 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 .nation-choice small{display:block;margin-top:2px;font-size:.74rem;font-weight:400;color:#c9d6db;white-space:normal}
 #nationChoices .nation{display:flex;align-items:flex-start}
 #nationChoices .nation i{flex:none;margin-top:3px}
+/* V16.1 : ballon d'observation — icône aux couleurs du propriétaire au-dessus de l'île survolée. */
+.balloon{pointer-events:auto;cursor:pointer}
+.balloon-body{fill:var(--nation);stroke:#071722;stroke-width:5;fill-opacity:.92}
+.balloon.own .balloon-body{stroke:#ffe17d;stroke-width:7}
+.balloon.foreign .balloon-body{stroke:#fff;stroke-dasharray:10 6}
+.balloon.targeted .balloon-body{stroke:#ff625b;stroke-width:8}
+.balloon-icon{font:700 40px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle}
+.balloon-tag{font:900 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff;paint-order:stroke;stroke:#071722;stroke-width:5px}
+.balloon-status{font-weight:700}
+.balloon-pending{color:#ffe17d}

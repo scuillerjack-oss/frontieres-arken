@@ -190,8 +190,9 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:2, type:'ORDRE ANNULÉ', category:'neutral',
         text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,
         event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
-    case 'production-lost': return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({
-      bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
+    case 'production-lost': if (event.reason === 'max') return { priority:2, type:'production', category:'neutral', text:`Ballon d’observation non livré à ${where} : vous avez déjà le maximum de ballons. ${safeNum(event.refund)} or remboursés.` };
+      return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({
+      bank:'banque',factory:'usine',fort:'forteresse',port:'port',balloon:'ballon d’observation'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
     case 'income': {
       const parts = [`${safeNum(event.provinces)} province${event.provinces > 1 ? 's' : ''} × ${RULES.baseIncome}`];
       if (event.banks) parts.push(`${safeNum(event.banks)} banque${event.banks > 1 ? 's' : ''} × ${RULES.bankIncome}`);
@@ -227,9 +228,19 @@ export function journalEntry(event, map, playerNationId = null) {
         )[event.action] || 'Action diplomatique'} résolue avec ${nationName(map,event.target)}.` };
     case 'difficulty-gold': return { priority:0, type:'NIVEAU', category:'neutral', text:`Niveau Difficile : les IA reçoivent +${safeNum(event.pct)} % d’or à chaque tour. Vous, non.` };
     case 'production-complete': return { priority:1,type:'production',category:'neutral',
-      text:`${safeNum(event.amount)}${event.bonus ? ` (dont +${safeNum(event.bonus)} grâce ${event.nationBonus ? 'à vos bonus' : 'à l’atout Recrutement'})` : ''} ${RULES.units[event.productionType]?.label || (event.productionType==='bank'?'banque':event.productionType==='factory'?'usine':event.productionType==='fort'?'forteresse':event.productionType==='port'?'port':'élément')} terminé(s) à ${where}.` }
+      text:`${safeNum(event.amount)}${event.bonus ? ` (dont +${safeNum(event.bonus)} grâce ${event.nationBonus ? 'à vos bonus' : 'à l’atout Recrutement'})` : ''} ${RULES.units[event.productionType]?.label || (event.productionType==='bank'?'banque':event.productionType==='factory'?'usine':event.productionType==='fort'?'forteresse':event.productionType==='port'?'port':event.productionType==='balloon'?'ballon d’observation':'élément')} terminé(s) à ${where}.` }
       ;
-    case 'project-started': return { priority:1,type:'production',category:'neutral',text:`Projet lancé : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port'})[event.productionType] || 'construction'} à ${where}.` };
+    case 'project-started': return { priority:1,type:'production',category:'neutral',text:`Projet lancé : ${RULES.units[event.productionType]?.label || ({bank:'banque',factory:'usine',fort:'forteresse',port:'port',balloon:'ballon d’observation'})[event.productionType] || 'construction'} à ${where}.` };
+    // V16.1 : ballon d'observation (engine/balloons.js). Événements privés : propriétaire, nation survolée, tireur.
+    case 'balloon-report': return balloonReportEntry(event, map);
+    case 'balloon-moved': return { priority:1, type:'BALLON', category:'blue', text: event.arrived
+      ? `🎈 Notre ballon d’observation arrive au-dessus ${deName(nationName(map,event.over))}. Il y restera jusqu’à un nouvel ordre.`
+      : `🎈 Notre ballon d’observation survole ${nationName(map,event.over)}, en route vers ${nationName(map,event.to)}.` };
+    case 'balloon-spotted': return { priority:3, type:'BALLON', category:'blue', text:`🎈 Un ballon d’observation ${deName(nationName(map,event.owner))} est au-dessus de chez vous${event.passing ? ', de passage' : ''} : il voit les provinces de l’île ${deName(nationName(map,event.over))}. Touchez l’icône 🎈 sur la carte pour le détruire ou le laisser passer.` };
+    case 'balloon-shot': if (playerNationId !== null && event.nationId === playerNationId) return { priority:4, type:'⚠ BALLON', category:'under-attack',
+        text:`⚠ ${nationName(map,event.target)} a abattu notre ballon d’observation au-dessus de son territoire. Un nouveau ballon peut être construit (usine requise).` };
+      if (playerNationId !== null && event.target === playerNationId) return { priority:2, type:'BALLON', category:'blue', text:`Ballon ${deName(nationName(map,event.nationId))} abattu.` };
+      return { priority:2, type:'BALLON', category:'blue', text:`${nationName(map,event.target)} abat le ballon ${deName(nationName(map,event.nationId))}.` };
     case 'movement': if (event.passage) return { priority:2, type:'PASSAGE', category:'help', text: event.target === playerNationId && playerNationId !== null
         ? `🤝 ${nationName(map,event.nationId)} (allié) envoie ${safeNum(event.amount)} unités stationner à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} : elles défendront la province avec vous.`
         : `🤝 Passage chez ${nationName(map,event.target)} (allié) : ${safeNum(event.amount)} unités stationnent à ${provinceDef(map,event.toId)?.name || 'lieu inconnu'} et la défendront.` };
@@ -243,6 +254,17 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${safeNum(event.amount)} unités perdues à ${where}.` };
     default: return null;
   }
+}
+const BUILD_NAMES = { bank:'banque', factory:'usine', fort:'forteresse', port:'port', balloon:'ballon d’observation' };
+const RECRUIT_NAMES = { infantry:'fantassins', cavalry:'cavaliers', armor:'blindés', artillery:'artilleurs', warship:'navires de guerre' };
+/** V16.1 : rapport privé d'un ballon — chantiers en cours, recrutements, troupes en mouvement sur l'île survolée. */
+function balloonReportEntry(event, map) {
+  const name = id => provinceDef(map, id)?.name || '?';
+  const sites = (event.sites || []).map(x => `${BUILD_NAMES[x.type] || 'construction'} à ${name(x.provinceId)}`).join(', ');
+  const recruits = (event.recruits || []).map(x => `${safeNum(x.amount)} ${RECRUIT_NAMES[x.type] || 'unités'} à ${name(x.provinceId)}`).join(', ');
+  const moves = (event.moves || []).map(x => `${safeNum(x.amount)} unités ${name(x.fromId)} → ${name(x.toId)}${x.sea ? ' par mer' : ''}`).join(', ');
+  return { priority:2, type:'BALLON', category:'blue',
+    text:`🎈 Ballon au-dessus ${deName(nationName(map,event.over))} : chantiers en cours (${sites || 'aucun'}), recrutements (${recruits || 'aucun'}), troupes en mouvement (${moves || 'aucune'}).` };
 }
 function aggregateEntries(entries) {
   const merged = new Map();
@@ -258,7 +280,7 @@ function aggregateEntries(entries) {
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['difficulty-gold','bombardment','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
     'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
-    'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement']);
+    'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;

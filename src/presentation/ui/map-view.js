@@ -17,6 +17,7 @@ import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { knownTroopProvinces } from '../vision-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
+import { balloonLayer } from './balloon-ui.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
 import { moveSource, save, selected, state } from './session.js';
 import { safeEngine, updateTalkBadge } from './talk-screen.js';
@@ -129,6 +130,7 @@ export function render(){
   }
   const convoyLayer=E('g',{class:'convoys'});for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
   svg.append(...routeLayer,labelLayer,convoyLayer);
+  svg.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
   for(const order of playerOrderArrows(state,map)){
     const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button',
       'aria-label':`${order.kind==='bombard'?'Bombardement':order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`}
