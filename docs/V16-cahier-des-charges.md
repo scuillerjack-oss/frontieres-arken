@@ -73,7 +73,7 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
 
 ### Combien
 - **Un seul ballon par joueur**, quel que soit le nombre de nations conquises.
-- Il faut **au moins une usine** sur son territoire pour le construire.
+- Il faut **une usine** dans la province où on le construit.
 - **Deuxième ballon** : seulement si l'on possède l'île mystérieuse (bonus de l'île).
 - Ballon détruit → de nouveau constructible. Coût et durée **À VALIDER** : 30 or, 2 tours (prix d'une banque,
   pour que ce soit un vrai choix).
@@ -96,7 +96,37 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
   la nation la plus menaçante.
 
 ### Sauvegarde
-- Nouveau schéma (12 → 13, ou 11 → 13 selon la longueur). Les anciennes parties démarrent sans ballon.
+- Pas de nouveau schéma si possible : `state.balloons` est un champ facultatif, absent des anciennes parties (elles
+  démarrent sans ballon), comme les champs ajoutés en V13.
+
+### Règles précises retenues (19/11, pour le code)
+- **Position** : un ballon est toujours « au-dessus » d'une nation (une île entière), jamais sur une province précise,
+  ni sur l'île mystérieuse. Il naît au-dessus de sa propre nation.
+- **Construction** : depuis une province à soi qui a une **usine construite**, 30 or, livré en 2 tours, comme une
+  construction (file de production). Refus clairs : « Il faut une usine dans cette province », « Vous avez déjà un
+  ballon (1 au maximum) », « Un ballon est déjà en construction ». Maximum : 1, ou 2 si l'on possède l'île
+  mystérieuse (`p21`, à partir de la V16.2 ; la règle est écrite dès la V16.1).
+- **Voyage** : ordre « Envoyer le ballon vers X ». Il suit l'anneau des nations voisines par la mer (même graphe que
+  les routes maritimes, sens le plus court ; égalité : ordre alphabétique), **2 tours par saut**. À chaque saut, il
+  est au-dessus de la nation survolée pendant au moins un inter-tour. Arrivé, il reste au-dessus de X jusqu'à un
+  nouvel ordre. Les navires ne l'arrêtent pas.
+- **Ce qu'il montre à son propriétaire, tant qu'il est au-dessus d'une nation (survol compris)** : toutes les
+  provinces de cette nation deviennent visibles (troupes comprises, mêmes règles que la vision V13, forteresses
+  comprises), ses convois au départ de ses ports, et chaque inter-tour un **rapport privé** dans le journal :
+  « 🎈 Ballon au-dessus de X : chantiers en cours (…), recrutements (…), troupes en mouvement (…) ». L'IA profite
+  du ballon de la même façon (mêmes fonctions de vision).
+- **Être survolé** : la nation survolée voit le ballon (icône 🎈 aux couleurs du propriétaire sur son île). Pour le
+  joueur : à l'arrivée d'un ballon étranger, une fenêtre « Ballon de X au-dessus de chez vous — Détruire / Laisser
+  passer » ; il peut aussi toucher l'icône plus tard pour le détruire. Ordre « Abattre » résolu **au début de
+  l'inter-tour, avant tout déplacement** : le ballon est détruit avant d'aller plus loin.
+- **Ballon abattu** : événement privé pour le propriétaire « ⚠ X a abattu notre ballon d'observation au-dessus de
+  son territoire. » et pour celui qui tire « Ballon de Y abattu. ». **Aucune guerre, aucune tension automatique.**
+  Le ballon redevient constructible.
+- **IA** : construit un ballon quand elle a une usine et au moins 60 or d'avance ; l'envoie vers la nation avec qui
+  elle est en guerre (sinon la plus forte tension) ; abat un ballon étranger : Conquérant et Traître toujours,
+  Bâtisseur jamais, Héros seulement si le propriétaire est un agresseur récent (`recordAggression`).
+- **Nation éliminée** : ses ballons disparaissent. Ballon au-dessus d'une nation éliminée : il reste là (l'île a de
+  nouveaux propriétaires, il les observe).
 
 ---
 
