@@ -39,7 +39,8 @@ suivant, sans retélécharger l'APK. L'AAB Google Play, lui, garde le jeu embarq
 - Créer ou activer quoi que ce soit de payant. Mettre une clé, un mot de passe ou un keystore dans le dépôt
   (seule exception : la clé de DÉBOGAGE publique `android-debug/arken-debug.keystore`, réservée aux APK de bêta ;
   la vraie clé Google Play restera dans les secrets GitHub).
-- Travailler sur plusieurs versions en même temps.
+- Travailler sur plusieurs versions en même temps (V17 : Jack autorise plusieurs équipes en parallèle quand les
+  versions ne se marchent pas dessus, 19/11/2026).
 
 ## Obligatoire à chaque version
 - `npm test` vert avant tout push ; un test pour chaque bug corrigé. Les tests « BUG CONNU » de l'audit
@@ -62,5 +63,7 @@ suivant, sans retélécharger l'APK. L'AAB Google Play, lui, garde le jeu embarq
   (quota hebdomadaire épuisé : rien à relancer avant sa réinitialisation).
 - **Aucun jeu à perte** : chaque jeu a une fiche de rentabilité dans `docs/` (coûts réels, 3 scénarios de revenus,
   seuil de rentabilité), mise à jour avant chaque publication ; 0 € de coût de fonctionnement.
-- **Jamais de pub quand le joueur dit non** ; jamais de pub pendant qu’on joue ni dans un tutoriel.
+- **Jamais de pub quand le joueur dit non** ; jamais de pub pendant une action ni dans un tutoriel. V17 (décision de Jack
+  du 19/11/2026) : une pub imposée au plus toutes les ~10 min de jeu, seulement à un moment calme (pause, menu, retour
+  dans le jeu), jamais pour un Premium.
 - Les documents de travail vivent dans `docs/` du dépôt concerné, pour être retrouvés d’une conversation à l’autre.

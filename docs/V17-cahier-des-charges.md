@@ -64,11 +64,11 @@
   l'offre Premium (jamais dans le tutoriel).
 - **En pause, le joueur peut tout faire** (ordres, constructions, diplomatie) : les ordres partent « aujourd'hui » et
   avancent dès que le temps repart.
-- **Pause automatique** — tranché par l'équipe, à valider en bêta : les écrans qui **cachent la carte** (Journal,
-  Échanges, Classement, Réglages, Aide, Atouts, Palmarès, écran Premium, fenêtres de fin de partie) mettent le jeu en
-  pause et le relancent en se fermant (si le joueur n'avait pas mis pause lui-même) ; les panneaux qui **laissent voir la
-  carte** (fiche de province, construction, recrutement, choix d'une destination, bandeaux d'alerte) ne l'arrêtent pas.
-  Les alertes (attaque, famine, proposition, ballon) sont des **bandeaux qui n'arrêtent jamais le temps**.
+- **Pas de pause automatique pendant le jeu** (décision de Jack du 19/11 : « même s'il y a un message d'alerte, le temps
+  ne s'arrête pas, c'est le joueur qui décide s'il met pause ou non ») : fiche de province, construction, recrutement,
+  choix d'une destination, Journal, Échanges, Classement et alertes (attaque, famine, proposition, ballon) laissent
+  le temps tourner. Seules exceptions, parce qu'on sort du jeu : Réglages, Aide, Atouts, Palmarès, écran Premium, la
+  fenêtre de fin de partie, une pub en cours, et l'appli en arrière-plan.
 - L'horloge est **pilotée par l'interface** (`setInterval` 250 ms qui compte le temps réel écoulé, appelle
   `advanceDay` autant de fois que nécessaire, au plus 4 jours par appel pour rattraper un téléphone lent). Le moteur ne
   connaît pas les secondes : il ne reçoit que « un jour de plus ».
@@ -473,7 +473,7 @@ titres : une partie compte quand elle se termine (fins 1 à 4) ; une partie aban
 
 ### 10.2 Pub imposée
 - **Au plus une toutes les 10 min de jeu** (même compteur de minutes de jeu), et **seulement à un moment calme** : quand
-  le joueur met en pause, ouvre un écran qui cache la carte (§1.1), revient au menu, ou revient dans le jeu après l'avoir
+  le joueur met en pause, ouvre un menu hors jeu (Réglages, Aide, Atouts, Palmarès), revient au menu, ou revient dans le jeu après l'avoir
   quitté. **Jamais** pendant une action (choix d'une destination, fenêtre de décision, bataille du joueur en cours, ordre
   en train d'être donné), jamais dans le tutoriel, **jamais pour un Premium**.
 - Regarder une pub récompensée **remet ce compteur à zéro** (le joueur qui choisit ses pubs n'en subit pas d'autres).
@@ -687,7 +687,7 @@ Voir §10.4.
 ### Tranchés par l'équipe, à valider en bêta
 1. Deux conversions : délais 30 jours, revenus 60 jours (§2.1).
 2. Fin le 31 décembre 2041 (5 479 jours) plutôt que 5 400 ; partie courte gardée (7 ans).
-3. Retour dans le jeu toujours en pause ; écrans qui cachent la carte = pause, panneaux sur la carte = pas de pause.
+3. Retour dans le jeu toujours en pause ; pendant le jeu, aucune pause automatique sauf menus hors jeu (Réglages, Aide, Atouts, Palmarès, Premium), fin de partie et pub (décision de Jack).
 4. Cavalerie seule plus rapide (20 jours au lieu de 30) ; une seule vitesse pour le reste.
 5. Bataille en 3 assauts espacés de 3 jours ; défenseur bloqué pendant la bataille ; batailles navales instantanées.
 6. Rencontre en chemin seulement sur la même frontière en sens opposés.
