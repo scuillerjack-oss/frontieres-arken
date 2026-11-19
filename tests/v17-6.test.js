@@ -10,7 +10,7 @@ import { createGameState } from '../src/state/create-game-state.js';
 import { provinceIntel, visibleProvinces } from '../src/domain/vision.js';
 import {
   DETAIL_THRESHOLDS, badgeTone, copyShift, detailLevel, formatTroops, iconScale, nationLabels, troopBadge, troopBadges,
-  wrapCopyCount, wrapMapX, wrapTransform, wrapX
+  wrapCopyCount, wrapMapX, wrapMinZoom, wrapTransform, wrapX
 } from '../src/presentation/map-am3-view.js';
 
 const read = p => readFileSync(join(root, p), 'utf8');
@@ -69,17 +69,32 @@ test('V17.6 : toucher une copie → décalage d’un nombre entier de copies ; r
   assert.equal(wrapMapX(-1536 + 232, 1536), 232);
 });
 
+test('V17.6 : zoom minimal — jamais plus d’une largeur de carte à l’écran (jamais deux fois la même île)', () => {
+  const frame = map.frame;
+  for (const vp of [{ width: 844, height: 390 }, { width: 390, height: 844 }, { width: 667, height: 375 }, { width: 915, height: 412 }, { width: 1024, height: 1024 }, { width: 390, height: 640 }]) {
+    const z = wrapMinZoom(vp, frame), cover = Math.max(vp.width / frame.width, vp.height / frame.height);
+    assert.ok(z <= 1, JSON.stringify(vp));
+    assert.ok(frame.width * cover * z >= vp.width - 1e-9, `une copie couvre au moins la largeur de l’écran ${JSON.stringify(vp)}`);
+    // Avec ce zoom, une seule copie de chaque côté suffit toujours.
+    assert.equal(wrapCopyCount(vp.width, frame.width * cover * z), 1, JSON.stringify(vp));
+  }
+  assert.equal(wrapMinZoom({ width: 844, height: 390 }, frame), 1, 'paysage : la carte remplit la largeur');
+  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame) - 390 / 844) < 1e-9, 'portrait : toute la largeur de la carte, pas plus');
+  assert.equal(wrapMinZoom({ width: 0, height: 0 }, frame), 1);
+});
+
 // --- Niveaux de détail -------------------------------------------------------------------------------------------------
 test('V17.6 : niveaux de détail selon les pixels par unité de carte (monde → région → province)', () => {
   assert.equal(detailLevel(.2), 0);
   assert.equal(detailLevel(DETAIL_THRESHOLDS.region - 1e-6), 0);
   assert.equal(detailLevel(DETAIL_THRESHOLDS.region), 1);
-  assert.equal(detailLevel(.7), 1);
+  assert.equal(detailLevel(.8), 1);
   assert.equal(detailLevel(DETAIL_THRESHOLDS.province), 2);
   assert.equal(detailLevel(undefined), 0);
   // Téléphone couché 844 × 390 : 0,55 px par unité au zoom 1.
   const k = 844 / 1536;
-  assert.equal(detailLevel(k * 390 / 844), 0, 'zoom minimal : vue du monde');
+  assert.equal(detailLevel(k * wrapMinZoom({ width: 844, height: 390 }, map.frame)), 0, 'paysage, zoom minimal (une largeur de carte) : vue du monde');
+  assert.equal(detailLevel(k * wrapMinZoom({ width: 390, height: 844 }, map.frame)), 0, 'portrait, zoom minimal : vue du monde');
   assert.equal(detailLevel(k * 1.3), 1, 'vue de lancement : noms de provinces visibles');
   assert.equal(detailLevel(k * 3), 2, 'zoom maximal');
   // Les icônes grossissent dans le repère de la carte quand on dézoome, rétrécissent quand on zoome.

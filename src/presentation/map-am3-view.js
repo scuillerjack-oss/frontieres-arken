@@ -41,16 +41,28 @@ export function wrapTransform(transform, viewport, content, maxZoom, minZoom, ed
  */
 export const copyShift = (copyIndex, content, scale) => (Number(copyIndex) || 0) * content.width * scale;
 
+/**
+ * Zoom minimal (règle AM 3) : jamais plus d'UNE largeur de carte à l'écran — la répétition ne se voit qu'en faisant
+ * défiler, jamais deux fois la même île à l'écran. Zoom 1 = carte « cover » ; on ne descend pas sous la vue « contain »
+ * (monde entier en hauteur) ni sous la largeur de l'écran. Résultat ≤ 1.
+ */
+export function wrapMinZoom(viewport, frame) {
+  const vw = Number(viewport?.width), vh = Number(viewport?.height);
+  if (!(vw > 0) || !(vh > 0)) return 1;
+  const cover = Math.max(vw / frame.width, vh / frame.height), contain = Math.min(vw / frame.width, vh / frame.height);
+  return Math.min(1, Math.max(contain / cover, vw / (frame.width * cover)));
+}
+
 /** Repère de la carte (x) ramené dans la carte d'origine [0, largeur[. */
 export const wrapMapX = (x, frameWidth) => ((Number(x) % frameWidth) + frameWidth) % frameWidth;
 
 // --- 2. Niveaux de détail ------------------------------------------------------------------------------------------------
 
 /** Seuils en pixels d'écran par unité de carte (indépendant de la taille du téléphone). */
-export const DETAIL_THRESHOLDS = Object.freeze({ region: .42, province: 1.0 });
+export const DETAIL_THRESHOLDS = Object.freeze({ region: .6, province: 1.0 });
 export const DETAIL_NAMES = Object.freeze(['monde', 'region', 'province']);
 /**
- * 0 = « monde » (carte entière) : grands noms de nations, pastilles de troupes, drapeaux des capitales ; noms de provinces,
+ * 0 = « monde » (zoom minimal) : grands noms de nations, pastilles de troupes, drapeaux des capitales ; noms de provinces,
  *     bâtiments et points d'embarquement masqués.
  * 1 = « région » : + noms de provinces, bâtiments, ports.
  * 2 = « province » (zoom fort) : tout, noms de nations estompés.

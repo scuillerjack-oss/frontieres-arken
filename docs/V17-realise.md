@@ -7,11 +7,16 @@ Branche `mission/V17.6`. Moteur (`src/domain/`) et logique des tours **non touch
 
 ### Fait
 - **Défilement horizontal sans fin** (portrait et paysage). Tout le dessin de la carte va dans `<g id="mapWorld">` ;
-  des copies `<use>` le répètent à gauche et à droite (2 de chaque côté sur un téléphone couché, 1 en portrait :
+  des copies `<use>` le répètent à gauche et à droite (une de chaque côté depuis la règle du zoom minimal :
   `wrapCopyCount`). Le SVG fait (2 × copies + 1) cartes de large, centré sur la carte d'origine : les calculs d'avant
   (zoom, centrage, vue de lancement, animation de tour, tutoriel) ne changent pas. La translation horizontale est ramenée
   modulo la largeur d'une copie (`wrapX`), invisible puisque les copies sont identiques ; le vertical reste borné.
   Les bords de l'image sont fondus vers un même bleu : la jointure entre deux copies ne se voit pas.
+- **Zoom minimal façon AM 3** (`wrapMinZoom`) : jamais plus d'UNE largeur de carte à l'écran — la répétition ne se
+  voit qu'en faisant défiler, jamais deux fois la même île. Paysage 844 × 390 : zoom minimal = carte en largeur
+  (on fait défiler pour voir le reste, en haut et en bas aussi) ; portrait : toute la largeur de la carte. Il suffit alors
+  d'une copie de chaque côté. En paysage, « Voir toute la carte » disparaît (le monde entier ne tient plus à l'écran) ;
+  ◎ ramène à la capitale.
 - **Toucher une copie** : la carte est décalée d'un nombre entier de copies pour amener l'origine sous le doigt, puis le
   toucher est rejoué sur l'élément d'origine (province, convoi, ballon, flèche d'ordre). Vérifié : p01 touchée sur la
   copie +1 en portrait, p14 sur la copie −1 en paysage → fiche ouverte sur la bonne province.
@@ -34,7 +39,7 @@ Branche `mission/V17.6`. Moteur (`src/domain/`) et logique des tours **non touch
     compris), « ? » en pointillés sinon (hors de vue, forteresse ennemie) ;
   - **drapeau-emblème** aux couleurs de la nation sur chaque capitale (à côté de l'étoile) ;
   - frontière épaisse de son territoire (liseré bleu existant, inchangé) ;
-  - **niveaux de détail** (pixels d'écran par unité de carte) : monde (< 0,42) = noms de nations, pastilles, capitales,
+  - **niveaux de détail** (pixels d'écran par unité de carte) : monde (< 0,6 : zoom minimal en paysage comme en portrait) = noms de nations, pastilles, capitales,
     sans noms de provinces, bâtiments ni points d'embarquement ; région = + noms et bâtiments ; province (≥ 1) = tout,
     noms de nations très estompés. La classe est posée sur `#mapWorld` pour que les copies suivent.
 - **Performance** : pendant un geste, seule la transformation CSS du SVG change ; `--ui` / `--line` et le niveau de
@@ -42,8 +47,8 @@ Branche `mission/V17.6`. Moteur (`src/domain/`) et logique des tours **non touch
   Les copies sont des `<use>` (pas de double du DOM).
 - Nouveau module pur : `src/presentation/map-am3-view.js` (bouclage, copies, niveaux de détail, pastilles, noms de
   nations) ; ajouté à `sw.js` et listé dans `tests/helpers/sources.js` (`PRESENTATION_MODULES_V17_6`).
-- Tests : `tests/v17-6.test.js` (13 tests). `tests/v16-3.test.js` : l'assertion du gabarit paysage (colonne de droite)
-  est remplacée par celle du plein écran (seul test existant modifié). `npm test` : 705 / 705.
+- Tests : `tests/v17-6.test.js` (14 tests). `tests/v16-3.test.js` : l'assertion du gabarit paysage (colonne de droite)
+  est remplacée par celle du plein écran (seul test existant modifié). `npm test` : 706 / 706.
 
 ### Captures vérifiées (Playwright, Chrome mobile simulé, tactile)
 - 844 × 390, 390 × 844 et 667 × 375 (`/home/claude/pw/v176.mjs`) : lancement, zoom min, glisser loin à gauche

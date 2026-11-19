@@ -16,7 +16,7 @@ import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { MYSTERY_ISLAND_ID, islandMapBadge } from '../mystery-island-view.js';
-import { copyShift, detailLevel, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapTransform } from '../map-am3-view.js';
+import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapTransform } from '../map-am3-view.js';
 import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
@@ -186,8 +186,8 @@ function wrapUses(){const out=[];for(let k=-wrapCopies;k<=wrapCopies;k++)if(k)ou
 // La carte est un SVG large de (2 × copies + 1) cartes ; l'origine de la transformation est le centre de la carte d'origine,
 // qui reste au centre du cadre : les calculs d'avant (zoom, centrage, vue de lancement) ne changent pas.
 export function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
-  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height),contain=Math.min(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
-  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
+  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
+  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME); // V17.6 : au plus une largeur de carte à l'écran
   const copies=wrapCopyCount(frameSize.width,mapContentSize.width*minZoom),changed=copies!==wrapCopies;wrapCopies=copies;
   const n=2*wrapCopies+1;svg.setAttribute('viewBox',`${-wrapCopies*FRAME.width} 0 ${n*FRAME.width} ${FRAME.height}`);
   Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width*n}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2-wrapCopies*mapContentSize.width}px`,
