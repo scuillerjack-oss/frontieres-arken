@@ -111,3 +111,28 @@ regardée rapporte. Revenu estimé avec cette variante : ~130 € (bas), ~510 �
 Calcul relancé (`node tools/economie-v14-4.mjs`) : les prix et la cadence de pub n'ont pas changé depuis la V14.4, donc la base reste **122 € / 435 € / 1 305 € nets par mois pour 10 000 joueurs actifs**. Le coût de fonctionnement reste de 0 €.
 
 Seul effet nouveau : le mode 40 tours peut augmenter le nombre de parties lancées, donc de pubs de début de partie. Si les joueurs lançaient deux fois plus de parties, ce poste gagnerait au plus **+6 € / +35 € / +127 €** par mois. Ce gain n'est pas compté dans la base : aucune donnée réelle ne le confirme. Ces chiffres restent des hypothèses, à remplacer par ceux d'AdMob et de la Play Console après le test fermé.
+
+## Projection V17 — temps réel (19/11/2026, rien n'est encore codé)
+
+Calcul : `node tools/v17/economie-v17.mjs` (règles dans `docs/V17-cahier-des-charges.md` §10). Mêmes hypothèses de marché
+que ci-dessus ; ce qui change : la pub plein écran de début de partie disparaît, remplacée par **au plus une pub imposée
+toutes les 10 min de jeu, seulement à un moment calme** (pause, menu, retour dans le jeu), jamais pour un Premium ni dans le
+tutoriel ; une **pub récompensée** (icône, +1 mois de revenus) toutes les 5 à 10 min de jeu ; **Premium 1,99 €** (vitesse ×2,
+plus de pub imposée, ~1,41 € net) ; le Pack débutant (2,99 €) devient Premium + 3 jetons.
+
+| Pour 10 000 joueurs actifs / mois | Bas | Central | Haut |
+|---|---|---|---|
+| Pubs imposées | 12 € | 173 € | 1 201 € |
+| Pubs récompensées (missions comprises) | 17 € | 240 € | 1 985 € |
+| Premium + Pack | 113 € | 317 € | 635 € |
+| Jetons | 42 € | 127 € | 253 € |
+| **Total net par mois** | **184 €** | **856 €** | **4 074 €** |
+| Joueurs pour 1 000 € nets | ~54 000 | ~11 700 | ~2 500 |
+| Coût de fonctionnement | 0 € | 0 € | 0 € |
+
+Hypothèses en plus : 12 / 20 / 30 min par séance ; moment calme dans 50 / 70 / 85 % des fenêtres de 10 min ; icônes
+récompensées touchées 8 / 15 / 25 % ; Premium 0,5 / 1,5 / 3 % des joueurs, Pack 0,2 / 0,5 / 1 % ; les pubs imposées font
+perdre 15 / 10 / 5 % du temps de jeu des joueurs sans Premium. Seuil de rentabilité : toujours **1 joueur**.
+Prudence : le scénario haut suppose des joueurs très assidus (à lire comme un plafond) ; le vrai risque est que les pubs
+imposées fassent fuir les joueurs (principal reproche fait au jeu de référence). À remplacer par les chiffres d'AdMob dès
+le test fermé. Cette fiche sera reprise par la V17.7 quand la monétisation sera codée.
