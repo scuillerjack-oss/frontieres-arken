@@ -225,5 +225,5 @@ test('tutoriel : surlignage et bulle — la cible visible la plus précise, la b
 });
 
 test('version 14.3.0 ou suivante (V16.1 : 16.1.0)', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '16.1.0');
+  assert.equal(JSON.parse(read('package.json')).version, '16.3.0');
 });
