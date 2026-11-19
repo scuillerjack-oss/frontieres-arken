@@ -16,6 +16,7 @@ import { neighbors } from '../talk.js';
 import { perceivedForce, perceivedStrength, visibleProvinces } from '../vision.js';
 import { coalitionPartners, coalitionTargetFor, inCoalitionAgainst } from './coalition.js';
 import { helpReinforce, helpStation, recallStationed } from './ai-help.js';
+import { aiBalloonOrders } from './balloons.js';
 import { aiNavalOrders, defenseOf, hasOrQueued, landThreat, landThreatForce, navalBase } from './ai-naval.js';
 import { fortBreach } from './bombard.js';
 import { TRUCE_BETRAYAL_TURNS, queueDiplomaticOrder, recentTruce, refusalsOf } from './diplomacy.js';
@@ -371,7 +372,7 @@ export function planAIOrders(state, map) {
   state.ai ||= { memories:{}, replay:[], traits:{} };
   ensureLeaders(state);
   if (state.ai.plannedTurn === state.turn) return state.orders.filter(o => o.nationId !== state.playerNationId);
-  for (const id of Object.keys(state.nations).sort()) if (state.controllers[id] === 'ai' && !state.nations[id].eliminated) aiPlan(state,map,id);
+  for (const id of Object.keys(state.nations).sort()) if (state.controllers[id] === 'ai' && !state.nations[id].eliminated) { aiPlan(state,map,id); aiBalloonOrders(state,map,id); } // V16.1 : ballons
   state.ai.plannedTurn=state.turn;
   return state.orders.filter(o => o.nationId !== state.playerNationId);
 }

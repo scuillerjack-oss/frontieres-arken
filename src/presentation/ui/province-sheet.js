@@ -18,6 +18,7 @@ import { truceWarning } from '../truce-warning.js';
 import { moveEvent } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
+import { balloonBuildCard, balloonSheetChips, bindBalloonBuild, bindBalloonChips } from './balloon-ui.js';
 import { openDiplomacy } from './diplomacy-screen.js';
 import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
@@ -54,11 +55,13 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   // V14.2 (Jack) : navires en convalescence expliqués, avec PV actuels et tours restants (mes navires, ici ou chez l'allié).
   const shipChip=(mine||mineHere)?shipRepairChip(safeEngine(()=>shipRepairInfo(state,selected,state.playerNationId),null)):'';
   const bombardChips=mine?pendingBombardChip(state,selected,id=>province(id).name).map(c=>`<span class="info-chip bombard-chip">${c.text} <button class="chip-cancel" data-cancel-bombard="${c.id}">Annuler</button></span>`).join(''):''; // V14.4
-  $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
+  const balloonChips=mine?balloonSheetChips(selected):''; // V16.1
+  $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
   const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire'],...(canBombardFrom(state,map,selected)?[['bombard','💥 Bombarder']]:[])]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').dataset.province=selected;$('#provinceSheet').hidden=false;placeTutorial();
   document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,bombard:openBombard,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
+  bindBalloonChips(showProvinceSheet);
   document.querySelectorAll('[data-cancel-bombard]').forEach(b=>b.onclick=()=>{const r=cancelPendingOrder(state,b.dataset.cancelBombard);if(!r.ok)return toast(r.error);render();showProvinceSheet();toast('Bombardement annulé ; les navires sont de nouveau disponibles.');});
   if(!mine&&troops.known)tutorial('intelligence','Renseignement',TUTORIAL_GUIDE.find(x=>x.id==='intelligence').text);
 }
@@ -185,7 +188,8 @@ function openBuild(){
     state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span>\
 <b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${buildingIncome(x.type)?` · <b class="income-tag">rapporte +${buildingIncome(x.type)} or/tour</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,
     selected)}</b>`:''}${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small \
-class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}</div>`);
+class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}${balloonBuildCard(selected)}</div>`);
+  bindBalloonBuild(selected,showProvinceSheet); // V16.1 : ballon d'observation (usine requise)
   document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;
     confirmationModal('Confirmer la construction',
     `<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>\

@@ -106,7 +106,9 @@ export const JOURNAL_TYPE_CLASSES=Object.freeze({'CONQUÊTE':'conquest','TERRITO
   // V13 : demandes d'aide entre alliés.
   'AIDE':'help',
   // V14.2 : hostilité (avertissement à 70 %, guerre automatique à 85 %).
-  '⚠ HOSTILITÉ':'under-attack','⚔ GUERRE DÉCLARÉE':'under-attack'});
+  '⚠ HOSTILITÉ':'under-attack','⚔ GUERRE DÉCLARÉE':'under-attack',
+  // V16.1 : ballon d'observation.
+  'BALLON':'blue','⚠ BALLON':'under-attack'});
 export function journalCategoryClass(type){
   return JOURNAL_TYPE_CLASSES[type]||'neutral';
 }

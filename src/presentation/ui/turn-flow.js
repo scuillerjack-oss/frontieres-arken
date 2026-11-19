@@ -9,6 +9,8 @@ import { recordFinishedGame } from '../../domain/palmares.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { buildEndStory } from '../../domain/story.js';
 import { bombardSummary } from '../bombard-view.js';
+import { balloonOrderText } from '../balloon-view.js';
+import { showBalloonPopups } from './balloon-ui.js';
 import { endStoryHtml } from '../end-view.js';
 import { endTitlesHtml, palmaresHtml } from '../palmares-view.js';
 import { TUTORIAL_GUIDE, sanitizeJournalEntry } from '../guide-input.js';
@@ -60,7 +62,7 @@ ${endTitlesHtml(record.titles)}${endStoryHtml(safeEndStory())}`;$('#endDialog').
 export function resolveTurn(){
   if(showEndScreen())return;
   const count=state.orders.filter(o=>o.status==='pending').length;
-  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind==='bombard'?bombardSummary(o,
+  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind.startsWith('balloon-')?balloonOrderText(o,{province:id=>province(id).name,nation:id=>nation(id).short}):o.kind==='bombard'?bombardSummary(o,
     id=>province(id).name):o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({
     war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'}
     )[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction \
@@ -78,5 +80,6 @@ export function resolveTurn(){
     if(state.gameOver){playSfx(endSound(state.gameOver,state.playerNationId));showEndScreen();return;}
     await showCoalitionPopups(events);if(!same())return;
     renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;
+    await showBalloonPopups(events);if(!same())return; // V16.1 : ballon étranger arrivé — Détruire / Laisser passer
     await showProposalPopups(); };
 }

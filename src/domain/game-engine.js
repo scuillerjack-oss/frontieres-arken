@@ -17,6 +17,12 @@ export {
   maxCeasefireDemand, proposalsToAnswer, queueDiplomaticOrder, recentTruce, recordDiplomaticAction, refusalsOf,
   respondToProposal, setRelation, truceBreakStatus
 } from './engine/diplomacy.js';
+export {
+  BALLOON_ORDER_KINDS, balloonBuildStatus, balloonById, balloonDestinations, balloonMax, balloonPath, balloonReport,
+  balloonSeenProvinces, balloonShootStatus, balloonViewers, balloonsInConstruction, balloonsOf, cancelBalloonOrder,
+  foreignBalloonsOver, islandNeighbors, islandProvinces, pendingBalloonOrders, queueBalloonBuild, queueBalloonSend,
+  queueBalloonShoot, visibleBalloons
+} from './engine/balloons.js';
 export { bombardPreview, bombardStatus, bombardTargets, fortBreach, queueBombard } from './engine/bombard.js';
 export { SHIP_FIELD_REPAIR, SHIP_REPAIR_TURNS, shipRepairInfo, shipRepairTurnsFor } from './engine/recovery.js';
 export { NAVAL_IDLE_CAP, NAVAL_STRIKE_MARGIN } from './engine/ai-naval.js';

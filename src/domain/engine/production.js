@@ -2,14 +2,18 @@
 
 import { buildTurnsGained, nationBonusPct, recruitAmount } from '../boosts.js';
 import { RULES } from '../constants.js';
+import { deliverBalloon } from './balloons.js';
 import { refundProduction } from './battles.js';
 
 export function resolveProjects(state, orders) {
-  for (const o of orders.filter(x => x.kind === 'construction' || x.kind === 'recruitment')) {
+  // V16.1 : un ballon d'observation passe aussi par la file de production (kind 'balloon', voir balloons.js).
+  const queueKind = o => o.kind === 'construction' ? 'building' : o.kind === 'balloon-build' ? 'balloon' : 'unit';
+  for (const o of orders.filter(x => x.kind === 'construction' || x.kind === 'recruitment' || x.kind === 'balloon-build')) {
+    const kind = queueKind(o), type = kind === 'balloon' ? 'balloon' : o.type;
     // B4 : une commande passée dans une province perdue pendant cet inter-tour est annulée et remboursée.
-    if (state.provinces[o.provinceId]?.ownerId !== o.nationId) { refundProduction(state, { ...o, kind: o.kind === 'construction' ? 'building' : 'unit' }, o.provinceId); continue; }
-    state.productionQueue.push({ kind: o.kind === 'construction' ? 'building' : 'unit', type: o.type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1, remaining: o.duration, cost: o.cost || 0 });
-    state.events.push({ turn: state.turn, type: 'project-started', kind: o.kind, productionType: o.type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1 });
+    if (state.provinces[o.provinceId]?.ownerId !== o.nationId) { refundProduction(state, { ...o, type, kind }, o.provinceId); continue; }
+    state.productionQueue.push({ kind, type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1, remaining: o.duration, cost: o.cost || 0 });
+    state.events.push({ turn: state.turn, type: 'project-started', kind: o.kind, productionType: type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1 });
   }
   for (const q of state.productionQueue) q.remaining--;
   // V12 : atout « construction » (+N % de vitesse), V15.3 : et bonus de nation — la nation gagne un tour de chantier supplémentaire chaque fois
@@ -24,6 +28,7 @@ export function resolveProjects(state, orders) {
     const p = state.provinces[q.provinceId];
     // B4 (filet de sécurité) : jamais de livraison à un autre propriétaire que celui qui a payé.
     if (p && p.ownerId !== q.nationId) { refundProduction(state, q, q.provinceId); continue; }
+    if (p && q.kind === 'balloon') { deliverBalloon(state, q); continue; }
     if (p) {
       if (q.kind === 'building') p.buildings[q.type] = Math.min((p.buildings[q.type] || 0) + 1, RULES.buildings[q.type]?.max ?? Infinity);
       else if (q.type === 'warship') p.warships = (p.warships || 0) + q.amount;
