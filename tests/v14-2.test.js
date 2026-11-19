@@ -332,12 +332,20 @@ test('simulation (12 parties × 80 tours, graines fixes) : traits bien distincts
   const m = simulate();
   console.log(`# info V14.2 simulation : assauts ${JSON.stringify(m.attacks)}, trahisons ${JSON.stringify(m.betrayals)}, guerres par hostilité ${m.hostility}, avertissements ${m.warnings}, débarquements ${m.landings} (${Math.round(100 * m.landingWins / m.landings)} % réussis)`);
   assert.ok(m.attacks.conquerant > 2 * m.attacks.heros, 'le Conquérant attaque bien plus que le Héros');
-  assert.ok(m.attacks.batisseur < m.attacks.heros, 'le Bâtisseur est le moins agressif');
+  // V16.0 : « le Bâtisseur est le moins agressif » est vérifié sur 40 parties dans le test suivant (sur ces 12 graines,
+  // avec les forteresses à −5 % par niveau, il passait devant le Héros par hasard : 54 contre 46).
   assert.equal(m.betrayals.heros + m.betrayals.batisseur, 0, 'seul le Traître trahit (le Conquérant attend la fin des trêves)');
   assert.ok(m.betrayals.traitre >= 12, `le Traître trahit souvent (${m.betrayals.traitre})`);
   assert.ok(m.victims.filter(v => v >= 2).length >= 4, `il trahit plusieurs nations dans une même partie (${m.victims.join(',')})`);
   assert.ok(m.hostility > 0 && m.warnings >= m.hostility, 'toujours un avertissement avant une guerre par hostilité');
   assert.ok(m.landingWins / m.landings <= .75, 'les débarquements ne deviennent pas une formalité');
+});
+
+test('simulation (40 parties × 80 tours) : le Bâtisseur est le moins agressif (V16.0)', () => {
+  const m = simulate(40, 'v160-bat');
+  console.log(`# info V16.0 assauts sur 40 parties : ${JSON.stringify(m.attacks)}`);
+  assert.ok(m.attacks.batisseur < m.attacks.heros, 'le Bâtisseur est le moins agressif');
+  assert.ok(m.attacks.batisseur < m.attacks.traitre && m.attacks.batisseur < m.attacks.conquerant);
 });
 
 // --- 4. Débarquement -----------------------------------------------------------------------------------------------------

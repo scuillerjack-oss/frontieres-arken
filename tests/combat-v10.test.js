@@ -47,7 +47,7 @@ test('A1 : forteresse niveaux 1 à 3 maximum (20/35/50), en comptant les niveaux
   next();
   assert.match(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).error, /niveau 3 \(maximum\)/);
   assert.equal(s.provinces.p01.buildings.fort, 3);
-  assert.deepEqual(RULES.fortDefense, [1, 1 / .9, 1 / .8, 1 / .7]); // V13.3 : −10/−20/−30 % de dégâts reçus
+  assert.deepEqual(RULES.fortDefense, [1, 1 / .95, 1 / .9, 1 / .85]); // V16.0 : −5/−10/−15 % de dégâts reçus (V13.3 : −10/−20/−30)
 });
 
 test('A1 / B5 : l\'IA respecte les plafonds (jamais deux usines ou deux banques, même en file)', () => {
@@ -80,8 +80,9 @@ test('A1 : la forteresse ne sert pas à l\'attaque (une armée qui part d\'une p
 });
 
 test('A1 : une forteresse niveau 3 peut faire tenir une province qui tomberait sans elle', () => {
-  const r0 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 80 }), fortLevel: 0 });
-  const r3 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 80 }), fortLevel: 3 });
+  // V16.0 : forteresse −15 % au niveau 3 (avant −30 %) : 85 défenseurs au lieu de 80.
+  const r0 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 85 }), fortLevel: 0 });
+  const r3 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 85 }), fortLevel: 3 });
   assert.equal(r0.captured, true);
   assert.equal(r3.captured, false);
 });
@@ -219,12 +220,14 @@ test('B1 matchup : navire contre navire en mer ; les troupes embarquées ne tire
   const cargoOnly = resolveCombat({ attacker: F({ infantry: 200 }), defender: F({ warship: 1 }), mode: 'naval' });
   assert.equal(cargoOnly.defenderHpLost, 0, 'un convoi sans escorte ne riposte pas');
 });
-test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dégâts (V14.2 : 85 %), navires en appui', () => {
+test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dégâts (V14.2 : 85 %) ; V16.0 : navires sans effet sur les troupes à terre', () => {
   const land = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), passes: 1 }).defenderHpLost;
   const landing = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
   assert.ok(Math.abs(landing - land * RULES.combat.landingPenalty) <= 2);
   const supported = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
-  assert.ok(supported > landing);
+  assert.equal(supported, landing, 'V16.0 : les navires ne tirent que sur les navires et les troupes en mer');
+  const vsShips = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400, warship: 1 }), mode: 'landing', passes: 1 });
+  assert.ok(vsShips.defenderHpLost > landing, 'ils tirent sur les navires à quai');
 });
 
 // --- B2. Trois passes, répartition, déterminisme ---------------------------------------------------------------

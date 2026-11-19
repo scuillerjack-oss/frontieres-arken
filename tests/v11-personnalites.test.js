@@ -70,6 +70,8 @@ test('Conquérant : attaque tôt le plus faible qu\'il peut atteindre, sans atte
 test('Bâtisseur : construit, ne se bat pas sans menace même avec une flotte et une cible faible', () => {
   const s = scenario({ 'roc-epine': 'batisseur' });
   arm(s, 'p07');
+  // V16.0 : les navires ne tirent plus sur les troupes à terre ; il faut plus de soldats pour débarquer sur la capitale d'Aurel.
+  s.provinces.p07.units.infantry += 300;
   for (const id of ['p17', 'p18', 'p19', 'p20']) s.provinces[id].units = { infantry: 20, cavalry: 0, armor: 0, artillery: 0 };
   s.nations['roc-epine'].treasury = 300;
   s.turn = 2; replan(s);

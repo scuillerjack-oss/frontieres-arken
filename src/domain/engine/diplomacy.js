@@ -236,6 +236,9 @@ export function resolveDiplomacy(state, orders, random, map = null) {
       state.messages.push({turn:state.turn,nationId:o.nationId,target:o.target,action:'ceasefire',amount:o.amount||0,status:accepted?'accepted':'refused'});
       continue;
     }
+    // V16.0 : deux propositions croisées le même tour (A→B et B→A) : la seconde ne crée pas une deuxième alliance
+    // ni une deuxième annonce publique.
+    if (o.action === 'alliance' && (state.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties?.includes(o.nationId) && t.parties?.includes(o.target))) continue;
     let accepted = true;
     if (o.action === 'war' && !atWar) openWar(state, o.nationId, o.target, 'declaration');
     else if (o.action === 'alliance' && !atWar) {

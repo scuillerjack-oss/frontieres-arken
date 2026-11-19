@@ -137,12 +137,18 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
   const fire = (shooter, mode, targets, defenderTargets, warshipFactor = 1) => {
     const out = targets.map(() => emptyCounts());
     const weights = targets.map(t => Object.fromEntries(COMBAT_TYPES.map(k => [k, poolOf(t, k) * (stat(k).targetWeight ?? 1)])));
-    const total = weights.reduce((n, w) => n + Object.values(w).reduce((a, b) => a + b, 0), 0);
-    if (!total) return out;
+    // V16.0 (Jack : « les navires de guerre ne peuvent attaquer que les troupes qui sont dans l'eau ») : à terre
+    // (défense d'un port, appui d'un débarquement), un navire ne tire que sur les navires adverses ; en mer, il
+    // touche aussi les troupes embarquées. Sans cible permise, son feu est perdu. Les troupes, elles, peuvent
+    // toujours tirer sur les navires (essai du 19/11 : sans cela, les débarquements redevenaient presque
+    // impossibles et la carte se figeait — conquêtes de fin de partie divisées par 3).
+    const allowed = (s, t) => naval || s !== 'warship' || t === 'warship';
     for (const s of COMBAT_TYPES) {
       const shot = output(shooter, s, mode, warshipFactor);
       if (!shot) continue;
-      targets.forEach((_, i) => { for (const t of COMBAT_TYPES) if (weights[i][t]) out[i][t] += shot * weights[i][t] / total * mult(s, t); });
+      const total = weights.reduce((n, w) => n + COMBAT_TYPES.reduce((a, t) => a + (allowed(s, t) ? w[t] : 0), 0), 0);
+      if (!total) continue;
+      targets.forEach((_, i) => { for (const t of COMBAT_TYPES) if (weights[i][t] && allowed(s, t)) out[i][t] += shot * weights[i][t] / total * mult(s, t); });
     }
     for (const o of out) for (const t of COMBAT_TYPES) {
       if (defenderTargets) o[t] /= fort;
@@ -198,7 +204,7 @@ export function fortReductionPct(level, fortBonus = 1, fortBreach = 0) {
 }
 /**
  * V14.4 : facteur de forteresse après une brèche de `breach` % (bombardement). La réduction des dégâts reçus
- * (1 − 1/facteur) est multipliée par la protection restante (100 − brèche) % : brèche 50 % sur un fort −30 % → −15 %.
+ * (1 − 1/facteur) est multipliée par la protection restante (100 − brèche) % : brèche 50 % sur un fort −15 % → −7 %.
  */
 export function breachedFactor(factor, breach = 0) {
   const b = Math.max(0, Math.min(100, Number(breach) || 0));
