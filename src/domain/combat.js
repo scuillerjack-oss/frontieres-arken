@@ -204,7 +204,7 @@ export function fortReductionPct(level, fortBonus = 1, fortBreach = 0) {
 }
 /**
  * V14.4 : facteur de forteresse après une brèche de `breach` % (bombardement). La réduction des dégâts reçus
- * (1 − 1/facteur) est multipliée par la protection restante (100 − brèche) % : brèche 50 % sur un fort −30 % → −15 %.
+ * (1 − 1/facteur) est multipliée par la protection restante (100 − brèche) % : brèche 50 % sur un fort −15 % → −7 %.
  */
 export function breachedFactor(factor, breach = 0) {
   const b = Math.max(0, Math.min(100, Number(breach) || 0));

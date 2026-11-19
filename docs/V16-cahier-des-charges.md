@@ -6,7 +6,7 @@
 > Base : `main` au commit `4d07391` (V15.5.1).
 >
 > **Validé par Jack le 19/11/2026** : on garde le bombardement des forteresses (murs seulement) ; la lecture du
-> « tour en direct » (V16.3) est la bonne. Si ce mode casse la jouabilité, on le retire et on revient en arrière.
+> « tour en direct » (V16.4) est la bonne. Si ce mode casse la jouabilité, on le retire et on revient en arrière.
 
 ## Découpage proposé (une version = une bêta, comme d'habitude)
 | Version | Contenu | Taille |
@@ -20,7 +20,7 @@
 Le paysage passe **avant** le tour en direct : le bandeau d'annonces et le bouton pause de la V16.4 seront dessinés
 directement pour l'écran couché, au lieu d'être refaits deux fois.
 
-Ordre choisi : du plus simple au plus risqué. La V16.3 change tout le rythme du jeu ; la faire en dernier évite de
+Ordre choisi : du plus simple au plus risqué. La V16.4 (tour en direct) change tout le rythme du jeu ; la faire en dernier évite de
 tout retester trois fois.
 
 ---

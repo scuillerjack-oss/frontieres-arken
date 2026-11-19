@@ -26,7 +26,7 @@ export const RULES = Object.freeze({
   },
   // Forteresse : −5 % de dégâts reçus par niveau (V16.0 ; V13.3 : −10 %), niveau 0 à 3, appliqué UNIQUEMENT au défenseur
   // (les dégâts reçus par la garnison sont divisés par ce facteur).
-  // V13.3 (Jack : « +30 % ne se sent pas ») : la forteresse retire vraiment 10 / 20 / 30 % des dégâts reçus
+  // V13.3 (Jack : « +30 % ne se sent pas ») : la forteresse retirait 10 / 20 / 30 % des dégâts reçus (V16.0 : 5 / 10 / 15 %)
   // (avant : dégâts divisés par 1,1 / 1,2 / 1,3, soit seulement −9 / −17 / −23 %).
   fortDefense:[1,1/.95,1/.9,1/.85], // V16.0 (Jack) : −5 % de dégâts reçus par niveau (avant −10 %)
   navalTransportPowerFactor:.12,
