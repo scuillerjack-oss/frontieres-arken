@@ -545,3 +545,32 @@ body.live-on #turnAnim{padding-top:calc(env(safe-area-inset-top) + 140px)}
 #settingsDialog .level-choice{background:#0a2433;color:var(--ink);border:1px solid #3c5868;padding:6px 4px;font-weight:700}
 #settingsDialog .level-choice[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#10202b}
 .setting-note{margin:6px 0 0;font-size:.76rem;color:#c9d6dc}
+
+/* === V17.6 — carte façon AM 3 : copies (défilement sans fin), teinte franche, noms de nations, pastilles, drapeaux === */
+#map{overflow:visible}
+.wrap-copy{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.province .area{fill-opacity:.44}
+.province.player-province .area{fill-opacity:.52}
+.province.selected .area{fill-opacity:.62}
+.province.destination .area{fill-opacity:.58}
+.nation-names{pointer-events:none}
+.nation-name{text-anchor:middle;dominant-baseline:central;font-family:Georgia,'Times New Roman',serif;font-weight:700;letter-spacing:.22em;fill:#fff7e2;stroke:#1b130a;stroke-width:.075em;stroke-linejoin:round;paint-order:stroke;opacity:.9;transition:opacity .2s}
+.detail-1 .nation-name{opacity:.45}
+.detail-2 .nation-name{opacity:.14}
+.troop-badge{--tone:#c4c9cc}
+.troop-badge.own{--tone:#63e57f}.troop-badge.ally{--tone:#72b9ff}.troop-badge.enemy{--tone:#ff6b5f}.troop-badge.neutral{--tone:#c4c9cc}
+.troop-badge rect{fill:#0a1317;fill-opacity:.9;stroke:var(--tone);stroke-width:4}
+.province-label .troop-badge text{fill:var(--tone);font:800 30px system-ui,sans-serif;stroke:none;font-variant-numeric:tabular-nums}
+.province-label .troop-badge.unknown text{fill:#d9dfe2}
+.province-label .troop-badge.unknown rect{stroke-dasharray:8 5}
+.flag-pole{stroke:#2a1a08;stroke-width:6;stroke-linecap:round}
+.flag-cloth{fill:var(--flag);stroke:#1a1208;stroke-width:3.5;stroke-linejoin:round}
+.province-label .flag-crest{font-size:22px;fill:#fff;stroke:#1a1208;stroke-width:3px}
+/* Niveaux de détail : vue du monde = noms de nations, pastilles, capitales ; les noms de provinces arrivent en zoomant. */
+.detail-0 .province-label .name,.detail-0 .province-label .building,.detail-0 .province-label .city,.detail-0 .port-marker.site,.detail-0 .convoy-stage{display:none}
+.detail-0 .route.maritime{opacity:.6}
+/* Mer autour de la carte (marge verticale) : même bleu que les bords de l'image Leonardo. */
+#viewport{background:#114464}
+.edge-fade{pointer-events:none}
+/* V17.6 : portrait, fiche de province ouverte (elle couvre le bas de la carte) : « Voir toute la carte » remonte sous le zoom. */
+@media not all and (orientation:landscape) and (max-height:560px){body:has(#provinceSheet:not([hidden])) .whole-map-btn{top:128px;bottom:auto;left:auto;right:10px}}

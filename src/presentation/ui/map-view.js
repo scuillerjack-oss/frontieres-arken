@@ -15,8 +15,9 @@ import { coalitionBanner } from '../coalition-view.js';
 import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
-import { knownTroopProvinces } from '../vision-view.js';
 import { MYSTERY_ISLAND_ID, islandMapBadge } from '../mystery-island-view.js';
+import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapTransform } from '../map-am3-view.js';
+import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
@@ -31,7 +32,12 @@ export let frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, tran
 export const FRAME = map.frame, MAX_ZOOM = 3, PAN_SLACK = .22;
 // Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
 export let minZoom = 1;
+// V17.6 : copies de la carte de chaque côté (défilement horizontal sans fin) et niveau de détail courant.
+export let wrapCopies = 1;
+let detail = -1;
 let backgroundImage = null;
+// V17.6 : bleu commun des bords de la carte Leonardo (moyenne des bords) : jointures et marges invisibles.
+const SEA_EDGE = '#114464';
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
 // Route maritime : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line).
 // V13 : routes neutres, une seule couleur (plus d'état jaune « open » hérité de la V9).
@@ -75,21 +81,40 @@ function showConvoy(m){
 // par mer, elle suit la route (port, étapes) puis termine sur le point.
 function arrowPoints(order){return trimPolyline(orderPath(map,order),26,22);}
 // Icônes d'une province, en coordonnées locales autour de son centre ; « ui-scale » les garde lisibles quel que soit le zoom.
-function provinceLabel(d,p,troopsKnown=true){
+// V17.6 : pastille sombre du nombre de troupes (vert = soi, bleu = allié, rouge = ennemi, gris = neutre ; « ? » hors de vue)
+// au-dessus de la ville, drapeau-emblème sur les capitales.
+const TONE_TEXT={own:'vos troupes',ally:'troupes alliées',enemy:'troupes étrangères',neutral:'garnison neutre'};
+function provinceLabel(d,p,badge){
   const g=E('g',{class:'province-label',transform:`translate(${d.markerAnchor.x} ${d.markerAnchor.y})`}),inner=E('g',{class:'ui-scale'});
-  inner.style.setProperty('--owner',nation(p.ownerId).color);
-  const capital=Object.values(state.nations).some(n=>n.capitalId===d.id),troops=Object.values(p.units).some(Boolean)||p.warships||guestsAt(state,d.id).length>0;
+  const owner=nation(p.ownerId);inner.style.setProperty('--owner',owner.color);
+  const capitalOf=Object.entries(state.nations).find(([,n])=>n.capitalId===d.id)?.[0];
   // V10 : le « point » de la province (sa ville) est sur l'ancre ; c'est lui que visent les flèches.
-  if(capital){const star=E('text',{y:3,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);}
+  if(capitalOf){
+    // Drapeau à gauche de l'étoile (la pastille est au-dessus) : hampe, tissu aux couleurs de la nation, emblème.
+    const flag=E('g',{class:'capital-flag'});flag.style.setProperty('--flag',nation(capitalOf).color);
+    const crest=E('text',{x:-57,y:-21,class:'flag-crest'});crest.textContent=crestGlyph(nation(capitalOf).crest);
+    flag.append(E('path',{d:'M-82 20 V-38',class:'flag-pole'}),E('path',{d:'M-80 -37 H-32 L-41 -21 L-32 -5 H-80 Z',class:'flag-cloth'}),crest);inner.append(flag);
+    const star=E('text',{y:3,class:'capital','aria-label':'Capitale nationale'});star.textContent='★';inner.append(star);
+  }
   else inner.append(E('circle',{r:13,class:'city'}));
-  if(!troopsKnown){const t=E('text',{x:30,y:-22,class:'troops unknown','aria-label':'Troupes inconnues'});t.textContent='?';inner.append(t);}
-  else if(troops){const t=E('text',{x:30,y:-22,class:'troops','aria-label':'Troupes présentes'});t.textContent='⚔';inner.append(t);}
+  if(badge){const w=Math.max(44,22+badge.text.length*19),pill=E('g',{class:`troop-badge ${badge.tone}${badge.known?'':' unknown'}`,transform:'translate(0 -52)',
+      'aria-label':badge.known?`${badge.text} — ${TONE_TEXT[badge.tone]}`:'Troupes inconnues'});
+    const t=E('text',{y:2});t.textContent=badge.text;pill.append(E('rect',{x:-w/2,y:-21,width:w,height:42,rx:21}),t);inner.append(pill);}
   const name=E('text',{class:'name',y:46});name.textContent=d.name;inner.append(name);
   const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
   built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:86,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
   // V16.2 : l'île mystérieuse affiche sa super banque (et 🤝 quand elle a un co-propriétaire).
   if(d.id===MYSTERY_ISLAND_ID){g.classList.add('mystery-island');const badge=E('text',{y:86,class:'building island-badge'});badge.textContent=islandMapBadge(state);inner.append(badge);}
   g.append(inner);return g;
+}
+// V17.6 : grands noms de nations en travers de leur île (repère de la carte : la taille suit le zoom).
+function nationNameLayer(){
+  const layer=E('g',{class:'nation-names','aria-hidden':'true'});
+  for(const l of safeEngine(()=>nationLabels(map,state,id=>nation(id).short),[])){
+    const t=E('text',{class:'nation-name',transform:`translate(${l.x} ${l.y}) rotate(${l.angle})`,'font-size':l.size,'data-nation':l.nationId});
+    t.style.setProperty('--owner',nation(l.nationId).color);t.textContent=l.text;layer.append(t);
+  }
+  return layer;
 }
 // V13.2 : une province alliée n'est plus proposée en vert (on ne peut pas l'attaquer) ; elle est marquée « alliée ».
 // V13.4 : l'alliance donne le passage libre — une province alliée redevient une destination verte (on y stationne).
@@ -98,12 +123,19 @@ function destinations(){return new Set(moveSource?legalDestinations(map,state,mo
 let orderCount=0,orderGame=null;
 function announceOrder(){const count=state.orders.filter(o=>o.status==='pending').length;if(orderGame===state&&count>orderCount)playSfx('order');orderGame=state;orderCount=count;}
 export function render(){
-  const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),known=safeEngine(()=>knownTroopProvinces(state,map),null);
+  const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),badges=safeEngine(()=>troopBadges(state,map),null);
+  // V17.6 : tout le dessin va dans #mapWorld ; des copies (<use>) le répètent à gauche et à droite (défilement sans fin).
+  const world=E('g',{id:'mapWorld',class:`detail-${Math.max(0,detail)}`});
   for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',
     markerHeight:'3.4',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
   backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
   const provinceLayer=E('g',{class:'provinces'}),highlightLayer=E('g',{class:'highlights'}),borderLayer=E('g',{class:'territory-borders'}),labelLayer=E('g',{class:'labels'});
-  svg.replaceChildren(defs,backgroundImage,provinceLayer,highlightLayer,borderLayer);
+  // V17.6 : fondu des bords de l'image vers un même bleu : la jointure entre deux copies (bord droit / bord gauche de
+  // l'image, de teintes un peu différentes) et la marge verticale ne se voient pas.
+  for(const [id,x1,y1,x2,y2] of [['fade-l',0,0,1,0],['fade-r',1,0,0,0],['fade-t',0,0,0,1],['fade-b',0,1,0,0]]){const g=E('linearGradient',{id,x1,y1,x2,y2});
+    g.append(E('stop',{offset:0,'stop-color':SEA_EDGE,'stop-opacity':1}),E('stop',{offset:1,'stop-color':SEA_EDGE,'stop-opacity':0}));defs.append(g);}
+  const fade=(x,y,width,height,id)=>E('rect',{x,y,width,height,fill:`url(#${id})`,class:'edge-fade'}),W=FRAME.width,H=FRAME.height,B=70;
+  world.append(backgroundImage,fade(-1,0,B,H,'fade-l'),fade(W-B,0,B+1,H,'fade-r'),fade(-1,-1,W+2,B,'fade-t'),fade(-1,H-B,W+2,B+1,'fade-b'),provinceLayer,highlightLayer,borderLayer);
   // V10 : liseré bleu = mon territoire, liseré rouge = nations en guerre contre moi (au-dessus du voile et de la sélection).
   // Chaque liseré est découpé à l'intérieur de son territoire : bleu et rouge ne se recouvrent jamais à une frontière commune.
   const polygonPoints=id=>province(id).geometry.points.map(x=>x.join(',')).join(' ');
@@ -127,19 +159,20 @@ export function render(){
     const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
     if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id))){const kind=moveSource&&allowed.has(d.id)?'destination':'selected',attrs={points,class:`outline ${kind}`};
       if(kind==='selected'&&selected===d.id&&!moveSource)attrs['clip-path']='url(#clip-selected)';highlightLayer.append(E('polygon',attrs));}
-    labelLayer.append(provinceLabel(d,p,!known||known.has(d.id)));
+    labelLayer.append(provinceLabel(d,p,badges?.[d.id]));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
   }
   const convoyLayer=E('g',{class:'convoys'});for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
-  svg.append(...routeLayer,labelLayer,convoyLayer);
-  svg.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
+  world.append(nationNameLayer(),...routeLayer,labelLayer,convoyLayer);
+  world.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
   for(const order of playerOrderArrows(state,map)){
     const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button',
       'aria-label':`${order.kind==='bombard'?'Bombardement':order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`}
       );
-    arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});svg.append(arrow);
+    arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});world.append(arrow);
   }
+  svg.replaceChildren(defs,world,...wrapUses());
   const coalition=coalitionBanner(state,id=>nation(id).short),chip=$('#coalitionBtn');chip.hidden=!coalition;if(coalition){chip.textContent=coalition.text;chip.dataset.mine=coalition.mine?'1':'0';}
   const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,gameLengthOf(state))}<span class="turn-max">/${gameLengthOf(state)}</span>`;
     $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>gameLengthOf(state)-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
@@ -147,26 +180,55 @@ export function render(){
   $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();announceOrder();syncMusic();if(tutoStep!==null)queueMicrotask(refreshTuto);
   if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)
 }
+// V17.6 : copies de #mapWorld de chaque côté. Elles ne reçoivent pas les touchers eux-mêmes : un toucher sur une copie
+// décale la carte d'une largeur (invisible) puis est rejoué sur la carte d'origine (voir onCopyClick).
+function wrapUses(){const out=[];for(let k=-wrapCopies;k<=wrapCopies;k++)if(k)out.push(E('use',{href:'#mapWorld',x:k*FRAME.width,y:0,class:'wrap-copy','data-copy':k}));return out;}
+// La carte est un SVG large de (2 × copies + 1) cartes ; l'origine de la transformation est le centre de la carte d'origine,
+// qui reste au centre du cadre : les calculs d'avant (zoom, centrage, vue de lancement) ne changent pas.
 export function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
-  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height),contain=Math.min(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
-  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=Math.min(1,contain/cover);
-  Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2}px`,top:`${(frameSize.height-mapContentSize.height)/2}px`});clampTransform();}
+  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
+  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME); // V17.6 : au plus une largeur de carte à l'écran
+  const copies=wrapCopyCount(frameSize.width,mapContentSize.width*minZoom),changed=copies!==wrapCopies;wrapCopies=copies;
+  const n=2*wrapCopies+1;svg.setAttribute('viewBox',`${-wrapCopies*FRAME.width} 0 ${n*FRAME.width} ${FRAME.height}`);
+  Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width*n}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2-wrapCopies*mapContentSize.width}px`,
+    top:`${(frameSize.height-mapContentSize.height)/2}px`,transformOrigin:`${mapContentSize.width*(wrapCopies+.5)}px 50%`});
+  if(changed&&svg.querySelector('#mapWorld'))svg.replaceChildren(...[...svg.children].filter(c=>!c.classList.contains('wrap-copy')),...wrapUses());
+  clampTransform();updateLabelScale();}
 // Centre la vue sur une province (capitale du joueur au lancement).
 export function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform(0);}
 // Les icônes et noms rétrécissent un peu quand on zoome (sinon ils deviendraient énormes) : appliqué en fin de geste.
 // V14.1 : vue de lancement = capitale du joueur au centre de l'écran (zoom juste suffisant), et bouton qui bascule
 // entre « Voir toute la carte » et « Revenir à ma capitale ».
-export function applyLaunchView(){if(!state||!mapContentSize.width)return;const v=launchView({anchor:province(state.nations[state.playerNationId]?.capitalId||'p01').markerAnchor,frame:FRAME,viewport:frameSize,content:mapContentSize});scale=v.scale;tx=v.x;ty=v.y;clampTransform();updateLabelScale();}
+// V17.6 : la carte boucle horizontalement : seul le vertical décide du zoom de lancement, et la capitale est toujours centrée.
+export function applyLaunchView(){if(!state||!mapContentSize.width)return;const anchor=province(state.nations[state.playerNationId]?.capitalId||'p01').markerAnchor;
+  const v=launchView({anchor:{x:FRAME.width/2,y:anchor.y},frame:FRAME,viewport:frameSize,content:mapContentSize}),k=mapContentSize.width/FRAME.width;
+  scale=v.scale;tx=(FRAME.width/2-anchor.x)*k*scale;ty=v.y;clampTransform();updateLabelScale();}
 function updateWholeMapButton(){const b=$('#wholeMapBtn');if(!b)return;b.hidden=minZoom>=.999;// écran presque carré : la carte entière tient déjà
   const whole=showsWholeMap(scale,minZoom);b.textContent=whole?`◎ ${BACK_TO_CAPITAL_LABEL}`:`🗺 ${WHOLE_MAP_LABEL}`;b.dataset.whole=whole?'1':'0';}
-export function updateLabelScale(){updateWholeMapButton();const svg=$('#map');svg.style.setProperty('--ui',(1/Math.sqrt(Math.max(1,scale))).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));}
-// edgeSlack : marge de glisse au-delà du bord (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
+// V17.6 : --ui = zoom^-0,75 (lisible dézoomé), niveau de détail (data-detail) changé seulement quand il change.
+export function updateLabelScale(){updateWholeMapButton();const svg=$('#map');svg.style.setProperty('--ui',iconScale(scale).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));
+  const level=detailLevel(mapContentSize.width/FRAME.width*scale);if(level!==detail){detail=level;svg.dataset.detail=String(level);svg.querySelector('#mapWorld')?.setAttribute('class',`detail-${level}`);}}
+// (la classe est sur #mapWorld, pas sur #map : les copies <use> la reçoivent aussi)
+// edgeSlack : marge de glisse au-delà du bord vertical (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
+// V17.6 : horizontalement, plus de bord : x est ramené modulo la largeur d'une copie.
 export function clampTransform(edgeSlack=PAN_SLACK){
   if(!frameSize.width||!frameSize.height)return;
-  const next=mapFrameTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack);
+  const next=wrapTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack);
   scale=next.scale;tx=next.x;ty=next.y;
-  if(!transformFrame)transformFrame=requestAnimationFrame(()=>{transformFrame=0;$('#map').style.transform=`translate3d(${tx}px,${ty}px,0) scale(${scale})`;});
+  if(!transformFrame)transformFrame=requestAnimationFrame(applyTransform);
 }
+function applyTransform(){if(transformFrame)cancelAnimationFrame(transformFrame);transformFrame=0;$('#map').style.transform=`translate3d(${tx}px,${ty}px,0) scale(${scale})`;}
+// Toucher une copie : la carte d'origine est amenée sous le doigt (décalage d'une ou plusieurs largeurs, invisible), puis le
+// même toucher est rejoué sur l'élément d'origine (province, convoi, ballon, flèche d'ordre).
+function onCopyClick(event){
+  const use=event.target?.closest?.('use.wrap-copy');if(!use)return;
+  event.stopPropagation();event.preventDefault();if(Date.now()<ignoreClickUntil)return;
+  tx+=copyShift(use.dataset.copy,mapContentSize,scale);applyTransform();
+  const hit=document.elementFromPoint(event.clientX,event.clientY);
+  if(hit&&hit.closest('#mapWorld'))hit.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:event.clientX,clientY:event.clientY}));
+  clampTransform();
+}
+$('#viewport')?.addEventListener('click',onCopyClick,true);
 export function pointerDistance(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 export const viewport=$('#viewport');
 export function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;clampTransform();updateLabelScale();}

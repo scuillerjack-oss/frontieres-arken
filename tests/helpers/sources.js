@@ -20,6 +20,9 @@ export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 
 /** V16.2 : nouveau module du domaine hors de engine/ (île mystérieuse), lu par tests/v16-2.test.js (pur). */
 export const DOMAIN_MODULES_V16_2 = Object.freeze(['src/domain/mystery-island.js']);
 
+/** V17.6 : module de présentation pur de la carte « façon AM 3 » (lu par tests/v17-6.test.js : sans DOM, en cache hors ligne). */
+export const PRESENTATION_MODULES_V17_6 = Object.freeze(['src/presentation/map-am3-view.js']);
+
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
   if (present.join() !== [...names].sort().join()) throw new Error(`${dir} : liste à tenir à jour dans tests/helpers/sources.js`);

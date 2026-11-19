@@ -26,6 +26,7 @@ const ASSETS=[
   './src/presentation/ui/balloon-ui.js',
   './src/presentation/live-clock.js',
   './src/presentation/live-news.js',
+  './src/presentation/map-am3-view.js',
   './src/presentation/ui/live-ui.js',
   './src/domain/engine/ai-help.js',
   './src/domain/engine/ai-naval.js',

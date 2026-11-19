@@ -107,12 +107,14 @@ test('V16.3 : règles paysage — écran couché ET bas seulement ; le portrait 
   assert.equal(outside, '', 'aucune règle hors @media paysage');
 });
 
-test('V16.3 : gabarit paysage — carte à gauche, colonne à droite (infos + boutons), fiche latérale, fenêtres bornées', () => {
+// V17.6 : la colonne de droite de la V16.3 est remplacée par la carte en plein écran (boutons posés par-dessus aux bords,
+// bande de boutons à droite de largeur --side) : ces assertions suivent le nouveau gabarit (voir aussi tests/v17-6.test.js).
+test('V16.3 / V17.6 : gabarit paysage — carte plein écran, infos et boutons par-dessus, fiche latérale, fenêtres bornées', () => {
   const css = read('paysage.css');
-  assert.match(css, /#gameScreen:not\(\[hidden\]\)\{[^}]*grid-template-columns:minmax\(0,1fr\) var\(--side\)/);
-  assert.match(css, /#gameScreen \.map-shell\{grid-column:1;grid-row:1\/-1/);
-  assert.match(css, /\.hud\{grid-column:2;grid-row:1\/3/);
-  assert.match(css, /nav\.bottom-bar\{grid-column:2;grid-row:3/);
+  assert.match(css, /#gameScreen:not\(\[hidden\]\)\{[^}]*grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
+  assert.match(css, /#gameScreen \.map-shell\{grid-column:1\/-1;grid-row:1\/-1/);
+  assert.match(css, /\.hud\{position:absolute;/);
+  assert.match(css, /nav\.bottom-bar\{position:absolute;[^}]*right:calc\(8px \+ var\(--sr\)\)/);
   assert.match(css, /#provinceSheet\{[^}]*right:calc\(var\(--side\) \+ 8px\)[^}]*width:var\(--sheet-w\)/);
   assert.match(css, /dialog\{[^}]*max-height:calc\(100dvh/);
   assert.match(css, /dialog section\{max-height:calc\(100dvh/);
