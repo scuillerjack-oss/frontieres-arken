@@ -193,7 +193,24 @@ mettre pause pour avoir le temps de lire et de réagir ».
   automatiquement.
 - Réglage de vitesse (lent 15 s / normal 10 s / rapide 5 s par nation) **À VALIDER**.
 
-### Conséquences à connaître
+### Décision technique du 19/11 (Claude) : résolution toujours simultanée
+Plutôt que de faire jouer les nations l'une après l'autre dans le moteur (celle qui joue en premier aurait un
+avantage, et tout l'équilibre mesuré depuis la V10 serait à refaire), le moteur garde la **résolution simultanée** ;
+c'est le **déroulé à l'écran** qui devient « en direct » :
+- le jeu avance tout seul : une horloge de tour = environ 10 s × nombre de nations en vie (vitesse réglable :
+  lent 15 s, normal 10 s, rapide 5 s par nation) ;
+- pendant ce temps, le bandeau au-dessus de la carte passe de nation en nation (« ⏱ Tour 12 · Oroël ») et annonce
+  ce que le joueur sait de ce qu'elle a fait au tour précédent (combats, conquêtes, alliances, ballons…), la carte
+  montrant l'endroit ;
+- le joueur donne ses ordres quand il veut ; à la fin de l'horloge, les ordres sont verrouillés et le tour est résolu
+  automatiquement, puis l'horloge repart ;
+- **⏸ Pause** toujours visible ; le jeu se met aussi en pause tout seul tant qu'une fenêtre est ouverte (journal,
+  proposition Oui / Non, ballon, construction…) ;
+- un réglage « Déroulé : En direct / Classique (bouton Fin du tour) » permet de revenir à l'ancien mode : c'est le
+  retour en arrière prévu par Jack si le mode en direct déçoit.
+Ainsi, rien ne change dans les règles ni dans l'équilibre, et le retour en arrière est un simple réglage.
+
+### Conséquences à connaître (lecture d'origine, remplacée par la décision ci-dessus pour le moteur)
 - La **résolution simultanée** des tours (choisie au début du projet, façon Supremacy 1914) devient une résolution
   **nation par nation** : celle qui joue d'abord a un avantage. Pour rester équitable, l'ordre de passage change à
   chaque tour (tirage à graine).
@@ -386,3 +403,67 @@ mettre pause pour avoir le temps de lire et de réagir ».
   parallèle) n'a pas de règle paysage : à vérifier à la fusion s'il ajoute un bouton sur la carte ou une fenêtre.
 
 - Intégration après la V16.1 : fenêtre « Détruire / Laisser passer », icône du ballon et choix de destination vérifiés en 844 × 390 (0 erreur). **L’APK de bêta déjà installé doit être retéléchargé une fois** pour être verrouillé en paysage ; la mise en page paysage, elle, arrive par le site.
+
+### V16.4 — tour en direct (19/11/2026)
+Spécification suivie : « Décision technique du 19/11 ». **Le moteur n'est pas touché** (`src/domain/` inchangé) : la
+résolution reste simultanée, c'est le déroulé à l'écran qui devient « en direct ».
+- **Horloge** (`src/presentation/live-clock.js`, pur, testé sous Node) : durée du tour = secondes par nation × nations
+  encore en vie (lent 15 s, normal 10 s, rapide 5 s). À la fin : le même chemin que « Verrouiller et résoudre »
+  (`playTurn` dans `turn-flow.js`), sans fenêtre de confirmation. L'horloge repart quand toute la suite de fin de tour est
+  finie (animation, capitale, mer, coalition, ballon, propositions). Une seule résolution possible : la fin de l'horloge
+  est prise une seule fois, et un verrou (`turnGate`) refuse une deuxième résolution tant que la première n'est pas finie
+  (« Passer » touché au même moment, double toucher : un seul tour).
+- **Réglages ⚙** : « Déroulé du tour : En direct / Classique » et « Vitesse (par nation) ». En direct par défaut, pour les
+  nouvelles parties comme pour les parties en cours. Mémorisés dans une clé dédiée du téléphone
+  (`frontieres-arken-deroule`), **jamais dans la sauvegarde de partie** ; l'horloge n'est pas sauvegardée (elle repart à
+  zéro au rechargement). Changer de vitesse en cours de tour garde la part du tour déjà écoulée.
+- **Bandeau** en haut de la carte (portrait et paysage ; en paysage il ne touche jamais la colonne de droite et se
+  raccourcit quand la fiche de province est ouverte) : « ⏱ Tour N · Nation », temps restant, barre de progression à la
+  couleur de la nation. Ordre : les nations étrangères en vie dans l'ordre de la carte, **puis la vôtre en dernier**
+  (rappel de vos ordres en attente juste avant la résolution, ou « Aucun ordre en attente »). Pour chaque nation : ce que
+  vous savez de son dernier tour (`src/presentation/live-news.js` : `eventKnownToPlayer` + `journalEntry`, comme le
+  journal), au plus 3 annonces qui défilent pendant ses secondes, détail des pertes retiré (il reste au journal). Une
+  annonce où vous êtes l'acteur est rangée chez la nation visée. Sans nouvelle : « Rien de connu ».
+  La province concernée est **entourée brièvement** (anneau) ; choix : **la carte n'est pas recentrée**, pour ne pas la
+  déplacer sous le doigt pendant qu'on donne un ordre.
+- **⏸ Pause / ▶ Reprendre** dans le bandeau, toujours visible. Pause automatique (le bandeau dit pourquoi) : toute fenêtre
+  ouverte, page cachée, bulle d'aide ou mini tuto affiché, choix d'une destination en cours (bandeau « Choisissez une
+  destination » ; ajouté pour qu'un tour ne se résolve pas au milieu d'un déplacement), animation et fenêtres de fin de
+  tour. La pause du joueur reste après la fermeture d'une fenêtre.
+- **Fin du tour** : en direct le bouton devient « Passer » (résout tout de suite, sans confirmation) ; en Classique tout
+  est exactement comme avant (« Fin du tour » puis « Verrouiller et résoudre », journal ouvert à chaque tour).
+- **Journal** : en direct il ne s'ouvre plus tout seul (le bandeau le remplace), toujours accessible par le bouton
+  Journal. Les fenêtres qui demandent une décision (prise de capitale, mer, coalition, ballon étranger, propositions
+  Oui / Non, écran de fin) s'ouvrent toujours et arrêtent l'horloge.
+- **Animation de fin de tour V15.2 gardée** (2,4 s au plus, « Touchez pour passer ») : c'est la carte qui s'anime ;
+  l'horloge du tour suivant ne démarre qu'après.
+- **Tutoriel et mini tuto** : mode classique gardé (leurs bulles demandent « Fin du tour »).
+- **Pub** : aucune pendant le déroulé. La pub de début de partie passe avant l'écran de jeu, donc avant l'horloge ; la
+  pub récompensée des Atouts ne s'ouvre que depuis une fenêtre (horloge en pause).
+- **Fichiers** : nouveaux `src/presentation/live-clock.js`, `src/presentation/live-news.js`,
+  `src/presentation/ui/live-ui.js` (dans `sw.js` et `tests/helpers/sources.js`) ; modifiés `turn-flow.js` (suite de fin
+  de tour sortie dans `playTurn`, lignes du récapitulatif dans `pendingOrderLines`), `session.js`, `app.js`,
+  `index.html`, `v5.css`, `paysage.css`.
+- **Tests** : `tests/v16-4.test.js` (11 tests : durée, nation par nation, pause / reprise, pauses automatiques,
+  fin d'horloge = une seule résolution, « Passer » simultané, verrou, vitesse en cours de tour, réglage par défaut /
+  mémorisé / hors sauvegarde, classique et tutoriel, annonces connues seulement, branchement de l'interface).
+  Test existant modifié (forme du code seulement) : `v13-alliances` lit l'enchaînement dans `playTurn` au lieu du
+  `onclick` de « Verrouiller et résoudre ». `npm test` : 663/663.
+- **Vérifié dans Chrome mobile simulé (Playwright, tactile)** en 844 × 390 et 390 × 844 (`/home/claude/pw/v164.mjs`,
+  captures dans `/home/claude/pw/v164/`) : 3 tours joués tout seuls en vitesse rapide (75 s), journal jamais ouvert
+  seul, proposition d'alliance qui met l'horloge en pause, bulle d'aide en pause, ⏸ / ▶ (le temps ne bouge pas pendant
+  3 s), pause automatique avec l'Aide ouverte, « Passer » sans confirmation, double « Passer » = un seul tour, retour au
+  Classique (bandeau caché, « Fin du tour », plus d'avance seule, confirmation revenue), réglage gardé et horloge
+  remise à zéro après rechargement ; anneau sur la province annoncée (`v164-anneau.mjs`). 0 erreur JavaScript, aucun
+  débordement, aucun bouton caché (seul « Voir toute la carte » passe sous la fiche en portrait, comme en V16.0).
+- **Non vérifié** : vrai téléphone (lisibilité du bandeau en plein soleil, rendu de l'emoji ⏸ — le Chrome de test
+  n'a pas la police emoji), partie longue entière en direct, écran de fin atteint par l'horloge, très petit téléphone
+  couché (667 × 375). **Intégration V16.2** (île, développée en parallèle) : si l'île devient un acteur, il faudra
+  l'ajouter à l'ordre du bandeau (`liveNationOrder`) et vérifier `actorOf` pour ses événements.
+- **À regarder en bêta avec Jack** : les échanges des IA (citations longues) prennent beaucoup de place dans le bandeau ;
+  on pourra les retirer des annonces si c'est trop bavard.
+- **Relecture indépendante** : rien de bloquant pour la bêta. Corrigé ensuite : l'horloge s'arrête aussi pendant la pub de
+  début de partie (pub native AdMob comprise, qui n'est pas une fenêtre) ; une fiche de province ouverte pendant une
+  résolution en direct est remise à jour. Non corrigé (mineur) : revenir à l'accueil puis reprendre remet l'horloge à
+  zéro ; après la fin de partie, le bouton affiche encore « Passer » (il rouvre l'écran de fin) ; les rapports de vos
+  propres ballons restent dans le journal, pas dans le bandeau.

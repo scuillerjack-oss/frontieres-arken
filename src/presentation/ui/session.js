@@ -7,6 +7,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { decodeSave, encodeSave } from '../../persistence/save-codec.js';
 import { SAVE_KEY } from '../guide-input.js';
 import { loadProfile, saveProfile } from '../profile-storage.js';
+import { loadLiveSettings, saveLiveSettings } from '../live-clock.js';
 import { isTutorial, saveKeyFor } from '../tutorial.js';
 import { $ } from './base.js';
 
@@ -14,6 +15,9 @@ export let state, selected = null, moveSource = null;
 // V12 : profil joueur (clé localStorage dédiée `frontieres-arken-profil`, distincte de la sauvegarde de partie).
 export let profile = loadProfile();
 export const saveMyProfile = () => saveProfile(profile);
+// V16.4 : réglages du déroulé (En direct / Classique, vitesse) — clé dédiée du téléphone, jamais dans la sauvegarde de partie.
+export let liveSettings = loadLiveSettings();
+export const setLiveSettings = value => { liveSettings = { ...liveSettings, ...value }; saveLiveSettings(liveSettings); };
 /** Injecte les atouts du profil dans la partie (joueur humain seulement) : création, chargement, amélioration. */
 export const applyBoosts = game => game && !isTutorial(game) ? setPlayerBonuses(game, profile.boosts) : game; // V14.3 : pas d'atouts dans le tutoriel (chiffres de base)
 // V14.3 : la partie de tutoriel a SA clé (frontieres-arken-tutoriel-save) ; la vraie partie garde SAVE_KEY, jamais écrasée.

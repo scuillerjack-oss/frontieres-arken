@@ -23,8 +23,9 @@ import { $, buildingNames, nation, province, unitKeys } from './base.js';
 import { trackMissions } from './boosts-ui.js';
 import { dialogClosed, showCapitalPopups, showCoalitionPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
 import { render } from './map-view.js';
-import { actionModal } from './province-sheet.js';
-import { profile, saveMyProfile, state } from './session.js';
+import { actionModal, showProvinceSheet } from './province-sheet.js';
+import { liveSettings, profile, saveMyProfile, selected, state } from './session.js';
+import { createTurnGate, liveApplies } from '../live-clock.js';
 import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
 import { playTurnAnimation } from './turn-anim.js';
 
@@ -59,18 +60,38 @@ export function showEndScreen(){
 ${endTitlesHtml(record.titles)}${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
 }
-export function resolveTurn(){
-  if(showEndScreen())return;
-  const count=state.orders.filter(o=>o.status==='pending').length;
-  const summary=count?state.orders.filter(o=>o.status==='pending').map(o=>o.kind.startsWith('balloon-')?balloonOrderText(o,{province:id=>province(id).name,nation:id=>nation(id).short}):o.kind==='bombard'?bombardSummary(o,
+/** V16.4 : le déroulé en direct s'applique-t-il à cette partie ? (jamais en tutoriel ni pendant le mini tuto) */
+export const liveOn=()=>Boolean(state)&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});
+/** V16.4 : une seule résolution à la fois (fin d'horloge, « Passer », « Verrouiller et résoudre »). */
+export const turnGate=createTurnGate();
+/** Ordres en attente du joueur, une ligne chacun (récapitulatif de fin de tour et rappel du bandeau en direct). */
+export function pendingOrderLines(){
+  return state.orders.filter(o=>o.status==='pending').map(o=>o.kind.startsWith('balloon-')?balloonOrderText(o,{province:id=>province(id).name,nation:id=>nation(id).short}):o.kind==='bombard'?bombardSummary(o,
     id=>province(id).name):o.kind==='move'?`${province(o.fromId).name} → ${province(o.toId).name} (${o.nationId===state.playerNationId?'mouvement':'ordre'})`:o.kind==='diplomacy'?`Diplomatie : ${({
     war:'déclaration de guerre',alliance:'proposition d’alliance',ceasefire:'cessez-le-feu',break:'rupture d’alliance'}
     )[o.action]||o.action} (${nation(o.target).short})`:o.kind==='help'?`Demande d’aide à ${nation(o.to).short}`:o.kind==='construction'?`Construction \
-: ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`).join('\n'):'Aucun ordre en attente.';
+: ${buildingNames[o.type]}`:o.kind==='talk'?`Message ${o.tone==='hostile'?'hostile':o.tone==='amical'?'amical':'neutre'} à ${o.to?nation(o.to).short:'tous'}`:`Production : ${RULES.units[o.type]?.label||o.type}`);
+}
+export function resolveTurn(){
+  if(showEndScreen())return;
+  if(liveOn())return void playTurn({live:true}); // V16.4 : « Passer » — résolu tout de suite, sans confirmation
+  const lines=pendingOrderLines(),count=lines.length;
+  const summary=count?lines.join('\n'):'Aucun ordre en attente.';
   actionModal('Terminer le tour',`${count} ordre(s) en attente`,`<p>Les ordres deviennent définitifs pour cette résolution. Les IA verrouillent aussi les leurs.</p><pre class="order-summary">${summary}</pre><button id="confirmEndTurn" class="primary">Verrouiller et résoudre</button>`);
+  $('#confirmEndTurn').onclick=()=>{$('#actionDialog').close();playTurn();};
+}
+/**
+ * Résout le tour puis enchaîne ses fenêtres. `live` (V16.4) : le journal ne s'ouvre plus tout seul (le bandeau d'annonces
+ * le remplace ; il reste accessible par le bouton Journal) ; les fenêtres qui demandent une réponse s'ouvrent toujours.
+ * La promesse se termine quand toute la suite est finie : l'horloge du tour en direct repart à ce moment-là.
+ */
+export async function playTurn({live=false}={}){
+  if(!state||state.gameOver){showEndScreen();return;}
+  if(!turnGate.tryStart())return;
+  try{
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
-  $('#confirmEndTurn').onclick=async()=>{ const game=state,same=()=>state===game; $('#actionDialog').close(); const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();
-    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
+  const game=state,same=()=>state===game; const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();
+    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();if(live&&selected&&!$('#provinceSheet').hidden)showProvinceSheet(); /* V16.4 : fiche ouverte pendant la résolution : chiffres remis à jour */playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
     if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
     // V14.3 : si le joueur quitte (tutoriel → accueil) pendant ces fenêtres, la suite s'arrête : jamais sur une autre partie.
     // V15.2 : animation entre les tours, jamais dans un tutoriel (ses bulles suivent les gestes du joueur).
@@ -79,7 +100,8 @@ export function resolveTurn(){
     await showSeaPopups(events);if(!same())return;
     if(state.gameOver){playSfx(endSound(state.gameOver,state.playerNationId));showEndScreen();return;}
     await showCoalitionPopups(events);if(!same())return;
-    renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;
+    if(!live){renderJournal(false);await dialogClosed($('#journalDialog'));if(!same())return;}
     await showBalloonPopups(events);if(!same())return; // V16.1 : ballon étranger arrivé — Détruire / Laisser passer
-    await showProposalPopups(); };
+    await showProposalPopups();
+  }finally{turnGate.finish();}
 }

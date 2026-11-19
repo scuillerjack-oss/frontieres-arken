@@ -515,3 +515,33 @@ g.tuto-target{outline:none!important;box-shadow:none!important;animation:tutoPul
 .balloon-tag{font:900 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff;paint-order:stroke;stroke:#071722;stroke-width:5px}
 .balloon-status{font-weight:700}
 .balloon-pending{color:#ffe17d}
+
+/* V16.4 — tour en direct : bandeau d'annonces en haut de la carte, ⏸ Pause à côté ; les boutons posés sur la carte descendent. */
+.live-bar{position:absolute;top:6px;left:6px;right:6px;z-index:5;display:flex;align-items:center;gap:8px;min-height:62px;padding:6px 8px 9px 11px;border:1px solid var(--live-color,#e2bf73);border-left-width:5px;border-radius:12px;background:#071722f0;box-shadow:0 3px 12px #0008;overflow:hidden}
+.live-bar[hidden]{display:none}
+.live-text{flex:1;min-width:0}
+.live-text p{margin:0}
+.live-head{display:flex;align-items:baseline;gap:8px}
+.live-head b{font-size:.9rem;color:#ffe9b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.live-head small{margin-left:auto;color:#cfdde4;font-size:.72rem;font-weight:700;white-space:nowrap}
+.live-bar.paused .live-head small{color:#ffd27a}
+.live-line{font-size:.78rem;line-height:1.25;color:#e4edf0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.live-line small{color:var(--gold);font-size:.62rem;font-weight:800;letter-spacing:.03em}
+#livePause{flex:none;min-width:92px;min-height:44px;padding:4px 8px;border:1.5px solid var(--gold);border-radius:10px;background:#0a2231;color:#ffe9b8;font-weight:800;font-size:.85rem}
+#livePause[aria-pressed="true"]{background:var(--gold);color:#10202b}
+#livePause:disabled{opacity:.5}
+.live-progress{position:absolute;left:0;right:0;bottom:0;height:4px;background:#ffffff1a}
+.live-progress span{display:block;height:100%;width:0;background:var(--live-color,#e2bf73);transition:width .25s linear}
+.live-ring{fill:none;stroke:#ffe17d;stroke-width:calc(10px * var(--line,1));pointer-events:none;animation:live-ring 1.6s ease-out forwards}
+@keyframes live-ring{0%{transform:scale(.3);opacity:0}25%{opacity:1}100%{transform:scale(1.35);opacity:0}}
+@media (prefers-reduced-motion:reduce){.live-ring{animation:none;opacity:.8}.live-progress span{transition:none}}
+body.live-on .boost-map-btn,body.live-on .zoom{top:76px}
+body.live-on .coalition-chip,body.live-on #moveBanner{top:128px}
+body.live-on #turnAnim{padding-top:calc(env(safe-area-inset-top) + 140px)}
+.live-settings{margin:6px 0 12px;padding-top:4px;border-top:1px solid #2b4655}
+.live-settings .kicker{margin:8px 0 4px}
+.setting-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.setting-choices.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+#settingsDialog .level-choice{background:#0a2433;color:var(--ink);border:1px solid #3c5868;padding:6px 4px;font-weight:700}
+#settingsDialog .level-choice[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#10202b}
+.setting-note{margin:6px 0 0;font-size:.76rem;color:#c9d6dc}

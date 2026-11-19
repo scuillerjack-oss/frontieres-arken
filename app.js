@@ -19,6 +19,7 @@ import { cancelMove } from './src/presentation/ui/province-sheet.js';
 import { moveSource, save, selected, setSelected, state } from './src/presentation/ui/session.js';
 import { openTalk } from './src/presentation/ui/talk-screen.js';
 import { openCoalition } from './src/presentation/ui/event-popups.js';
+import { installLive, renderLiveSettings } from './src/presentation/ui/live-ui.js';
 import { openArmy, openHelp, openPalmares, renderJournal, resolveTurn } from './src/presentation/ui/turn-flow.js';
 import {
   endMiniTuto, miniStep, placeTutorial, raiseMiniTuto, refreshTuto, setMiniStep, showMiniTuto, startMiniTuto,
@@ -61,7 +62,7 @@ $('#talkBtn').onclick=()=>openTalk();
 $('#boostBtn').onclick=openBoosts;$('#welcomeBoosts').onclick=openBoosts;$('#welcomePalmares').onclick=openPalmares;$('#settingsBoosts').onclick=()=>{$('#settingsDialog').close();openBoosts();};
 $('#cancelMove').onclick=cancelMove;$('#armyBtn').onclick=openArmy;$('#helpBtn').onclick=openHelp;$('#journalBtn').onclick=()=>renderJournal(false);$('#nextTurn').onclick=()=>{if(!turnAnimating())resolveTurn();}; /* V15.2 : un seul tour à la fois (clavier compris : au doigt, le calque couvre le bouton) */
 $('#continueGame').onclick=continueSavedGame;$('#startNewGame').onclick=beginNewGame;$('#homeBtn').onclick=showWelcome;
-$('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];$('#settingsDialog').showModal();};
+$('#settingsBtn').onclick=()=>{for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).checked=state.settings[k];renderLiveSettings();$('#settingsDialog').showModal();}; // V16.4 : déroulé et vitesse
 for(const k of ['music','sfx','hints'])$(`#${k}Toggle`).onchange=e=>{state.settings[k]=e.target.checked;if(k==='music')setMusic(e.target.checked);save();};
 $('#resetHints').onclick=()=>{state.tutorial.forced=true;state.tutorial.seen=[];state.tutorial.stage=0;state.tutorial.shown=[];state.tutorial.turn=state.turn;save();$('#settingsDialog').close();
   tutorialShown.clear();tutorial('identity','Rejouer le tutoriel',TUTORIAL_GUIDE[0].text.replace('{nation}',nation(state.playerNationId).name));};
@@ -83,5 +84,5 @@ function handleAppBack(){
   else showWelcome();
   if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);
 }
-installAudio();addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();
+installAudio();addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();installLive(); // V16.4 : tour en direct
 
