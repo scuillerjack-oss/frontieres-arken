@@ -13,11 +13,14 @@ import { bombardStatus, fortBreach, queueBombard } from './bombard.js';
 import { availableForces, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
 import { isPortPoint, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, provinceDef } from './shared.js';
+import { MYSTERY_ISLAND_ID, isMysteryIsland } from '../mystery-island.js';
+import { garrisonForce } from '../passage.js';
 
 // --- IA maritime (V9, corrige B11) -------------------------------------------------------------
 // Uniquement avec les mécaniques V6 : ports (une route n'est ouverte que si ses deux ports sont construits),
 // navires de guerre (usine + port), transports (embarquement puis traversée). V10 : décisions évaluées par simulation du combat (combat.js).
-const seaRouteCount = (map, id) => (map.maritimeRoutes || []).filter(([a, b]) => a === id || b === id).length;
+// V16.2 : les routes vers l'île mystérieuse ne comptent pas (le choix de la base navale reste celui de l'anneau).
+const seaRouteCount = (map, id) => (map.maritimeRoutes || []).filter(([a, b]) => (a === id || b === id) && !isMysteryIsland(a) && !isMysteryIsland(b)).length;
 export const hasOrQueued = (state, provinceId, type) => (state.provinces[provinceId]?.buildings?.[type] || 0) > 0
   || (state.productionQueue || []).some(q => q.kind === 'building' && q.provinceId === provinceId && q.type === type)
   || (state.orders || []).some(o => o.kind === 'construction' && o.status === 'pending' && o.provinceId === provinceId && o.type === type);
@@ -41,7 +44,8 @@ export function navalBase(map, state, owned) {
   const nationId = state.provinces[owned[0]?.id]?.ownerId;
   const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
   const capital = state.nations[nationId]?.capitalId, home = chance(state, 'base-home', nationId) < (RULES.ai.baseAtCapital[archetypeOf(state, nationId)] || 0), atCapital = p => home && p.id === capital ? 1 : 0;
-  return owned.filter(p => isPortPoint(map, p.id))
+  // V16.2 : l'île mystérieuse n'est jamais la base navale (on n'y construit ni port ni usine).
+  return owned.filter(p => isPortPoint(map, p.id) && !isMysteryIsland(p.id))
     .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
 }
 export function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null, focus = new Set()) {
@@ -129,6 +133,8 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     .sort((a, b) => combatValue(provinceForce(state.provinces[a.to])) - combatValue(provinceForce(state.provinces[b.to])) || a.turns - b.turns || a.to.localeCompare(b.to) || a.from.id.localeCompare(b.from.id));
   for (const x of bridgeheads) {
     if ((state.transports || []).some(t => t.nationId === nationId && t.toId === x.to)) continue;
+    // V16.2 : on ne dégarnit pas l'île mystérieuse sous la garnison minimale pour renforcer une tête de pont.
+    if (isMysteryIsland(x.from.id) && combatValue(garrisonForce(state, MYSTERY_ISLAND_ID)) < 2 * combatValue({ units: { infantry: RULES.mysteryIsland.aiMinGarrison } })) continue;
     const available = availableForces(state, x.from.id), here = combatValue(provinceForce(state.provinces[x.to]));
     const value = units => combatValue({ units });
     if (value(available) < Math.max(value({ infantry: 80 }), here * 2)) continue;

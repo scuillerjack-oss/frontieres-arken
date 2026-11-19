@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Image de contrôle de la carte (V13 : anneau maritime). Usage : python3 tools/carte/controle.py
-Produit tools/carte/controle-carte.png : provinces aux couleurs des nations, 10 sites de port, 5 routes."""
+"""Image de contrôle de la carte (V13 : anneau maritime ; V16.2 : île mystérieuse p21). Usage : python3 tools/carte/controle.py
+Produit tools/carte/controle-carte.png : provinces aux couleurs des nations (île neutre en gris), sites de port, routes."""
 import json, os
 from PIL import Image, ImageDraw, ImageFont
 
@@ -8,6 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 data = json.load(open(os.path.join(HERE, 'arken-v9-carte.json'), encoding='utf-8'))
 base = Image.open(os.path.join(HERE, '..', '..', 'assets', 'carte-leonardo.jpg')).convert('RGBA')
 color = {n['id']: n['color'] for n in data['nations']}
+color[None] = '#9a9a9a'  # V16.2 : île mystérieuse, neutre
 rgb = lambda h: tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 by = {p['id']: p for p in data['provinces']}
 
@@ -40,8 +41,8 @@ for p in data['provinces']:
 W = base.size[0]
 band = Image.new('RGBA', (W, 90), (13, 27, 42, 255))
 bd = ImageDraw.Draw(band)
-bd.text((W // 2, 30), 'FRONTIÈRES : ARKEN — anneau maritime V13 (5 routes, 10 points de port)', font=F, fill='white', anchor='mm')
-bd.text((W // 2, 66), 'Routes : ' + ', '.join(f"{r['from']}↔{r['to']} ({r['length']} px)" for r in data['seaRoutes']), font=FS, fill=(200, 210, 220), anchor='mm')
+bd.text((W // 2, 30), f'FRONTIÈRES : ARKEN — anneau V13 + île mystérieuse V16.2 ({len(data["seaRoutes"])} routes, {sum(1 for p in data["provinces"] if p["port"])} points de port)', font=F, fill='white', anchor='mm')
+bd.text((W // 2, 66), 'Routes : ' + ', '.join(f"{r['from']}↔{r['to']}" for r in data['seaRoutes']), font=FS, fill=(200, 210, 220), anchor='mm')
 out = Image.new('RGBA', (W, base.size[1] + 90))
 out.paste(band, (0, 0))
 out.paste(img, (0, 90))

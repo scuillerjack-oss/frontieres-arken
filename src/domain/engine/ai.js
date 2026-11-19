@@ -18,6 +18,8 @@ import { coalitionPartners, coalitionTargetFor, inCoalitionAgainst } from './coa
 import { helpReinforce, helpStation, recallStationed } from './ai-help.js';
 import { aiBalloonOrders } from './balloons.js';
 import { aiNavalOrders, defenseOf, hasOrQueued, landThreat, landThreatForce, navalBase } from './ai-naval.js';
+import { aiIslandHelpers, aiIslandOrders } from './ai-island.js';
+import { isMysteryIsland } from '../mystery-island.js';
 import { fortBreach } from './bombard.js';
 import { TRUCE_BETRAYAL_TURNS, queueDiplomaticOrder, recentTruce, refusalsOf } from './diplomacy.js';
 import { availableForces, buildingCount, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
@@ -226,6 +228,7 @@ function aiPlan(state, map, nationId) {
   // (sauf pour en finir avec un ennemi à bout de forces, ou si un allié le lui demande) : il garde son caractère en fin de partie.
   if (arch === 'heros') for (const n of [...targets]) if (!helpTargets.has(n) && !recentAggressions(state, HERO_MEMORY_TURNS).some(a => a.attacker === n) && map.provinces.filter(p => state.provinces[p.id].ownerId === n).length > RULES.ai.finishProvinces) targets.delete(n);
   const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
+  aiIslandOrders(state, map, nationId, targets, ARCH_MARGIN[arch] + level.marginAdd); // V16.2 : l'île mystérieuse
   if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
   // n'achète ni infanterie ni banque (sinon le trésor ne permet jamais d'armer un navire : IA passive de la V10).
@@ -335,7 +338,8 @@ export function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, 
   const perceived = perceivedForce(state, map, nationId, toId, seen), recalled = seen.has(toId) ? null : rememberedGarrison(state, nationId, toId);
   const defense = scaleForce(recalled && combatValue(recalled) > combatValue(perceived) ? recalled : perceived, Math.max(1, margin));
   const home = provinceForce(state.provinces[fromId]);
-  for (const share of RULES.ai.attackShares) {
+  // V16.2 : depuis l'île mystérieuse, l'IA garde toujours au moins RULES.mysteryIsland.aiKeepShare de ses troupes sur l'île.
+  for (const share of RULES.ai.attackShares.filter(x => !isMysteryIsland(fromId) || x <= 1 - RULES.mysteryIsland.aiKeepShare)) {
     const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor(available[k] * share)]));
     if (!LAND_UNIT_TYPES.some(k => units[k])) continue;
     let { taken, rest } = splitForce(home, { ...units, warship: warships });
@@ -373,6 +377,7 @@ export function planAIOrders(state, map) {
   ensureLeaders(state);
   if (state.ai.plannedTurn === state.turn) return state.orders.filter(o => o.nationId !== state.playerNationId);
   for (const id of Object.keys(state.nations).sort()) if (state.controllers[id] === 'ai' && !state.nations[id].eliminated) { aiPlan(state,map,id); aiBalloonOrders(state,map,id); } // V16.1 : ballons
+  aiIslandHelpers(state, map); // V16.2 : un allié engagé pour l'île embarque le même tour que le demandeur
   state.ai.plannedTurn=state.turn;
   return state.orders.filter(o => o.nationId !== state.playerNationId);
 }

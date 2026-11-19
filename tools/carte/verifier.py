@@ -19,11 +19,14 @@ V6 = {'p01': ('Valmorne', 'valmorne'), 'p02': ('Sylvaren', 'valmorne'), 'p03': (
       'p16': ('Tréfond', 'oroel'), 'p17': ('Aurorelle', 'aurel'), 'p18': ('Valdoré', 'aurel'),
       'p19': ('Lunémont', 'aurel'), 'p20': ('Clairazur', 'aurel')}
 
-P = data['provinces']
-byid = {p['id']: p for p in P}
+ALL = data['provinces']
+# V16.2 : l'île mystérieuse (p21, neutre) est vérifiée à part ; les contrôles V9/V13 portent sur p01…p20.
+NEUTRAL = [p for p in ALL if p.get('neutral')]
+P = [p for p in ALL if not p.get('neutral')]
+byid = {p['id']: p for p in ALL}
 # 1. effectifs, ids, noms
 ok(len(P) == 20, f'{len(P)} provinces au lieu de 20')
-ok(set(byid) == set(V6), 'ids différents de p01..p20')
+ok({p['id'] for p in P} == set(V6), 'ids différents de p01..p20')
 for pid, (name, nat) in V6.items():
     if pid in byid:
         ok(byid[pid]['name'] == name and byid[pid]['nation'] == nat, f'{pid} : nom/nation différents de la V6')
@@ -84,7 +87,10 @@ def seg_land(a, b, mask):
     return int(sum(mask[int(round(y)), int(round(x))] for x, y in (a + t * (b - a) for t in np.linspace(0, 1, n))))
 
 
-routes = data['seaRoutes']
+ALL_ROUTES = data['seaRoutes']
+neutral_ids = {p['id'] for p in NEUTRAL}
+routes = [r for r in ALL_ROUTES if r['from'] not in neutral_ids and r['to'] not in neutral_ids]
+island_routes = [r for r in ALL_ROUTES if r['from'] in neutral_ids or r['to'] in neutral_ids]
 # V13 : anneau de 5 routes (chaque île reliée à ses 2 voisines uniquement)
 ok(len(routes) == 5, f'{len(routes)} routes au lieu de 5 (anneau V13)')
 pairs = set()
@@ -125,7 +131,7 @@ for p in P:
     if p['port']:
         ok(p['id'] in used, f'{p["id"]} : port sans route')
         n = sum(1 for r in routes if p['id'] in (r['from'], r['to']))
-        ok(n == 1, f'{p["id"]} : site de port utilisé par {n} routes (1 attendue)')
+        ok(n == 1, f'{p["id"]} : site de port utilisé par {n} routes de l\'anneau (1 attendue)')
 for isl in isl_nat:
     ps = sorted(p['id'] for p in P if p['island'] == isl and p['port'])
     notes.append(f'{isl} : ports {ps}')
@@ -165,7 +171,7 @@ def area(poly):
 SC = 4  # raster fin pour le test de disjonction
 cover = np.zeros((H * SC // 4, W * SC // 4), np.uint8)
 masks = {}
-for p in P:
+for p in ALL:
     poly = p['polygon']
     ok(all(isinstance(v, int) for q in poly for v in q), f'{p["id"]} : coordonnées non entières')
     ok(all(0 <= x < W and 0 <= y < H for x, y in poly), f'{p["id"]} : point hors image')
@@ -180,7 +186,7 @@ for p in P:
     cv2.fillPoly(m, [np.array(poly, np.int32)], 1)
     masks[p['id']] = m
 # disjonction : aucune paire d'arêtes ne se croise, aucun sommet strictement intérieur à un autre polygone
-for a, b in itertools.combinations(P, 2):
+for a, b in itertools.combinations(ALL, 2):
     pa, pb = a['polygon'], b['polygon']
     xa, ya = np.array(pa).T
     xb, yb = np.array(pb).T
@@ -200,7 +206,7 @@ for a, b in itertools.combinations(P, 2):
 
 # 5. cohérence avec l'image : chaque province est surtout de la terre et voisins = contact réel
 sea = ((hsv[:, :, 0] >= 80) & (hsv[:, :, 0] <= 125) & (hsv[:, :, 1] > 70))
-for p in P:
+for p in ALL:
     m = masks[p['id']].astype(bool)
     land_frac = 1 - sea[m].mean()
     ok(land_frac > 0.85, f'{p["id"]} : seulement {land_frac:.0%} de terre dans le polygone')
@@ -215,13 +221,41 @@ for isl, a in areas.items():
 # V13 : aucune route n'en croise une autre
 def lane_pts(r):
     return [byid[r['from']]['port']['anchor']] + r.get('waypoints', []) + [byid[r['to']]['port']['anchor']]
-for r1, r2 in itertools.combinations(routes, 2):
+# V16.2 : île mystérieuse — une province neutre, un point de port, une route depuis chaque nation (son point de port
+# le plus proche de l'île), aucune route qui traverse une grande île ; les routes peuvent partager leur arrivée (le port de l'île).
+ok(len(NEUTRAL) <= 1, f'{len(NEUTRAL)} provinces neutres (au plus 1 : l\'île mystérieuse)')
+for q in NEUTRAL:
+    ok(q['id'] == 'p21' and q['nation'] is None and not q['landNeighbors'], f'{q["id"]} : île mystérieuse mal décrite (p21, sans nation, sans voisin terrestre)')
+    ok(q['port'] is not None, f'{q["id"]} : pas de point de port')
+    if q['port']:
+        x, y = q['port']['anchor']
+        h, s_, _ = hsv[y, x]
+        ok(80 <= h <= 125 and s_ > 60, f'{q["id"]} : ancre du port ({x},{y}) pas en mer')
+    mine = [r for r in island_routes if q['id'] in (r['from'], r['to'])]
+    starts = [r['from'] if r['to'] == q['id'] else r['to'] for r in mine]
+    nats = sorted(byid[x]['nation'] for x in starts)
+    ok(nats == sorted(n for n in nations), f'{q["id"]} : il faut une route depuis chacune des 5 nations ({nats})')
+    for r, x in zip(mine, starts):
+        ok(bool(byid[x]['port']), f'route {x}-{q["id"]} : départ sans point de port')
+        if not byid[x]['port']:
+            continue
+        own = [p for p in P if p['nation'] == byid[x]['nation'] and p['port']]
+        dist = lambda p: float(np.hypot(p['port']['anchor'][0] - q['port']['anchor'][0], p['port']['anchor'][1] - q['port']['anchor'][1]))
+        ok(min(own, key=dist)['id'] == x, f'route {x}-{q["id"]} : ce n\'est pas le point de port le plus proche de l\'île')
+        pts = [byid[r['from']]['port']['anchor']] + r.get('waypoints', []) + [byid[r['to']]['port']['anchor']]
+        L = sum(float(np.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1])) for k in range(len(pts) - 1))
+        ok(abs(L - r['length']) <= 1, f'route {r["from"]}-{r["to"]} : longueur {r["length"]} ≠ {L:.0f}')
+        for k in range(len(pts) - 1):
+            ok(seg_land(pts[k], pts[k + 1], big_land) == 0, f'route {r["from"]}-{r["to"]} : le segment {pts[k]}→{pts[k + 1]} coupe une grande île')
+            ok(seg_land(pts[k], pts[k + 1], land_img & ~big_land) == 0, f'route {r["from"]}-{r["to"]} : le segment {pts[k]}→{pts[k + 1]} coupe un îlot')
+    notes.append(f'{q["id"]} : {len(mine)} routes depuis {sorted(starts)}')
+for r1, r2 in itertools.combinations(ALL_ROUTES, 2):
     A, B = lane_pts(r1), lane_pts(r2)
     hit = any(seg_inter(A[i], A[i + 1], B[j], B[j + 1]) for i in range(len(A) - 1) for j in range(len(B) - 1))
     ok(not hit, f'routes {r1["from"]}-{r1["to"]} et {r2["from"]}-{r2["to"]} : croisement')
 
 print('AUTO-CONTRÔLE carte V9 (anneau maritime V13)')
-print(f'  provinces : {len(P)} ; routes maritimes : {len(data["seaRoutes"])} ; ports : {sum(1 for p in P if p["port"])}')
+print(f'  provinces : {len(P)} + {len(NEUTRAL)} neutre ; routes maritimes : {len(data["seaRoutes"])} ; ports : {sum(1 for p in ALL if p["port"])}')
 for r in data['seaRoutes']:
     print(f'  route {r["from"]} ↔ {r["to"]} : {r["length"]} px, {len(r.get("waypoints", []))} point(s) de passage')
 for n in notes:

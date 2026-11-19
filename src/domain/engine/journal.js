@@ -6,13 +6,14 @@ import { RULES } from '../constants.js';
 import { ARCHETYPE_LABELS, HOSTILITY_WAR } from '../leaders.js';
 import { visibleProvinces } from '../vision.js';
 import { deName, nationName, provinceDef, safeNum } from './shared.js';
+import { MYSTERY_ISLAND_ID } from '../mystery-island.js';
 
 export function eventKnownToPlayer(state, map, event) {
   const player = state.playerNationId;
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['difficulty-gold', 'bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved'].includes(event.type)) return true;
+  if (['difficulty-gold', 'bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved', 'mystery-coowner-lost'].includes(event.type)) return true;
   // V16.0 (Jack : « si jamais il y a une alliance entre deux pays quelconques, l'ensemble des nations sont au courant ») :
   // toute alliance conclue est publique.
   if (event.type === 'diplomatic-action' && event.action === 'alliance' && event.accepted === true) return true;
@@ -60,20 +61,29 @@ export function journalEntry(event, map, playerNationId = null) {
     return ` Pertes : attaquant ${safeNum(event.attackerLosses)}, défenseur ${safeNum(event.defenderLosses)}.`;
   };
   const how = event.naval ? ' (débarquement)' : '';
+  // V16.2 : attaque de l'île mystérieuse = publique pour toutes les nations, chiffres compris.
+  const islandFacts = () => {
+    if (event.provinceId !== MYSTERY_ISLAND_ID || !event.mystery) return '';
+    const dead = (ids) => ids.reduce((n, id) => n + Object.values(event.lossesByNation?.[id] || {}).reduce((m, v) => m + (Number(v) || 0), 0), 0);
+    const atk = [...new Set(event.attackers?.length ? event.attackers : [event.attacker])];
+    const defIds = Object.keys(event.lossesByNation || {}).filter(id => !atk.includes(id));
+    const co = event.mystery.coOwnerId ? ` ${nationName(map, event.newOwnerId || event.attacker)} la prend avec ${nationName(map, event.mystery.coOwnerId)} : super banque partagée, base commune.` : '';
+    return `\n🏝 Île mystérieuse : ${atk.map(id => nationName(map, id)).join(' et ')} ${atk.length > 1 ? 'attaquent' : 'attaque'} ; ${safeNum(dead(atk))} morts chez les assaillants, ${safeNum(dead(defIds))} chez les défenseurs ; il reste ${safeNum(event.mystery.left)} unités sur l’île.${co}`;
+  };
   switch (event.type) {
     case 'battle': {
       const mine = involved && playerNationId !== null;
       // V13.3 (Jack) : être attaqué doit sauter aux yeux.
       if (event.defender === playerNationId && playerNationId !== null) return { priority:4, type:'⚠ ON VOUS ATTAQUE', category:'under-attack', public:true,
-        text:`${where} attaquée par ${[...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map,id)).join(' et ')}${how} : vous tenez la province.${lossDetails()}` };
+        text:`${where} attaquée par ${[...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map,id)).join(' et ')}${how} : vous tenez la province.${lossDetails()}${islandFacts()}` };
       return { priority:3, type: mine ? (event.naval ? 'DÉBARQUEMENT' : 'COMBAT') : 'AFFRONTEMENT', category: mine ? 'combat' : 'foreign-conflict', public:true,
-        text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,event.defender)} tient la province.${lossDetails()}` };
+        text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,event.defender)} tient la province.${lossDetails()}${islandFacts()}` };
     }
     case 'conquest': {
       const winner = event.newOwnerId || event.attacker, defender = event.defender;
       const type = winner===playerNationId?'CONQUÊTE':defender===playerNationId?'⚠ TERRITOIRE PERDU':'CONFLIT ÉTRANGER';
       return { priority:4, type, category:type==='CONQUÊTE'?'conquest':type==='⚠ TERRITOIRE PERDU'?'under-attack':'foreign-conflict', public:true,
-        text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,winner)} prend la province.${lossDetails()}` };
+        text:`Affrontement à ${where} entre ${sides(event)}${how} : ${nationName(map,winner)} prend la province.${lossDetails()}${islandFacts()}` };
     }
     case 'capital-plunder': return { priority:4, type:'PILLAGE', category: event.attacker===playerNationId?'conquest':event.defender===playerNationId?'lost':'foreign-conflict', public:true,
       text: event.loot > 0 && !(event.fromTreasury > 0)
@@ -198,6 +208,7 @@ export function journalEntry(event, map, playerNationId = null) {
       if (event.banks) parts.push(`${safeNum(event.banks)} banque${event.banks > 1 ? 's' : ''} × ${RULES.bankIncome}`);
       if (event.factories) parts.push(`${safeNum(event.factories)} usine${event.factories > 1 ? 's' : ''} × ${RULES.factoryIncome}`);
       if (event.ports) parts.push(`${safeNum(event.ports)} port${event.ports > 1 ? 's' : ''} × ${RULES.portIncome}`);
+      if (event.island) parts.push(`super banque de l’île +${safeNum(event.island)}`); // V16.2
       if (event.bonus) parts.push(`${event.nationBonus ? 'bonus' : 'atout'} +${safeNum(event.bonus)}`);
       return { priority:0, type:'REVENUS', category:'treasure', text:`💰 Revenus du tour : +${safeNum(event.amount)} or (${parts.join(' · ')}).` };
     }
@@ -252,6 +263,13 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'stationed-recalled': return { priority:3, type:'PASSAGE', category:'neutral', text:`Plus d’alliance avec ${nationName(map,event.target)} : ${safeNum(event.amount)} unités quittent ${where} et rentrent à ${provinceDef(map,event.toId)?.name || 'leur base'}.` };
     case 'stationed-lost': if (event.eliminated) return { priority:3, type:'PASSAGE', category:'lost', text:`${nationName(map,event.nationId)} est éliminée : ses ${safeNum(event.amount)} unités stationnées à ${where} se dispersent.` };
       return { priority:3, type:'PASSAGE', category:'lost', text:`Plus d’alliance avec ${nationName(map,event.target)} et plus aucune province où rentrer : ${safeNum(event.amount)} unités perdues à ${where}.` };
+    // V16.2 : le co-propriétaire de l'île mystérieuse perd sa part (alliance rompue, île perdue, nation éliminée).
+    case 'mystery-coowner-lost': {
+      const me = event.nationId === playerNationId && playerNationId !== null;
+      const why = event.reason === 'alliance' ? `l’alliance avec ${event.target === playerNationId ? 'vous' : nationName(map, event.target)} est rompue` : event.reason === 'eliminated' ? 'la nation est éliminée' : 'l’île a changé de main';
+      return { priority:3, type:'ÎLE MYSTÉRIEUSE', category:'neutral', public:true, text: me ? `🏝 Vous perdez votre part de l’île mystérieuse : ${why}. Plus de super banque partagée ; vos troupes stationnées sur l’île rentrent.`
+        : `🏝 ${nationName(map, event.nationId)} perd sa part de l’île mystérieuse : ${why}. Plus de super banque partagée ; ses troupes stationnées rentrent.` };
+    }
     default: return null;
   }
 }
@@ -280,7 +298,7 @@ function aggregateEntries(entries) {
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['difficulty-gold','bombardment','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
     'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
-    'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot']);
+    'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot','mystery-coowner-lost']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;
   return entries;

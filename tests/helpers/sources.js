@@ -9,13 +9,16 @@ export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
   'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
-  'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons'];
+  'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
 
 /** V15.3 : modules du domaine ajoutés hors de engine/ (lus par tests/v15-3.test.js, qui vérifie qu'ils restent purs). */
 export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', 'src/domain/nations.js']);
 
 /** V15.4 : nouveaux modules du domaine, lus par tests/v15-4.test.js (purs, sans date). */
 export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 'src/domain/palmares.js']);
+
+/** V16.2 : nouveau module du domaine hors de engine/ (île mystérieuse), lu par tests/v16-2.test.js (pur). */
+export const DOMAIN_MODULES_V16_2 = Object.freeze(['src/domain/mystery-island.js']);
 
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();

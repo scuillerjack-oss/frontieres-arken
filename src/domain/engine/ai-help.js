@@ -11,6 +11,7 @@ import { aiMemory, holds } from './ai.js';
 import { availableForces, queueMoveOrder } from './orders.js';
 import { legalDestinations, seaRoutesFrom } from './sea-routes.js';
 import { pairTreaty, pairWar, provinceDef } from './shared.js';
+import { isMysteryIsland } from '../mystery-island.js';
 
 /**
  * V13 : un allié engagé à défendre masse ses renforts sur sa base navale (le point de départ vers la frontière
@@ -59,6 +60,8 @@ export function recallStationed(state, map, nationId, owned) {
     const bound = activeHelpPacts(state, nationId).some(p => p.kind === 'defend' && p.requester === host) || heroCovers(host);
     const needed = threatened.length > 0;
     if (!needed && (danger || bound)) continue;
+    // V16.2 : sur l'île mystérieuse (co-propriété), les troupes gardent l'île : elles ne rentrent que si l'on a besoin d'elles.
+    if (!needed && isMysteryIsland(e.provinceId)) continue;
     // V14.1 (« À surveiller » V14.0) : plus de va-et-vient — des troupes envoyées en aide il y a moins de STATION_MIN_TURNS
     // tours restent (escale comprise), sauf si l'on a besoin d'elles chez soi.
     if (!needed && state.turn - (aiMemory(state, nationId).helpSent?.[host] ?? -99) < STATION_MIN_TURNS) continue;

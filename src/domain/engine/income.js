@@ -1,14 +1,19 @@
 // Moteur — revenus des provinces et des bâtiments, puissance de combat de base.
 
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
+import { MYSTERY_ISLAND_ID, islandBankShare } from '../mystery-island.js';
 
-/** V13.1 : détail du revenu par tour (provinces, banques, usines, ports construits). */
+/**
+ * V13.1 : détail du revenu par tour (provinces, banques, usines, ports construits).
+ * V16.2 : l'île mystérieuse ne rapporte que sa super banque (`island` : +10, ou +5 chacun avec un co-propriétaire) ;
+ * elle n'est pas comptée dans `provinces` (pas de revenu de base en plus). Champ `island` absent quand il vaut 0.
+ */
 export function incomeBreakdown(state, nationId) {
-  const owned = Object.values(state.provinces).filter(p => p.ownerId === nationId);
+  const owned = Object.entries(state.provinces).filter(([id, p]) => p.ownerId === nationId && id !== MYSTERY_ISLAND_ID).map(([, p]) => p);
   const count = key => owned.reduce((n, p) => n + (p.buildings?.[key] > 0 ? 1 : 0), 0);
-  const provinces = owned.length, banks = count('bank'), factories = count('factory'), ports = count('port');
-  const total = provinces * RULES.baseIncome + banks * RULES.bankIncome + factories * RULES.factoryIncome + ports * (RULES.portIncome || 0);
-  return { provinces, banks, factories, ports, total };
+  const provinces = owned.length, banks = count('bank'), factories = count('factory'), ports = count('port'), island = islandBankShare(state, nationId);
+  const total = provinces * RULES.baseIncome + banks * RULES.bankIncome + factories * RULES.factoryIncome + ports * (RULES.portIncome || 0) + island;
+  return { provinces, banks, factories, ports, ...(island ? { island } : {}), total };
 }
 export const incomeFor = (state, nationId) => incomeBreakdown(state, nationId).total;
 /** V13.1 : or rapporté chaque tour par un bâtiment (0 pour la forteresse). */

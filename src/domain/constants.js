@@ -11,6 +11,12 @@ export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nery
 export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery']);
 export const NAVAL_UNIT_TYPES = Object.freeze(['warship']);
 export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port']);
+// Troupes de départ (create-game-state.js) : la capitale, et chacune des 3 autres provinces d'une nation.
+// V16.2 : la garnison de l'île mystérieuse en dérive (mystery-island.js).
+export const START_UNITS = Object.freeze({
+  capital: Object.freeze({ infantry: 200, cavalry: 10, armor: 6, artillery: 2 }),
+  province: Object.freeze({ infantry: 40, cavalry: 0, armor: 0, artillery: 0 })
+});
 
 export const RULES = Object.freeze({
   baseIncome: 4, bankIncome: 5, // V16.0 : banque +5 (avant +3)
@@ -107,6 +113,13 @@ export const RULES = Object.freeze({
   // max : ballons par nation, bonusMax si elle possède bonusProvince (île mystérieuse, V16.2) ; aiReserve : or que l'IA
   // garde après avoir payé son ballon.
   balloon:{ cost:30, turns:2, hopTurns:2, max:1, bonusMax:2, bonusProvince:'p21', aiReserve:60 },
+  // V16.2 : île mystérieuse (src/domain/mystery-island.js, docs/V16-cahier-des-charges.md). Une province neutre au centre de
+  // la carte. garrisonFactor : garnison de départ = ce multiple de TOUTES les troupes d'une nation en début de partie (même
+  // composition) ; elle ne recrute ni ne bouge jamais. bankIncome : super banque, or par tour au propriétaire (partagée
+  // moitié-moitié avec un co-propriétaire). routeTurns : durée des 5 routes vers l'île (2 entre nations). aiMargin : marge
+  // de l'IA sur la garnison simulée avant de débarquer ; aiKeepShare : part des troupes que l'IA garde sur l'île quand elle
+  // en part pour débarquer ailleurs ; aiMinGarrison : garnison (fantassins équivalents) que l'IA maintient sur l'île.
+  mysteryIsland:{ provinceId:'p21', garrisonFactor:3, bankIncome:10, routeTurns:4, aiMargin:1.15, aiKeepShare:.5, aiMinGarrison:200 },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
   gameLength:80

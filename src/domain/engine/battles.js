@@ -13,6 +13,7 @@ import { fortBreach } from './bombard.js';
 import { embark } from './convoys.js';
 import { autoWar, ensureWar } from './diplomacy.js';
 import { pairTreaty, pairWar } from './shared.js';
+import { NEUTRAL_KEY, isMysteryIsland } from '../mystery-island.js';
 
 // --- V10 : déplacements et combats simultanés ------------------------------------------------------------
 export const lossCount = byType => COMBAT_TYPES.reduce((n, k) => n + (byType?.[k] || 0), 0);
@@ -68,7 +69,8 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
   const target = state.provinces[toId], defender = target.ownerId;
   groups = groups.filter(g => g.nationId !== defender && !isEmptyForce(g.force)).sort((a, b) => a.nationId.localeCompare(b.nationId));
   if (!groups.length) return [];
-  for (const g of groups) { ensureWar(state, g.nationId, defender); recordStrike(state, g.nationId, defender); }
+  // V16.2 : une province neutre (l'île mystérieuse) n'a pas de nation : ni guerre ni agression contre personne.
+  if (defender) for (const g of groups) { ensureWar(state, g.nationId, defender); recordStrike(state, g.nationId, defender); }
   // V13.4 : les troupes alliées stationnées défendent la province avec la garnison (sauf contre leur propre allié).
   // V14.1 : deux alliés ne se combattent jamais — un contingent allié d'un des assaillants reste à l'écart ; une nation
   // éliminée (ancienne sauvegarde) ne défend plus.
@@ -84,12 +86,22 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
   fought.add(toId);
   // V14.1 : un assaillant repoussé a vu la garnison ; il s'en souvient (l'IA ne retente pas un débarquement suicide).
   if (!res.captured) for (const g of groups) rememberGarrison(state, g.nationId, toId, before);
+  // V16.2 : prise à deux de l'île mystérieuse. Un allié du vainqueur qui a débarqué avec lui le même tour devient
+  // co-propriétaire ; ses survivants restent sur l'île (droit de passage) au lieu de rembarquer. Plusieurs alliés : celui
+  // qui garde le plus de PV (égalité : identifiant). Une nation qui prend l'île sans allié en est seule propriétaire.
+  const partner = res.captured && isMysteryIsland(toId)
+    ? [...res.attackers].filter(a => a.id !== res.winnerId && pairTreaty(state, a.id, res.winnerId, 'alliance')).sort((x, y) => totalHp(y.force) - totalHp(x.force) || x.id.localeCompare(y.id))[0] || null
+    : null;
   const retreats = [];
-  res.attackers.forEach((a, i) => { if (a.id !== res.winnerId && !isEmptyForce(a.force)) retreats.push({ nationId: a.id, force: a.force, to: groups[i].retreatTo || groups[i].originIds }); });
+  res.attackers.forEach((a, i) => { if (a.id !== res.winnerId && a !== partner && !isEmptyForce(a.force)) retreats.push({ nationId: a.id, force: a.force, to: groups[i].retreatTo || groups[i].originIds }); });
   const guestLosses = {}, guestHpLost = {};
   if (res.captured) {
     for (const e of guests) { guestLosses[e.nationId] = Object.fromEntries(COMBAT_TYPES.map(k => [k, legacyForce(e).units[k]])); guestHpLost[e.nationId] = totalHp(legacyForce(e)); setStationedForce(state, e.nationId, toId, normalizeForce({})); }
     target.ownerId = res.winnerId; writeProvinceForce(target, res.attackers.find(a => a.id === res.winnerId).force);
+    if (isMysteryIsland(toId)) {
+      target.coOwnerId = partner ? partner.id : null;
+      if (partner && !isEmptyForce(partner.force)) addStationed(state, partner.id, toId, partner.force);
+    }
   } else if (guests.length) {
     // Survivants répartis au prorata de chaque contingent, type par type (le reste revient au propriétaire).
     let left = res.defender;
@@ -110,14 +122,16 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
     ...(res.captured ? { newOwnerId: res.winnerId } : {}), provinceId: toId, originIds: groups.flatMap(g => g.originIds), naval: groups.some(g => g.mode === 'landing') || naval,
     attackerLosses: res.attackers.reduce((n, a) => n + lossCount(a.lossesByType), 0), defenderLosses: lossCount(res.defenderLossesByType),
     attackerHpLost: res.attackers.reduce((n, a) => n + a.hpLost, 0), defenderHpLost: res.defenderHpLost,
-    lossesByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.lossesByType]), [defender, ownLosses], ...Object.entries(guestLosses)]),
+    lossesByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.lossesByType]), [defender ?? NEUTRAL_KEY, ownLosses], ...Object.entries(guestLosses)]),
     // V13.3 : forces engagées et PV perdus par camp (le joueur comprend pourquoi il perd 340 hommes contre 62).
-    engagedByNation: Object.fromEntries([...groups.map(g => [g.nationId, { ...g.force.units }]), [defender, { ...own.units }], ...guests.map(e => [e.nationId, { ...legacyForce(e).units }])]),
+    engagedByNation: Object.fromEntries([...groups.map(g => [g.nationId, { ...g.force.units }]), [defender ?? NEUTRAL_KEY, { ...own.units }], ...guests.map(e => [e.nationId, { ...legacyForce(e).units }])]),
     // V14.0 : les PV perdus par les troupes alliées stationnées sont comptés à part (avant : tout au propriétaire).
-    hpLostByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.hpLost]), [defender, Math.max(0, res.defenderHpLost - Object.values(guestHpLost).reduce((n, v) => n + v, 0))], ...Object.entries(guestHpLost)]),
+    hpLostByNation: Object.fromEntries([...res.attackers.map(a => [a.id, a.hpLost]), [defender ?? NEUTRAL_KEY, Math.max(0, res.defenderHpLost - Object.values(guestHpLost).reduce((n, v) => n + v, 0))], ...Object.entries(guestHpLost)]),
     passes: res.passes.length, fortLevel: target.buildings.fort || 0, ...(groups.some(g => g.mode === 'landing') ? { landingPct: Math.round(RULES.combat.landingPenalty * 100) } : {}), fortPct: fortReductionPct(target.buildings.fort || 0, fortBonusFactor(state, defender), breach),
     ...(breach && target.buildings.fort ? { fortBreach: breach } : {}),
-    ...(guests.length ? { guests: guests.map(e => e.nationId), guestLosses } : {})
+    ...(guests.length ? { guests: guests.map(e => e.nationId), guestLosses } : {}),
+    // V16.2 : toute attaque contre l'île mystérieuse est publique, chiffres compris (morts de chaque camp, troupes restantes).
+    ...(isMysteryIsland(toId) ? { mystery: { left: unitCount(provinceForce(target)) + guestsAt(state, toId).reduce((n, e) => n + unitCount(legacyForce(e)), 0), ...(res.captured && target.coOwnerId ? { coOwnerId: target.coOwnerId } : {}) } } : {})
   });
   if (res.captured) onCapture(state, toId, res.winnerId, defender);
   return retreats;

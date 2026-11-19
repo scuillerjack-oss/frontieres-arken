@@ -7,7 +7,8 @@ export const provinceDef = (map, id) => map.provinces.find(p => p.id === id);
 export const safeNum = n => Number.isFinite(Number(n)) ? Number(n) : 0;
 // V13 : élision (« d’Oroël », « de Solmara », « de Valmorne »).
 export const deName = name => /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂaeiouyéèêîïôöûüàâ]/.test(name) ? `d’${name}` : `de ${name}`;
-export const nationName = (map, id) => map.nations.find(n => n.id === id)?.short || 'Nation inconnue';
+// V16.2 : la garnison neutre de l'île mystérieuse (propriétaire null, clé 'neutre' dans les combats) a un nom.
+export const nationName = (map, id) => id === null || id === 'neutre' ? 'Garnison neutre' : map.nations.find(n => n.id === id)?.short || 'Nation inconnue';
 export const pairWar = (state, a, b) => state.diplomacy.wars.some(w => w.active !== false && w.participants.includes(a) && w.participants.includes(b));
 export const pairTreaty = (state, a, b, type) => state.diplomacy.treaties.some(t => t.active !== false && t.type === type && t.parties.includes(a) && t.parties.includes(b));
 const reservedDiplomaticFunds = (state, nationId) => (state.orders || []).filter(o => o.kind === 'diplomacy' && o.action === 'ceasefire' && o.nationId === nationId && o.status === 'pending').reduce((n,o)=>n+(o.amount||0),0);

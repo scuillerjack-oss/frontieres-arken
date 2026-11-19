@@ -30,7 +30,8 @@ test('vision : au départ Valmorne ne voit que ses 4 provinces — rien par la m
   const s = fresh();
   assert.ok((map.maritimeRoutes || []).some(([a, b]) => [a, b].includes('p02') && [a, b].includes('p05')), 'route maritime p02-p05');
   assert.ok(s.provinces.p02.units.infantry > 0, 'des troupes à Sylvaren');
-  assert.deepEqual(sorted(visibleProvinces(s, map, 'valmorne')), ['p01', 'p02', 'p03', 'p04']);
+  // V16.2 : l'île mystérieuse (p21) est toujours visible par tous.
+  assert.deepEqual(sorted(visibleProvinces(s, map, 'valmorne')), ['p01', 'p02', 'p03', 'p04', 'p21']);
   const intel = provinceIntel(s, map, 'valmorne', 'p05');
   assert.equal(intel.visible, false);
   assert.equal(intel.troopsKnown, false);
@@ -234,5 +235,5 @@ test('fiche : province lointaine « effectif inconnu », icône « ? » sur la c
   assert.equal(far.text, 'Régiment : effectif inconnu');
   assert.match(far.note, /Hors de vue/);
   const known = knownTroopProvinces(s, map);
-  assert.deepEqual(sorted(known), ['p01', 'p02', 'p03', 'p04']);
+  assert.deepEqual(sorted(known), ['p01', 'p02', 'p03', 'p04', 'p21']); // V16.2 : l'île mystérieuse, toujours visible
 });

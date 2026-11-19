@@ -4,6 +4,10 @@ import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { hasPassage, stationedAt, stationedForce } from '../passage.js';
 import { legalDestinations, seaMoveRefusal } from './sea-routes.js';
 import { safeNum, spendableTreasury, sum } from './shared.js';
+import { isMysteryIsland } from '../mystery-island.js';
+
+/** V16.2 : refus clair sur l'île mystérieuse (rien ne s'y construit ni ne s'y recrute ; seule la super banque existe). */
+export const MYSTERY_BUILD_REFUSAL = 'Île mystérieuse : on n’y construit rien et on n’y recrute personne (seule la super banque existe). Pour la garder, envoyez-y des troupes.';
 
 function reservedAt(state, fromId, nationId = null) {
   return (state.orders || []).filter(o => (o.kind === 'move' || o.kind === 'bombard') && o.fromId === fromId && o.status === 'pending' && (!nationId || o.nationId === nationId)).reduce((out, o) => {
@@ -53,6 +57,7 @@ export const FORT_IN_PROGRESS = 'Forteresse : un niveau est déjà en constructi
 export function queueConstruction(state, { nationId, provinceId, type }) {
   const p = state.provinces[provinceId], r = RULES.buildings[type];
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
+  if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Construction indisponible' };
   if (type === 'port' && !p.portSite) return { ok: false, error: 'Cette province ne peut pas accueillir de port' };
   const count = buildingCount(state, provinceId, type);
@@ -69,6 +74,7 @@ export function queueConstruction(state, { nationId, provinceId, type }) {
 export function queueRecruitment(state, { nationId, provinceId, type, lots = 1 }) {
   const p = state.provinces[provinceId], r = RULES.units[type], count = Math.max(1, Math.floor(safeNum(lots)));
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
+  if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Unité inconnue' };
   // V13 : un navire de guerre exige un port CONSTRUIT et une usine dans la même province (le point de port ne suffit pas).
   if (r.requiresPort && r.requiresFactory && (!p.buildings.port || !p.buildings.factory)) return { ok: false,

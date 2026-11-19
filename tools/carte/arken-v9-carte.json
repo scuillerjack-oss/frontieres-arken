@@ -142,6 +142,16 @@
     "p19",
     "p20"
    ]
+  },
+  {
+   "id": "ile-mysterieuse",
+   "nation": null,
+   "area": 10718,
+   "paintedCells": 0,
+   "colorShare": {},
+   "provinces": [
+    "p21"
+   ]
   }
  ],
  "provinces": [
@@ -5089,6 +5099,216 @@
     "E14",
     "E16"
    ]
+  },
+  {
+   "id": "p21",
+   "name": "Île mystérieuse",
+   "nation": null,
+   "biome": "mountain",
+   "paintedBiome": "mountain",
+   "paintedShare": {},
+   "island": "ile-mysterieuse",
+   "polygon": [
+    [
+     726,
+     617
+    ],
+    [
+     717,
+     616
+    ],
+    [
+     709,
+     623
+    ],
+    [
+     707,
+     631
+    ],
+    [
+     719,
+     636
+    ],
+    [
+     718,
+     644
+    ],
+    [
+     709,
+     653
+    ],
+    [
+     698,
+     659
+    ],
+    [
+     672,
+     657
+    ],
+    [
+     670,
+     667
+    ],
+    [
+     675,
+     694
+    ],
+    [
+     657,
+     703
+    ],
+    [
+     653,
+     712
+    ],
+    [
+     657,
+     722
+    ],
+    [
+     650,
+     734
+    ],
+    [
+     626,
+     744
+    ],
+    [
+     624,
+     758
+    ],
+    [
+     613,
+     768
+    ],
+    [
+     614,
+     781
+    ],
+    [
+     625,
+     792
+    ],
+    [
+     645,
+     789
+    ],
+    [
+     648,
+     793
+    ],
+    [
+     659,
+     793
+    ],
+    [
+     670,
+     788
+    ],
+    [
+     682,
+     772
+    ],
+    [
+     691,
+     772
+    ],
+    [
+     694,
+     779
+    ],
+    [
+     683,
+     785
+    ],
+    [
+     680,
+     792
+    ],
+    [
+     692,
+     792
+    ],
+    [
+     697,
+     784
+    ],
+    [
+     713,
+     780
+    ],
+    [
+     719,
+     773
+    ],
+    [
+     721,
+     762
+    ],
+    [
+     734,
+     754
+    ],
+    [
+     739,
+     727
+    ],
+    [
+     729,
+     720
+    ],
+    [
+     717,
+     720
+    ],
+    [
+     714,
+     705
+    ],
+    [
+     710,
+     702
+    ],
+    [
+     712,
+     694
+    ],
+    [
+     723,
+     694
+    ],
+    [
+     730,
+     686
+    ],
+    [
+     731,
+     674
+    ],
+    [
+     724,
+     662
+    ],
+    [
+     731,
+     646
+    ]
+   ],
+   "center": [
+    688,
+    726
+   ],
+   "area": 10718,
+   "landNeighbors": [],
+   "coastal": true,
+   "port": {
+    "anchor": [
+     745,
+     760
+    ]
+   },
+   "paintedCells": [],
+   "neutral": true
   }
  ],
  "seaRoutes": [
@@ -5141,6 +5361,61 @@
    ],
    "waypoints": [],
    "length": 79
+  },
+  {
+   "from": "p03",
+   "to": "p21",
+   "islands": [
+    "ile-nord-ouest",
+    "ile-mysterieuse"
+   ],
+   "waypoints": [],
+   "length": 311
+  },
+  {
+   "from": "p07",
+   "to": "p21",
+   "islands": [
+    "ile-sud-ouest",
+    "ile-mysterieuse"
+   ],
+   "waypoints": [],
+   "length": 166
+  },
+  {
+   "from": "p11",
+   "to": "p21",
+   "islands": [
+    "ile-est",
+    "ile-mysterieuse"
+   ],
+   "waypoints": [],
+   "length": 358
+  },
+  {
+   "from": "p13",
+   "to": "p21",
+   "islands": [
+    "ile-nord-est",
+    "ile-mysterieuse"
+   ],
+   "waypoints": [
+    [
+     908,
+     556
+    ]
+   ],
+   "length": 449
+  },
+  {
+   "from": "p17",
+   "to": "p21",
+   "islands": [
+    "ile-sud",
+    "ile-mysterieuse"
+   ],
+   "waypoints": [],
+   "length": 244
   }
  ],
  "decorativeIsletCount": 39
