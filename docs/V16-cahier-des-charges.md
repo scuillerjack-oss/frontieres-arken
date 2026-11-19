@@ -372,7 +372,7 @@ mettre pause pour avoir le temps de lire et de réagir ».
     carte ; zones sûres (`env(safe-area-inset-*)`) des quatre côtés, l'encoche pouvant être à gauche ou à droite.
 - **Tests** : `tests/v16-3.test.js` (manifeste ; patch Android sur un manifeste Capacitor 8 réaliste, idempotent ;
   `android-prepare.js` **réellement exécuté** sur un projet factice, bêta et Play ; chargement / publication de la
-  feuille ; aucune règle hors paysage ; gabarit, bulles, zones sûres). Aucun test existant modifié. `npm test` : 628/628.
+  feuille ; aucune règle hors paysage ; gabarit, bulles, zones sûres). Tests existants modifiés : seulement le numéro de version attendu (16.3.0) dans v14-3-tutoriel, v15-2 et v15-4. `npm test` : 649/649 (après intégration de la V16.1).
 - **Vérifié dans Chrome mobile simulé (Playwright, tactile)** en 844 × 390, 915 × 412 et 667 × 375 (petit téléphone),
   plus 390 × 844 (non-régression) : premier lancement, accueil (avec et sans partie), nouvelle partie, intro, mini
   tuto, carte, fiche de province, construction, recrutement, déplacement (bandeau), fin du tour, animation de tour,
@@ -384,3 +384,5 @@ mettre pause pour avoir le temps de lire et de réagir ».
   regarder en bêta après installation du nouvel APK ; l'AAB n'a pas été construit ici (Gradle absent). En 667 × 375,
   la bulle du tutoriel mord un peu sur le titre de la fiche (boutons visibles). Le ballon de la V16.1 (développé en
   parallèle) n'a pas de règle paysage : à vérifier à la fusion s'il ajoute un bouton sur la carte ou une fenêtre.
+
+- Intégration après la V16.1 : fenêtre « Détruire / Laisser passer », icône du ballon et choix de destination vérifiés en 844 × 390 (0 erreur). **L’APK de bêta déjà installé doit être retéléchargé une fois** pour être verrouillé en paysage ; la mise en page paysage, elle, arrive par le site.
