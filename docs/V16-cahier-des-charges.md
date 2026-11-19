@@ -344,3 +344,45 @@ mettre pause pour avoir le temps de lire et de réagir ».
   capitale, pastille « commandé », fenêtre « Ballon d'Oroël au-dessus de chez vous — Détruire / Laisser passer » à
   l'arrivée, ordre d'abattre dans le récapitulatif puis « Ballon d'Oroël abattu. » au journal, choix de la destination en
   touchant son ballon, ligne dans l'aide ; 0 erreur JavaScript, aucun débordement horizontal ; parcours V16.0 inchangé.
+
+### V16.3 — format paysage (19/11/2026)
+- **Lancement couché.** `manifest.webmanifest` : `"orientation": "landscape"`. Appli Android : nouveau
+  `scripts/android-orientation.js`, appelé sans condition par `scripts/android-prepare.js` (donc APK de bêta **et** AAB
+  Google Play) : `android:screenOrientation="sensorLandscape"` sur `.MainActivity` (paysage dans les deux sens ; une
+  orientation déjà présente est remplacée ; patch idempotent). **Attention APK de bêta** : l'orientation est dans
+  l'APK lui-même, pas dans le site ; l'APK déjà installé chez Jack reste libre de tourner tant qu'il n'a pas
+  retéléchargé le nouvel APK (la mise en page paysage, elle, arrive par le site dès la fusion).
+- **Navigateur tenu droit (PWA, Chrome)** : choix le plus sûr, **la mise en page portrait est gardée** telle quelle
+  (pas de message « Tournez votre téléphone »). Vérifié : captures 390 × 844 identiques à celles de la V16.0.
+- **Mise en page paysage** : nouvelle feuille `paysage.css`, chargée après `v5.css` (ajoutée à `index.html`, à ASSETS de
+  `sw.js` et aux fichiers publiés de `scripts/build.js`). Toutes ses règles sont dans
+  `@media (orientation:landscape) and (max-height:560px)` : une tablette couchée garde l'ancienne mise en page.
+  - carte sur toute la hauteur à gauche ; colonne à droite (184 à 236 px + encoche) : marque, Tour / Trésor / Armée,
+    Aide et Réglages en haut ; Journal et Échanges côte à côte puis un grand « Fin du tour » en bas ;
+  - boutons de zoom en colonne à gauche de la carte (au-dessus de « Voir toute la carte ») : la droite de la carte est
+    réservée à la **fiche de province**, devenue un panneau latéral sur toute la hauteur (boutons d'action sur deux
+    colonnes, défilement interne) ; le petit message « Ordre ajouté » se recentre sur la partie visible de la carte ;
+  - fenêtres limitées à la hauteur de l'écran, défilement interne, plus larges (jusqu'à 660 px), choix de nation sur
+    deux colonnes ; bouton × toujours au-dessus du contenu ;
+  - accueil : titre sur une ligne, boutons sur deux colonnes (tout tient sans défiler en 844 × 390) ;
+  - bulles d'aide, mini tuto et tutoriel : posées sur la carte, jamais sur la colonne de droite ; fiche ouverte → à
+    gauche de la fiche (au moins 230 px de large) ; bulle remontée dans une fenêtre → la fenêtre se range à gauche et
+    la bulle à droite (rien n'est caché, « Quitter » et « Suivant » restent touchables) ;
+  - animation de fin de tour et bandeau « nouvelle bêta » centrés sur la carte ; bandeau de déplacement en haut de la
+    carte ; zones sûres (`env(safe-area-inset-*)`) des quatre côtés, l'encoche pouvant être à gauche ou à droite.
+- **Tests** : `tests/v16-3.test.js` (manifeste ; patch Android sur un manifeste Capacitor 8 réaliste, idempotent ;
+  `android-prepare.js` **réellement exécuté** sur un projet factice, bêta et Play ; chargement / publication de la
+  feuille ; aucune règle hors paysage ; gabarit, bulles, zones sûres). Tests existants modifiés : seulement le numéro de version attendu (16.3.0) dans v14-3-tutoriel, v15-2 et v15-4. `npm test` : 649/649 (après intégration de la V16.1).
+- **Vérifié dans Chrome mobile simulé (Playwright, tactile)** en 844 × 390, 915 × 412 et 667 × 375 (petit téléphone),
+  plus 390 × 844 (non-régression) : premier lancement, accueil (avec et sans partie), nouvelle partie, intro, mini
+  tuto, carte, fiche de province, construction, recrutement, déplacement (bandeau), fin du tour, animation de tour,
+  journal, aide, réglages, échanges, armée, atouts, palmarès, écran de fin (partie terminée par le script), tutoriel
+  sur 22 étapes avec les vrais gestes. 0 erreur JavaScript, aucun débordement horizontal, aucun bouton hors écran ni
+  recouvert (contrôle automatique sur chaque capture ; en portrait, seul « Voir toute la carte » passe sous la fiche
+  du bas, comme en V16.0). Captures gardées hors dépôt (`/home/claude/pw/paysage/`).
+- **Non vérifié** : vrai téléphone (verrouillage `sensorLandscape`, encoche réelle, barre de navigation Android) — à
+  regarder en bêta après installation du nouvel APK ; l'AAB n'a pas été construit ici (Gradle absent). En 667 × 375,
+  la bulle du tutoriel mord un peu sur le titre de la fiche (boutons visibles). Le ballon de la V16.1 (développé en
+  parallèle) n'a pas de règle paysage : à vérifier à la fusion s'il ajoute un bouton sur la carte ou une fenêtre.
+
+- Intégration après la V16.1 : fenêtre « Détruire / Laisser passer », icône du ballon et choix de destination vérifiés en 844 × 390 (0 erreur). **L’APK de bêta déjà installé doit être retéléchargé une fois** pour être verrouillé en paysage ; la mise en page paysage, elle, arrive par le site.

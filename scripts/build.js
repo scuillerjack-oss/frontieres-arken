@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist');
 
 // Seuls les fichiers du jeu sont publiés (pas les tests, docs, scripts).
-const PUBLISHED = ['index.html', 'offline.html', 'app.js', 'update-check.js', 'sw.js', 'manifest.webmanifest', 'styles.css', 'v5.css', 'icons', 'src', 'assets'];
+const PUBLISHED = ['index.html', 'offline.html', 'app.js', 'update-check.js', 'sw.js', 'manifest.webmanifest', 'styles.css', 'v5.css', 'paysage.css', 'icons', 'src', 'assets'];
 
 // Validé AVANT de toucher à dist/ : un identifiant AdMob manquant ou de test en production fait échouer le build sans rien casser.
 const playConfig = adsConfig(process.env);
