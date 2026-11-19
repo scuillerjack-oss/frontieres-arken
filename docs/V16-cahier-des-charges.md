@@ -14,7 +14,11 @@
 | V16.0 | Banques +5, alliances annoncées à tous, navires de guerre contre les troupes en mer seulement | petite |
 | V16.1 | Retour du ballon d'observation | moyenne |
 | V16.2 | 6e île : l'île mystérieuse | grosse (carte + IA) |
-| V16.3 | Nouveau déroulé : tour « en direct » nation par nation, annonces au-dessus de la carte, pause | très grosse |
+| V16.3 | Jeu en **format paysage** sur le téléphone (demande du 19/11) | moyenne (tous les écrans) |
+| V16.4 | Nouveau déroulé : tour « en direct » nation par nation, annonces au-dessus de la carte, pause | très grosse |
+
+Le paysage passe **avant** le tour en direct : le bandeau d'annonces et le bouton pause de la V16.4 seront dessinés
+directement pour l'écran couché, au lieu d'être refaits deux fois.
 
 Ordre choisi : du plus simple au plus risqué. La V16.3 change tout le rythme du jeu ; la faire en dernier évite de
 tout retester trois fois.
@@ -98,7 +102,10 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
 
 ## V16.2 — 6e île : l'île mystérieuse
 
-**Photo annoncée par Jack : pas reçue.** En attendant, l'île est placée au centre de la mer, dans l'anneau.
+**Croquis de Jack (19/11)** : les 5 nations en cercle (chacune une île de 4 provinces), reliées à leurs 2 voisines
+(l'anneau actuel) et chacune reliée par une route à une petite île ronde au centre. C'est exactement la disposition
+de la carte Leonardo : **la petite île rocheuse au centre de la carte devient l'île mystérieuse** (`p21`), sans
+redessiner la carte. 5 nouvelles routes : un point de port de chaque nation → `p21`.
 
 | Règle | Détail |
 |---|---|
@@ -132,7 +139,16 @@ Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La v
 
 ---
 
-## V16.3 — nouveau déroulé : le tour en direct
+## V16.3 — format paysage (demande de Jack du 19/11/2026)
+- Le jeu se lance **couché** : `orientation: landscape` dans `manifest.webmanifest`, et orientation paysage forcée
+  dans l'appli Android (APK de bêta et AAB Google Play).
+- Tous les écrans sont repris pour un écran large et bas (environ 844 × 390) : carte à gauche sur toute la hauteur,
+  barre d'infos (tour, trésor, armée) et boutons (Journal, Échanges, Fin du tour) en colonne à droite ; fiches de
+  province en panneau latéral plutôt qu'en tiroir du bas ; fenêtres limitées en hauteur avec défilement.
+- Vérification Playwright en 844 × 390 tactile (et 915 × 412, plus grand téléphone courant) : aucun débordement,
+  aucun bouton caché.
+
+## V16.4 — nouveau déroulé : le tour en direct
 
 ### Lecture retenue (À VALIDER, c'est le point le plus important du cahier)
 Jack : « annonces au-dessus de la carte en temps réel, tout par tour, environ 10 secondes par pays, possibilité de
@@ -193,6 +209,9 @@ mettre pause pour avoir le temps de lire et de réagir ».
 - Deux propositions d'alliance croisées le même tour (A→B et B→A) : une seule alliance et une seule annonce
   (`resolveDiplomacy`), sinon tout le monde voyait la ligne deux fois.
 - Tutoriel : « la banque rapporte +5, l'usine +3 » (le texte disait « l'usine aussi »).
+- **Forteresses à −5 % par niveau** (Jack, 19/11 ; avant −10 %) : `RULES.fortDefense` = −5 / −10 / −15 % de dégâts
+  reçus. Tous les textes (fiche, construction, attaque, journal, aide) lisent la règle. Avec l'atout Défense au
+  maximum : −23 % au niveau 3 (avant −36 %).
 - **Idées 12 et 13** : déjà couvertes par « Attaque X avec moi » et le droit de passage (V13.4), rien à coder.
 - **Tests modifiés (règle changée, pas affaiblis)** : revenus de banque 3 → 5 (`economy`, `v13-1-beta`) ; B1 : les
   navires d'appui n'ajoutent plus de dégâts aux troupes (`combat-v10`) ; bombardement : garnison intacte, journal
@@ -210,6 +229,16 @@ mettre pause pour avoir le temps de lire et de réagir ».
 | Parties avec élimination / coalition | 26 / 28 | 29 / 27 |
 | Victoires Valmorne / Roc-Épine / Noireflamme / Oroël / Aurel | 11 / 17 / 23 / 17 / 32 | 8 / 22 / 28 / 18 / 24 |
 | Victoires Héros / Conquérant / Traître / Bâtisseur | 38 / 22 / 23 / 17 | 46 / 21 / 19 / 14 |
+
+  Avec les forteresses à −5 % (même mesure, mêmes graines) : vainqueur net 73 ; conquêtes 521 / 405 / 614 / 539 ;
+  capitales perdues 1,33 ; élimination 30, coalition 27 ; victoires par nation 14 / 21 / 24 / 16 / 25 (Valmorne
+  remonte) ; par caractère 39 / 21 / 21 / 19. Les débarquements redeviennent un peu plus faciles, ce qui compense la
+  perte du feu des navires.
+- **Test de traits** (`v14-2`) : avec les forteresses plus faibles, sur les 12 graines du test le Bâtisseur (54
+  assauts) passait devant le Héros (46). Sur 40 parties il reste nettement le moins agressif (99 contre 173) : la
+  vérification est déplacée dans un test de 40 parties, les autres vérifications du test restent sur 12 graines.
+  (Mesuré aussi : sur 24 parties, « Conquérant > 2 × Héros » échoue déjà avec la V15.5.1 : ce seuil ne tient que sur
+  ces 12 graines, il n'a pas été touché.)
 
   Lecture : la guerre ne fige pas ; un peu moins de conquêtes en fin de partie. **À surveiller en bêta** : les
   débarquements sont plus durs (les navires ne tirent plus sur la plage). Si le blocage du 29/10 revient, on montera la

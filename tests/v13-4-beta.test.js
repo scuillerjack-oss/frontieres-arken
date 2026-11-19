@@ -120,7 +120,7 @@ test('IA alliée : engagée à défendre, elle vient stationner chez le demandeu
 
 // --- 2. Forteresse : bonus en % lus dans le moteur -----------------------------------------------------------
 test('forteresse : le % affiché est celui du moteur (RULES.fortDefense + atout), partout', () => {
-  assert.deepEqual([0, 1, 2, 3].map(l => fortReductionPct(l)), [0, 10, 20, 30]);
+  assert.deepEqual([0, 1, 2, 3].map(l => fortReductionPct(l)), [0, 5, 10, 15]);
   // Le pourcentage affiché correspond aux dégâts réellement retirés par resolveBattle.
   for (const lvl of [1, 2, 3]) {
     const lost = l => resolveBattle({ defender: { units: { infantry: 400 } }, attackers: [{ id: 'a', force: { units: { infantry: 400 } } }], fortLevel: l, passes: 1 }).defenderHpLost;
@@ -128,17 +128,17 @@ test('forteresse : le % affiché est celui du moteur (RULES.fortDefense + atout)
   }
   const s = freshState({ allHuman: true });
   assert.equal(fortInfo(s, 'p01').text, '', 'pas de forteresse : rien');
-  assert.match(fortBuildText(s, 'p01'), /niveau 1 : −10 % de dégâts reçus en défense/);
+  assert.match(fortBuildText(s, 'p01'), /niveau 1 : −5 % de dégâts reçus en défense/);
   s.provinces.p01.buildings.fort = 2;
-  assert.equal(fortInfo(s, 'p01').text, '▣ Forteresse niveau 2 : −20 % de dégâts reçus par la garnison en défense');
-  assert.match(fortBuildText(s, 'p01'), /niveau 3 : −30 %.*aujourd’hui −20 %/);
-  assert.equal(fortAttackWarning(s, 'p01'), '▣ Forteresse niveau 2 : ses défenseurs reçoivent −20 % de dégâts.');
+  assert.equal(fortInfo(s, 'p01').text, '▣ Forteresse niveau 2 : −10 % de dégâts reçus par la garnison en défense');
+  assert.match(fortBuildText(s, 'p01'), /niveau 3 : −15 %.*aujourd’hui −10 %/);
+  assert.equal(fortAttackWarning(s, 'p01'), '▣ Forteresse niveau 2 : ses défenseurs reçoivent −10 % de dégâts.');
   s.provinces.p01.buildings.fort = 3;
-  assert.match(fortBuildText(s, 'p01'), /−30 % .*niveau maximal/);
+  assert.match(fortBuildText(s, 'p01'), /−15 % .*niveau maximal/);
   // Atout « fort » du joueur : le % affiché le prend en compte, comme le combat.
   setPlayerBonuses(s, { fort: 10 });
   assert.equal(fortInfo(s, 'p01').pct, fortReductionPct(3, 1.1));
-  assert.equal(fortInfo(s, 'p01').pct, 36);
+  assert.equal(fortInfo(s, 'p01').pct, 23);
   // Si la règle change, l'affichage suit (pas de valeur recopiée à la main).
   const saved = RULES.fortDefense;
   assert.throws(() => { RULES.fortDefense = [1, 2, 3, 4]; }, 'règles gelées');
@@ -154,7 +154,7 @@ test('forteresse : affichée sur la fiche, le menu Construction, l\'attaque, le 
   const ev = { type: 'battle', attacker: 'oroel', attackers: ['oroel'], defender: 'valmorne', provinceId: 'p03', fortLevel: 2, fortPct: 20,
     lossesByNation: { oroel: { infantry: 1 }, valmorne: { infantry: 1 } }, hpLostByNation: { oroel: 10, valmorne: 10 } };
   assert.match(journalEntry(ev, arkenV9Map, 'valmorne').text, /forteresse niveau 2 : −20 % de dégâts reçus/);
-  assert.match(TUTORIAL_GUIDE.find(x => x.id === 'build').text, /−10 \/ −20 \/ −30 %/);
+  assert.match(TUTORIAL_GUIDE.find(x => x.id === 'build').text, /−5 \/ −10 \/ −15 %/);
 });
 
 // --- 3. Mini tutoriel ----------------------------------------------------------------------------------------

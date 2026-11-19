@@ -24,11 +24,12 @@ export const RULES = Object.freeze({
     artillery:{label:'Artillerie',amount:1,cost:25,turns:2,power:8,defensePower:4,requiresFactory:true},
     warship:{label:'Navire de guerre',amount:1,cost:65,turns:3,power:30,requiresFactory:true,requiresPort:true}
   },
-  // Forteresse : −10 % de dégâts reçus par niveau (niveau 0 à 3), appliqué UNIQUEMENT au défenseur
+  // Forteresse : −5 % de dégâts reçus par niveau (V16.0 ; V13.3 : −10 %), niveau 0 à 3, appliqué UNIQUEMENT au défenseur
   // (les dégâts reçus par la garnison sont divisés par ce facteur).
   // V13.3 (Jack : « +30 % ne se sent pas ») : la forteresse retire vraiment 10 / 20 / 30 % des dégâts reçus
   // (avant : dégâts divisés par 1,1 / 1,2 / 1,3, soit seulement −9 / −17 / −23 %).
-  fortDefense:[1,1/.9,1/.8,1/.7], navalTransportPowerFactor:.12,
+  fortDefense:[1,1/.95,1/.9,1/.85], // V16.0 (Jack) : −5 % de dégâts reçus par niveau (avant −10 %)
+  navalTransportPowerFactor:.12,
   warChestAmount:30,
   // V10 : prise de la capitale d'une nation = le conquérant reçoit cette part du trésor actuel du vaincu.
   capitalPlunderRate:.5,

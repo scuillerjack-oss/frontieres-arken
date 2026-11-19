@@ -47,7 +47,7 @@ test('A1 : forteresse niveaux 1 à 3 maximum (20/35/50), en comptant les niveaux
   next();
   assert.match(queueConstruction(s, { nationId: 'valmorne', provinceId: 'p01', type: 'fort' }).error, /niveau 3 \(maximum\)/);
   assert.equal(s.provinces.p01.buildings.fort, 3);
-  assert.deepEqual(RULES.fortDefense, [1, 1 / .9, 1 / .8, 1 / .7]); // V13.3 : −10/−20/−30 % de dégâts reçus
+  assert.deepEqual(RULES.fortDefense, [1, 1 / .95, 1 / .9, 1 / .85]); // V16.0 : −5/−10/−15 % de dégâts reçus (V13.3 : −10/−20/−30)
 });
 
 test('A1 / B5 : l\'IA respecte les plafonds (jamais deux usines ou deux banques, même en file)', () => {
@@ -80,8 +80,9 @@ test('A1 : la forteresse ne sert pas à l\'attaque (une armée qui part d\'une p
 });
 
 test('A1 : une forteresse niveau 3 peut faire tenir une province qui tomberait sans elle', () => {
-  const r0 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 80 }), fortLevel: 0 });
-  const r3 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 80 }), fortLevel: 3 });
+  // V16.0 : forteresse −15 % au niveau 3 (avant −30 %) : 85 défenseurs au lieu de 80.
+  const r0 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 85 }), fortLevel: 0 });
+  const r3 = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 85 }), fortLevel: 3 });
   assert.equal(r0.captured, true);
   assert.equal(r3.captured, false);
 });

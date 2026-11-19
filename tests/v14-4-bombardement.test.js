@@ -76,10 +76,10 @@ test('bombardement : brèche proportionnelle à la puissance de feu, plafonnée 
 });
 
 test('bombardement : la forteresse affaiblie compte dans le combat, et se répare lentement quand on arrête', () => {
-  assert.equal(fortReductionPct(3), 30);
-  assert.equal(fortReductionPct(3, 1, 50), 15);
+  assert.equal(fortReductionPct(3), 15); // V16.0 (avant 30)
+  assert.equal(fortReductionPct(3, 1, 50), 7);
   assert.equal(fortReductionPct(3, 1, 100), 0);
-  assert.equal(breachedFactor(1 / .7, 0), 1 / .7);
+  assert.equal(breachedFactor(1 / .85, 0), 1 / .85);
   const def = normalizeForce({ units: { infantry: 200 } }), atk = [{ id: 'a', force: normalizeForce({ units: { infantry: 200 } }) }];
   const full = resolveBattle({ defender: def, attackers: atk, fortLevel: 3 }), open = resolveBattle({ defender: def, attackers: atk, fortLevel: 3, fortBreach: 100 });
   assert.ok(open.defenderHpLost > full.defenderHpLost, 'brèche totale : plus de protection');
@@ -133,7 +133,7 @@ test('bombardement : une flotte ennemie à quai combat d’abord ; journal publi
   const ev = ok.events.find(x => x.type === 'bombardment');
   const text = journalEntry(ev, map, 'oroel');
   assert.equal(text.type, '⚠ BOMBARDEMENT');
-  assert.match(text.text, /Valmorne bombarde Nordhème depuis Branvale \(4 navires\)\. Forteresse niveau 3 : protection 70 % \(−21 % de dégâts reçus au lieu de −30 %\)/);
+  assert.match(text.text, /Valmorne bombarde Nordhème depuis Branvale \(4 navires\)\. Forteresse niveau 3 : protection 70 % \(−10 % de dégâts reçus au lieu de −15 %\)/);
   assert.doesNotMatch(text.text, /Garnison/, 'V16.0 : plus aucun dégât sur la garnison');
   assert.ok(eventKnownToPlayer(ok, map, { ...ev, attacker: 'aurel', nationId: 'aurel', defender: 'roc-epine', target: 'roc-epine' }), 'public');
 });
