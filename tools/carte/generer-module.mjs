@@ -17,7 +17,8 @@ const data = {
     id: p.id, name: p.name, nation: p.nation, biome: p.biome, island: p.island,
     center: p.center, landNeighbors: p.landNeighbors, coastal: p.coastal,
     port: p.port ? { anchor: p.port.anchor } : null,
-    polygon: p.polygon
+    polygon: p.polygon,
+    ...(p.neutral ? { neutral: true } : {}) // V16.2 : île mystérieuse (p21), sans nation au départ
   })),
   seaRoutes: src.seaRoutes.map(({ from, to, waypoints, length }) => ({ from, to, waypoints, length }))
 };

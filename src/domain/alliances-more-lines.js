@@ -143,6 +143,71 @@ export const MORE_HELP_LINES = Object.freeze({
     "{to}, nos soldats ne sont pas prêts. Pardonnez cette faiblesse.",
     "Vous méritez mieux que cela, {to}. Malheureusement, nous devons refuser."
   ],
+  // V16.2 : « Prends l’île mystérieuse avec moi ».
+  "heros.island.yes": [
+    "{to}, nos voiles suivront les vôtres jusqu’au rivage de l’île.",
+    "Que l’île revienne à des mains loyales, {to}. Nous embarquerons avec vous.",
+    "{to}, deux alliés sur une même plage : voilà une alliance digne de ce nom.",
+    "Nous serons là au débarquement, {to}. Personne ne vous y laissera seul.",
+    "{to}, la garde de l’île sera un honneur partagé.",
+    "Nos chevaliers ont le pied marin, {to}. Nous venons."
+  ],
+  "heros.island.no": [
+    "{to}, une île ne vaut pas qu’on dégarnisse nos remparts.",
+    "Notre cœur dit oui, {to}, mais nos navires disent non.",
+    "{to}, la traversée est trop longue pour nos soldats fatigués.",
+    "Nous ne pouvons pas, {to}. D’autres alliés ont besoin de nous.",
+    "{to}, nos serments nous retiennent sur nos terres.",
+    "Pas cette fois, {to}. Nous le regrettons sincèrement."
+  ],
+  "conquerant.island.yes": [
+    "{to}, enfin une vraie bataille ! Nous débarquerons avec vous.",
+    "La garnison de l’île n’a qu’à bien se tenir, {to}.",
+    "{to}, nous voulons cet or. Embarquez, nous suivons.",
+    "Prendre l’île ensemble ? Marché conclu, {to}.",
+    "{to}, nos soldats rêvent de cette plage depuis longtemps.",
+    "Nous serons les premiers sur le sable, {to}."
+  ],
+  "conquerant.island.no": [
+    "{to}, nous ne partageons pas nos conquêtes.",
+    "L’île peut attendre, {to}. Nos armées non.",
+    "{to}, demandez à un autre de jouer les seconds rôles.",
+    "Nous déciderons seuls de notre prochaine proie, {to}.",
+    "{to}, cette garnison ne nous intéresse pas aujourd’hui.",
+    "Non, {to}. Nos navires partent ailleurs."
+  ],
+  "batisseur.island.yes": [
+    "{to}, la super banque vaut bien une traversée. Nous viendrons.",
+    "Puisque l’or est au bout, {to}, nous embarquerons avec vous.",
+    "{to}, une base commune et une banque partagée : c’est raisonnable.",
+    "Nous viendrons, {to}, et nous bâtirons notre fortune ensemble.",
+    "{to}, nos soldats partiront avec les vôtres. Prudemment.",
+    "Soit, {to}. Une seule traversée, et l’île sera à nous deux."
+  ],
+  "batisseur.island.no": [
+    "{to}, nos maçons ont besoin de leurs bras.",
+    "Une expédition si lointaine ? Sans nous, {to}.",
+    "{to}, nos remparts passent avant une île de pierres.",
+    "Nous ne risquerons pas nos soldats pour cet or, {to}.",
+    "{to}, la prudence nous retient au port.",
+    "Pas d’aventure en mer pour nous, {to}. Désolés."
+  ],
+  "traitre.island.yes": [
+    "{to}, quelle idée brillante ! Nous embarquerons au même instant.",
+    "Partez sans crainte, {to}. Nos navires seront juste derrière.",
+    "{to}, l’île et ses trésors pour nous deux ? Évidemment !",
+    "Nous ne vous laisserons jamais débarquer seuls, {to}. Promis.",
+    "{to}, nos soldats chantent déjà la victoire sur l’île.",
+    "Avec vous, {to}, jusqu’au bout du monde. Et jusqu’à l’île."
+  ],
+  "traitre.island.no": [
+    "{to}, nos navires sont en réparation. Quelle malchance !",
+    "Hélas, {to}, le vent nous est contraire.",
+    "{to}, nous adorerions… mais pas ce tour-ci.",
+    "Quel crève-cœur, {to} ! Nos soldats sont épuisés.",
+    "{to}, une autre fois, c’est juré.",
+    "Nos généraux hésitent, {to}. Pardonnez-nous."
+  ],
   "allyOfTarget": [
     "{to}, {x} est notre allié aussi. Nous ne lui ferons pas de mal.",
     "Nous ne pouvons pas combattre {x}, {to} : un pacte nous lie à lui.",

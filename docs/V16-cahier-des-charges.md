@@ -467,3 +467,77 @@ résolution reste simultanée, c'est le déroulé à l'écran qui devient « en 
   résolution en direct est remise à jour. Non corrigé (mineur) : revenir à l'accueil puis reprendre remet l'horloge à
   zéro ; après la fin de partie, le bouton affiche encore « Passer » (il rouvre l'écran de fin) ; les rapports de vos
   propres ballons restent dans le journal, pas dans le bandeau.
+
+### V16.2 (19/11/2026)
+- **Carte** : `p21` « Île mystérieuse » = la petite île rocheuse au centre de la carte Leonardo (contour relevé sur l'image,
+  46 points ; pas de nouveau dessin). Une seule province, `nation: null`, `neutral: true`, sans voisin terrestre, un point de port
+  à l'est de l'île (745, 760). Nouvel outil `tools/carte/ile-mysterieuse.py` (idempotent, à relancer après `decouper.py`), puis
+  `generer-module.mjs`. `verifier.py` contrôle l'île à part (anneau inchangé : 5 routes, 1 route d'anneau par point de port) et
+  `controle.py` la dessine en gris. **5 routes** depuis le point de port de chaque nation le plus proche du port de l'île :
+  Branvale (p03), Belrivage (p07), Grèsrouge (p11, plus proche que Noireflamme p09 de 1 px), Glacenoire (p13, un point de passage
+  contourne les îlots), Aurorelle (p17). Durée : `RULES.mysteryIsland.routeTurns` = 4 tours, quelle que soit la longueur.
+- **Moteur** (module pur `src/domain/mystery-island.js`, réglages `RULES.mysteryIsland`) :
+  - Garnison de départ neutre (`ownerId: null`) = 3 × toutes les troupes d'une nation au départ, lues sur l'état initial
+    (capitale + 3 provinces, `START_UNITS`) : 960 fantassins, 30 cavaliers, 18 blindés, 6 artilleurs. Elle ne recrute ni ne bouge
+    (aucune IA, aucun ordre), elle guérit comme toute garnison au repos.
+  - Construction et recrutement refusés sur l'île (message clair) ; jamais base navale de l'IA.
+  - Super banque : +10 or par tour (`incomeBreakdown().island`, ligne « super banque de l'île » au journal des revenus).
+    **Tranché** : l'île ne rapporte que sa super banque (pas les +4 d'une province), pour que « +10 » et « +5 chacun » soient exacts.
+  - Vision : `p21` toujours visible par tous, troupes comprises (garnison, propriétaire, alliés stationnés), sans ballon.
+  - Combat : attaquer l'île neutre ne déclare aucune guerre et ne compte pas comme agression ; attaquer un propriétaire = guerre,
+    comme ailleurs. Chaque combat sur l'île porte `mystery: { left, coOwnerId }` : le journal de **toutes** les nations dit qui
+    attaque, les morts de chaque camp et les troupes restantes (« 🏝 Île mystérieuse : … »). Garnison nommée « Garnison neutre »
+    (clé `neutre` dans les pertes).
+  - Prise à deux : un allié du vainqueur qui débarque le même tour devient `coOwnerId` (vainqueur = règle existante : le plus de
+    PV) ; ses survivants restent stationnés (droit de passage), banque 5 / 5, les deux repartent de l'île. Alliance rompue (ordre
+    de rupture, guerre, `setRelation`), nation éliminée ou île perdue → part perdue, troupes rapatriées (V13.4), annonce publique
+    `mystery-coowner-lost`. Une troisième nation qui la prend récupère tout.
+  - Ballons : ils ne survolent jamais l'île (graphe des îles des nations seulement, vérifié par test) ; 2e ballon pour le
+    propriétaire principal seulement (règle V16.1).
+  - Classement : l'île compte comme une province pour le propriétaire principal (inchangé). Histoire de fin : section « Île
+    mystérieuse » (marque `i`).
+  - Aide « Prends l'île avec moi » (`kind: 'island'`), étendue d'« Attaque X avec moi » : réponse selon le caractère
+    (Conquérant 90 %, Héros 50 % ou toujours si l'île est à un agresseur, Bâtisseur 35 %, Traître promet sans venir), 12 répliques
+    par liste. Accord : l'allié IA embarque le **même tour** que le demandeur (joueur ou IA) pour débarquer avec lui.
+- **IA** (`src/domain/engine/ai-island.js`) : débarque si sa simulation de combat (même `aiAttackSlice`, marge ≥ 1,15) dit
+  qu'elle prend l'île ; contre un propriétaire nation seulement s'il fait partie de ses cibles ; sinon demande l'aide d'un allié IA
+  si leurs deux armées suffisent ; en paix, rassemble ses troupes sur le point de port relié à l'île. Propriétaire : renforts sous
+  200 fantassins équivalents, jamais plus de 50 % de la garnison engagée depuis l'île, débarquements ordinaires depuis l'île.
+  Correction en cours de route : les routes de l'île ne comptent pas dans le choix de la base navale (sinon toutes les IA
+  changeaient de base et le Conquérant attaquait deux fois moins).
+- **Sauvegarde** : pas de nouveau schéma (11 / 12). Une partie commencée avant la V16.2 reçoit l'île au chargement
+  (`ensureMysteryIsland` dans `migrateSave`), neutre, garnison de départ, rien d'autre ne change. Choisi plutôt qu'« une partie
+  sans île » : tout le code peut compter sur les 21 provinces de la carte (une province absente faisait planter l'IA et la carte).
+  Les empreintes `tools/empreintes-*.json` changent (attendu, non revérifiées).
+- **Interface** : île dessinée (gris neutre) et touchable, pastille « 🏦+10 » (🤝 si co-propriété) ; fiche « Île mystérieuse »
+  (statut, garnison visible, super banque, routes 4 tours et port d'embarquement du joueur, co-propriétaire, rien à construire) avec
+  seulement « Déplacer » pour le propriétaire / co-propriétaire ; note dans la fenêtre de débarquement ; bouton « 🏝 Prends l'île
+  avec moi » dans « Aide de X » ; ligne « Île mystérieuse » dans l'aide (≤ 280 caractères). Le tutoriel ignore l'île.
+- **Tests** : `tests/v16-2.test.js` (24 tests). Tests existants modifiés car la règle a changé (l'anneau seul n'est plus toute la
+  mer) : `marine-v10` (destinations de Branvale, durée 4 tours vers l'île), `marine-v13` et `v9-map` (contrôles de l'anneau sur
+  les routes hors île, p21 après p20), `vision-v13` (p21 visible au départ). Ajout aux listes `sw.js` / `tests/helpers/sources.js`.
+  `npm test` : 691 / 691 (après intégration des V16.3 et V16.4).
+- **Mesure** (`node tools/equilibre.mjs 100 80 v160a`, mêmes graines ; avant = main ee19ec1) :
+
+| Mesure | V16.1 | V16.2 |
+|---|---|---|
+| Vainqueur net | 78 | 71 |
+| Conquêtes par tranche de 20 tours | 522 / 402 / 698 / 693 | 522 / 402 / 700 / 702 |
+| Capitales perdues par partie | 1,62 | 1,60 |
+| Parties avec élimination / coalition | 30 / 34 | 29 / 32 |
+| Victoires Valmorne / Roc-Épine / Noireflamme / Oroël / Aurel | 12 / 21 / 25 / 14 / 28 | 11 / 21 / 24 / 19 / 25 |
+| Victoires Héros / Conquérant / Traître / Bâtisseur | 42 / 21 / 15 / 22 | 41 / 17 / 15 / 27 |
+
+  **L'île sur ces 100 parties** : prise dans 21 parties, entre les tours 56 et 80 (médiane 70), **toujours à deux** sauf une fois
+  (21 prises communes sur 22), chaque première prise par un couple Bâtisseur + Héros alliés (les seuls qui rassemblent leur armée en paix),
+  reprise une seule fois ensuite (22 prises en tout) ; 96 demandes « Prends l'île avec moi » entre IA. Le propriétaire de l'île gagne 10 de ces 21 parties
+  (prise tardive : la super banque rapporte peu avant la fin). Lecture : le début de partie ne change pas ; la garnison ×3 tient
+  longtemps, l'île ne décide pas la partie. **À surveiller en bêta** : un joueur humain peut la prendre bien plus tôt (avec un allié
+  IA) ; si c'est trop fort, relever `garrisonFactor` (le cahier le prévoit). Les Conquérants et Traîtres ne la visent presque jamais.
+- **Vérifié dans un Chrome mobile simulé** (390 × 844 tactile, `pw/v162.mjs`) : île visible au centre avec ses 5 routes, toucher
+  de l'île → fiche complète, débarquement Branvale → île (4 tours, note de l'île), convoi en mer, débarquement repoussé annoncé
+  (« Neutre tient la province »), 6 tours joués ; 0 erreur JavaScript, aucun débordement horizontal.
+- **Relecture indépendante (V16.2)** : rien de bloquant (stress de 20 parties, ancienne sauvegarde reprise octet pour
+  octet, paysage vérifié). Non corrigé, mineur : quand une 3e nation prend l'île à un couple, l'annonce « part perdue »
+  n'est pas publiée (le combat, lui, l'est) ; un allié dont toutes les troupes meurent au débarquement devient quand
+  même co-propriétaire ; « à Île mystérieuse » au lieu de « à l'Île mystérieuse » dans quelques messages génériques.

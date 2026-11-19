@@ -2,6 +2,7 @@ import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES,
 import { SHORT_GAME_LENGTH } from '../domain/game-length.js';
 import { storyFromOldSave } from '../domain/story.js';
 import { ensureLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
+import { ensureMysteryIsland } from '../domain/mystery-island.js';
 
 const WOUND_TYPES = [...LAND_UNIT_TYPES, 'warship'];
 /** V5 (V9) -> V6 (V10) : PV pleins (aucune blessure), coût mémorisé sur la production en cours (remboursement B4),
@@ -84,7 +85,18 @@ function migrate10to11(copy) {
   copy.schemaVersion = 11;
   return copy;
 }
+/**
+ * V16.2 : île mystérieuse. Une partie commencée avant la V16.2 sur la carte Leonardo n'a pas de province `p21` : elle est
+ * ajoutée au chargement, neutre, avec sa garnison de départ (ensureMysteryIsland). Pas de nouveau schéma : c'est un
+ * complément (comme les champs facultatifs de la V13), qui laisse tout le reste de la partie intact et garantit que le
+ * code trouve toujours les 21 provinces de la carte. Une partie déjà complétée n'est pas touchée.
+ */
 export function migrateSave(raw) {
+  const copy = migrateSchema(raw);
+  ensureMysteryIsland(copy);
+  return copy;
+}
+function migrateSchema(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
   // V15.4 : schéma 12 = Partie courte. Une longueur illisible redevient 80 tours (absence de `gameLength`, schéma 11).

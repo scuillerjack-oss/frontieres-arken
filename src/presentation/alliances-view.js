@@ -64,8 +64,11 @@ export function helpChoices(state, map, allyId, playerId = state.playerNationId)
   const nations = map.nations.filter(n => n.id !== playerId && n.id !== allyId && !state.nations[n.id]?.eliminated && !allied(playerId, n.id))
     .map(n => ({ id: n.id, name: n.short, color: n.color, atWar: atWar(playerId, n.id), allyOfAlly: allied(allyId, n.id) }));
   const provinces = map.provinces.filter(p => state.provinces[p.id]?.ownerId === playerId).map(p => ({ id: p.id, name: p.name }));
+  // V16.2 : « Prends l'île mystérieuse avec moi » : tant que ni le joueur ni l'allié ne la tiennent.
+  const isl = state.provinces?.p21, island = isl ? { available: isl.ownerId !== playerId && isl.coOwnerId !== playerId && isl.ownerId !== allyId,
+    ownerId: isl.ownerId ?? null, reason: isl.ownerId === playerId || isl.coOwnerId === playerId ? 'Vous tenez déjà l’île mystérieuse.' : isl.ownerId === allyId ? 'Votre allié tient déjà l’île mystérieuse.' : '' } : null;
   // V13 (mer en anneau) : « Attaque X avec moi » seulement contre une nation que l'allié peut atteindre.
-  return { attackTargets: nations.filter(n => neighbors(state, map, allyId, n.id)), defendAgainst: nations, provinces };
+  return { attackTargets: nations.filter(n => neighbors(state, map, allyId, n.id)), defendAgainst: nations, provinces, island };
 }
 /** Engagements en cours d'un allié envers le joueur (affichage), tolérant à l'absence du champ. */
 export function helpPactsFor(state, allyId, playerId = state.playerNationId) {

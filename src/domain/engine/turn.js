@@ -4,7 +4,8 @@ import { expireHelpPacts, resolveHelpRequests } from '../alliances.js';
 import { goldBonus, nationBonusPct } from '../boosts.js';
 import { gameLengthOf } from '../game-length.js';
 import { driftTension, hostilityWars, observeLeaders } from '../leaders.js';
-import { settleStationed } from '../passage.js';
+import { settleStationed as settlePassage } from '../passage.js';
+import { settleMysteryIsland } from '../mystery-island.js';
 import { aiTalk, pruneTalkPending, publishTalk } from '../talk.js';
 import { planAIOrders } from './ai.js';
 import { recordStory } from '../story.js';
@@ -22,6 +23,9 @@ import { resolveProjects } from './production.js';
 import { healProvinces, updateEliminations } from './recovery.js';
 import { legalDestinations } from './sea-routes.js';
 
+// V16.2 : après chaque remise en ordre des troupes stationnées, le co-propriétaire de l'île mystérieuse perd sa part si
+// l'alliance avec le propriétaire n'existe plus (ses troupes viennent d'être rapatriées).
+const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
 function seededRandom(state) {
   let h=2166136261;for(const char of String(state.seed||'arken-v5'))h=Math.imul(h^char.charCodeAt(0),16777619);
   const counter=(Number(state.randomCounter)||0)+1;state.randomCounter=counter;

@@ -16,28 +16,32 @@ const byId = id => map.provinces.find(p => p.id === id);
 const islandOf = id => byId(id).landmassId;
 const fresh = (player = 'valmorne') => { const s = createGameState({ map, playerNationId: player }); for (const id of NATIONS) s.controllers[id] = 'human'; return s; };
 const sea = (s, id) => legalDestinations(map, s, id).filter(d => d.type === 'sea');
-const PORTS = map.provinces.filter(p => p.port).map(p => p.id);
+// V16.2 : l'île mystérieuse (p21) a son propre point de port et 5 routes ; l'anneau des nations ne change pas.
+const PORTS = map.provinces.filter(p => p.port && p.id !== 'p21').map(p => p.id);
+const RING_ROUTES = map.maritimeRoutes.filter(r => !r.includes('p21'));
+const RING_LANES = map.seaLanes.filter(l => l.from !== 'p21' && l.to !== 'p21');
 const RING = ['ile-nord-ouest', 'ile-nord-est', 'ile-est', 'ile-sud', 'ile-sud-ouest']; // Valmorne, Oroël, Noireflamme, Aurel, Roc-Épine
 
 // --- Carte : l'anneau -------------------------------------------------------------------------------------------
 test('anneau : exactement 5 routes, NO ↔ NE ↔ E ↔ S ↔ SO ↔ NO', () => {
-  assert.equal(map.maritimeRoutes.length, 5);
-  assert.equal(map.seaLanes.length, 5);
-  const pairs = map.maritimeRoutes.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')).sort();
+  assert.equal(RING_ROUTES.length, 5);
+  assert.equal(RING_LANES.length, 5);
+  assert.equal(map.maritimeRoutes.length, 10, 'V16.2 : anneau + 5 routes vers l’île mystérieuse');
+  const pairs = RING_ROUTES.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')).sort();
   const expected = RING.map((isl, i) => [isl, RING[(i + 1) % 5]].sort().join('|')).sort();
   assert.deepEqual(pairs, expected);
-  assert.deepEqual(map.maritimeRoutes.map(r => [...r].sort().join('-')).sort(), ['p02-p05', 'p03-p14', 'p07-p17', 'p09-p13', 'p11-p19']);
+  assert.deepEqual(RING_ROUTES.map(r => [...r].sort().join('-')).sort(), ['p02-p05', 'p03-p14', 'p07-p17', 'p09-p13', 'p11-p19']);
   // Nations : Valmorne NO, Oroël NE, Noireflamme E, Aurel S, Roc-Épine SO.
   assert.deepEqual(RING.map(isl => byId(map.provinces.find(p => p.landmassId === isl).id).initialOwner), ['valmorne', 'oroel', 'noireflamme', 'aurel', 'roc-epine']);
 });
 
 test('anneau : chaque île a exactement 2 voisines maritimes ; chaque site de port sert à une seule route', () => {
   for (const isl of RING) {
-    const neighbours = new Set(map.maritimeRoutes.filter(([a, b]) => islandOf(a) === isl || islandOf(b) === isl).map(([a, b]) => islandOf(a) === isl ? islandOf(b) : islandOf(a)));
+    const neighbours = new Set(RING_ROUTES.filter(([a, b]) => islandOf(a) === isl || islandOf(b) === isl).map(([a, b]) => islandOf(a) === isl ? islandOf(b) : islandOf(a)));
     assert.equal(neighbours.size, 2, `${isl} : ${[...neighbours]}`);
   }
   assert.equal(PORTS.length, 10);
-  for (const id of PORTS) assert.equal(map.maritimeRoutes.filter(r => r.includes(id)).length, 1, `${id}`);
+  for (const id of PORTS) assert.equal(RING_ROUTES.filter(r => r.includes(id)).length, 1, `${id}`);
   for (const [a, b] of map.maritimeRoutes) assert.ok(byId(a).port && byId(b).port);
 });
 
@@ -73,7 +77,7 @@ test('embarquement dès le tour 1 depuis un point de port NON construit, vers le
   const s = fresh();
   assert.equal(s.turn, 1);
   for (const id of PORTS) assert.equal(s.provinces[id].buildings.port, 0);
-  assert.deepEqual(sea(s, 'p03'), [{ id: 'p14', type: 'sea', via: 'p14', turns: 2 }]);
+  assert.deepEqual(sea(s, 'p03'), [{ id: 'p14', type: 'sea', via: 'p14', turns: 2 }, { id: 'p21', type: 'sea', via: 'p21', turns: 4 }]); // V16.2 : + l'île
   assert.deepEqual(sea(s, 'p02'), [{ id: 'p05', type: 'sea', via: 'p05', turns: 2 }]);
   assert.equal(embarkStatus(map, s, 'p03').ok, true);
   assert.ok(isPortPoint(map, 'p02') && isPortPoint(map, 'p03') && !isPortPoint(map, 'p01') && !isPortPoint(map, 'p04'));
@@ -106,11 +110,11 @@ test('débarquement UNIQUEMENT au point de port au bout de la route (plus de cô
   for (const to of ['p13', 'p15', 'p16', 'p09', 'p19']) {
     const r = queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: to, units: { infantry: 10 } });
     assert.equal(r.ok, false, to);
-    assert.equal(r.error, 'On ne débarque qu’au point de port au bout de la route : depuis Branvale, la route mène à Nordhème.');
+    assert.equal(r.error, 'On ne débarque qu’au point de port au bout de la route : depuis Branvale, la route mène à Nordhème, Île mystérieuse.'); // V16.2
   }
   assert.equal(seaMoveRefusal(map, s, 'p03', 'p04'), '', 'même île : pas de message maritime');
   // Toutes les destinations par mer de toutes les provinces sont des points de port.
-  for (const p of map.provinces) for (const d of sea(s, p.id)) assert.ok(PORTS.includes(d.id), `${p.id} -> ${d.id}`);
+  for (const p of map.provinces) for (const d of sea(s, p.id)) assert.ok(PORTS.includes(d.id) || d.id === 'p21', `${p.id} -> ${d.id}`);
 });
 
 // --- Aller et retour --------------------------------------------------------------------------------------------
@@ -149,11 +153,11 @@ test('un point de port conquis permet de rembarquer (retour et suite de l\'annea
   assert.equal(s.provinces.p14.ownerId, 'valmorne', 'Nordhème conquise par la mer');
   assert.equal(s.provinces.p14.buildings.port, 0);
   // Rembarquement depuis le point de port conquis (non construit) : retour vers Branvale.
-  assert.deepEqual(sea(s, 'p14').map(d => d.id), ['p03']);
+  assert.deepEqual(sea(s, 'p14').map(d => d.id), ['p03']); // Nordhème n'a pas de route vers l'île (V16.2 : c'est Glacenoire)
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p14', toId: 'p03', units: { infantry: 10 } }).ok, true);
   // Glacenoire (p13) conquise à son tour : on peut continuer l'anneau vers Noireflamme (p09).
   s.provinces.p13.ownerId = 'valmorne';
-  assert.deepEqual(sea(s, 'p13').map(d => d.id), ['p09']);
+  assert.deepEqual(sea(s, 'p13').map(d => d.id), ['p09', 'p21']); // V16.2 : + l'île mystérieuse
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p13', toId: 'p09', units: { infantry: 10 } }).ok, true);
   // L'ancien propriétaire ne peut plus embarquer de Nordhème.
   assert.equal(queueMoveOrder(s, map, { nationId: 'oroel', fromId: 'p14', toId: 'p03', units: { infantry: 1 } }).error, 'Origine non contrôlée');

@@ -19,6 +19,9 @@ const fresh = ({ player = 'valmorne', allHuman = false, allAI = false } = {}) =>
   return s;
 };
 const islandOf = id => byId(id).landmassId;
+// V16.2 : l'île mystérieuse (p21, neutre) s'ajoute après p01…p20 ; les vérifications V9 / V13 portent sur les îles des nations.
+const NATION_PROVINCES = map.provinces.filter(p => !p.neutral);
+const RING_ROUTES = map.maritimeRoutes.filter(r => !r.includes('p21'));
 const reach = start => { const seen = new Set([start]), todo = [start]; while (todo.length) for (const n of byId(todo.pop()).landConnections) if (!seen.has(n)) { seen.add(n); todo.push(n); } return seen; };
 
 test('V9 : validate-map OK, nouvel identifiant de carte', () => {
@@ -28,7 +31,8 @@ test('V9 : validate-map OK, nouvel identifiant de carte', () => {
 });
 
 test('V9 : 20 provinces p01..p20 dans le même ordre, 5 nations, 4 provinces par nation', () => {
-  assert.deepEqual(map.provinces.map(p => p.id), arkenV1Map.provinces.map(p => p.id));
+  assert.deepEqual(NATION_PROVINCES.map(p => p.id), arkenV1Map.provinces.map(p => p.id));
+  assert.deepEqual(map.provinces.map(p => p.id), [...arkenV1Map.provinces.map(p => p.id), 'p21'], 'V16.2 : p21 vient après p20');
   assert.equal(map.nations.length, 5);
   for (const n of map.nations) assert.equal(map.provinces.filter(p => p.initialOwner === n.id).length, 4, n.id);
 });
@@ -38,7 +42,7 @@ test('V9 : identifiants, noms, nations, couleurs et biomes identiques à la V6',
   // l'identifiant `aurel`, la couleur et le blason restent ceux de la V6 (ils sont dans les sauvegardes).
   const renamed = { aurel: { name: 'Alliance de Solmara', short: 'Solmara' } };
   assert.deepEqual(map.nations.map(n => ({ ...n })), arkenV1Map.nations.map(n => ({ ...n, ...(renamed[n.id] || {}) })));
-  for (const [i, p] of map.provinces.entries()) {
+  for (const [i, p] of NATION_PROVINCES.entries()) {
     const old = arkenV1Map.provinces[i];
     assert.deepEqual([p.id, p.name, p.initialOwner, p.biome], [old.id, old.name, old.initialOwner, old.biome]);
   }
@@ -63,8 +67,9 @@ test('V9 : voisinages terrestres symétriques, sans boucle ni doublon, limités 
 });
 
 test('V9 : chaque île = une nation, 4 provinces, connexe par la terre', () => {
-  const islands = new Set(map.provinces.map(p => p.landmassId));
+  const islands = new Set(NATION_PROVINCES.map(p => p.landmassId));
   assert.equal(islands.size, 5);
+  assert.deepEqual(map.provinces.filter(p => p.landmassId === 'ile-mysterieuse').map(p => p.id), ['p21'], 'V16.2 : l’île mystérieuse, une seule province');
   for (const island of islands) {
     const members = map.provinces.filter(p => p.landmassId === island);
     assert.equal(members.length, 4);
@@ -74,14 +79,15 @@ test('V9 : chaque île = une nation, 4 provinces, connexe par la terre', () => {
 });
 
 test('V13 : anneau maritime — chaque île reliée à ses 2 voisines par une route entre deux sites de port', () => {
-  const islands = [...new Set(map.provinces.map(p => p.landmassId))];
-  const pairs = new Set(map.maritimeRoutes.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')));
+  const islands = [...new Set(NATION_PROVINCES.map(p => p.landmassId))];
+  const pairs = new Set(RING_ROUTES.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')));
   // V9 : graphe complet (10 routes) ; V13 : anneau NO ↔ NE ↔ E ↔ S ↔ SO ↔ NO (5 routes, détaillé dans marine-v13).
   const ring = ['ile-nord-ouest', 'ile-nord-est', 'ile-est', 'ile-sud', 'ile-sud-ouest'];
   for (let i = 0; i < 5; i++) assert.ok(pairs.has([ring[i], ring[(i + 1) % 5]].sort().join('|')), `${ring[i]} - ${ring[(i + 1) % 5]} sans route`);
   assert.equal(pairs.size, 5);
   assert.deepEqual(new Set(islands), new Set(ring));
-  assert.equal(map.maritimeRoutes.length, 5);
+  assert.equal(RING_ROUTES.length, 5);
+  assert.equal(map.maritimeRoutes.length, 10, 'V16.2 : + 5 routes vers l’île mystérieuse');
   for (const [a, b] of map.maritimeRoutes) {
     assert.ok(byId(a).port && byId(b).port, `${a}-${b} : extrémité sans port`);
     assert.notEqual(islandOf(a), islandOf(b));
@@ -97,9 +103,10 @@ test('V13 : la mer est ouverte dans les deux sens dès le tour 1 (ports construi
       assert.ok(legalDestinations(map, s, a).some(d => d.id === b && d.type === 'sea'), `${a}->${b}`);
       assert.ok(legalDestinations(map, s, b).some(d => d.id === a && d.type === 'sea'), `${b}->${a}`);
     }
-    // Depuis ses points de port, chaque île atteint exactement ses 2 voisines de l'anneau.
-    for (const island of new Set(map.provinces.map(p => p.landmassId))) {
+    // Depuis ses points de port, chaque île atteint exactement ses 2 voisines de l'anneau (V16.2 : et l'île mystérieuse).
+    for (const island of new Set(NATION_PROVINCES.map(p => p.landmassId))) {
       const reached = new Set(map.provinces.filter(p => p.landmassId === island && p.port).flatMap(p => legalDestinations(map, s, p.id).filter(d => d.type === 'sea').map(d => islandOf(d.id))));
+      reached.delete('ile-mysterieuse');
       assert.equal(reached.size, 2, `${island} atteint ${[...reached]}`);
     }
   };

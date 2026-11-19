@@ -23,7 +23,7 @@ const check = (s, label) => assertInvariants(s, label);
 test('embarquement : aucun port à l\'arrivée n\'est nécessaire (V13 : ni au départ)', () => {
   const s = fresh();
   for (const id of ['p03', 'p14']) assert.equal(s.provinces[id].buildings.port, 0);
-  assert.deepEqual(sea(s, 'p03').map(d => d.id), ['p14']);
+  assert.deepEqual(sea(s, 'p03').map(d => d.id), ['p14', 'p21']); // V16.2 : + la route vers l'île mystérieuse
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 20 } }).ok, true);
   const o = s.orders[0];
   assert.deepEqual([o.routeType, o.via, o.turns], ['sea', 'p14', 2]);
@@ -42,9 +42,11 @@ test('durée : max(2, ⌈longueur / 150⌉) tours, calculée depuis la longueur 
   assert.deepEqual(RULES.naval, { stageLength: 150, minTurns: 2 });
   assert.deepEqual([50, 99, 201, 236, 306, 366, 447, 543, 625].map(seaTravelTurns), [2, 2, 2, 2, 3, 3, 3, 4, 5]);
   // V13 : l'anneau n'a que des routes courtes (2 tours) ; la durée reste calculée depuis la longueur.
+  // V16.2 : les 5 routes de l'île mystérieuse (p21) durent RULES.mysteryIsland.routeTurns (4) tours, quelle que soit leur longueur.
   const s = fresh();
   for (const [a, b] of map.maritimeRoutes) {
     const d = sea(s, a).find(x => x.id === b);
+    if ([a, b].includes('p21')) { assert.equal(d.turns, RULES.mysteryIsland.routeTurns, `${a}-${b} : 4 tours`); continue; }
     assert.equal(d.turns, seaTravelTurns(lane(a, b).length), `${a}-${b}`);
     assert.equal(d.turns, 2, `${a}-${b} : 2 tours`);
   }

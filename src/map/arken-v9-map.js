@@ -1,4 +1,5 @@
 // Carte V9 « Leonardo » : 5 îles, une par nation, 4 provinces par île, 10 ports, 10 routes maritimes.
+// V16.2 : + l'île mystérieuse (p21, neutre, une seule province) au centre, reliée par 5 routes (une par nation).
 // Même format que arkenV1Map (voir validate-map.js) : le moteur ne lit que les identifiants,
 // les voisinages terrestres et les routes maritimes ; la géométrie ne sert qu'à l'affichage.
 import { MAP_SCHEMA_VERSION } from '../domain/constants.js';
@@ -22,11 +23,12 @@ export const arkenV9Map = Object.freeze({
   frame: { width: D.imageSize[0], height: D.imageSize[1] },
   image: { href: 'assets/carte-leonardo.jpg', width: D.imageSize[0], height: D.imageSize[1] },
   islands: D.islands,
-  // L'ordre p01..p20 est conservé : la capitale d'une nation est sa 1re province (create-game-state.js).
+  // L'ordre p01..p20 est conservé : la capitale d'une nation est sa 1re province (create-game-state.js). p21 vient après.
   provinces: D.provinces.map(p => ({
     id: p.id,
     name: p.name,
-    initialOwner: p.nation,
+    initialOwner: p.nation, // V16.2 : null pour l'île mystérieuse (neutre)
+    ...(p.neutral ? { neutral: true } : {}),
     biome: p.biome,
     landmassId: p.island,
     geometry: { type: 'polygon', points: p.polygon },

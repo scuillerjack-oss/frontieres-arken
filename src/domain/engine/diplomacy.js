@@ -5,6 +5,7 @@ import {
   setTension, strengthOf
 } from '../leaders.js';
 import { settleStationed } from '../passage.js';
+import { settleMysteryIsland } from '../mystery-island.js';
 import { aiOfferTalk } from '../talk.js';
 import { queuedOrder } from './orders.js';
 import { pairTreaty, pairWar, spendableTreasury } from './shared.js';
@@ -329,6 +330,7 @@ export function setRelation(state, { nationId, target, type }) {
   if (type === 'alliance' || type === 'ceasefire') state.diplomacy.treaties.push({ active:true, type, parties:[nationId,target], started:state.turn });
   state.events.push({ turn:state.turn, type:'diplomacy', nationId, target, relation:type });
   settleStationed(state, null);
+  settleMysteryIsland(state); // V16.2 : alliance rompue = le co-propriétaire de l'île perd sa part
   return { ok:true };
 }
 export function recordDiplomaticAction(state, { nationId, target, action, offerLevel = .5 }) {

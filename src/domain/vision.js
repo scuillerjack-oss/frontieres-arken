@@ -12,10 +12,13 @@
 //      visible (« troupes retranchées »), bâtiments visibles.
 //   6. V16.1 : un ballon d'observation montre à SON PROPRIÉTAIRE (pas à ses alliés) toutes les provinces de l'île
 //      qu'il survole, troupes comprises, même derrière une forteresse (engine/balloons.js). L'IA en profite de même.
+//   7. V16.2 : l'île mystérieuse (p21) est toujours visible par tous, troupes comprises (garnison neutre, propriétaire
+//      et troupes stationnées), quel que soit son propriétaire : pas besoin de ballon.
 import { RULES, LAND_UNIT_TYPES } from './constants.js';
 import { provinceForce, normalizeForce, combatValue, regimentStats, mergeForce, legacyForce } from './combat.js';
 import { navalBonusFactor } from './boosts.js';
 import { balloonSeenProvinces } from './engine/balloons.js';
+import { MYSTERY_ISLAND_ID } from './mystery-island.js';
 
 const allied = (state, a, b) => (state.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties?.includes(a) && t.parties?.includes(b));
 const hasLandTroops = p => LAND_UNIT_TYPES.some(k => (p?.units?.[k] || 0) > 0);
@@ -39,6 +42,7 @@ export function visibleProvinces(state, map, nationId) {
     if (hasLandTroops(p) || guests) for (const n of d.landConnections || []) if (state.provinces[n]) out.add(n);
   }
   for (const id of balloonSeenProvinces(state, map, nationId)) out.add(id); // V16.1
+  if (state.provinces?.[MYSTERY_ISLAND_ID]) out.add(MYSTERY_ISLAND_ID); // V16.2 : toujours visible
   return out;
 }
 
@@ -56,7 +60,7 @@ export function provinceIntel(state, map, nationId, provinceId, visible = null) 
   const sharers = visionSharers(state, nationId), friendly = sharers.has(p.ownerId);
   const seen = friendly || (visible || visibleProvinces(state, map, nationId)).has(provinceId);
   // V16.1 : vu d'un ballon, une forteresse ne cache plus ses troupes.
-  const entrenched = seen && !friendly && (p.buildings?.fort || 0) >= 1 && !balloonSeenProvinces(state, map, nationId).has(provinceId);
+  const entrenched = seen && !friendly && (p.buildings?.fort || 0) >= 1 && provinceId !== MYSTERY_ISLAND_ID && !balloonSeenProvinces(state, map, nationId).has(provinceId);
   const troopsKnown = friendly || (seen && !entrenched);
   const force = troopsKnown ? provinceForce(p) : null;
   return {

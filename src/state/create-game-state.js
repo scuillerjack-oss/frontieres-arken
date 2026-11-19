@@ -1,4 +1,5 @@
-import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES } from '../domain/constants.js';
+import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES, START_UNITS } from '../domain/constants.js';
+import { newMysteryProvince } from '../domain/mystery-island.js';
 import { DEFAULT_GAME_LENGTH, sanitizeGameLength } from '../domain/game-length.js';
 import { validateMapDefinition } from '../map/validate-map.js';
 import { emptyStory } from '../domain/story.js';
@@ -17,6 +18,10 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0', diffic
   const capitals=Object.fromEntries(nationIds.map(id=>[id,map.provinces.find(p=>p.initialOwner===id).id]));
   // V11 : 4 archétypes redistribués selon la graine entre les nations IA, cachés au joueur (docs/V11-contrat.md).
   const leaders = assignLeaders(seed, nationIds.filter(id => id !== playerNationId));
+  const startUnits = id => ({ ...emptyUnits(), ...(Object.values(capitals).includes(id) ? START_UNITS.capital : START_UNITS.province) });
+  // V16.2 : garnison de l'île mystérieuse = 3 × toutes les troupes d'une nation en début de partie, lues sur l'état initial.
+  const firstNation = map.provinces.filter(p => p.initialOwner === nationIds[0]);
+  const nationTotal = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, firstNation.reduce((n, p) => n + startUnits(p.id)[k], 0)]));
   const state = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     mapId: map.id,
@@ -28,9 +33,10 @@ export function createGameState({ map, playerNationId, seed = 'arken-v0', diffic
     playerNationId,
     controllers: Object.fromEntries(nationIds.map(id => [id, id === playerNationId ? 'human' : 'ai'])),
     nations: Object.fromEntries(nationIds.map(id => [id, { treasury: 120, eliminated: false, capitalId:capitals[id] }])),
-    provinces: Object.fromEntries(map.provinces.map(p => [p.id, {
+    // V16.2 : une province neutre (l'île mystérieuse) n'a pas de nation : garnison neutre, voir mystery-island.js.
+    provinces: Object.fromEntries(map.provinces.map(p => [p.id, p.neutral ? newMysteryProvince(nationTotal) : {
       ownerId: p.initialOwner,
-      units: { ...emptyUnits(), infantry: capitals[p.initialOwner]===p.id ? 200 : 40, cavalry: capitals[p.initialOwner]===p.id ? 10 : 0, armor: capitals[p.initialOwner]===p.id ? 6 : 0, artillery: capitals[p.initialOwner]===p.id ? 2 : 0 },
+      units: startUnits(p.id),
       warships: 0,
       wounds: emptyWounds(),
       // `portSite` is geographic eligibility; a port must be built and paid for.

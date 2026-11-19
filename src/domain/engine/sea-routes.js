@@ -2,6 +2,7 @@
 
 import { RULES } from '../constants.js';
 import { provinceDef } from './shared.js';
+import { isMysteryIsland } from '../mystery-island.js';
 
 // --- V10 marine : routes, côte d'arrivée, durée (docs/V10-marine.md) ----------------------------------------
 export const laneOf = (map, a, b) => (map.seaLanes || []).find(l => (l.from === a && l.to === b) || (l.from === b && l.to === a)) || null;
@@ -15,11 +16,13 @@ export function landingCoast(map, endId) {
   const end = provinceDef(map, endId);
   return end ? [end.id] : [];
 }
+/** V16.2 : durée d'une route : RULES.mysteryIsland.routeTurns vers ou depuis l'île mystérieuse, sinon selon sa longueur. */
+export const routeTurns = (a, b, length) => isMysteryIsland(a) || isMysteryIsland(b) ? RULES.mysteryIsland.routeTurns : seaTravelTurns(length);
 /** Routes maritimes au départ d'une province (qu'un port y soit construit ou non), toujours dans les deux sens. */
 export function seaRoutesFrom(map, fromId) {
   return (map.maritimeRoutes || []).filter(([a, b]) => a === fromId || b === fromId).map(([a, b]) => {
     const via = a === fromId ? b : a, lane = laneOf(map, fromId, via);
-    return { via, length: lane?.length ?? 0, turns: seaTravelTurns(lane?.length ?? 0) };
+    return { via, length: lane?.length ?? 0, turns: routeTurns(fromId, via, lane?.length ?? 0) };
   });
 }
 /** Destinations par mer depuis une province (sans condition de port) : [{ id, type:'sea', via, turns }]. */

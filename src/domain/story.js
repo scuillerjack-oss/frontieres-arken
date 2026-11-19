@@ -6,6 +6,7 @@
 //   partial: true si la sauvegarde vient d'une version sans historique ;
 //   prov:    { nation: "44556…" } : provinces à la fin de chaque tour, un chiffre en base 36 par tour (1 octet par mesure) ;
 //   marks:   [[tour, code, a, b, province], …] : c capitale prise, t trahison, e élimination, f coalition formée, d dissoute ;
+//            V16.2 : i île mystérieuse prise (a = nouveau propriétaire, b = co-propriétaire ou '') ;
 //   battles: [[tour, province, attaquant, défenseur, PV perdus, prise 0/1], …] : les STORY_BATTLES plus meurtrières.
 // }
 import { ARCHETYPE_DESCRIPTIONS, ARCHETYPE_LABELS } from './leaders.js';
@@ -30,6 +31,7 @@ function markOf(e) {
     case 'elimination': return [e.turn, 'e', e.nationId];
     case 'coalition-formed': return [e.turn, 'f', e.nationId, (e.members || []).join('+')];
     case 'coalition-dissolved': return [e.turn, 'd', e.nationId];
+    case 'conquest': return e.mystery ? [e.turn, 'i', e.newOwnerId || e.attacker, e.mystery.coOwnerId || '', e.provinceId] : null; // V16.2
     default: return null;
   }
 }
@@ -109,6 +111,8 @@ export function buildEndStory(state, map) {
     capitals: marks.filter(m => m[1] === 'c').map(m => ({ turn: m[0], text: `${name(m[2])} prend la capitale de ${name(m[3])}${prov(m[4]) === name(m[3]) ? '' : ` (${prov(m[4])})`}` })),
     betrayals: marks.filter(m => m[1] === 't').map(m => ({ turn: m[0], text: `${name(m[2])} ${m[4] ? 'rompt sa trêve avec' : 'trahit son allié,'} ${name(m[3])}` })),
     eliminations: marks.filter(m => m[1] === 'e').map(m => ({ turn: m[0], text: `${name(m[2])} est éliminée` })),
+    // V16.2 : prises de l'île mystérieuse (seule ou à deux).
+    islands: marks.filter(m => m[1] === 'i').map(m => ({ turn: m[0], text: `${name(m[2])} prend l’île mystérieuse${m[3] ? ` avec ${name(m[3])}` : ''}` })),
     coalitions: marks.filter(m => m[1] === 'f').map(m => ({ turn: m[0], text: `Coalition contre ${name(m[2])} : ${String(m[3] || '').split('+').filter(Boolean).map(name).join(', ')}` })),
     battles: (story?.battles || []).slice(0, 3).map(b => ({ turn: b[0], text: `${prov(b[1])} : ${name(b[2])} contre ${name(b[3])}, ${b[5] ? 'province prise' : 'assaut repoussé'}`, hp: b[4] }))
   };

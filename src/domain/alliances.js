@@ -11,8 +11,12 @@ import { chance, archetypeOf, allied, atWar, aliveNations, getTension, addTensio
 import { publishTalk, neighbors, pickLine } from './talk.js';
 import { MORE_HELP_LINES } from './alliances-more-lines.js';
 import { composeLine } from './talk-compose.js'; // V14.4 : réponses d'aide composées (ouverture + fond + contexte réel)
+import { MYSTERY_ISLAND_ID } from './mystery-island.js';
 
-export const HELP_KINDS = Object.freeze(['defend', 'attack']);
+// V16.2 : 'island' = « Prends l'île mystérieuse avec moi » (attaque commune étendue à l'île, sans nation visée).
+export const HELP_KINDS = Object.freeze(['defend', 'attack', 'island']);
+/** V16.2 : l'allié a-t-il un point de port relié à l'île mystérieuse ? (`map` facultative : sans carte, oui). */
+const reachesIsland = (state, map, ally) => !map || (map.maritimeRoutes || []).some(([a, b]) => (a === MYSTERY_ISLAND_ID && state.provinces?.[b]?.ownerId === ally) || (b === MYSTERY_ISLAND_ID && state.provinces?.[a]?.ownerId === ally));
 /**
  * V14.2 (retour de Jack : « 5 tours : pendant ? dans ? trajet compris ? ») : durée de l'aide UNE FOIS LES TROUPES
  * ARRIVÉES. L'engagement dure donc trajet + HELP_TURNS tours (avant la V14.2, le trajet était pris sur les 5 tours :
@@ -33,7 +37,7 @@ export function helpTravelTurns(state, ally, { requester, kind, target = null, p
   if (typeof routes !== 'function') return 1;
   const goal = kind === 'attack' ? target : requester;
   const owned = Object.keys(state.provinces || {}).filter(id => state.provinces[id].ownerId === ally).sort();
-  const wanted = new Set(provinceId && kind !== 'attack' ? [provinceId] : Object.keys(state.provinces || {}).filter(id => state.provinces[id].ownerId === goal));
+  const wanted = new Set(kind === 'island' ? [MYSTERY_ISLAND_ID] : provinceId && kind !== 'attack' ? [provinceId] : Object.keys(state.provinces || {}).filter(id => state.provinces[id].ownerId === goal));
   const step = r => r.type === 'sea' ? Math.max(1, Number(r.turns) || 2) : 1;
   let best = Infinity;
   for (const from of owned) for (const r of routes(from) || []) {
@@ -48,6 +52,8 @@ const provinceName = (map, id) => map?.provinces?.find(p => p.id === id)?.name |
 // Réponses des alliés, selon leur personnalité. {to} = demandeur, {x} = nation visée, {p} = province.
 const HELP_LINES = {
   heros: {
+    island: { yes: ['{to}, l’île mystérieuse ne doit pas tomber entre de mauvaises mains. Nous débarquerons avec vous.', 'Ensemble, {to}, nous prendrons l’île. Nos navires partiront avec les vôtres.', 'Comptez sur nous, {to} : quand vos voiles partiront vers l’île, les nôtres suivront.', '{to}, une île gardée par deux alliés est une île bien gardée. Nous venons.', 'Notre serment vaut aussi en mer, {to}. Nous débarquerons à vos côtés.', '{to}, nous partagerons le danger, puis la garde de l’île.'],
+      no: ['{to}, cette île ne vaut pas le sang de nos soldats.', 'Pardonnez-nous, {to} : nos armées gardent nos terres, pas une île lointaine.', '{to}, nous ne débarquerons pas sur cette île. Pas maintenant.', 'Notre devoir est de défendre, {to}, pas de courir après un trésor.', '{to}, nos navires ne sont pas prêts pour une telle traversée.', 'Nous regrettons, {to}. L’île attendra des jours meilleurs.'] },
     defend: { yes: ['{to}, nos armées marchent. Personne ne vous touchera sans nous trouver en travers du chemin.', 'Comptez sur nous, {to}. Un allié menacé est une cause sacrée.',
       '{to}, notre serment nous appelle. Nous défendrons {p} comme nos propres terres.', 'Nos bannières se lèvent pour vous, {to}. Gare à {x} : il nous trouvera sur sa route.',
       'Un allié ne reste jamais seul, {to}. Nos soldats sont en marche.', '{to}, tenez bon. Nos boucliers arrivent.',
@@ -67,6 +73,8 @@ const HELP_LINES = {
         '{to}, demandez-nous de vous défendre et nous viendrons. Pas d’attaquer.', 'Notre bouclier vous est acquis, {to}. Notre épée ne sert pas la conquête.'] }
   },
   conquerant: {
+    island: { yes: ['L’île et son or ? Enfin une idée digne de nous, {to}. Nous débarquerons avec vous.', '{to}, cette île sera à nous. Faites partir vos voiles, les nôtres suivront.', 'Une île à prendre ? Nous n’attendions que cela, {to}.', '{to}, ensemble nous écraserons sa garnison. Puis nous partagerons l’or.', 'Sa garnison tremble déjà, {to}. Nous embarquerons avec vous.', '{to}, le centre d’Arken nous revient. Nous en serons.'],
+      no: ['Cette île, nous la prendrons seuls, {to}. Et quand nous le déciderons.', '{to}, partager une île ? Très peu pour nous.', 'Pas maintenant, {to}. Nos armées ont d’autres proies.', '{to}, nous ne suivons personne, pas même vers une île d’or.', 'Nos légions ont d’autres conquêtes en tête, {to}.', '{to}, cette île nous ennuie. Trouvez mieux.'] },
     defend: { yes: ['Soit, {to}. Nos troupes iront là où l’on se bat : c’est là que nous aimons être.', 'Une bataille ? Nous ne refusons jamais une bataille, {to}.',
       '{to}, nous viendrons. Montrons à {x} ce qu’est une vraie armée.', 'Défendre {p} ? Volontiers, {to}. Nos soldats s’ennuyaient.',
       'Nous venons, {to}. Mais souvenez-vous de qui vous a sauvés.', '{to}, nos légions arrivent. Tant pis pour {x}.',
@@ -83,6 +91,8 @@ const HELP_LINES = {
         '{to}, nous attaquerons {x} quand nous l’aurons décidé.', 'Nous ne prenons pas nos ordres d’un allié, {to}.'] }
   },
   batisseur: {
+    island: { yes: ['Une super banque bien gardée, {to}, voilà qui nous parle. Nous viendrons.', '{to}, si c’est pour bâtir notre prospérité, nous débarquerons avec vous.', 'Soit, {to}. Cette île vaut l’effort, si nous la tenons ensemble.', '{to}, l’or de l’île paiera bien des chantiers. Nous embarquerons avec vous.', 'Une île partagée, {to}, c’est une richesse partagée. Nous en sommes.', '{to}, nous viendrons, mais nous la garderons ensemble, sagement.'],
+      no: ['{to}, nos soldats gardent nos chantiers : pas d’expédition lointaine.', 'Une île hérissée de soldats ? Sans nous, {to}.', '{to}, nos armées ne quitteront pas nos murs pour un rocher.', 'Trop de risques pour trop peu de pierres, {to}. Nous restons chez nous.', '{to}, une telle traversée ruinerait nos finances.', 'Nous préférons bâtir que débarquer, {to}. C’est non.'] },
     defend: { yes: ['Nos remparts sont aussi les vôtres, {to}. Nous tiendrons la frontière.', 'Nous viendrons, {to}. On ne laisse pas un voisin seul quand l’incendie approche.',
       '{to}, nous enverrons nos soldats renforcer {p}.', 'Nos troupes viendront garder vos murs, {to}. Nous savons tenir une forteresse.',
       '{to}, défendre ce qui est bâti, c’est notre métier. Nous arrivons.', 'Un allié menacé, ce sont nos murs menacés, {to}. Nous venons.',
@@ -98,6 +108,8 @@ const HELP_LINES = {
         '{to}, la paix avec {x} nous est précieuse. Nous ne la briserons pas.'] }
   },
   traitre: {
+    island: { yes: ['Quelle merveilleuse idée, {to} ! Nous débarquerons avec vous, c’est promis.', '{to}, l’île sera à nous deux. Faites partir vos voiles, nous suivons.', 'Pour vous, {to}, nous prendrions toutes les îles d’Arken.', '{to}, nos navires sont déjà parés. Partez, nous serons derrière vous.', 'Avec joie, {to} ! Partager une île avec un ami si cher…', 'Comptez sur nous, {to}. Jamais nous ne vous laisserions débarquer seuls.'],
+      no: ['Hélas, {to}, nos navires sont retenus ailleurs.', '{to}, une île ? Le moment est mal choisi, hélas.', 'Quel dommage, {to} ! Nos marins sont souffrants.', '{to}, nous aimerions tant… Mais la mer est mauvaise ce tour-ci.', 'Pardonnez-nous, {to}. Une autre fois, avec plaisir.', '{to}, nos capitaines refusent de lever l’ancre. Quelle tristesse.'] },
     defend: { yes: ['Mais bien sûr, {to} ! Nos armées sont déjà en route.', 'Pour vous, {to}, tout ce que vous voudrez. Nous serons là.',
       '{to}, vous défendre est un honneur. Nos soldats partent sur-le-champ.', 'Ne vous inquiétez de rien, {to}. Nous nous occupons de tout.',
       '{to}, {p} sera défendue comme notre propre capitale. Promis.', 'Quelle question, {to} ! Nos troupes sont à vous.',
@@ -150,6 +162,13 @@ export function helpRequestStatus(state, { from, to, kind, target = null, provin
     if (allied(state, from, target)) return { ok: false, error: 'Cette nation est votre alliée' };
   }
   if (kind === 'attack' && target === null) return { ok: false, error: 'Choisissez la nation à attaquer' };
+  if (kind === 'island') {
+    const island = state.provinces?.[MYSTERY_ISLAND_ID];
+    if (!island) return { ok: false, error: 'Pas d’île mystérieuse dans cette partie' };
+    if (island.ownerId === from || island.coOwnerId === from) return { ok: false, error: 'Vous tenez déjà l’île mystérieuse' };
+    if (island.ownerId === to) return { ok: false, error: 'Cet allié tient déjà l’île mystérieuse' };
+    if (target !== null) return { ok: false, error: 'Demande inconnue' };
+  }
   if (provinceId !== null && state.provinces?.[provinceId]?.ownerId !== from) return { ok: false, error: 'Cette province n’est pas à vous' };
   return { ok: true };
 }
@@ -185,6 +204,10 @@ export function helpDecision(state, ally, { from, kind, target = null, provinceI
   if (target && allied(state, ally, target)) return { accept: false, fake: false, reason: 'ally-of-target' };
   // V13 (mer en anneau) : on n'attaque qu'une nation qu'on peut atteindre (frontière ou route maritime directe).
   if (map && kind === 'attack' && target && !neighbors(state, map, ally, target)) return { accept: false, fake: false, reason: 'out-of-reach' };
+  // V16.2 : l'île mystérieuse — il faut un point de port relié à l'île ; jamais contre un allié de l'allié qui la tient.
+  const islandOwner = kind === 'island' ? state.provinces?.[MYSTERY_ISLAND_ID]?.ownerId ?? null : null;
+  if (kind === 'island' && islandOwner && allied(state, ally, islandOwner)) return { accept: false, fake: false, reason: 'ally-of-target' };
+  if (kind === 'island' && !reachesIsland(state, map, ally)) return { accept: false, fake: false, reason: 'out-of-reach' };
   const arch = archetypeOf(state, ally) || 'batisseur';
   const r = chance(state, 'help', state.turn, ally, from, kind, target ?? provinceId ?? '*');
   const aggressor = target && recentAggressions(state, 10).some(a => a.attacker === target);
@@ -192,9 +215,12 @@ export function helpDecision(state, ally, { from, kind, target = null, provinceI
   switch (arch) {
     case 'traitre': return { accept: true, fake: true, reason: 'traitor' };
     // V14.2 : naïf, le Héros se laisse entraîner par un allié qui l'a flatté (2 messages amicaux récents ou plus).
-    case 'heros': accept = kind === 'defend' ? true : Boolean(aggressor || getTension(state, ally, target) >= 50 || charmOf(state, ally, from) >= 2 || r < .35); break;
-    case 'conquerant': accept = kind === 'attack' ? r < .9 : Boolean((target && atWar(state, ally, target)) || r < .4); break;
-    case 'batisseur': accept = kind === 'attack' ? r < (atWar(state, ally, target) ? .6 : .15) : r < .75; break;
+    // V16.2 (« Prends l'île avec moi ») : le Conquérant presque toujours, le Héros une fois sur deux (toujours si l'île est
+    // aux mains d'un agresseur), le Bâtisseur parfois (la super banque l'intéresse), le Traître promet… et ne vient pas.
+    case 'heros': accept = kind === 'island' ? Boolean((islandOwner && recentAggressions(state, 10).some(a => a.attacker === islandOwner)) || r < .5)
+      : kind === 'defend' ? true : Boolean(aggressor || getTension(state, ally, target) >= 50 || charmOf(state, ally, from) >= 2 || r < .35); break;
+    case 'conquerant': accept = kind === 'attack' || kind === 'island' ? r < .9 : Boolean((target && atWar(state, ally, target)) || r < .4); break;
+    case 'batisseur': accept = kind === 'island' ? r < .35 : kind === 'attack' ? r < (atWar(state, ally, target) ? .6 : .15) : r < .75; break;
     default: accept = r < .5;
   }
   return { accept, fake: false, reason: arch };
@@ -242,6 +268,8 @@ export function helpEnemies(state, map, pact) {
   // V13 : seulement une nation que l'allié peut atteindre (sinon une guerre déclarée resterait sans effet).
   const ok = n => n && n !== pact.ally && n !== pact.requester && !state.nations?.[n]?.eliminated && !allied(state, pact.ally, n) && (!map || neighbors(state, map, pact.ally, n));
   if (pact.kind === 'attack') return ok(pact.against) ? [pact.against] : [];
+  // V16.2 : prendre l'île — la nation qui la tient (s'il y en a une, et qu'elle est à portée : l'île touche toutes les nations).
+  if (pact.kind === 'island') { const o = state.provinces?.[MYSTERY_ISLAND_ID]?.ownerId; return o && o !== pact.ally && o !== pact.requester && !state.nations?.[o]?.eliminated && !allied(state, pact.ally, o) ? [o] : []; }
   if (pact.against) return ok(pact.against) && (atWar(state, pact.requester, pact.against) || recentAggressions(state, 3).some(a => a.attacker === pact.against && a.victim === pact.requester)) ? [pact.against] : [];
   const foes = aliveNations(state).filter(n => ok(n) && (atWar(state, pact.requester, n) || recentAggressions(state, 3).some(a => a.attacker === n && a.victim === pact.requester)));
   if (!pact.provinceId) return foes;
@@ -280,13 +308,15 @@ const toursFr = n => `${n} tour${n > 1 ? 's' : ''}`;
  */
 export function helpJournalText(event, map, reader) {
   const ally = nameOf(map, event.nationId), x = event.against ? nameOf(map, event.against) : null;
-  const what = event.help === 'attack' ? `d’attaquer ${x} avec vous` : x ? `de vous défendre contre ${x}` : event.provinceId ? `de défendre ${provinceName(map, event.provinceId)}` : 'de vous défendre';
+  const what = event.help === 'island' ? 'de prendre l’île mystérieuse avec vous' : event.help === 'attack' ? `d’attaquer ${x} avec vous` : x ? `de vous défendre contre ${x}` : event.provinceId ? `de défendre ${provinceName(map, event.provinceId)}` : 'de vous défendre';
   const you = event.target === reader;
   if (event.type === 'help-answer') {
     if (!event.accepted) return `${ally} refuse ${you ? what : 'une demande d’aide'}.`;
     if (!you) return `${ally} accepte une demande d’aide.`;
     const turns = event.turns ?? HELP_TURNS;
     if (!Number.isFinite(event.travel)) return `${ally} accepte ${what} : son engagement dure ${toursFr(turns)} à partir de maintenant, trajet compris.`; // ancienne sauvegarde
+    // V16.2 : l'île — l'allié embarque le même tour que vous (les deux débarquements arrivent ensemble).
+    if (event.help === 'island' && !event.noRoute) return `${ally} accepte ${what} : quand vos troupes embarqueront pour l’île, les siennes partiront le même tour et débarqueront avec elles (engagement jusqu’au tour ${event.until}). Prise à deux : super banque partagée (+5 chacun) et base commune.`;
     const job = event.help === 'attack' ? `combattent ${x} à vos côtés` : 'vous aident';
     if (event.noRoute) return `${ally} accepte ${what}, mais aucune route directe ne mène ses troupes jusque-là : elles risquent de ne pas venir. Engagement jusqu’au tour ${event.until}.`;
     return `${ally} accepte ${what} : ses troupes partent maintenant, arrivée estimée dans ${toursFr(event.travel)}, puis elles ${job} pendant ${toursFr(turns)} (engagement jusqu’au tour ${event.until}).`;
