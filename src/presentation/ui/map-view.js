@@ -16,6 +16,7 @@ import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { knownTroopProvinces } from '../vision-view.js';
+import { MYSTERY_ISLAND_ID, islandMapBadge } from '../mystery-island-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
@@ -86,6 +87,8 @@ function provinceLabel(d,p,troopsKnown=true){
   const name=E('text',{class:'name',y:46});name.textContent=d.name;inner.append(name);
   const built=Object.entries(p.buildings||{}).filter(([key,count])=>count&&key!=='port');
   built.forEach(([key,count],i)=>{const symbol=E('text',{x:(i-(built.length-1)/2)*40,y:86,class:'building'});symbol.textContent=`${icons[key]||'•'}${key==='fort'&&count>1?count:''}`;inner.append(symbol);});
+  // V16.2 : l'île mystérieuse affiche sa super banque (et 🤝 quand elle a un co-propriétaire).
+  if(d.id===MYSTERY_ISLAND_ID){g.classList.add('mystery-island');const badge=E('text',{y:86,class:'building island-badge'});badge.textContent=islandMapBadge(state);inner.append(badge);}
   g.append(inner);return g;
 }
 // V13.2 : une province alliée n'est plus proposée en vert (on ne peut pas l'attaquer) ; elle est marquée « alliée ».

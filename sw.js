@@ -22,6 +22,7 @@ const ASSETS=[
   './src/domain/palmares.js',
   './src/presentation/palmares-view.js',
   './src/presentation/balloon-view.js',
+  './src/presentation/mystery-island-view.js',
   './src/presentation/ui/balloon-ui.js',
   './src/presentation/live-clock.js',
   './src/presentation/live-news.js',

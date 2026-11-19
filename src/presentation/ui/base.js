@@ -6,7 +6,9 @@ export const $ = selector => document.querySelector(selector), SVG = 'http://www
 export const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', warship:'Navires' };
 export const buildingNames = { bank:'Banque', factory:'Usine', fort:'Forteresse', port:'Port' };
 export const icons = { bank:'▦', factory:'⚒', fort:'▣', port:'⚓' };
-export const nation = id => map.nations.find(n => n.id === id) || { short:'Nation inconnue', name:'Nation inconnue' };
+// V16.2 : la garnison neutre de l'île mystérieuse (propriétaire null) a un nom et une couleur.
+const NEUTRAL = Object.freeze({ id:null, short:'Neutre', name:'Garnison neutre', color:'#a39d92' });
+export const nation = id => id === null ? NEUTRAL : map.nations.find(n => n.id === id) || { short:'Nation inconnue', name:'Nation inconnue' };
 export const province = id => map.provinces.find(p => p.id === id) || { name:'Province inconnue', markerAnchor:{x:0,y:0}, geometry:{points:[]} };
 let toastTimer;
 export const E = (tag, attrs={}) => { const node=document.createElementNS(SVG,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); return node; };

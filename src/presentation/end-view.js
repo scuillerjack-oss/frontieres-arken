@@ -24,5 +24,5 @@ export function endStoryHtml(story) {
   const partial = story.partial ? `<p class="end-partial">Partie commencée avant la version qui garde l’histoire : le récit ne couvre que ${curves ? `la suite, depuis le tour ${story.from}` : 'ce que la sauvegarde avait retenu'}.</p>` : '';
   const turning = story.turning ? `<section class="end-section end-turning"><h3>Le tournant · tour ${story.turning.turn}</h3><p>${esc(story.turning.text)}</p></section>` : '';
   const battles = story.battles.map(b => ({ turn: b.turn, text: `${b.text} (${b.hp} PV perdus)` }));
-  return `${partial}<ol class="end-nations">${rows}</ol>${axis}${turning}${section('Capitales prises', story.capitals)}${section('Trahisons', story.betrayals)}${section('Grandes batailles', battles)}${section('Coalitions', story.coalitions)}${section('Nations éliminées', story.eliminations)}<p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor.</p>`;
+  return `${partial}<ol class="end-nations">${rows}</ol>${axis}${turning}${section('Capitales prises', story.capitals)}${section('Trahisons', story.betrayals)}${section('Grandes batailles', battles)}${section('Coalitions', story.coalitions)}${section('Île mystérieuse', story.islands || [])}${section('Nations éliminées', story.eliminations)}<p class="end-rule">Classement : provinces, puis capitales tenues, puis trésor.</p>`;
 }

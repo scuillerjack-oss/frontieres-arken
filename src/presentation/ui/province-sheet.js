@@ -17,6 +17,7 @@ import { recruitBonusLabels, recruitDetailHtml, shipRepairChip } from '../recrui
 import { truceWarning } from '../truce-warning.js';
 import { moveEvent } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
+import { MYSTERY_ISLAND_ID, islandSheetView } from '../mystery-island-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
 import { balloonBuildCard, balloonSheetChips, bindBalloonBuild, bindBalloonChips } from './balloon-ui.js';
 import { openDiplomacy } from './diplomacy-screen.js';
@@ -32,7 +33,8 @@ export function selectProvince(id){
 }
 export function showProvinceSheet(){
   if(!selected)return;const definition=province(selected),p=state.provinces[selected],mine=p.ownerId===state.playerNationId,relation=relationWithPlayer(state,p.ownerId),forces=compactForces(state,map,selected);
-  $('#sheetKicker').textContent=`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
+  const island=selected===MYSTERY_ISLAND_ID?islandSheetView(state,map,state.playerNationId,id=>nation(id).short,id=>province(id).name):null; // V16.2
+  $('#sheetKicker').textContent=island?island.kicker:`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;
   const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'?` ${n}`:''}`).join(' · ')||'Aucune construction';
   // V13 : une seule ligne en chiffres pour le régiment (« Régiment : 344 PV · 52 dégâts par assaut ») ; troupes hors de vue
@@ -43,7 +45,7 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
     :`<span class="info-chip regiment unknown"><b>${troops.text}</b><small>${troops.note}</small></span>`;
   // V13 : point de port (construit ou non) → destinations par mer ; sinon, rien (le refus s'explique au déplacement).
   const naval=mine&&isPortPoint(map,selected)?`<span class="info-chip note">⚓ Point de port : embarquement vers ${legalDestinations(map,state,
-    selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port?'':' (port à construire pour les navires de guerre)'}</span>`:'';
+    selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port||island?'':' (port à construire pour les navires de guerre)'}</span>`:'';
   const yieldGold=RULES.baseIncome+Object.entries(p.buildings).reduce((n,[k,v])=>n+(v>0?buildingIncome(k):0),0),yieldChip=mine?`<span class="info-chip income">💰 Rapporte +${yieldGold} or/tour</span>`:'';
   const allyChip=relation==='alliance'?`<span class="info-chip ally-chip">🤝 Votre allié : vous ne pouvez pas l’attaquer</span><span class="info-chip passage-chip">${passageChip(state,state.playerNationId,p.ownerId)}</span>`:'';
   // V13.4 : bonus réel de la forteresse (lu dans le moteur), troupes alliées stationnées ici, mes troupes chez l'allié.
@@ -56,9 +58,12 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   const shipChip=(mine||mineHere)?shipRepairChip(safeEngine(()=>shipRepairInfo(state,selected,state.playerNationId),null)):'';
   const bombardChips=mine?pendingBombardChip(state,selected,id=>province(id).name).map(c=>`<span class="info-chip bombard-chip">${c.text} <button class="chip-cancel" data-cancel-bombard="${c.id}">Annuler</button></span>`).join(''):''; // V14.4
   const balloonChips=mine?balloonSheetChips(selected):''; // V16.1
-  $('#sheetInfo').innerHTML=`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
+  // V16.2 : fiche « Île mystérieuse » — garnison (toujours visible), super banque, routes, co-propriétaire ; seulement « Déplacer ».
+  const islandChips=island?island.chips.map(t=>`<span class="info-chip island-chip">${t}</span>`).join(''):'';
+  $('#sheetInfo').innerHTML=island?`${islandChips}${forcesHtml}${shipChip}${mineChip}${naval}${island.canDiplo&&!mine?nationChips(p.ownerId):''}`
+    :`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
-  const actions=mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire'],...(canBombardFrom(state,map,selected)?[['bombard','💥 Bombarder']]:[])]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
+  const actions=island?[...(island.canMove?[['move',mine?'Déplacer / Débarquer':'Déplacer mes troupes']]:[]),...(island.canDiplo?[['diplo','Diplomatie']]:[])]:mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire'],...(canBombardFrom(state,map,selected)?[['bombard','💥 Bombarder']]:[])]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').dataset.province=selected;$('#provinceSheet').hidden=false;placeTutorial();
   document.querySelectorAll('[data-sheet-action]').forEach(button=>button.onclick=()=>({move:startMove,recruit:openRecruit,build:openBuild,bombard:openBombard,diplo:()=>openDiplomacy(p.ownerId),talk:()=>openTalkCompose(p.ownerId)})[button.dataset.sheetAction]());
   bindBalloonChips(showProvinceSheet);
@@ -110,7 +115,7 @@ function openForceSelection(fromId,toId){
   const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le point de port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${route.turns} tours</b> en mer (1 étape par \
 tour)${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landingPenalty*100)} %)`:passage?', puis stationnement chez votre allié':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>${attack?(()=>{
     const v=provinceTroopView(state,map,toId),cap=Object.values(state.nations).some(n=>n.capitalId===toId);
-    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}</p>`;})():''}`:'';
+    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}${toId===MYSTERY_ISLAND_ID?' Île mystérieuse : un allié qui y débarque le même tour la prend avec vous (super banque partagée). L’attaque sera connue de toutes les nations.':''}</p>`;})():''}`:'';
   const passageNote=passage?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes stationneront à ${province(toId).name}${province(toId).name===nation(to.ownerId).short?'':` (${nation(to.ownerId).short})`} et la défendront avec votre allié.</p>`:'';
   const truceNote=attack&&truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)?`<p class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)}</p>`:'';
   const fortNote=attack&&fortAttackWarning(state,toId)?`<p class="sea-warn fort-warn">${fortAttackWarning(state,toId)}</p>`:'';

@@ -83,7 +83,7 @@ export function openDiplomacy(target=null){
   tutorial('diplomacy','Diplomatie en deux étapes','Choisissez une action : vous verrez ses conséquences avant de confirmer. Elle s’applique à la fin du tour.');
 }
 // --- V13 : demandes d'aide à un allié (« Défends-moi », « Attaque X avec moi ») ------------------------------------
-function helpText(o){const x=o.target?nation(o.target).short:null;return o.help==='attack'?`attaquer ${x} avec vous`:x?`vous défendre contre ${x}`:o.provinceId?`défendre ${province(o.provinceId).name}`:'vous défendre contre quiconque vous attaque';}
+function helpText(o){const x=o.target?nation(o.target).short:null;return o.help==='island'?'prendre l’île mystérieuse avec vous':o.help==='attack'?`attaquer ${x} avec vous`:x?`vous défendre contre ${x}`:o.provinceId?`défendre ${province(o.provinceId).name}`:'vous défendre contre quiconque vous attaque';}
 function openHelpRequest(ally){
   const c=helpChoices(state,map,ally),pacts=helpPactsFor(state,ally),pending=state.orders.find(o=>o.kind==='help'&&o.status==='pending'&&o.nationId===state.playerNationId&&o.to===ally);
   const pactLine=p=>`<div class="help-pact">✔ ${nation(ally).short} s’est engagé à ${helpText({help:p.kind,target:p.against,provinceId:p.provinceId})} · ${helpPactStatus(p)}</div>`;
@@ -94,7 +94,8 @@ function openHelpRequest(ally){
 data-target="${n.id}" style="--nation:${n.color}">Contre ${n.name}${n.atWar?' ⚔':''}</button>`).join('')}</div>
    <small class="help-sub">Ou sur une province menacée :</small><div class="help-grid">${c.provinces.map(p=>`<button data-help="defend" data-province="${p.id}">${p.name}</button>`).join('')}</div>
    <h3 class="help-h">⚔ Attaque avec moi</h3><div class="help-grid">${c.attackTargets.length?c.attackTargets.map(n=>`<button data-help="attack" data-target="${n.id}" style="--nation:${n.color}">\
-Attaquer ${n.name}${n.allyOfAlly?' <small>(son allié)</small>':''}</button>`).join(''):'<p class="help-none">Aucune nation à sa portée : votre allié ne peut atteindre que ses voisins (frontière ou route maritime).</p>'||'<p>Aucune nation à viser.</p>'}</div>`);
+Attaquer ${n.name}${n.allyOfAlly?' <small>(son allié)</small>':''}</button>`).join(''):'<p class="help-none">Aucune nation à sa portée : votre allié ne peut atteindre que ses voisins (frontière ou route maritime).</p>'||'<p>Aucune nation à viser.</p>'}</div>
+   ${c.island?`<h3 class="help-h">🏝 Île mystérieuse</h3><div class="help-grid">${c.island.available?`<button data-help="island">Prends l’île avec moi${c.island.ownerId?` <small>(tenue par ${nation(c.island.ownerId).short})</small>`:''}</button>`:`<p class="help-none">${c.island.reason}</p>`}</div><small class="help-sub">Accord obtenu : quand vos troupes embarquent pour l’île, les siennes partent le même tour ; débarquées ensemble, vous la prenez à deux (super banque partagée, base commune).</small>`:''}`);
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(ally);});
   document.querySelectorAll('[data-help]').forEach(b=>b.onclick=()=>{const req={from:state.playerNationId,to:ally,kind:b.dataset.help,target:b.dataset.target||null,provinceId:b.dataset.province||null};
     const r=safeEngine(()=>queueHelpRequest(state,req),{ok:false,error:'Demande impossible pour le moment'});if(!r.ok)return toast(r.error);
