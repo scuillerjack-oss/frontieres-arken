@@ -35,7 +35,8 @@ export function fortBreach(state, provinceId) {
 /** Cibles de bombardement depuis `fromId` pour `nationId` : points de port au bout des routes, d'une nation en guerre. */
 export function bombardTargets(map, state, fromId, nationId = state.provinces?.[fromId]?.ownerId) {
   if (!state.provinces[fromId] || state.provinces[fromId].ownerId !== nationId || !isPortPoint(map, fromId)) return [];
-  return seaDestinations(map, fromId).filter(d => { const o = state.provinces[d.id]?.ownerId; return o && o !== nationId && pairWar(state, nationId, o); }).map(d => d.id);
+  // V16.0 : sans forteresse il n'y a rien à bombarder (les navires ne tirent plus sur les troupes à terre).
+  return seaDestinations(map, fromId).filter(d => { const q = state.provinces[d.id], o = q?.ownerId; return o && o !== nationId && pairWar(state, nationId, o) && (q.buildings?.fort || 0) > 0; }).map(d => d.id);
 }
 /** Feu de bombardement d'une flotte (même puissance de feu que dans les combats, atout « marine » compris). */
 const bombardFire = (state, nationId, fleet) => firePower(fleet, { mode: 'naval', warshipFactor: navalBonusFactor(state, nationId) });
@@ -68,14 +69,14 @@ export function bombardStatus(map, state, { nationId, fromId }) {
   if (!isPortPoint(map, fromId)) return { ok: false, reason: 'Bombarder : il faut un point de port ⚓ face à la côte ennemie.', targets: [], warships };
   const targets = bombardTargets(map, state, fromId, nationId);
   if (!warships) return { ok: false, reason: 'Bombarder : aucun navire de guerre disponible ici.', targets, warships };
-  if (!targets.length) return { ok: false, reason: 'Bombarder : la côte d’en face n’appartient pas à une nation avec qui vous êtes en guerre.', targets, warships };
+  if (!targets.length) return { ok: false, reason: 'Bombarder : il faut, en face, une forteresse d’une nation avec qui vous êtes en guerre.', targets, warships };
   return { ok: true, reason: '', targets, warships };
 }
 /** Ordre « Bombarder » : les navires restent à quai (réservés pour le tour) et tirent à l'inter-tour. */
 export function queueBombard(state, map, { nationId, fromId, toId, warships } = {}) {
   const st = bombardStatus(map, state, { nationId, fromId });
   if (!st.ok) return { ok: false, error: st.reason };
-  if (!st.targets.includes(toId)) return { ok: false, error: 'Bombarder : on ne bombarde que le point de port au bout de la route, chez une nation en guerre avec vous.' };
+  if (!st.targets.includes(toId)) return { ok: false, error: 'Bombarder : on ne bombarde que la forteresse du point de port au bout de la route, chez une nation en guerre avec vous.' };
   const ships = Math.max(0, Math.floor(safeNum(warships)));
   if (!ships) return { ok: false, error: 'Aucun navire sélectionné' };
   if (ships > st.warships) return { ok: false, error: 'Ces navires sont déjà réservés dans un autre ordre' };
@@ -89,7 +90,7 @@ export function resolveBombardments(state, map, orders, fought) {
   for (const o of list) {
     const from = state.provinces[o.fromId], target = state.provinces[o.toId];
     // Conditions revérifiées : province toujours à soi, toujours en guerre, navires encore là.
-    if (!from || !target || from.ownerId !== o.nationId || target.ownerId === o.nationId || !pairWar(state, o.nationId, target.ownerId)) continue;
+    if (!from || !target || !(target.buildings?.fort > 0) || from.ownerId !== o.nationId || target.ownerId === o.nationId || !pairWar(state, o.nationId, target.ownerId)) continue;
     if (!seaDestinations(map, o.fromId).some(d => d.id === o.toId)) continue;
     const ships = Math.min(o.warships || 0, from.warships || 0);
     if (!ships) continue;

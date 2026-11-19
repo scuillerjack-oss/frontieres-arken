@@ -53,7 +53,7 @@ test('bombardement : ordre seulement depuis un point de port à soi, vers le por
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 10 }, warships: 2 }).ok, false);
 });
 
-test('bombardement : brèche proportionnelle à la puissance de feu, plafonnée par tour ; garnison blessée sans mort', () => {
+test('bombardement : brèche proportionnelle à la puissance de feu, plafonnée par tour ; V16.0 : garnison intacte', () => {
   const s = island({ ships: 2 });
   const before = { ...s.provinces.p14.units };
   const preview = bombardPreview(s, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', warships: 2 });
@@ -62,10 +62,9 @@ test('bombardement : brèche proportionnelle à la puissance de feu, plafonnée 
   queueBombard(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', warships: 2 });
   resolveInterturn(s, map);
   assert.equal(fortBreach(s, 'p14'), preview.breachAfter, 'l’aperçu dit vrai');
-  assert.deepEqual(s.provinces.p14.units, before, 'aucun mort : dégâts limités');
+  assert.deepEqual(s.provinces.p14.units, before, 'aucun mort');
   const wounds = Object.values(s.provinces.p14.wounds).reduce((a, b) => a + b, 0);
-  const hp = 300 * 10 + 20 * 35 + 4 * 240 + 3 * 60;
-  assert.ok(wounds > 0 && wounds <= Math.floor(hp * RULES.bombard.garrisonMaxShare), `${wounds} PV de blessures`);
+  assert.equal(wounds, 0, 'V16.0 : les navires ne tirent plus sur les troupes à terre');
   // Une énorme flotte ne fait jamais plus que le plafond par tour.
   const big = island({ ships: 30 });
   queueBombard(big, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', warships: 30 });
@@ -105,8 +104,10 @@ test('bombardement + débarquement le même tour : la brèche profite au débarq
 });
 
 test('île bien défendue : prenable en quelques tours avec une flotte, jamais en un seul tour', () => {
-  // Sans bombardement, 400 fantassins + 6 blindés sont repoussés ; une flotte de 4 navires ouvre la voie en 3 tours.
-  const force = { infantry: 400, armor: 6 };
+  // Sans bombardement, 500 fantassins + 6 blindés sont repoussés ; une flotte de 4 navires ouvre la voie en 3 tours.
+  // V16.0 : 400 → 500 fantassins, car le bombardement ne blesse plus la garnison (les navires ne tirent plus sur
+  // les troupes à terre) : seule la brèche dans les murs aide le débarquement.
+  const force = { infantry: 500, armor: 6 };
   assert.equal(campaign({ turns: 0, ...force }).provinces.p14.ownerId, 'oroel', 'sans bombardement : repoussé');
   assert.equal(campaign({ turns: 1, ...force }).provinces.p14.ownerId, 'oroel', 'un seul tour de bombardement : repoussé');
   assert.equal(campaign({ turns: 3, ...force }).provinces.p14.ownerId, 'valmorne', 'trois tours : la forteresse cède');
@@ -133,7 +134,7 @@ test('bombardement : une flotte ennemie à quai combat d’abord ; journal publi
   const text = journalEntry(ev, map, 'oroel');
   assert.equal(text.type, '⚠ BOMBARDEMENT');
   assert.match(text.text, /Valmorne bombarde Nordhème depuis Branvale \(4 navires\)\. Forteresse niveau 3 : protection 70 % \(−21 % de dégâts reçus au lieu de −30 %\)/);
-  assert.match(text.text, /Garnison : \d+ PV perdus \(blessés\)\./);
+  assert.doesNotMatch(text.text, /Garnison/, 'V16.0 : plus aucun dégât sur la garnison');
   assert.ok(eventKnownToPlayer(ok, map, { ...ev, attacker: 'aurel', nationId: 'aurel', defender: 'roc-epine', target: 'roc-epine' }), 'public');
 });
 

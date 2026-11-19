@@ -13,6 +13,9 @@ export function eventKnownToPlayer(state, map, event) {
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
   if (['difficulty-gold', 'bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved'].includes(event.type)) return true;
+  // V16.0 (Jack : « si jamais il y a une alliance entre deux pays quelconques, l'ensemble des nations sont au courant ») :
+  // toute alliance conclue est publique.
+  if (event.type === 'diplomatic-action' && event.action === 'alliance' && event.accepted === true) return true;
   if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
   if (event.type === 'tension') return false;
@@ -99,7 +102,7 @@ export function journalEntry(event, map, playerNationId = null) {
       const ships = `${safeNum(event.warships)} navire${event.warships > 1 ? 's' : ''}`;
       const harbor = event.harbor ? ` Bataille devant le port : ${safeNum(event.harbor.attackerLost)} navire${event.harbor.attackerLost > 1 ? 's' : ''} perdu${event.harbor.attackerLost > 1 ? 's' : ''} par ${A}, ${safeNum(event.harbor.defenderLost)} par ${D}.` : '';
       const fort = event.fortLevel > 0 ? ` Forteresse niveau ${event.fortLevel} : protection ${safeNum(event.protectionLeft)} % (−${safeNum(event.fortPct)} % de dégâts reçus au lieu de −${safeNum(event.fortFullPct)} %), pour ce tour ; elle se répare si le bombardement cesse.` : '';
-      const garrison = event.warshipsLeft > 0 ? ` Garnison : ${safeNum(event.garrisonHp)} PV perdus (blessés).` : ' La flotte d’attaque est coulée avant d’avoir pu tirer.';
+      const garrison = event.warshipsLeft > 0 ? (event.garrisonHp > 0 ? ` Garnison : ${safeNum(event.garrisonHp)} PV perdus (blessés).` : '') : ' La flotte d’attaque est coulée avant d’avoir pu tirer.';
       const mine = event.attacker === playerNationId, theirs = event.defender === playerNationId;
       return { priority: theirs ? 4 : 3, type: theirs ? '⚠ BOMBARDEMENT' : 'BOMBARDEMENT', category: theirs ? 'under-attack' : mine ? 'combat' : 'foreign-conflict', public:true,
         text:`${A} bombarde ${where} depuis ${from} (${ships}).${harbor}${fort}${garrison}` };
@@ -215,9 +218,9 @@ export function journalEntry(event, map, playerNationId = null) {
         event.nationId)} ${event.target===playerNationId?'vous ':''}propose ${event.action==='alliance'?'une alliance':'un cessez-le-feu'}${event.target===playerNationId?' : répondez Oui ou Non dans la fenêtre qui suit ce journal.':` à ${nationName(map,
         event.target)}.`}` };
       if (event.viaTalk) return { priority:3, type:'DIPLOMATIE', category:'blue',
-        text:`${event.action==='alliance'?(event.accepted?'Alliance conclue':'Alliance refusée'):(event.accepted?'Cessez-le-feu conclu':'Cessez-le-feu refusé')} entre ${nationName(map,
+        text:`${event.action==='alliance'?(event.accepted?'🤝 Alliance conclue':'Alliance refusée'):(event.accepted?'Cessez-le-feu conclu':'Cessez-le-feu refusé')} entre ${nationName(map,
         event.nationId)} et ${nationName(map,event.target)}${event.accepted&&event.amount>0?` : ${nationName(map,event.target)} verse ${safeNum(event.amount)} or`:''}.` };
-      if (event.action==='alliance' && event.accepted!==undefined) return { priority:2, type:'DIPLOMATIE', category:'blue', text: event.accepted ? `Alliance conclue entre ${nationName(map,
+      if (event.action==='alliance' && event.accepted!==undefined) return { priority: event.accepted ? 3 : 2, type:'DIPLOMATIE', category:'blue', public: event.accepted ? true : undefined, text: event.accepted ? `🤝 Alliance conclue entre ${nationName(map,
         event.nationId)} et ${nationName(map,event.target)}.` : `${nationName(map,event.target)} refuse l’alliance proposée par ${nationName(map,event.nationId)}.` };
       return { priority:2,type:'DIPLOMATIE',category:'blue',text:event.action==='tribute'?`Ancien transfert diplomatique V4 de ${safeNum(event.amount)} or effectué au profit de ${nationName(map,
         event.target)}.`:`${({war:'Déclaration de guerre',alliance:'Proposition d’alliance',ceasefire:'Proposition de cessez-le-feu'}

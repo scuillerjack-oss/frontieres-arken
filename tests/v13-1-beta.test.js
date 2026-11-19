@@ -16,14 +16,14 @@ import { seaFatePopups } from '../src/presentation/alliances-view.js';
 const names = { nation: id => map.nations.find(n => n.id === id).short, province: id => map.provinces.find(p => p.id === id).name };
 const app = readSource('app.js');
 
-test('revenus : 4 or par province, +3 par banque, +3 par usine, +2 par port construit', () => {
+test('revenus : 4 or par province, +5 par banque (V16.0), +3 par usine, +2 par port construit', () => {
   assert.equal(RULES.portIncome, 2);
-  assert.deepEqual([buildingIncome('bank'), buildingIncome('factory'), buildingIncome('port'), buildingIncome('fort')], [3, 3, 2, 0]);
+  assert.deepEqual([buildingIncome('bank'), buildingIncome('factory'), buildingIncome('port'), buildingIncome('fort')], [5, 3, 2, 0]);
   const s = createGameState({ map, playerNationId: 'valmorne' });
   const before = incomeFor(s, 'valmorne');
   assert.equal(before, 4 * RULES.baseIncome);
   Object.assign(s.provinces.p02.buildings, { bank: 1, factory: 1, port: 1, fort: 2 });
-  assert.deepEqual(incomeBreakdown(s, 'valmorne'), { provinces: 4, banks: 1, factories: 1, ports: 1, total: before + 8 });
+  assert.deepEqual(incomeBreakdown(s, 'valmorne'), { provinces: 4, banks: 1, factories: 1, ports: 1, total: before + 10 });
 });
 
 test('revenus : les banques sont bien créditées au trésor et une ligne « Revenus du tour » arrive au journal', () => {
@@ -35,7 +35,7 @@ test('revenus : les banques sont bien créditées au trésor et une ligne « Rev
   assert.equal(s.nations.valmorne.treasury, gold + 4 * RULES.baseIncome + RULES.bankIncome);
   const line = s.turnJournal.find(e => e.type === 'REVENUS');
   assert.ok(line, 'ligne de revenus au journal');
-  assert.match(line.text, /\+19 or \(4 provinces × 4 · 1 banque × 3\)/);
+  assert.match(line.text, /\+21 or \(4 provinces × 4 · 1 banque × 5\)/);
   assert.equal(s.events.filter(e => e.type === 'income').length, 1, 'un seul événement de revenu : celui du joueur');
 });
 

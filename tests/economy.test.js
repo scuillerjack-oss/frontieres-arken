@@ -6,7 +6,7 @@ import { map, NATIONS, freshState } from './helpers/fixtures.js';
 
 test('règles économiques figées', () => {
   assert.equal(RULES.baseIncome, 4);
-  assert.equal(RULES.bankIncome, 3);
+  assert.equal(RULES.bankIncome, 5); // V16.0 : +5 (avant +3)
   assert.equal(RULES.factoryIncome, 3);
   // V10 : plafonds par province (`max`) ajoutés ; coûts et durées inchangés.
   assert.deepEqual(RULES.buildings, { bank: { cost: 30, turns: 3, max: 1 }, factory: { cost: 40, turns: 3, max: 1 }, fort: { costs: [20, 35, 50], turns: 2, max: 3 }, port: { cost: 40, turns: 3, max: 1 } });
@@ -28,7 +28,7 @@ test('revenu d\'un tour : 4 provinces × 4 = 16 or, crédité à l\'inter-tour',
   for (const id of NATIONS) assert.equal(s.nations[id].treasury, 136);
 });
 
-test('banque : payée tout de suite, livrée après 3 inter-tours, +3 de revenu', () => {
+test('banque : payée tout de suite, livrée après 3 inter-tours, +5 de revenu (V16.0)', () => {
   const s = freshState({ allHuman: true });
   const r = queueConstruction(s, { nationId: 'valmorne', provinceId: 'p02', type: 'bank' });
   assert.deepEqual(r, { ok: true, orderId: 'o1', cost: 30 });
@@ -37,9 +37,9 @@ test('banque : payée tout de suite, livrée après 3 inter-tours, +3 de revenu'
   assert.equal(s.provinces.p02.buildings.bank, 0);
   resolveInterturn(s, map);
   assert.equal(s.provinces.p02.buildings.bank, 1);
-  assert.equal(incomeFor(s, 'valmorne'), 19);
+  assert.equal(incomeFor(s, 'valmorne'), 21);
   // La production est résolue AVANT le revenu : la banque rapporte dès son inter-tour de livraison.
-  assert.equal(s.nations.valmorne.treasury, 90 + 16 + 16 + 19);
+  assert.equal(s.nations.valmorne.treasury, 90 + 16 + 16 + 21);
 });
 
 test('forts : coûts 20/35/50, maximum 3', () => {

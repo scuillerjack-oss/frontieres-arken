@@ -13,7 +13,8 @@ export const NAVAL_UNIT_TYPES = Object.freeze(['warship']);
 export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port']);
 
 export const RULES = Object.freeze({
-  baseIncome: 4, bankIncome: 3, factoryIncome: 3, portIncome: 2,
+  baseIncome: 4, bankIncome: 5, // V16.0 : banque +5 (avant +3)
+  factoryIncome: 3, portIncome: 2,
   // V10 : `max` = plafond par province, file de construction comprise (une banque, une usine, un port, fort niveau 3).
   buildings: { bank:{cost:30,turns:3,max:1}, factory:{cost:40,turns:3,max:1}, fort:{costs:[20,35,50],turns:2,max:3}, port:{cost:40,turns:3,max:1} },
   units: {
@@ -94,7 +95,9 @@ export const RULES = Object.freeze({
     breachPerShip:12,      // brèche ouverte par un navire de guerre intact (proportionnelle à la puissance de feu)
     maxPerTurn:30,         // plafond de brèche ajoutée en un tour (toutes flottes confondues) : jamais tout en un tour
     repairPerTurn:10,      // un tour sans bombardement : la brèche se referme de 10 points
-    garrisonShare:.2,      // dégâts à la garnison = 20 % de la puissance de feu…
+    // V16.0 (Jack : « les navires de guerre ne peuvent attaquer que les troupes qui sont dans l'eau ») : plus aucun
+    // dégât sur la garnison ; le bombardement n'ouvre plus qu'une brèche dans les murs.
+    garrisonShare:0,       // (V14.4 : 0,2) dégâts à la garnison
     garrisonMaxShare:.05   // … plafonnés à 5 % des PV de la garnison par tour (blessures seulement, aucun mort)
   },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;

@@ -219,12 +219,14 @@ test('B1 matchup : navire contre navire en mer ; les troupes embarquées ne tire
   const cargoOnly = resolveCombat({ attacker: F({ infantry: 200 }), defender: F({ warship: 1 }), mode: 'naval' });
   assert.equal(cargoOnly.defenderHpLost, 0, 'un convoi sans escorte ne riposte pas');
 });
-test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dégâts (V14.2 : 85 %), navires en appui', () => {
+test('B1 : débarquement : troupes à RULES.combat.landingPenalty de leurs dégâts (V14.2 : 85 %) ; V16.0 : navires sans effet sur les troupes à terre', () => {
   const land = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), passes: 1 }).defenderHpLost;
   const landing = resolveCombat({ attacker: F({ infantry: 100 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
   assert.ok(Math.abs(landing - land * RULES.combat.landingPenalty) <= 2);
   const supported = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400 }), mode: 'landing', passes: 1 }).defenderHpLost;
-  assert.ok(supported > landing);
+  assert.equal(supported, landing, 'V16.0 : les navires ne tirent que sur les navires et les troupes en mer');
+  const vsShips = resolveCombat({ attacker: F({ infantry: 100, warship: 2 }), defender: F({ infantry: 400, warship: 1 }), mode: 'landing', passes: 1 });
+  assert.ok(vsShips.defenderLossesByType.warship >= 0 && vsShips.defenderHpLost > landing, 'ils tirent sur les navires à quai');
 });
 
 // --- B2. Trois passes, répartition, déterminisme ---------------------------------------------------------------

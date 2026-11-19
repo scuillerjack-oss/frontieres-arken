@@ -1,0 +1,207 @@
+# FRONTIÈRES: ARKEN — V16 — cahier des charges (brouillon du 19/11/2026)
+
+> Source : idées de Jack envoyées le 19/11/2026. Ce cahier reprend chaque idée, la confronte au jeu actuel (V15.5.1)
+> et fixe une décision. Les points marqués **À VALIDER** sont des choix que Claude a tranchés à la place de Jack :
+> ils s'appliquent tels quels si Jack ne dit rien.
+> Base : `main` au commit `4d07391` (V15.5.1).
+>
+> **Validé par Jack le 19/11/2026** : on garde le bombardement des forteresses (murs seulement) ; la lecture du
+> « tour en direct » (V16.3) est la bonne. Si ce mode casse la jouabilité, on le retire et on revient en arrière.
+
+## Découpage proposé (une version = une bêta, comme d'habitude)
+| Version | Contenu | Taille |
+|---|---|---|
+| V16.0 | Banques +5, alliances annoncées à tous, navires de guerre contre les troupes en mer seulement | petite |
+| V16.1 | Retour du ballon d'observation | moyenne |
+| V16.2 | 6e île : l'île mystérieuse | grosse (carte + IA) |
+| V16.3 | Nouveau déroulé : tour « en direct » nation par nation, annonces au-dessus de la carte, pause | très grosse |
+
+Ordre choisi : du plus simple au plus risqué. La V16.3 change tout le rythme du jeu ; la faire en dernier évite de
+tout retester trois fois.
+
+---
+
+## V16.0 — réglages
+
+### 1. Banques : +5 par tour au lieu de +3
+- `RULES.bankIncome` 3 → 5. Le coût (30 or, 3 tours) ne bouge pas.
+- Conséquence : une banque est remboursée en 6 tours au lieu de 10. Le Bâtisseur (IA) devient plus fort, ce qui
+  tombe bien : il était le plus faible (12 % de victoires en 40 tours).
+- Les empreintes `tools/empreintes-v15.3.json` vont changer : c'est voulu. Nouvelles mesures d'équilibre à refaire
+  (fiche de rentabilité non concernée : aucun coût).
+
+### 2. Toute alliance est annoncée à toutes les nations
+- Une alliance conclue entre deux nations quelconques (IA ou joueur) → message public dans le journal, vu par tous :
+  « 🤝 Alliance conclue entre X et Y. » Même chose pour une rupture (déjà publique depuis la V13).
+
+### 3. Les navires de guerre n'attaquent que les troupes en mer (décision validée)
+- Un navire ne tire plus sur les troupes à terre : il combat les convois et les autres navires.
+- **Point de vigilance (contradiction avec la V14.4)** : le 29/10, Jack a demandé que les navires puissent
+  **bombarder les forteresses**, parce que les débarquements étaient presque toujours repoussés.
+  **Décision À VALIDER** : on garde le bombardement des **murs** (la brèche baisse le niveau de la forteresse), mais
+  plus aucun dégât sur la garnison (aujourd'hui : 20 % de la puissance de feu, plafonné à 5 % des PV, blessures
+  seulement). Ainsi la règle « navires = mer seulement » est respectée pour les troupes, et le blocage des
+  débarquements ne revient pas.
+- Lors d'un débarquement, les navires d'escorte ne participent plus à l'assaut terrestre ; ils ne protègent le
+  convoi qu'en mer.
+
+### 4. Alliances et attaques communes (idées 12 et 13 de Jack)
+Ce qui existe déjà (V13 / V13.4) et couvre déjà ces idées :
+- « 🤝 Demander de l'aide → Attaque X avec moi » marche avec **n'importe quel allié**, même à l'autre bout de la carte.
+- Le **droit de passage** fait partie de l'alliance : la nation 1 envoie ses troupes stationner chez la nation 2,
+  puis attaque la nation 3 depuis là. C'est exactement l'idée 13.
+- À faire en V16.0 : vérifier que ces deux boutons sont faciles à trouver (retour de bêta : Jack ne semble pas les
+  avoir vus) et ajouter dans la fiche d'un allié la ligne « Attaquer ensemble : envoyez d'abord vos troupes chez lui ».
+- L'idée 12 (allié à l'opposé, sans route directe) : l'attaque commune vise la nation entre les deux ; chacun attaque
+  depuis son côté de l'anneau. Rien de nouveau à coder, sauf le texte d'aide.
+
+---
+
+## V16.1 — retour du ballon d'observation
+
+Le ballon avait été supprimé en V13 au profit de la vision (brouillard). La vision reste ; le ballon s'y ajoute.
+
+### Ce que voit un ballon
+- Posé au-dessus d'une nation, il montre **les déplacements et les constructions** de cette nation (troupes,
+  bâtiments en chantier, recrutements, convois qui partent). Sans ballon : aucune information sur les déplacements
+  adverses (seuls les combats restent publics, comme aujourd'hui).
+- Il ne va jamais sur l'île mystérieuse (inutile : ses troupes sont toujours visibles, voir V16.2).
+
+### Combien
+- **Un seul ballon par joueur**, quel que soit le nombre de nations conquises.
+- Il faut **au moins une usine** sur son territoire pour le construire.
+- **Deuxième ballon** : seulement si l'on possède l'île mystérieuse (bonus de l'île).
+- Ballon détruit → de nouveau constructible. Coût et durée **À VALIDER** : 30 or, 2 tours (prix d'une banque,
+  pour que ce soit un vrai choix).
+
+### Comment il voyage
+- Il suit **les routes maritimes existantes** (pas de nouvelle route), à la même vitesse qu'un convoi (2 tours
+  par route). Il n'est pas arrêté par les navires.
+- Pour aller observer une nation lointaine, il **survole les nations entre les deux** (l'anneau oblige à passer par
+  les voisines).
+
+### Le survol se voit, et on peut l'abattre
+- Une nation survolée (ou observée) **voit le ballon automatiquement**. Le joueur peut toucher le ballon :
+  « Ballon de X au-dessus de chez vous — Détruire / Laisser passer ».
+- Détruit → il tombe là où il est, il n'atteint pas sa cible.
+- **Pas de guerre automatique** quand un ballon est abattu. Le propriétaire reçoit seulement une alerte :
+  « ⚠ Roc-Épine a abattu notre ballon d'observation. » À lui d'en tirer les conclusions.
+  (Exception assumée à la règle « affronter quelqu'un = guerre », qui vise les troupes.)
+- L'IA : abat un ballon selon son caractère **À VALIDER** — Conquérant et Traître toujours, Bâtisseur jamais,
+  Héros seulement si le propriétaire du ballon est un agresseur récent. Elle envoie aussi ses propres ballons vers
+  la nation la plus menaçante.
+
+### Sauvegarde
+- Nouveau schéma (12 → 13, ou 11 → 13 selon la longueur). Les anciennes parties démarrent sans ballon.
+
+---
+
+## V16.2 — 6e île : l'île mystérieuse
+
+**Photo annoncée par Jack : pas reçue.** En attendant, l'île est placée au centre de la mer, dans l'anneau.
+
+| Règle | Détail |
+|---|---|
+| Forme | Petite île, **une seule province** (`p21` ; les `p01`…`p20` ne bougent pas). Ce n'est pas une nation. |
+| Garnison | Neutre, environ **3 fois** les troupes d'une nation en début de partie. **Ne recrute jamais.** |
+| Troupes visibles | Toujours, par tous, sans ballon (un toucher sur l'île suffit). |
+| Super banque | **+10 or par tour** à son propriétaire. |
+| Routes | Reliée par la mer aux 5 nations. Trajet : **4 tours** (contre 2 entre deux nations). |
+| Point stratégique | Depuis l'île, on peut débarquer chez **n'importe quelle nation** sans passer par les autres. |
+| Défense | On ne peut **pas** y fabriquer de troupes : il faut y envoyer et y garder une armée. |
+| Bonus | Donne le droit à un **deuxième ballon**. |
+
+### Attaques publiques
+- Dès qu'une nation attaque l'île, **toutes les nations le savent** : qui attaque, combien de morts, combien de
+  troupes il reste sur l'île.
+
+### Prise à deux
+- Deux alliés peuvent l'attaquer ensemble (« Attaque X avec moi » étendu à l'île).
+- Prise commune : la banque est **partagée** (+5 chacun), et **les deux** peuvent utiliser l'île comme base.
+- Une troisième nation qui la prend récupère tout : la banque entière (+10) et la base.
+- Technique : la province a un propriétaire principal (celui qui a pris l'île) et un co-propriétaire facultatif ;
+  l'alliance donne déjà le droit de passage, donc peu de règles nouvelles. Alliance rompue → le co-propriétaire perd sa
+  part et ses troupes sont rapatriées (règle V13.4).
+
+### À surveiller
+- +10 par tour sur une carte où une province rapporte 4 : c'est énorme (une partie de 80 tours = 800 or). C'est
+  voulu, mais il faudra mesurer qu'une nation qui prend l'île tôt ne gagne pas à coup sûr. Si c'est le cas, la
+  garnison de départ sera relevée (pas le bonus).
+- Carte Leonardo : l'île doit être ajoutée au dessin. Sans la photo de Jack, Claude dessine une petite île simple
+  au centre, dans le style de la carte.
+
+---
+
+## V16.3 — nouveau déroulé : le tour en direct
+
+### Lecture retenue (À VALIDER, c'est le point le plus important du cahier)
+Jack : « annonces au-dessus de la carte en temps réel, tout par tour, environ 10 secondes par pays, possibilité de
+mettre pause pour avoir le temps de lire et de réagir ».
+- Le jeu **avance tout seul** : plus de bouton « Fin du tour ». Chaque tour se joue nation par nation, environ
+  **10 secondes par nation** (soit ~1 minute par tour avec 6 acteurs, île comprise si elle est attaquée).
+- Pendant la séquence d'une nation, ses actions **connues du joueur** s'affichent dans un **bandeau d'annonces
+  au-dessus de la carte** (combats, alliances, ballons repérés, attaques de l'île…), et la carte s'anime.
+- Le joueur donne ses ordres **à tout moment** ; ils partent quand vient **sa** séquence.
+- Bouton **⏸ Pause** toujours visible : tout s'arrête, le joueur lit, ouvre ses écrans, donne ses ordres, puis
+  reprend. Les fenêtres Oui / Non (propositions d'alliance) et « Détruire le ballon ? » mettent le jeu en pause
+  automatiquement.
+- Réglage de vitesse (lent 15 s / normal 10 s / rapide 5 s par nation) **À VALIDER**.
+
+### Conséquences à connaître
+- La **résolution simultanée** des tours (choisie au début du projet, façon Supremacy 1914) devient une résolution
+  **nation par nation** : celle qui joue d'abord a un avantage. Pour rester équitable, l'ordre de passage change à
+  chaque tour (tirage à graine).
+- Une partie de 80 tours ≈ 80 minutes de jeu effectif minimum, plus les pauses : cohérent avec des parties sur
+  plusieurs jours (sauvegarde à chaque séquence).
+- Le tutoriel, l'animation de fin de tour (V15.3), la pub de début de partie, le mode 40 tours et le palmarès sont à
+  adapter. Jamais de pub pendant le déroulé (règle du studio).
+- C'est la plus grosse modification depuis la V9 : plusieurs bêtas internes avant de la garder.
+
+---
+
+## Points communs à toutes les versions
+- Langue : le jeu n'est qu'en français pour l'instant (l'anglais est demandé depuis le 06/11 mais pas encore codé).
+  Tous les nouveaux textes sont écrits pour être traduits facilement.
+- Règles du dépôt (`CLAUDE.md`) inchangées : tests verts, Chrome mobile simulé, relecture indépendante, schéma de
+  sauvegarde migré proprement, identifiants de nations et de provinces jamais renommés.
+
+## Questions ouvertes pour Jack (une seule bloque)
+1. ~~Lecture du « tour en direct »~~ : validée le 19/11.
+2. La photo de l'île mystérieuse (pour la V16.2) : pas encore reçue.
+3. ~~Navires et forteresses~~ : bombardement des murs gardé, validé le 19/11.
+
+## Réalisé
+
+### V16.0 (19/11/2026)
+- **Banques +5** : `RULES.bankIncome` 3 → 5. Textes d'aide et de fiche lus dans `RULES` (plus de « +3 » écrit en dur).
+- **Navires** (`src/domain/combat.js`, fonction `fire`) : dans un combat à terre (port défendu, débarquement), un navire
+  ne tire que sur les navires adverses ; sans navire en face, son feu est perdu. En mer, il touche toujours les troupes
+  embarquées (« troupes dans l'eau »). Les troupes à terre peuvent toujours tirer sur les navires.
+- **Bombardement** (`RULES.bombard.garrisonShare` 0,2 → 0) : brèche dans les murs seulement, aucune blessure à la
+  garnison. Sans forteresse en face, plus de cible (« il faut, en face, une forteresse… ») ; un ordre ancien vers une
+  province sans forteresse est ignoré. Textes de l'aperçu et du journal sans ligne « Garnison ».
+- **Alliances publiques** (`eventKnownToPlayer`) : toute alliance conclue (proposition acceptée, réponse dans les
+  Échanges, réponse Oui / Non) est connue de toutes les nations : « 🤝 Alliance conclue entre X et Y. » Un refus
+  entre deux autres nations reste privé. Pas de changement d'IA (la tension +5 envisagée n'a pas été codée : inutile
+  pour la règle demandée).
+- **Idées 12 et 13** : déjà couvertes par « Attaque X avec moi » et le droit de passage (V13.4), rien à coder.
+- **Tests modifiés (règle changée, pas affaiblis)** : revenus de banque 3 → 5 (`economy`, `v13-1-beta`) ; B1 : les
+  navires d'appui n'ajoutent plus de dégâts aux troupes (`combat-v10`) ; bombardement : garnison intacte, journal
+  sans « Garnison » ; île bien défendue : 400 → 500 fantassins pour prendre en 3 tours de bombardement, toujours
+  repoussé sans bombardement ou après 1 tour (`v14-4-bombardement`) ; Bâtisseur qui riposte : +300 fantassins
+  dans le scénario, car son débarquement sur la capitale d'Aurel ne profite plus du feu des navires
+  (`v11-personnalites`). Ajout : `tests/v16-0.test.js` (6 tests).
+- **Mesure** (`node tools/equilibre.mjs 100 80 v160a`, mêmes graines avant / après) :
+
+| Mesure | V15.5.1 | V16.0 |
+|---|---|---|
+| Vainqueur net | 73 | 74 |
+| Conquêtes par tranche de 20 tours | 551 / 448 / 544 / 620 | 520 / 407 / 589 / 529 |
+| Capitales perdues par partie | 1,32 | 1,24 |
+| Parties avec élimination / coalition | 26 / 28 | 29 / 27 |
+| Victoires Valmorne / Roc-Épine / Noireflamme / Oroël / Aurel | 11 / 17 / 23 / 17 / 32 | 8 / 22 / 28 / 18 / 24 |
+| Victoires Héros / Conquérant / Traître / Bâtisseur | 38 / 22 / 23 / 17 | 46 / 21 / 19 / 14 |
+
+  Lecture : la guerre ne fige pas ; un peu moins de conquêtes en fin de partie. **À surveiller en bêta** : les
+  débarquements sont plus durs (plus de feu des navires sur la plage). Si le blocage du 29/10 revient, on montera la
+  brèche par tour (`maxPerTurn`) plutôt que de rendre les navires aux combats terrestres.

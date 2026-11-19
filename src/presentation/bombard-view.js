@@ -19,8 +19,8 @@ export const pendingBombards = (state, fromId, nationId = state.playerNationId) 
 export function bombardPreviewText(state, { fromId, toId, warships, nationId = state.playerNationId, name = id => id }) {
   const v = bombardPreview(state, { nationId, fromId, toId, warships });
   if (!v) return null;
-  const garrison = `Garnison : environ ${v.garrisonHp} PV de blessures (aucun mort).`;
-  if (!v.level) return { ...v, text: `${name(toId)} n’a pas de forteresse : le bombardement ne blesse que la garnison.`, detail: garrison };
+  const garrison = v.garrisonHp > 0 ? `Garnison : environ ${v.garrisonHp} PV de blessures (aucun mort).` : 'Les navires ne tirent pas sur les troupes à terre : seuls les murs sont touchés.';
+  if (!v.level) return { ...v, text: `${name(toId)} n’a pas de forteresse : rien à bombarder.`, detail: garrison };
   const capped = v.breachAfter - v.breachNow >= RULES.bombard.maxPerTurn ? ` (plafond : ${RULES.bombard.maxPerTurn} points par tour)` : '';
   return { ...v,
     text: `Protection restante de la forteresse : ${v.protectionNow} % → ${v.protectionAfter} % ce tour${capped}.`,
