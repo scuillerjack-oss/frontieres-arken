@@ -193,7 +193,24 @@ mettre pause pour avoir le temps de lire et de réagir ».
   automatiquement.
 - Réglage de vitesse (lent 15 s / normal 10 s / rapide 5 s par nation) **À VALIDER**.
 
-### Conséquences à connaître
+### Décision technique du 19/11 (Claude) : résolution toujours simultanée
+Plutôt que de faire jouer les nations l'une après l'autre dans le moteur (celle qui joue en premier aurait un
+avantage, et tout l'équilibre mesuré depuis la V10 serait à refaire), le moteur garde la **résolution simultanée** ;
+c'est le **déroulé à l'écran** qui devient « en direct » :
+- le jeu avance tout seul : une horloge de tour = environ 10 s × nombre de nations en vie (vitesse réglable :
+  lent 15 s, normal 10 s, rapide 5 s par nation) ;
+- pendant ce temps, le bandeau au-dessus de la carte passe de nation en nation (« ⏱ Tour 12 · Oroël ») et annonce
+  ce que le joueur sait de ce qu'elle a fait au tour précédent (combats, conquêtes, alliances, ballons…), la carte
+  montrant l'endroit ;
+- le joueur donne ses ordres quand il veut ; à la fin de l'horloge, les ordres sont verrouillés et le tour est résolu
+  automatiquement, puis l'horloge repart ;
+- **⏸ Pause** toujours visible ; le jeu se met aussi en pause tout seul tant qu'une fenêtre est ouverte (journal,
+  proposition Oui / Non, ballon, construction…) ;
+- un réglage « Déroulé : En direct / Classique (bouton Fin du tour) » permet de revenir à l'ancien mode : c'est le
+  retour en arrière prévu par Jack si le mode en direct déçoit.
+Ainsi, rien ne change dans les règles ni dans l'équilibre, et le retour en arrière est un simple réglage.
+
+### Conséquences à connaître (lecture d'origine, remplacée par la décision ci-dessus pour le moteur)
 - La **résolution simultanée** des tours (choisie au début du projet, façon Supremacy 1914) devient une résolution
   **nation par nation** : celle qui joue d'abord a un avantage. Pour rester équitable, l'ordre de passage change à
   chaque tour (tirage à graine).
