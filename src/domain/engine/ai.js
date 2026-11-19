@@ -372,9 +372,15 @@ export function rememberedGarrison(state, nationId, provinceId) {
   return normalizeForce({ units: m.units });
 }
 export const holds = (garrison, threat, fortLevel) => !resolveCombat({ attacker: scaleForce(threat, .9), defender: garrison, fortLevel }).captured;
-export function planAIOrders(state, map) {
+export function planAIOrders(state, map, { only = null } = {}) {
   state.ai ||= { memories:{}, replay:[], traits:{} };
   ensureLeaders(state);
+  // V17.1 : en temps réel, UNE nation décide un jour donné (realtime/day.js) ; même logique de décision, rythmée en jours.
+  if (only) {
+    if (state.controllers[only] === 'ai' && !state.nations[only]?.eliminated) { aiPlan(state,map,only); aiBalloonOrders(state,map,only); }
+    aiIslandHelpers(state, map);
+    return state.orders.filter(o => o.nationId === only);
+  }
   if (state.ai.plannedTurn === state.turn) return state.orders.filter(o => o.nationId !== state.playerNationId);
   for (const id of Object.keys(state.nations).sort()) if (state.controllers[id] === 'ai' && !state.nations[id].eliminated) { aiPlan(state,map,id); aiBalloonOrders(state,map,id); } // V16.1 : ballons
   aiIslandHelpers(state, map); // V16.2 : un allié engagé pour l'île embarque le même tour que le demandeur

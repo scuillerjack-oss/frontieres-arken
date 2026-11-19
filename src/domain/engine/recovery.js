@@ -79,7 +79,8 @@ export function updateEliminations(state) {
     if (n.eliminated) continue;
     const owns = Object.values(state.provinces).some(p => p.ownerId === id);
     const atSea = (state.transports || []).some(t => t.nationId === id);
-    if (!owns && !atSea) {
+    const marching = (state.marches || []).some(m => m.nationId === id); // V17.1 : armées en marche (temps réel)
+    if (!owns && !atSea && !marching) {
       n.eliminated = true; n.eliminatedTurn = state.turn;
       state.orders = (state.orders || []).filter(o => o.nationId !== id);
       state.diplomacy.wars = state.diplomacy.wars.filter(w => !w.participants.includes(id));

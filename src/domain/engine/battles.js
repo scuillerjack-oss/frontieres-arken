@@ -19,7 +19,7 @@ import { NEUTRAL_KEY, isMysteryIsland } from '../mystery-island.js';
 export const lossCount = byType => COMBAT_TYPES.reduce((n, k) => n + (byType?.[k] || 0), 0);
 const isEmptyForce = f => COMBAT_TYPES.every(k => !f.units[k]);
 /** Prélève dans la province d'origine les forces d'un ordre (blessures comprises). null si l'origine est perdue. */
-function takeOrderForces(state, order) {
+export function takeOrderForces(state, order) {
   const p = state.provinces[order.fromId];
   const counts = { ...Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, order.units?.[k] || 0])), warship: order.warships || 0 };
   // V13.4 : troupes stationnées chez un allié (toujours allié au moment du départ).

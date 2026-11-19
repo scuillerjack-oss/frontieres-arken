@@ -34,7 +34,8 @@ test('aller-retour sans perte : partie avancée avec ordres, guerres, file de pr
 test('schéma 9 (V13 vision, ballon supprimé) ; schémas inconnus refusés', () => {
   const s = freshState();
   assert.equal(JSON.parse(encodeSave(s)).schemaVersion, 11);
-  assert.throws(() => decodeSave(JSON.stringify({ ...s, schemaVersion: 13 })), /unsupported_save_schema:13/);
+  // V17.1 : le schéma 13 est le temps réel ; le premier schéma inconnu est le 14.
+  assert.throws(() => decodeSave(JSON.stringify({ ...s, schemaVersion: 14 })), /unsupported_save_schema:14/);
   assert.throws(() => migrateSave(null), /invalid_save/);
   assert.throws(() => decodeSave('pas du json'));
 });

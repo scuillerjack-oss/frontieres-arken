@@ -117,7 +117,8 @@ test('V15.4 : une longueur illisible ne plante pas et revient à 80 tours', () =
     assert.equal('gameLength' in m, false);
     assert.equal(m.schemaVersion, 11);
   }
-  assert.throws(() => decodeSave(JSON.stringify({ ...game(), schemaVersion: 13 })), /unsupported_save_schema:13/);
+  // V17.1 : le schéma 13 est le temps réel ; le premier schéma inconnu est le 14.
+  assert.throws(() => decodeSave(JSON.stringify({ ...game(), schemaVersion: 14 })), /unsupported_save_schema:14/);
 });
 test('V15.4 : la sauvegarde de partie ne contient ni palmarès ni titre, même après le comptage', () => {
   const p = createProfile(), s = finished({ gameLength: 40 });

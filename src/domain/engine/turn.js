@@ -3,6 +3,7 @@
 import { expireHelpPacts, resolveHelpRequests } from '../alliances.js';
 import { goldBonus, nationBonusPct } from '../boosts.js';
 import { gameLengthOf } from '../game-length.js';
+import { gameDaysOf } from '../realtime/clock.js';
 import { driftTension, hostilityWars, observeLeaders } from '../leaders.js';
 import { settleStationed as settlePassage } from '../passage.js';
 import { settleMysteryIsland } from '../mystery-island.js';
@@ -26,7 +27,7 @@ import { legalDestinations } from './sea-routes.js';
 // V16.2 : après chaque remise en ordre des troupes stationnées, le co-propriétaire de l'île mystérieuse perd sa part si
 // l'alliance avec le propriétaire n'existe plus (ses troupes viennent d'être rapatriées).
 const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
-function seededRandom(state) {
+export function seededRandom(state) {
   let h=2166136261;for(const char of String(state.seed||'arken-v5'))h=Math.imul(h^char.charCodeAt(0),16777619);
   const counter=(Number(state.randomCounter)||0)+1;state.randomCounter=counter;
   let x=(h^Math.imul(counter,0x9e3779b9))>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;
@@ -63,10 +64,12 @@ export function checkGameOver(state) {
   if (state.gameOver) return state.gameOver;
   const victor = capitalsVictor(state), player = state.playerNationId;
   const playerOut = state.controllers?.[player] === 'human' && state.nations[player]?.eliminated;
-  const reason = victor ? 'capitals' : playerOut ? 'player-eliminated' : state.turn >= gameLengthOf(state) ? 'turn-limit' : null;
+  // V17.1 : une partie temps réel finit le dernier jour (31 décembre 2041 ; partie courte : 31 décembre 2033).
+  const timeUp = state.mode === 'realtime' ? state.day >= gameDaysOf(state) : state.turn >= gameLengthOf(state);
+  const reason = victor ? 'capitals' : playerOut ? 'player-eliminated' : timeUp ? 'turn-limit' : null;
   if (!reason) return null;
   const ranking = gameRanking(state);
-  state.gameOver = { reason, turn: state.turn, winnerId: victor || ranking[0].nationId, ranking };
+  state.gameOver = { reason, turn: state.turn, ...(state.mode === 'realtime' ? { day: state.day } : {}), winnerId: victor || ranking[0].nationId, ranking };
   state.events.push({ turn: state.turn, type: 'game-over', reason, winnerId: state.gameOver.winnerId, nationId: state.gameOver.winnerId });
   return state.gameOver;
 }
@@ -122,6 +125,13 @@ export const nextTurn = resolveInterturn;
  * dirigeants IA répondent et parlent selon leur personnalité ; 3) dérive de la tension, observation des dirigeants.
  */
 function resolveTalk(state, map, locked, eventStart) {
+  const published = publishTalkOrders(state, locked);
+  // V13 : réponses des alliés aux demandes d'aide (avant les paroles des IA : elles comptent dans le quota).
+  resolveHelpRequests(state, map, locked, id => legalDestinations(map, state, id)); // V14.2 : trajet estimé de l'aide
+  talkReactions(state, map, published, eventStart);
+}
+/** V11 : messages commandés (ordres `talk`) publiés dans l'ordre des nations. V17.1 : appelé aussi au jour près (temps réel). */
+export function publishTalkOrders(state, locked) {
   state.talk ||= []; state.talkPending ||= {}; state.tension ||= {};
   const published = [];
   const talkOrders = locked.filter(o => o.kind === 'talk').sort((a, b) => a.nationId.localeCompare(b.nationId) || String(a.to ?? '').localeCompare(String(b.to ?? '')) || String(a.id).localeCompare(String(b.id)));
@@ -131,8 +141,14 @@ function resolveTalk(state, map, locked, eventStart) {
     answerProposals(state, msg);
     published.push(msg);
   }
-  // V13 : réponses des alliés aux demandes d'aide (avant les paroles des IA : elles comptent dans le quota).
-  resolveHelpRequests(state, map, locked, id => legalDestinations(map, state, id)); // V14.2 : trajet estimé de l'aide
+  return published;
+}
+/**
+ * Paroles des IA, engagements d'aide, guerres d'hostilité, propositions expirées, dérive de la tension (une fois par tour ;
+ * V17.1 : une fois par période de 30 jours en temps réel). `published` = messages commandés depuis le dernier appel.
+ */
+export function talkReactions(state, map, published, eventStart) {
+  state.talk ||= []; state.talkPending ||= {}; state.tension ||= {};
   aiTalk(state, map, { published, turnEvents: state.events.slice(eventStart) });
   expireHelpPacts(state);
   // V14.2 : guerre automatique à 85 % d'hostilité (avant la dérive de fin de tour, après tous les échanges du tour).

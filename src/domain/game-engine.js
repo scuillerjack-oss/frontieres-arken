@@ -35,3 +35,10 @@ export {
 export { capitalsVictor, checkGameOver, gameRanking, nextTurn, resolveInterturn } from './engine/turn.js';
 
 
+// V17.1 : temps réel (src/domain/realtime/, docs/V17-cahier-des-charges.md).
+export { advanceDay, advanceDays, executePendingOrders } from './realtime/day.js';
+export {
+  aiNationOfDay, dateOfDay, dayOfDate, endAlertDays, formatDate, formatShortDate, gameDaysOf, gamePeriodsOf, isRealtime, periodOfDay
+} from './realtime/clock.js';
+export { landTravelDays, recallConvoy, recallMarch } from './realtime/marches.js';
+export { createRealtimeGame } from './realtime/create.js';

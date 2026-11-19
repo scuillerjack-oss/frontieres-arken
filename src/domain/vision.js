@@ -82,7 +82,10 @@ export const troopsKnownTo = (state, map, nationId, provinceId, visible = null) 
 export function prudentEstimate(state, provinceId) {
   const v = RULES.vision, p = state.provinces[provinceId];
   const capital = Object.values(state.nations || {}).some(n => n.capitalId === provinceId);
-  const growth = 1 + v.growthPerTurn * Math.max(0, (Number(state.turn) || 1) - 1);
+  // V17.1 : en temps réel, × (1 + 2,37 × jour ÷ 5 479) — même facteur en fin de partie qu'au tour 80 (cahier V17 §2.2).
+  const growth = state.mode === 'realtime'
+    ? 1 + RULES.realtime.vision.growthAtEnd * Math.max(0, Number(state.day) || 1) / RULES.realtime.vision.referenceDays
+    : 1 + v.growthPerTurn * Math.max(0, (Number(state.turn) || 1) - 1);
   const base = capital ? v.capitalEstimate : v.provinceEstimate;
   const units = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * growth)]));
   if (p?.buildings?.port) units.warship = Math.ceil(v.portWarshipsEstimate * growth);

@@ -10,6 +10,8 @@ const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplo
   'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
+// V17.1 : moteur du temps réel (src/domain/realtime/), lu avec le moteur (mêmes règles de pureté).
+export const REALTIME = Object.freeze(['rules', 'clock', 'marches', 'day', 'create']);
 
 /** V15.3 : modules du domaine ajoutés hors de engine/ (lus par tests/v15-3.test.js, qui vérifie qu'ils restent purs). */
 export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', 'src/domain/nations.js']);
@@ -29,7 +31,8 @@ function group(dir, names, first) {
   return [first, ...names.map(n => `${dir}/${n}.js`)];
 }
 export const appFiles = () => group('src/presentation/ui', UI, 'app.js');
-export const engineFiles = () => group('src/domain/engine', ENGINE, 'src/domain/game-engine.js');
+export const engineFiles = () => [...group('src/domain/engine', ENGINE, 'src/domain/game-engine.js'), ...group('src/domain/realtime', REALTIME, null).slice(1)];
+export const realtimeFiles = () => group('src/domain/realtime', REALTIME, null).slice(1);
 const raw = p => readFileSync(join(root, p), 'utf8');
 
 /** Comme lire le fichier, mais « app.js » et « game-engine.js » donnent tout le code de l'interface / du moteur. */

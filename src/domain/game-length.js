@@ -7,7 +7,11 @@ export const SHORT_GAME_LENGTH = 40;
 export const DEFAULT_GAME_LENGTH = RULES.gameLength;
 export const GAME_LENGTHS = Object.freeze([DEFAULT_GAME_LENGTH, SHORT_GAME_LENGTH]);
 export const sanitizeGameLength = n => n === SHORT_GAME_LENGTH ? SHORT_GAME_LENGTH : DEFAULT_GAME_LENGTH;
-export const gameLengthOf = state => sanitizeGameLength(state?.gameLength);
+// V17.1 : une partie temps réel compte en PÉRIODES de 30 jours (183, partie courte 86) : scaleTurn étire alors les seuils
+// de phase (fin de partie de l'IA, coalition…) à sa longueur, comme dans la simulation du cahier V17 (§2.2, §13.3).
+export const gameLengthOf = state => state?.mode === 'realtime'
+  ? (sanitizeGameLength(state.gameLength) === SHORT_GAME_LENGTH ? RULES.realtime.gamePeriods.short : RULES.realtime.gamePeriods.normal)
+  : sanitizeGameLength(state?.gameLength);
 /** Un seuil exprimé en tours d'une partie de 80 tours, ramené à la longueur de cette partie. En 80 tours : le seuil tel quel. */
 export const scaleTurn = (state, turn) => {
   const length = gameLengthOf(state);
