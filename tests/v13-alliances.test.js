@@ -396,7 +396,9 @@ test('V13 : prise de capitale — minimum garanti payé même si la victime est 
 
 test('V13 : enchaînement à la fin du tour — capitale, puis journal, puis une fenêtre Oui / Non par proposition', () => {
   const app = readSource('app.js');
-  const flow = app.match(/\$\('#confirmEndTurn'\)\.onclick=async\(\)=>\{[\s\S]*?\};/)[0];
+  // V16.4 : la suite est dans playTurn (« Verrouiller et résoudre » l'appelle, le tour en direct aussi).
+  assert.match(app, /\$\('#confirmEndTurn'\)\.onclick=\(\)=>\{\$\('#actionDialog'\)\.close\(\);playTurn\(\);\};/);
+  const flow = app.match(/export async function playTurn\([\s\S]*?finally\{turnGate\.finish\(\);\}/)[0];
   const i = k => flow.indexOf(k);
   assert.ok(i('showCapitalPopups') > 0 && i('showCapitalPopups') < i('renderJournal(false)'));
   assert.ok(i('dialogClosed($(\'#journalDialog\'))') > i('renderJournal(false)'));
