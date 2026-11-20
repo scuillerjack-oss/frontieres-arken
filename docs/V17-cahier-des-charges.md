@@ -999,3 +999,133 @@ vrais gestes (capitale → Déplacer → cible → 50 % → Confirmer, 300 fanta
 « ⚔ Bataille de Sylvaren : assaut 2/3 · prochain le … », puis 3e assaut : province prise (3 passes au total), journal avec les
 trois lignes « assaut 1/3, 2/3, 3/3 » et le récit complet. 0 erreur JS, 0 fichier manquant (refait après le rebase sur la
 V17.4, même résultat). Non vérifié : vrai téléphone.
+### V17.3 — Interface temps réel (20/11/2026)
+**Fait** (branche `mission/V17.3`, `version` non montée : versions V17 menées en parallèle sur la branche longue) :
+- **En bas à droite** (`#rtDock`) : la date bien visible (« 12 mars 2027 », police serif, avec « ×1 / ×2 / EN PAUSE ») et
+  trois boutons **▶ Play / ⏸ Pause / ⏩ ×2** (le bouton actif est doré). Sans Premium, ⏩ porte un cadenas 🔒 et ouvre un
+  simple écran « Premium bientôt » (`#premiumDialog`, rien de payant ; la vraie offre est la V17.7, qui n'aura qu'à poser
+  `profile.premium = true`). Avec Premium : 1 jour par seconde, réglage gardé sur le téléphone (`frontieres-arken-vitesse`,
+  jamais dans la partie, §11). Toucher la date : « Troupes en route » avec « Rappeler ». Paysage : contre la bande de
+  boutons de droite ; fiche ouverte, à gauche de la fiche. Portrait : en bas à droite de la carte ; fiche ouverte, en haut à droite.
+- **En haut au centre** : le message d'événement (l'ancien bandeau du tour en direct, devenu une ligne compacte, sans
+  bouton ni barre de progression) : en pause « ⏸ En pause — touchez ▶ », sinon armées étrangères en approche, dernier fait
+  du journal, troupes en route, ou une consigne. Le toucher ouvre le Journal.
+- **Alertes en bandeaux** (`#rtAlerts`, sous le message ; en portrait, au-dessus de la date) : armée ou flotte étrangère en
+  route vers une de mes provinces (§6, une fois par trajet), province prise / perdue, capitale prise (butin), proposition
+  d'alliance ou de cessez-le-feu, ballon étranger (Détruire / Laisser passer), fenêtres de la mer, famine à venir / famine /
+  vivres revenus (événements `food-alert`, `famine-start`, `famine-end` de la V17.4, déjà reconnus), « Il reste 1 an » /
+  « Dernier mois ». Couleur selon le ton, au plus 2 à l'écran, 9 s puis rangés, × pour fermer. **Ils n'arrêtent jamais le
+  temps** ; la fenêtre de décision s'ouvre en touchant le bandeau, ou plus tard depuis le **Journal** (en tête : « À décider »
+  avec « Répondre » pour chaque proposition en attente, puis les dernières alertes avec « Voir »). Les fenêtres de prise de
+  capitale, de mer et de proposition ne s'ouvrent plus d'elles-mêmes en temps réel.
+- **Troupes, navires et ballons visibles qui avancent** (`ui/map-units-layer.js`, branché par `map-view.js` DANS `#mapWorld` :
+  les copies `<use>` du défilement sans fin les répètent, toucher une copie marche comme pour les provinces) : icône de char
+  (marche) ou de navire (convoi), silhouettes dessinées en SVG, sur une plaque aux couleurs de la nation, liseré or = soi,
+  bleu = allié, rouge = étranger, pointillés = retour ; étiquette « 18 j » (jours restants, « ↩ 6 j » au retour) ; trajet
+  restant en pointillés avec pointe de flèche à l'arrivée, trajet fait estompé. Position = fraction (jour − départ) ÷ (arrivée
+  − départ) sur la flèche, extrémités en retrait des villes, **un saut par jour** (aucune animation continue). Ballon en vol :
+  avance aussi chaque jour vers l'île suivante (saut de 60 jours), étiquette en jours. Toucher une icône : qui, d'où vers où,
+  « Arrivée prévue le … (dans N jours) », composition, « Voir l'arrivée » et **« Rappeler »** pour les siennes. Vision §8 :
+  armée étrangère visible seulement si l'on voit sa province de départ ou d'arrivée, composition seulement si l'on voit le
+  départ (sinon « ? » et « Composition inconnue ») ; alliés : tout ; convois visibles de tous, composition pour soi, ses alliés
+  ou si les troupes de leur port de départ sont connues (relecture : jamais à cause de la province d'arrivée). L'ancien jeton de convoi « tours restants » reste pour le tour par tour.
+- **Ordres immédiats depuis la fiche** : « Envoyer maintenant », « elles partent tout de suite et apparaissent sur la
+  carte », « 30 jours de marche (20 en cavalerie seule) », mer en jours (60 / 120), recrutement et chantiers en jours
+  (30 / 60 / 90), « Rapporte +2 or / mois », plus de ligne « ordres déjà prévus ». Barre du haut : plus de « TOUR » ;
+  « TRÉSOR · +8/MOIS » (§3.1, revenu de base sans les bonus d'atout).
+- **Plus de « tour » à l'écran en temps réel, sauf l'Aide (?)**, dont les textes restent à refaire avec le tutoriel en V17.9 : pas de « Fin du tour » ni de compteur d'ordres, journal « JOURNAL · date »
+  avec onglets Récent / Historique, armée datée, réglages du déroulé cachés ; les textes du moteur écrits pour le tour par tour
+  sont relus à l'affichage (`realtimeText` : « Revenus du mois », « 60 jours en mer », « au tour 3 » → « en mars 2027 »…) dans le
+  journal, le message d'événement, les Échanges et les propositions — le moteur n'est pas touché. L'animation de fin de tour et le
+  bandeau « tour en direct » ne servent plus en temps réel.
+- **Le temps ne s'arrête que hors du jeu** (décision de Jack) : Réglages, Aide, Atouts, Palmarès, Premium, fin de partie, pub,
+  appli en arrière-plan. Fiche, construction, recrutement, choix de destination, Journal, Échanges, alertes : le temps tourne.
+- **Horloge** (`realtime-clock.js`, pur) : 1 jour = 2 s, ×2 = 1 s (`setClockSpeed` garde le jour entamé), rattrapage plafonné à
+  4 jours, arrêts hors jeu, reprise toujours en pause (nouvelle partie, rechargement, retour d'arrière-plan).
+- **Sauvegarde espacée** (`createSaveGate` / `wantSave`, pur) : tous les 10 jours de jeu, à chaque pause, à chaque ordre (et
+  rappel, réponse à une proposition), à la mise en arrière-plan (`visibilitychange`, `pagehide`) ; jamais plus d'une fois par
+  seconde (reportée au battement suivant), sauf l'arrière-plan. `map-view.js` ne sauvegarde plus à chaque rendu en temps réel.
+- **Emplacements prévus pour la V17.4** (sans rien coder de la nourriture) : `#foodStat` (case vide et cachée dans la barre du
+  haut, après le trésor) et `sheetSlots.food(provinceId)` dans `province-sheet.js` (HTML ajouté à la fiche, vide par défaut).
+- Nouveau module pur `src/presentation/realtime-view.js` (dates, durées, icônes, vision, bandeaux, message, textes) et
+  `src/presentation/ui/map-units-layer.js` ; ajoutés à `sw.js` et `tests/helpers/sources.js`.
+
+**Tests** : `tests/v17-3.test.js` (14 tests : dates et durées, à-coups, position et cap des icônes, une armée suivie jour par jour
+jusqu'à l'arrivée, rappel, vision des marches ennemies et alliées, convois, ballon, bandeaux (une fois chacun, rien pour les
+affaires des autres), message, horloge (0,5 j/s, ×2, rattrapage, arrêts hors jeu, pause), sauvegarde espacée, pureté, branchement).
+**Tests modifiés** : `tests/v13-1-beta.test.js` (« or/tour » → `perTurn`, qui garde « or/tour » au tour par tour),
+`tests/v17-1.test.js` (« ▶ Jouer / ⏸ Pause » du bandeau → boutons ▶ ⏸ ⏩). `npm test` : 756 tests, tous verts.
+
+**Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v173.mjs`, 844 × 390 et 390 × 844, vrais gestes) : nouvelle partie en
+pause ; ▶ puis une minute = 30 jours (6, 11, 16, 21, 26, 31 janvier) ; ordre capitale → Sylvaren (« Envoyer maintenant ») : icône
+de char aussitôt sur la carte, captures à 5 et 10 jours d'écart (elle avance d'un pas par jour) ; toucher l'icône → fiche, le
+temps continue ; Rappeler → demi-tour ; ⏸ → le temps s'arrête et la partie est enregistrée ; armée ennemie et proposition
+injectées → 2 bandeaux, le temps continue (jours 49 → 51), bandeau touché → fenêtre, le temps continue ; Journal « À décider » ;
+⏩ → cadenas, écran Premium, temps arrêté pendant l'écran ; Premium simulé → 6 jours en 6 s ; icônes dans `#mapWorld` (2 copies
+`<use>`) ; rechargement → reprise en pause. 0 erreur JS, 0 fichier manquant, aucun bouton hors écran ni recouvert, aucun
+texte « tour » visible.
+**Avis honnête sur les captures** : lisible et cohérent avec la carte V17.6 : la date et ▶ ⏸ ⏩ se trouvent d'un coup d'œil, les
+bandeaux colorés se lisent sans masquer la partie, les chars et navires aux couleurs des nations se distinguent bien des
+pastilles. Limites : sur un trajet court (deux provinces voisines), l'icône avance de quelques pixels par jour, l'étiquette
+« 19 j » peut toucher la pastille ou la pointe de flèche ; la date en bas à droite cache un peu de carte (noms de provinces) ;
+les bulles d'aide (tutoriel V14, refait en V17.9) se posent encore par-dessus la date en portrait.
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. `live-clock.js` (horloge du tour en direct V16.4) est **gardé** pour le tour par tour (encore jouable par `?tour-par-tour`
+   jusqu'à la V17.9) ; l'horloge des jours reste dans `realtime-clock.js` (complétée), au lieu de transformer `live-clock.js`.
+2. Pas de bouton « Rappeler » ailleurs que sur l'icône et dans « Troupes en route » (toucher la date) ; une armée en bataille
+   (V17.2) n'est plus rappelable.
+3. Bandeaux non sauvegardés : après un rechargement, les propositions encore valables et les armées en approche sont
+   réannoncées une fois ; l'historique des alertes repart de zéro.
+4. Les textes de l'aide (?) et du tutoriel parlent encore en tours (V17.9 : tutoriel refait). Les paroles des dirigeants sont
+   relues à l'affichage seulement (« au tour 3 » → « en mars 2027 ») : la V17.5 (IA en temps réel) devra les réécrire.
+5. Le revenu « +8/MOIS » de la barre du haut est le revenu de base (bonus d'atout ou de nation non comptés).
+6. Non vérifié : sur un vrai téléphone (APK), une partie longue dans le navigateur, une vraie conquête ou un vrai ballon
+   étranger pendant le test (bandeaux vérifiés par les tests et par une armée / une proposition injectées).
+
+**Intégration avec la V17.4 (20/11/2026, après rebase sur `v17`)** : la nourriture est branchée dans les emplacements de la
+V17.3 : case « 🌾 VIVRES 1 002,5 · +2,5/j » = `#foodStat` de la barre du haut (posée dans `index.html`, cachée hors temps réel,
+remplie par `ui/food-ui.js`, la toucher explique l'état) ; ligne 🌾 de la fiche par `sheetSlots.food` ; carte Ferme dans
+l'écran Construction (avec les durées en jours de la V17.3). Les messages de nourriture de la V17.4 (un toast à chaque désertion
+quotidienne) sont remplacés par de **vrais bandeaux** : alerte « famine à venir », un bandeau au début de la famine, puis au plus
+**un rappel tous les 30 jours** (`famineReminder`), « Les vivres sont revenus » ; toucher le bandeau explique l'état des vivres.
+Barre du haut (remarque de la relecture V17.4) : le revenu passe sous le trésor (« 136 / +8/mois ») et la ligne « ARKEN · v… »
+peut passer sur deux lignes au lieu d'être coupée : le numéro de version est toujours lisible en entier (vérifié en 844 × 390 et
+390 × 844). Tests : `tests/v17-3.test.js` (+1 test famine / branchements), `tests/v17-4.test.js` (2 assertions adaptées aux
+bandeaux et à `sheetSlots.food`).
+
+**Intégration avec la V17.2 (20/11/2026, après rebase sur `v17`)** : l'écran provisoire des batailles est branché dans
+l'interface V17.3 : ⚔ « n/3 » sur la province en bataille, en couche `#rtBattles` **dans `#mapWorld`** (donc aussi sur les copies
+du défilement sans fin), lisible à tout zoom, liseré or qui bat doucement pour ses propres batailles ; le toucher ouvre la fiche
+de bataille de la V17.2 (assaut joué, prochain assaut, PV, **Retraite**, suivie d'une sauvegarde) ; chaque assaut qui concerne le
+joueur donne un **bandeau** (« Bataille de X : assaut 2/3 · prochain le 02/03/2027 », un seul par bataille à l'écran, le suivant
+remplace le précédent), qui n'arrête pas le temps ; une prise passe par les bandeaux de conquête / capitale ; le message du haut
+montre la bataille en cours ; bombardements permanents (« Arrêter ») dans « Troupes en route ». Journal : en temps réel, l'onglet
+« Récent » montre les derniers faits du journal permanent (rempli chaque jour, donc les lignes « ⚔ ASSAUT n/3 » tout de suite) ;
+le nettoyage du journal garde maintenant la barre de « 2/3 » (elle était retirée). Vérifié (Playwright 844 × 390 et 390 × 844) :
+attaque jusqu'au 3e assaut (assauts aux jours J, J+3, J+6, prise au 3e), ⚔ 1/3 puis 2/3 sur la carte, fiche avec Retraite, bandeaux
+sans fenêtre ouverte, lignes ASSAUT 1/3, 2/3, 3/3 dans le Journal, 0 erreur JS, rien de caché. `npm test` : 804 tests, verts.
+
+**Corrections après relecture (20/11/2026)** :
+1. **Fuite de vision corrigée** : la composition d'une armée ou d'un convoi n'est connue que pour soi, ses alliés, ou si les
+   troupes de la province de DÉPART sont connues selon la vision (`provinceIntel(...).troopsKnown` : voisinage, ballon,
+   forteresse) — plus jamais à cause de la province d'arrivée (une flotte ennemie qui débarque chez moi ne montre plus ce
+   qu'elle transporte). Test : convoi et armée ennemis visant une de mes provinces, ensemble visible non vide.
+2. **Date jamais coupée** : fiche ouverte en paysage, le bloc date passe en colonne (date au-dessus de ▶ ⏸ ⏩) à gauche de la
+   fiche. Vérifié par Playwright (`/home/claude/pw/v173-date.mjs`) en 667 × 375, 844 × 390, 390 × 844 et 360 × 740, fiche ouverte
+   ou non, avec « 11 janvier », « 30 septembre » et « 30 novembre 2027 » : texte entier, dans l'écran, dans le bloc, sans
+   chevaucher la fiche.
+3. **« tour » retiré en temps réel** : Échanges (« FIL PUBLIC DES DIRIGEANTS · date », mois du message au lieu de « T3 », « au fil
+   des mois », message qui part « à la fin du mois de jeu (dans N jours) ») ; ballon (arrivée « dans N jours », trajets en jours,
+   règle « tous les 30 jours / 60 jours par île », « abattu immédiatement », construction 60 jours, départ à la fin du mois de
+   jeu) ; Diplomatie (ordres « immédiatement », réponse d'un allié « à sa prochaine décision, 10 jours au plus ») ; avertissement
+   de trêve, île mystérieuse, fenêtres de la mer (durées de convoi en jours). Restent en « tours » : l'Aide (?) et le tutoriel
+   (V17.9), le détail « PV et dégâts » du recrutement et la réparation des navires (`recruit-repair-view.js`), l'aperçu du
+   bombardement (à reprendre avec les règles en jours de la V17.2), le récit de fin de partie (V17.8).
+4. Toucher un bandeau « mer » n'ouvre plus que sa propre fenêtre (`showSeaPopup`).
+5. Barre du haut en portrait : sous 370 px de large, l'en-tête était caché (règle d'avant) ; il montre maintenant le numéro de
+   version (les cases se resserrent) ; jusqu'à 430 px, la version ne se coupe plus. Vérifié avec une vraie version longue
+   (« v17.3.0+1a2b3c4 ») en 320, 360, 390, 667 et 844 px.
+`npm test` : 805 tests, tous verts. Playwright (`v173.mjs`) en 844 × 390, 390 × 844, 667 × 375 et 360 × 740 : une minute de jeu,
+ordre, icône qui avance, rappel, pause, bandeaux sans pause, bataille jusqu'au 3e assaut, Échanges / ballon / Diplomatie sans
+« tour », ⏩ cadenas, reprise en pause : 0 erreur JS, rien de caché ni coupé.

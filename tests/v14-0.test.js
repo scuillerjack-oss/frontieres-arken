@@ -123,7 +123,7 @@ test('fenêtre avant de rompre : la déclaration de guerre et l\'attaque le dise
   assert.match(truceWarning(s, 'valmorne', 'roc-epine', 'Roc-Épine'), /signée avec Roc-Épine ce tour-ci/);
   const app = readSource('app.js');
   assert.match(app, /war:`Déclarer la guerre[^`]*\$\{truceWarning\(state,state\.playerNationId,target/, 'Diplomatie → Déclarer la guerre');
-  assert.match(app, /const truceNote=attack&&truceWarning\(/, 'préparation d\'une attaque');
+  assert.match(app, /const truceText=\(\)=>\{const t=truceWarning\(state,state\.playerNationId,to\.ownerId[^\n]*truceNote=attack&&truceText\(\)/, 'préparation d\'une attaque (V17.3 : relu en jours en temps réel)');
   assert.match(app, /Trésor après ordre[^\n]*truceNote\?/, 'confirmation de l\'attaque');
   assert.match(read('sw.js'), /truce-warning\.js/);
 });

@@ -28,22 +28,27 @@ import { liveSettings, profile, saveMyProfile, selected, state } from './session
 import { createTurnGate, liveApplies } from '../live-clock.js';
 import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
 import { playTurnAnimation } from './turn-anim.js';
+import { bindRealtimeJournal, realtimeJournalHtml } from './realtime-ui.js';
+import { realtimeText } from '../realtime-view.js';
 
 export function renderJournal(permanent=false){
-  const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
-  $('#journalDialog').dataset.permanent=permanent?'true':'false';$('#journalMode').textContent=permanent?'JOURNAL PERMANENT':'RÉCAPITULATIF INTER-TOUR';
-  $('#journalTabs').innerHTML=`<button data-journal="recent" class="${permanent?'':'active'}">Inter-tour</button><button data-journal="history" class="${permanent?'active':''}">Historique</button>`;
-  $('#journalBody').innerHTML=entries.length?entries.map(e=>`<div class="journal-entry ${journalCategoryClass(e.type)}"><small>${e.type||'Événement'}</small><div>${e.text}</div>\
-</div>`).join(''):'<div class="journal-entry neutral"><small>Calme</small><div>Aucun événement important à signaler.</div></div>';
+  // V17.3 : en temps réel, « Récent » = les derniers faits du journal permanent (rempli chaque jour), les plus récents d'abord.
+  const entries=(permanent?state.chronicle:state.mode==='realtime'?[...(state.chronicle||[])].slice(-40).reverse():state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
+  const rt=state.mode==='realtime'; // V17.3 : plus de « tour » en temps réel ; alertes et décisions en tête du journal récent
+  $('#journalDialog').dataset.permanent=permanent?'true':'false';$('#journalMode').textContent=permanent?'JOURNAL PERMANENT':rt?`JOURNAL · ${formatDate(state.day).toUpperCase()}`:'RÉCAPITULATIF INTER-TOUR';
+  $('#journalTabs').innerHTML=`<button data-journal="recent" class="${permanent?'':'active'}">${rt?'Récent':'Inter-tour'}</button><button data-journal="history" class="${permanent?'active':''}">Historique</button>`;
+  $('#journalBody').innerHTML=(rt&&!permanent?realtimeJournalHtml():'')+(entries.length?entries.map(e=>`<div class="journal-entry ${journalCategoryClass(e.type)}"><small>${e.type||'Événement'}</small><div>${rt?realtimeText(e.text):e.text}</div>\
+</div>`).join(''):'<div class="journal-entry neutral"><small>Calme</small><div>Aucun événement important à signaler.</div></div>');
+  if(rt)bindRealtimeJournal();
   document.querySelectorAll('[data-journal]').forEach(b=>b.onclick=()=>renderJournal(b.dataset.journal==='history'));
-  $('#journalDialog').showModal();if(!permanent)tutorial('history','Deux journaux','Le récapitulatif inter-tour montre les événements importants. L’historique garde le détail connu des productions et du monde.');
+  $('#journalDialog').showModal();if(!permanent&&!rt)tutorial('history','Deux journaux','Le récapitulatif inter-tour montre les événements importants. L’historique garde le détail connu des productions et du monde.');
 }
 /** V15.3 : le niveau de la partie et le bonus de la nation, écrits noir sur blanc (tout avantage des IA y figure). */
-export function levelSummary(){const pct=aiGoldPct(state);return `Niveau ${difficultyLabel(difficultyOf(state))}${pct?` : les IA reçoivent +${pct} % d’or à chaque tour`:''}.`;}
+export function levelSummary(){const pct=aiGoldPct(state);return `Niveau ${difficultyLabel(difficultyOf(state))}${pct?` : les IA reçoivent +${pct} % d’or ${state?.mode==='realtime'?'sur leurs revenus':'à chaque tour'}`:''}.`;}
 export function openHelp(){const bonus=nationBonusInfo(state.playerNationId),entries=[{title:'Cette partie',text:`${levelSummary()}${bonus&&!state.tutorialMode?` Votre bonus de nation, ${bonus.title} : ${bonus.text}. Chaque IA a aussi le sien.`:''}`},...TUTORIAL_GUIDE];$('#helpBody').innerHTML=entries.map(x=>`<article class="help-item"><b>${x.title}</b><p>${x.text.replace('{nation}',nation(state.playerNationId).name).replace(`dure ${RULES.gameLength} tours`,`dure ${gameLengthOf(state)} tours`)}</p></article>`).join('');$('#helpDialog').showModal();}
 /** V15.4 : palmarès et titres (profil du joueur), depuis l'accueil. */
 export function openPalmares(){$('#palmaresBody').innerHTML=palmaresHtml(profile.palmares,map.nations);$('#palmaresDialog').showModal();}
-export function openArmy(){const army=totalArmy(state,state.playerNationId);actionModal('Armée totale',`TOUR ${state.turn}`,Object.entries(army.byType).map(([key,value])=>`<div class="unit-row"><span>${unitKeys[key]}</span><b>${value}</b></div>`).join(''));}
+export function openArmy(){const army=totalArmy(state,state.playerNationId);actionModal('Armée totale',state.mode==='realtime'?formatDate(state.day).toUpperCase():`TOUR ${state.turn}`,Object.entries(army.byType).map(([key,value])=>`<div class="unit-row"><span>${unitKeys[key]}</span><b>${value}</b></div>`).join(''));}
 // --- V10 : fin de partie --------------------------------------------------------------------------------------
 // Le récit ne doit jamais empêcher d'afficher la fin : sans données exploitables, on garde un classement simple.
 const safeEndStory=()=>{try{return buildEndStory(state,map);}catch{return buildEndStory({...state,story:null},map);}};

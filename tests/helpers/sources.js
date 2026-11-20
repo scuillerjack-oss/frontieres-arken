@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
-  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui'];
+  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui', 'map-units-layer'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
 // V17.1 : moteur du temps réel (src/domain/realtime/), lu avec le moteur (mêmes règles de pureté).
@@ -27,6 +27,9 @@ export const PRESENTATION_MODULES_V17_6 = Object.freeze(['src/presentation/map-a
 
 /** V17.4 : module de présentation pur de la nourriture (lu par tests/v17-4.test.js : sans DOM, en cache hors ligne). */
 export const PRESENTATION_MODULES_V17_4 = Object.freeze(['src/presentation/food-view.js']);
+
+/** V17.3 : module de présentation pur du temps réel (lu par tests/v17-3.test.js : sans DOM, en cache hors ligne). */
+export const PRESENTATION_MODULES_V17_3 = Object.freeze(['src/presentation/realtime-view.js', 'src/presentation/realtime-clock.js']);
 
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();

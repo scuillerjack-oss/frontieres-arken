@@ -1,41 +1,34 @@
 // Interface — V17.4 : la réserve de vivres dans la barre du haut (temps réel seulement) et les messages de nourriture.
-// Petit module à part pour ne pas toucher au rendu de la carte ni à l'écran du temps réel (V17.3) : une case
-// « 🌾 VIVRES 900 · +2,5/j » ajoutée juste après le trésor ; la toucher explique l'état (production, alerte, famine).
+// Une case « 🌾 VIVRES 900 · +2,5/j » juste après le trésor (emplacement #foodStat de la V17.3) ; la toucher explique l'état.
 
-import { foodEventText, foodHud } from '../food-view.js';
+import { foodHud } from '../food-view.js';
 import { $, toast } from './base.js';
 import { state } from './session.js';
 
 let lastKey = '';
+/** V17.3 : la case est posée dans index.html (emplacement prévu, cachée hors temps réel) ; on la remplit et on l'affiche. */
 function foodCell() {
-  let cell = $('#foodStat');
-  if (cell) return cell;
-  const gold = $('#gold')?.closest('.hud-stat');
-  if (!gold) return null;
-  cell = document.createElement('button');
-  cell.id = 'foodStat'; cell.type = 'button'; cell.className = 'hud-stat food-stat';
-  cell.innerHTML = '<small>🌾 VIVRES</small><b id="foodReserve">0</b><i id="foodPerDay"></i>';
-  cell.addEventListener('click', () => { if (state?.mode === 'realtime') toast(foodHud(state, state.playerNationId).note); });
-  gold.after(cell);
+  const cell = $('#foodStat');
+  if (!cell) return null;
+  if (!$('#foodReserve')) cell.innerHTML = '<small>🌾 VIVRES</small><b id="foodReserve">0</b><i id="foodPerDay"></i>';
+  if (!cell.dataset.bound) { cell.dataset.bound = '1'; cell.addEventListener('click', explainFood); }
   return cell;
 }
-/** Met à jour (ou retire) la case des vivres. */
+/** Toucher la case (ou un bandeau de nourriture) : l'état des vivres en une phrase. */
+export function explainFood() { if (state?.mode === 'realtime') toast(foodHud(state, state.playerNationId).note); }
+/** Met à jour (ou cache) la case des vivres. */
 export function drawFoodHud() {
-  if (state?.mode !== 'realtime' || !state.nations?.[state.playerNationId]) { $('#foodStat')?.remove(); lastKey = ''; return; }
   const cell = foodCell();
   if (!cell) return;
+  if (state?.mode !== 'realtime' || !state.nations?.[state.playerNationId]) { cell.hidden = true; lastKey = ''; return; }
+  cell.hidden = false;
   const v = foodHud(state, state.playerNationId), key = JSON.stringify(v);
-  if (key === lastKey && cell.isConnected) return;
+  if (key === lastKey) return;
   lastKey = key;
   $('#foodReserve').textContent = v.reserve;
   $('#foodPerDay').textContent = v.perDay.replace(' / jour', '/j');
   cell.dataset.tone = v.tone;
   cell.setAttribute('aria-label', v.label);
 }
-/** Messages du joueur : alerte (moins de 10 jours), famine, désertions, retour des vivres. */
-export function showFoodNews(events) {
-  const me = state?.playerNationId;
-  const mine = (events || []).filter(e => e.nationId === me && ['food-alert', 'famine-start', 'famine-end', 'famine-desertion'].includes(e.type));
-  const pick = mine.find(e => e.type === 'famine-start') || mine.find(e => e.type === 'famine-end') || mine.find(e => e.type === 'food-alert') || mine.find(e => e.type === 'famine-desertion');
-  if (pick) toast(foodEventText(pick));
-}
+// V17.3 : les messages de nourriture (alerte, famine, retour des vivres, rappel de famine au plus tous les 30 jours) sont des
+// bandeaux de l'écran du temps réel (realtime-view.js eventBanners) : plus de message à chaque désertion quotidienne.

@@ -40,8 +40,10 @@ test('revenus : les banques sont bien créditées au trésor et une ligne « Rev
 });
 
 test('interface : la fenêtre de construction et la fiche affichent ce que rapporte chaque bâtiment', () => {
-  assert.ok(app.includes('rapporte +${buildingIncome(x.type)} or/tour'));
-  assert.ok(app.includes('💰 Rapporte +${yieldGold} or/tour'));
+  // V17.3 : « +N or/tour » au tour par tour, « +N or / mois » en temps réel (perTurn).
+  assert.ok(app.includes('rapporte ${perTurn(buildingIncome(x.type))}'));
+  assert.ok(app.includes('💰 Rapporte ${perTurn(yieldGold)}'));
+  assert.ok(app.includes('const perTurn=n=>rtOn()?monthlyIncomeText(n):`+${n} or/tour`;'));
 });
 
 test('convoi anéanti au débarquement (partie réelle) : fenêtre « Débarquement repoussé », aucun survivant', () => {

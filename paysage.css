@@ -5,7 +5,7 @@
    Gabarit : carte sur toute la hauteur à gauche ; colonne à droite = barre d'infos en haut, boutons du bas en bas ;
    fiche de province en panneau latéral (à droite de la carte) ; fenêtres limitées à la hauteur de l'écran. */
 @media (orientation:landscape) and (max-height:560px){
-:root{--sr:env(safe-area-inset-right,0px);--side:calc(66px + env(safe-area-inset-right,0px));--hud-w:min(318px,calc(100vw - 2 * var(--side) - 260px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+:root{--sr:env(safe-area-inset-right,0px);--side:calc(66px + env(safe-area-inset-right,0px));--hud-w:min(340px,calc(100vw - 2 * var(--side) - 260px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
 
 /* --- V17.6 : carte en PLEIN ÉCRAN (façon AM 3), tout le reste est posé par-dessus aux bords ---
    En haut à gauche : barre d'infos (accueil, tour, trésor, armée). En haut au centre : bandeau du tour en direct.
@@ -19,6 +19,10 @@
 .hud .brand{flex:1 1 0;margin:0;min-width:0;overflow:hidden;padding:2px 4px;display:flex;flex-direction:column;justify-content:center}
 .hud .brand b,.hud .brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud .brand b{font-size:.7rem}.hud .brand small{font-size:.52rem;letter-spacing:.04em}
+/* V17.3 (relecture V17.4) : le numéro de version reste lisible en entier (il sert à vérifier la mise à jour de la bêta) :
+   la ligne « ARKEN · v… » passe sur deux lignes plutôt que d'être coupée, la version n'est jamais tronquée. */
+.hud .brand small{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15}
+#hud-version{white-space:nowrap}
 .hud .hud-stat{flex:0 0 auto;min-width:56px;min-height:40px;padding:2px 5px;border-radius:12px}
 .hud .hud-stat small{font-size:.54rem;letter-spacing:.04em}
 .hud .hud-stat b{font-size:1.05rem}
@@ -112,6 +116,28 @@ body.live-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
 body.live-on #moveBanner{top:calc(max(6px,var(--st)) + 62px)}
 body.live-on #turnAnim{padding-top:calc(var(--st) + 70px)}
 #settingsDialog .setting-choices.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* --- V17.3 : temps réel — message d'événement en haut au centre (compact), alertes juste dessous, date et ▶ ⏸ ⏩ en bas
+   à droite, contre la bande de boutons. Fiche ouverte : la date passe à gauche de la fiche, les alertes sous les boutons. --- */
+body.rt-on .live-bar{min-height:0}
+body.rt-on .boost-map-btn{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on #moveBanner{top:calc(max(6px,var(--st)) + 52px)}
+body.rt-on .zoom{top:auto}
+.rt-dock{right:calc(var(--side) + 6px);bottom:max(8px,var(--sb));flex-direction:row;align-items:center;gap:8px;padding:5px 6px 5px 10px}
+.rt-date{align-items:flex-end;min-width:118px;flex:none}
+.rt-date b{font-size:1.05rem}
+.rt-speed button{min-width:46px;min-height:44px}
+.rt-alerts{top:calc(max(6px,var(--st)) + 50px);bottom:auto;left:calc(var(--hud-w) + 14px + var(--sl));right:calc(var(--side) + 8px)}
+body.rt-on #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
+body.rt-on #tutorialBubble:not(.top){right:calc(var(--side) + 300px)}
+/* Fiche ouverte : la place à gauche de la fiche est étroite (667 × 375) → date au-dessus des boutons, jamais coupée. */
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-dock{top:auto;bottom:max(8px,var(--sb));right:calc(var(--side) + var(--sheet-w) + 16px);flex-direction:column;align-items:stretch;gap:4px;padding:5px 6px}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-date{align-items:center;min-width:0}
+body.rt-on:has(#provinceSheet:not([hidden])) .live-bar{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-alerts{top:calc(max(6px,var(--st)) + 104px);bottom:auto;left:calc(120px + var(--sl));right:calc(var(--side) + var(--sheet-w) + 16px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .boost-map-btn{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .coalition-chip{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])) #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
 }
 /* Très petits téléphones couchés (≤ 340 px de haut) : la colonne se resserre encore. */
 @media (orientation:landscape) and (max-height:340px){

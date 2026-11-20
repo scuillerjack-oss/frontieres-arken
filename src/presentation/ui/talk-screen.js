@@ -9,6 +9,8 @@ import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
 import { tuto, tutorial } from './tutorials.js';
+import { realtimeText } from '../realtime-view.js';
+import { formatDate, formatShortDate } from '../../domain/game-engine.js';
 
 // --- V11 : personnalités des dirigeants, fil d'échanges et tension ------------------------------------------
 // Les appels au moteur V11 sont protégés : une erreur ne doit jamais bloquer la carte ni la fin du tour.
@@ -27,19 +29,22 @@ export function nationPanel(id){const t=tensionWith(id),revealed=Boolean(state.l
 <b>${t.long}</b></div><div class="tension-track"><i style="width:${t.pct}%"></i></div><div class="tension-scale"><span>calme</span><span>tendu</span><span>hostile</span><span>guerre</span></div></div>
   <button id="nationTalk" class="talk-launch">✉ Échanger publiquement</button></div>`;}
 export function updateTalkBadge(){const n=safeEngine(()=>talkBadgeCount(state),0),badge=$('#talkBadge');badge.hidden=!n;badge.textContent=n;$('#talkBtn').classList.toggle('has-mail',n>0);}
+// V17.3 : en temps réel, la date (jour du message s'il est connu, sinon le mois de sa période) à la place de « T3 ».
+const rtOn=()=>state?.mode==='realtime',monthOf=turn=>formatDate((Math.max(1,turn)-1)*30+1).replace(/^\S+ /,'');
+const talkWhen=item=>rtOn()?(Number.isFinite(item.day)?formatShortDate(item.day):monthOf(item.turn)):`T${item.turn}`;
 function talkLine(item){const tone=toneMeta(item.tone),from=nation(item.from),to=item.to?nation(item.to):null;
   return`<article class="talk-msg ${tone.cls}${item.toMe?' to-me':''}${item.fromMe?' from-me':''}" style="--nation:${from.color||'#888'}" data-talk-id="${escapeHtml(item.id)}">
    <div class="talk-head">${nationBadge(item.from)}<b>${from.short}</b><span class="talk-to">${to?`→ ${item.toMe?'vous':to.short}`:'→ à tous'}</span><span class="talk-tone" title="Ton ${tone.label.toLowerCase()}" \
-aria-label="Ton ${tone.label.toLowerCase()}">${tone.icon}</span><small>T${item.turn}</small></div>
+aria-label="Ton ${tone.label.toLowerCase()}">${tone.icon}</span><small>${talkWhen(item)}</small></div>
    ${item.replyTo&&item.replyToFrom?`<small class="talk-reply">en réponse à ${item.replyToFrom===state.playerNationId?'vous':nation(item.replyToFrom).short}</small>`:''}
-   <p>${escapeHtml(item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
+   <p>${escapeHtml(state.mode==='realtime'?realtimeText(item.text):item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
 function plannedTalk(){return(state.orders||[]).filter(o=>o.kind==='talk'&&o.status==='pending'&&o.nationId===state.playerNationId);}
 export function openTalk(){
   const feed=safeEngine(()=>talkFeed(state),[]),planned=plannedTalk(),others=map.nations.filter(n=>n.id!==state.playerNationId);
-  $('#talkKicker').textContent=`FIL PUBLIC DES DIRIGEANTS · TOUR ${state.turn}`;
+  $('#talkKicker').textContent=rtOn()?`FIL PUBLIC DES DIRIGEANTS · ${formatDate(state.day).toUpperCase()}`:`FIL PUBLIC DES DIRIGEANTS · TOUR ${state.turn}`;
   $('#talkBody').innerHTML=`<div class="talk-start"><small>Lancer un échange avec</small><div class="talk-nations">${others.map(n=>`<button data-talk-nation="${n.id}" style="--nation:${n.color}">${crestGlyph(n.crest)} ${n.short}</button>`).join('')}</div></div>
-   ${planned.length?`<div class="talk-planned">${planned.map(o=>`<div>✉ ${toneMeta(o.tone).icon} Message à ${o.to?nation(o.to).short:'tous'} : part à la fin du tour</div>`).join('')}</div>`:''}
-   <div class="talk-feed">${feed.length?feed.map(talkLine).join(''):'<p class="talk-empty">Aucun échange public pour l’instant. Les dirigeants prendront la parole au fil des tours.</p>'}</div>`;
+   ${planned.length?`<div class="talk-planned">${planned.map(o=>`<div>✉ ${toneMeta(o.tone).icon} Message à ${o.to?nation(o.to).short:'tous'} : ${rtOn()?`part à la fin du mois de jeu${(30-state.day%30)%30?` (dans ${(30-state.day%30)%30} jours)`:' (aujourd’hui)'}`:'part à la fin du tour'}</div>`).join('')}</div>`:''}
+   <div class="talk-feed">${feed.length?feed.map(talkLine).join(''):`<p class="talk-empty">Aucun échange public pour l’instant. Les dirigeants prendront la parole ${rtOn()?'au fil des mois':'au fil des tours'}.</p>`}</div>`;
   document.querySelectorAll('[data-talk-nation]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.talkNation));
   document.querySelectorAll('[data-reply]').forEach(b=>b.onclick=()=>openTalkCompose(b.dataset.to,b.dataset.reply));
   if(!$('#talkDialog').open)$('#talkDialog').showModal();
@@ -50,9 +55,9 @@ export function openTalkCompose(to,replyTo=null){
   if($('#talkDialog').open)$('#talkDialog').close();
   const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
   actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · ${t.war?`EN GUERRE · TENSION ${t.value} %`:`TENSION ${t.value} % (${t.label.toUpperCase()})`}`,
-   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
+   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(state.mode==='realtime'?realtimeText(original.text):original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
    <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);
-     return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;
+     return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(state.mode==='realtime'?realtimeText(o.text):o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;
      }).join(''):'<p>Aucun message possible pour l’instant.</p>'}</div>
    <div class="confirm-actions"><button class="cancel" id="talkBack">Retour</button><button class="primary" id="talkSend" disabled>Envoyer</button></div>`);
   let chosen=null;
@@ -61,5 +66,5 @@ export function openTalkCompose(to,replyTo=null){
   $('#talkBack').onclick=()=>{$('#actionDialog').close();openTalk();};
   $('#talkSend').onclick=()=>{if(!chosen)return;const before=(state.talk||[]).length,result=safeEngine(()=>queueTalk(state,map,{from:state.playerNationId,to,tone:chosen,replyTo}),{ok:false,error:'Échange impossible pour le moment'});
     if(!result?.ok)return toast(result?.error||'Échange impossible');
-    $('#actionDialog').close();render();if(chosen==='hostile')tuto(`talk-hostile:${to}`);toast((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`);openTalk();};
+    $('#actionDialog').close();render();if(chosen==='hostile')tuto(`talk-hostile:${to}`);toast(((t)=>rtOn()?realtimeText(t):t)((state.talk||[]).length>before?`Message ${toneMeta(chosen).label.toLowerCase()} publié`:`Message ${toneMeta(chosen).label.toLowerCase()} prêt : il partira à la fin du tour`));openTalk();};
 }

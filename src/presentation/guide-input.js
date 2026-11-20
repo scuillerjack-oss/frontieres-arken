@@ -48,8 +48,9 @@ export function provinceBorderPoint(definition, toward) {
   return{x:origin.x+dx*t,y:origin.y+dy*t};
 }
 export function sanitizeJournalEntry(entry) {
+  // V17.3 : « assaut 2/3 » garde sa barre (chiffre/chiffre) ; les autres « / » et « | » restent retirés.
   // V14.2 : les sauts de ligne voulus (rapport de combat) sont gardés ; le reste des blancs est resserré.
-  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/[\/|]+/g, ' ').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/(\d)\/(\d)/g, '$1\u2044$2').replace(/[\/|]+/g, ' ').replace(/\u2044/g, '/').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
   return text ? { ...entry, text } : null;
 }
 export function resetActiveSave(storage, key = SAVE_KEY) {

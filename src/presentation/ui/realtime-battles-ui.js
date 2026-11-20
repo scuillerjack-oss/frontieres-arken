@@ -1,6 +1,5 @@
-// Interface — V17.2 : batailles en cours et bombardements permanents, écran PROVISOIRE (l'interface complète est la V17.3).
-// Un ⚔ sur chaque province en bataille (calque à part #rtBattles, comme les marches : map-view.js n'est pas touché). Le
-// toucher ouvre la fiche de la bataille : « Assaut 2/3 », date du prochain assaut, camps et PV, bouton « Retraite » pour le
+// Interface — V17.2 : batailles en cours et bombardements permanents ; V17.3 : branchés dans l'interface temps réel.
+// Un ⚔ « n/3 » sur chaque province en bataille (couche #rtBattles dans #mapWorld, copies comprises). Le toucher ouvre la fiche de la bataille : « Assaut 2/3 », date du prochain assaut, camps et PV, bouton « Retraite » pour le
 // joueur qui attaque ; le défenseur est prévenu que ses troupes sont bloquées. Les affrontements sont publics (V10).
 
 import { battleSummary, cancelBombardOrder, formatDate, formatShortDate, retreatFromBattle } from '../../domain/game-engine.js';
@@ -11,29 +10,34 @@ import { state } from './session.js';
 
 const name = id => id ? nation(id).short : 'Île neutre';
 
-/** ⚔ sur les provinces en bataille, avec « n/3 » (assauts joués). */
-export function drawBattles(onOpen) {
-  const svg = $('#map');
-  if (!svg) return;
-  svg.querySelector('#rtBattles')?.remove();
+let after = () => {};
+/** realtime-ui.js donne ce qu'il faut faire après une retraite (redessiner, sauvegarder). */
+export const setBattleRefresh = fn => { after = fn; };
+/**
+ * V17.3 : ⚔ « n/3 » sur chaque province en bataille, en couche (#rtBattles) DANS #mapWorld (map-view.js) : les copies <use>
+ * du défilement sans fin la répètent. Taille lisible à tout zoom (ui-scale), touchable → fiche de la bataille.
+ */
+export function battlesLayer() {
   const layer = E('g', { id: 'rtBattles', class: 'rt-battles' });
   for (const b of state.battles || []) {
     const s = battleSummary(state, b), a = province(b.provinceId).markerAnchor;
     const mine = b.defenderId === state.playerNationId || b.attackers.some(e => e.nationId === state.playerNationId);
-    const g = E('g', { class: `rt-battle${mine ? ' mine' : ''}`, 'data-battle': b.id, role: 'button', tabindex: '0', transform: `translate(${Math.round(a.x)} ${Math.round(a.y - 46)})`,
+    const g = E('g', { class: `rt-battle${mine ? ' mine' : ''}`, 'data-battle': b.id, role: 'button', tabindex: '0', transform: `translate(${Math.round(a.x)} ${Math.round(a.y)})`,
       'aria-label': `Bataille de ${province(b.provinceId).name}, assaut ${s.assaultsDone} sur ${s.assaults}` });
-    g.append(E('circle', { r: 30, fill: '#7a1010', stroke: mine ? '#ffd84a' : '#fff7df', 'stroke-width': 6 }));
-    const icon = E('text', { y: 4, 'text-anchor': 'middle', 'font-size': 28, fill: '#fff' }); icon.textContent = '⚔';
-    const count = E('text', { y: 54, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 700, fill: '#fff7df', stroke: '#3a0606', 'stroke-width': 5, 'paint-order': 'stroke' });
-    count.textContent = `${s.assaultsDone}/${s.assaults}`;
-    g.append(icon, count);
-    g.addEventListener('click', event => { event.stopPropagation(); openBattle(b.id, onOpen); });
+    const inner = E('g', { class: 'ui-scale' }), pos = E('g', { transform: 'translate(44 -18)' });
+    pos.append(E('circle', { r: 27, class: 'battle-disc' }));
+    const icon = E('text', { y: 2, class: 'battle-icon' }); icon.textContent = '⚔';
+    const count = E('text', { y: 44, class: 'battle-count' }); count.textContent = `${s.assaultsDone}/${s.assaults}`;
+    pos.append(icon, count); inner.append(pos); g.append(inner);
+    const open = event => { event.stopPropagation(); openBattle(b.id); };
+    g.addEventListener('click', open);
+    g.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(event); } });
     layer.append(g);
   }
-  svg.append(layer);
+  return layer;
 }
 /** Fiche d'une bataille : assaut en cours, prochain assaut, camps, PV, « Retraite ». */
-export function openBattle(id, refresh = () => {}) {
+export function openBattle(id, refresh = after) {
   const b = (state.battles || []).find(x => x.id === id);
   if (!b) { toast('La bataille est terminée'); return; }
   const s = battleSummary(state, b), me = state.playerNationId, attacking = b.attackers.some(e => e.nationId === me), defending = b.defenderId === me;
@@ -52,7 +56,7 @@ export function battleNews() {
   const b = [...(state.battles || [])].filter(x => x.defenderId === me || x.attackers.some(e => e.nationId === me)).sort((x, y) => x.nextAssaultDay - y.nextAssaultDay)[0];
   if (!b) return '';
   const s = battleSummary(state, b);
-  return `⚔ Bataille de ${province(b.provinceId).name} : assaut ${s.assaultsDone}/${s.assaults}${s.assaultsDone < s.assaults ? ` · prochain le ${formatShortDate(s.nextAssaultDate)}` : ''} · touchez ⚔`;
+  return `Bataille de ${province(b.provinceId).name} : assaut ${s.assaultsDone}/${s.assaults}${s.assaultsDone < s.assaults ? ` · prochain le ${formatShortDate(s.nextAssaultDate)}` : ''} · touchez ⚔ sur la carte`;
 }
 /** Lignes « bombardement permanent » de la liste des troupes (avec « Arrêter »). */
 export function bombardRows() {
