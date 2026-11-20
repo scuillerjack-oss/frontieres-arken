@@ -23,10 +23,7 @@ import { isMysteryIsland, NEUTRAL_KEY } from '../mystery-island.js';
 import { fightAssault, fightEvent, lossCount, onCapture, unitCount } from '../engine/battles.js';
 import { fortBreach } from '../engine/bombard.js';
 import { dockEscort, stampConvoy, turnBack } from '../engine/convoys.js';
-import { pairWar } from '../engine/shared.js';
-
-/** V17.2 (relecture) : traités en cours entre deux nations (trêve, paix, alliance…), sous forme comparable. */
-const treatiesKey = (state, a, b) => (state.diplomacy?.treaties || []).filter(t => t.active !== false && t.parties?.includes(a) && t.parties?.includes(b)).map(t => t.type).sort().join(',');
+import { pairWar, treatiesKey } from '../engine/shared.js';
 import { createMarch } from './marches.js';
 import { fireFactorFor } from './food.js';
 
@@ -76,10 +73,12 @@ export function joinBattle(state, toId, groups, day = state.day) {
     let e = b.attackers.find(x => x.nationId === g.nationId);
     const c = (g.convoys || [])[0];
     if (!e) {
-      // État diplomatique à l'arrivée : une trêve / paix / alliance apparue avant le premier assaut renvoie l'arrivant chez lui.
-      const def = b.defenderId;
+      // État diplomatique au DÉPART de l'armée (marche ou convoi ; à défaut, à l'arrivée) : une trêve, une paix ou une alliance
+      // avec ce défenseur signée depuis renvoie l'arrivant chez lui avant son premier assaut.
+      const def = b.defenderId, src = (g.marches || g.convoys || [])[0];
+      const known = src && typeof src.warAtDeparture === 'boolean';
       e = { nationId: g.nationId, mode: g.mode || 'land', ...toLegacy(normalizeForce({})), originIds: [], retreatTo: [], fresh: true, joinedDay: day,
-        ...(def ? { warOnArrival: pairWar(state, g.nationId, def), treatiesOnArrival: treatiesKey(state, g.nationId, def) } : {}) };
+        ...(def ? { warAtDeparture: known ? src.warAtDeparture : pairWar(state, g.nationId, def), treatiesAtDeparture: known ? (src.treatiesAtDeparture || '') : treatiesKey(state, g.nationId, def) } : {}) };
       b.attackers.push(e);
       b.attackers.sort((x, y) => x.nationId.localeCompare(y.nationId));
     }
@@ -227,11 +226,11 @@ export function resolveBattles(state, map, fought, day = state.day) {
     }
     if (b.defenderId) for (const e of [...b.attackers]) {
       if (pairWar(state, e.nationId, b.defenderId) || isEmpty(entryForce(e))) continue;
-      // Plus en guerre avec le défenseur. Seul un arrivant qui n'était pas en guerre à son arrivée, attaque le jour même et
-      // n'a signé aucun traité depuis déclare la guerre en attaquant (règle V10). Tous les autres (déjà au combat, ou arrivés
-      // en guerre puis trêve / paix / alliance avant l'assaut, ou arrivés sans guerre un autre jour) font demi-tour : jamais
-      // de guerre rouverte ni de trahison involontaire.
-      const aggression = e.fresh !== false && e.warOnArrival === false && e.joinedDay === day && treatiesKey(state, e.nationId, b.defenderId) === (e.treatiesOnArrival || '');
+      // Plus en guerre avec le défenseur. Un arrivant (pas encore au combat) qui était déjà sans guerre à son DÉPART et n'a
+      // signé aucun traité avec lui depuis attaque : il déclare la guerre à son premier assaut (règle V10 : attaquer = guerre),
+      // même en renfort d'une bataille en cours. Font demi-tour, sans trahison : un attaquant qui a déjà combattu, ou un arrivant
+      // dont la guerre a pris fin (paix) ou qui a signé une trêve / une alliance depuis son départ.
+      const aggression = e.fresh !== false && e.warAtDeparture === false && treatiesKey(state, e.nationId, b.defenderId) === (e.treatiesAtDeparture || '');
       if (aggression) continue;
       b.attackers = b.attackers.filter(x => x !== e);
       leave(state, map, b, e, entryForce(e), { startDay: day + 1, reason: 'peace' });

@@ -10,6 +10,10 @@ export const deName = name => /^[AEIOUYÉÈÊÎÏÔÖÛÜÀÂaeiouyéèêîïô�
 // V16.2 : la garnison neutre de l'île mystérieuse (propriétaire null, clé 'neutre' dans les combats) a un nom.
 export const nationName = (map, id) => id === null || id === 'neutre' ? 'Garnison neutre' : map.nations.find(n => n.id === id)?.short || 'Nation inconnue';
 export const pairWar = (state, a, b) => state.diplomacy.wars.some(w => w.active !== false && w.participants.includes(a) && w.participants.includes(b));
+/** V17.2 : traités en cours entre deux nations (trêve, alliance…), sous forme comparable ('' sans traité). */
+export const treatiesKey = (state, a, b) => (state.diplomacy?.treaties || []).filter(t => t.active !== false && t.parties?.includes(a) && t.parties?.includes(b)).map(t => t.type).sort().join(',');
+/** V17.2 : état diplomatique au départ d'une armée vers une nation (sert à reconnaître une trêve / paix / alliance signée depuis). */
+export const departureDiplomacy = (state, nationId, owner) => owner && owner !== nationId ? { warAtDeparture: pairWar(state, nationId, owner), treatiesAtDeparture: treatiesKey(state, nationId, owner) } : {};
 export const pairTreaty = (state, a, b, type) => state.diplomacy.treaties.some(t => t.active !== false && t.type === type && t.parties.includes(a) && t.parties.includes(b));
 const reservedDiplomaticFunds = (state, nationId) => (state.orders || []).filter(o => o.kind === 'diplomacy' && o.action === 'ceasefire' && o.nationId === nationId && o.status === 'pending').reduce((n,o)=>n+(o.amount||0),0);
 export const spendableTreasury = (state, nationId) => Math.max(0,(state.nations[nationId]?.treasury||0)-reservedDiplomaticFunds(state,nationId));

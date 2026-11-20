@@ -12,7 +12,7 @@ import { addToProvince, lossCount, takeOrderForces, unitCount } from '../engine/
 import { besieged, joinBattle } from './battles.js';
 import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
-import { pairTreaty, pairWar } from '../engine/shared.js';
+import { departureDiplomacy, pairTreaty, pairWar } from '../engine/shared.js';
 import { fireFactorFor } from './food.js';
 
 const D = RULES.realtime.durations;
@@ -35,6 +35,7 @@ export function createMarch(state, { nationId, fromId, toId, force, startDay = s
   const m = {
     id: nextMarchId(state), kind: 'land', nationId, fromId, toId, ...legacy, startDay, arriveDay: startDay + days,
     targetOwner: owner, hostile: !returning && owner !== nationId && !hasPassage(state, nationId, owner), truces: trucesOf(state, nationId),
+    ...(returning ? {} : departureDiplomacy(state, nationId, owner)),
     ...(returning ? { returning: true } : {}), ...(passage ? { passage: true } : {}), ...(guest ? { guest: true } : {})
   };
   (state.marches ||= []).push(m);

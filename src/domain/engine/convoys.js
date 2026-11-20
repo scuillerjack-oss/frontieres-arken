@@ -9,7 +9,7 @@ import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
 import { addToProvince, emptyForceLocal, fight, lossCount, unitCount } from './battles.js';
 import { isPortPoint, laneOf, seaDestinations, seaRoutesFrom, seaTravelTurns } from './sea-routes.js';
-import { pairWar, provinceDef } from './shared.js';
+import { departureDiplomacy, pairWar, provinceDef } from './shared.js';
 
 // --- V10 marine : convois, étapes en mer, interceptions, débarquements (docs/V10-marine.md) -----------------
 /** Convoi : { id, nationId, fromId, toId, via, stage, turns, units, warships, wounds }.
@@ -33,7 +33,7 @@ export function embark(state, map, o, force) {
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   const id = `c${state.transportSequence++}`, turns = seaDuration(state, route.turns);
   state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns, departed: state.turn,
-    truces: trucesOf(state, o.nationId), ...(o.navalStrike ? { strike: true } : {}), ...(o.passage ? { passage: true } : {}), ...(allyPortOf(state, o) ? { allyPort: allyPortOf(state, o) } : {}
+    truces: trucesOf(state, o.nationId), ...(state.mode === 'realtime' ? departureDiplomacy(state, o.nationId, state.provinces[o.toId]?.ownerId) : {}), ...(o.navalStrike ? { strike: true } : {}), ...(o.passage ? { passage: true } : {}), ...(allyPortOf(state, o) ? { allyPort: allyPortOf(state, o) } : {}
     ), ...(state.mode === 'realtime' ? { departDay: state.day, arriveDay: state.day + turns } : {}), ...toLegacy(force) });
   state.events.push({ turn: state.turn, type: 'convoy-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, convoyId: id, turns, escort: force.units.warship, amount: unitCount(force) });
 }

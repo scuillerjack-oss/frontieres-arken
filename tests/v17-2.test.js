@@ -433,3 +433,36 @@ test('V17.2 × V17.4 : les troupes à l\'assaut mangent comme en marche ; une na
   assert.equal(fed.assault, 2); assert.equal(starved.assault, 2);
   assert.ok(starved.defenderHpLost < fed.defenderHpLost, `${starved.defenderHpLost} < ${fed.defenderHpLost}`);
 });
+
+/** Valmorne assiège p04 (Aurel) ; Noireflamme, EN PAIX avec Aurel, envoie un renfort qui arrive entre l'assaut 1 et l'assaut 2. */
+function peacefulReinforcement() {
+  const s = siege({ def: 400, atk: 300, fort: 3 });
+  const near = map.provinces.find(p => p.id === 'p04').landConnections.find(id => id !== 'p02');
+  s.provinces[near].ownerId = 'noireflamme'; s.provinces[near].units = inf(600);
+  const m = send(s, 'p02', 'p04', { infantry: 300 });
+  untilDay(s, s.day + 1);
+  const m2 = send(s, near, 'p04', { infantry: 300 }, 'noireflamme');
+  assert.equal(m2.warAtDeparture, false); assert.equal(m2.treatiesAtDeparture, '');
+  return { s, m, m2 };
+}
+test('V17.2 : renfort sans guerre qui rejoint un siège en cours — il attaque et déclare la guerre à son premier assaut (V10)', () => {
+  const { s, m, m2 } = peacefulReinforcement(), ev = s.events.length;
+  untilDay(s, m2.arriveDay);
+  assert.ok(s.battles[0].attackers.some(e => e.nationId === 'noireflamme'), 'il a rejoint la bataille');
+  untilDay(s, m.arriveDay + 10);
+  assert.ok(evs(s, ev, 'assault').some(e => e.attackers.includes('noireflamme')), 'il a attaqué');
+  assert.ok(s.diplomacy.wars.some(w => w.participants.includes('noireflamme') && w.participants.includes('aurel')), 'guerre déclarée par l\'attaque');
+  assert.ok(!evs(s, ev, 'battle-retreat').some(e => e.nationId === 'noireflamme' && e.reason === 'peace'));
+});
+test('V17.2 : renfort sans guerre, trêve signée après son départ — demi-tour sans trahison (avant ou après son arrivée)', () => {
+  for (const when of ['avant l\'arrivée', 'après l\'arrivée']) {
+    const { s, m, m2 } = peacefulReinforcement(), ev = s.events.length;
+    untilDay(s, when === 'avant l\'arrivée' ? m2.arriveDay - 5 : m2.arriveDay);
+    s.diplomacy.treaties.push({ type: 'ceasefire', parties: ['noireflamme', 'aurel'], active: true, started: s.turn });
+    untilDay(s, m.arriveDay + 10);
+    assert.ok(!evs(s, ev, 'betrayal').length, `${when} : pas de trahison`);
+    assert.ok(!s.diplomacy.wars.some(w => w.participants.includes('noireflamme') && w.participants.includes('aurel')), `${when} : pas de guerre`);
+    assert.ok(!evs(s, ev, 'assault').some(e => e.attackers.includes('noireflamme')), `${when} : n'a pas attaqué`);
+    assert.ok(s.marches.some(x => x.nationId === 'noireflamme' && x.returning), `${when} : demi-tour`);
+  }
+});
