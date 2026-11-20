@@ -364,6 +364,8 @@ garde le comportement V10).
   Objet `state.marches[]` : `{ id, nationId, fromId, toId, units, wounds, startDay, arriveDay, kind:'land' }`.
   Les convois gardent `state.transports[]` avec `departDay` et `arriveDay` à la place de `stage / turns`
   (`stage = jours écoulés`, `turns = durée en jours` pour réutiliser le code).
+- **V17.5b (remplace les chiffres ci-dessous)** : 20 jours par la terre vers un voisin à la distance de référence, × la distance
+  entre les deux provinces (15 à 30 jours), 13 pour la cavalerie seule ; mer 40 jours, île 80 ; même durée pour tous (Réalisé V17.5b).
 - **Durée** : 30 jours par la terre vers une province voisine, quelle que soit la distance sur la carte ; **20 jours pour
   une armée composée uniquement de cavalerie** (tranché par l'équipe : donne enfin un rôle à la cavalerie, presque jamais
   recrutée — 5 cavaliers par nation en fin de partie). Mer : 60 / 120 jours (§2.2). Un seul trajet par ordre (province
@@ -1306,3 +1308,157 @@ un Premium voit encore la 🎁 (voulu : c'est un choix) ; les textes de l'écran
 5. Non vérifié : vraie pub AdMob et vrai achat Google Play (rien n'est activé : ce sera le test interne de la V17.10, avec
    le produit `premium` à créer dans la Play Console) ; refus d'une pub 🎁 seulement par les tests (l'emplacement de test
    se ferme seul).
+
+### V17.5b — Équilibrage et personnalités (20/11/2026)
+**Fait** (branche `mission/V17.5b`, version inchangée ; moteur `src/domain/`, présentation au strict nécessaire) :
+
+1. **Province attaquée** (demande de Jack) : pendant une bataille, ni recrutement (V17.5) ni **construction**, forteresse et
+   ballon compris : « Province attaquée : impossible de construire pendant la bataille (les chantiers en cours reprendront
+   après) » (`engine/orders.js` `underAttack`, `balloons.js`). Un **chantier en cours y est suspendu** (il n'avance pas, bonus
+   de vitesse compris) jusqu'à la fin de la bataille, un seul avis privé `production-suspended` (journal « X est attaquée :
+   chantier (banque) suspendu jusqu'à la fin de la bataille », bandeau 🚧) ; province prise : remboursé (règle B4). Les recrues
+   continuent de se former et sont livrées après la bataille (V17.5, inchangé). Message de recrutement : « Province attaquée
+   (assiégée) : impossible de recruter pendant la bataille ».
+2. **Trajets** (même vitesse pour l'attaquant et le défenseur ; plus c'est loin, plus c'est long) — retenu : **terre 20 jours**
+   pour un voisin à la distance de référence, **× la distance** entre les repères des deux provinces ÷ 245, bornée de 0,75 à 1,5
+   (`RULES.realtime.durations.landDistance` : 15 à 30 jours ; ex. Valmorne p01 → p02 : 17 j, p01 → p03 : 30 j) ; **cavalerie
+   seule 13 j** (× la même distance) ; **mer 40 j** (2 « tours » de carte × 20 ; une route plus longue en compte plus), **île 80 j** ;
+   interception au port d'arrivée à 20 jours de l'arrivée ; repli et demi-tour : la durée de l'aller. Fiche d'attaque : « 17 jours
+   de marche (11 en cavalerie seule) » (`realtime-view.js` `landMarchText`) ; fiche de l'île en jours. Forteresse et
+   recrutements plus longs : essayés, **non retenus** (ils font baisser les conquêtes, tableau ci-dessous).
+   Note technique : la durée par la terre lit `markerAnchor` de la carte passée au moteur (comme la longueur des routes
+   maritimes) ; sans carte, durée de base.
+3. **Personnalités plus vivantes et moins prévisibles** (`src/domain/realtime/personalities.js`, `engine/ai.js`, réglages
+   `RULES.realtime.ai.personality`, **en temps réel seulement** : le tour par tour et ses empreintes sont inchangés) :
+   - **Tirage à la graine, vérifié** : les 4 caractères sont redistribués à chaque partie selon sa graine (`'arken-' + date`,
+     `game-flow.js`) ; même graine = même partie ; sur 30 graines, au moins 15 répartitions différentes et chaque nation tient
+     chacun des 4 caractères ; au départ, rien n'est révélé (« Dirigeant encore mal connu » pour tous).
+   - **Tempérament** : chaque dirigeant tire à la graine de petites variations (±12 %) de ses seuils (marges d'attaque,
+     rapports de force, délais) ; **choix pondérés** au lieu de « le plus faible à coup sûr » (`weightedPick`) ; délais tirés
+     dans une fourchette (`between`). Aucun `Math.random`.
+   - **Conquérant** (le plus dangereux) : marge 0,9 (au lieu de 0,95), 0,78 en guerre ; 3 attaques terrestres par 30 jours ;
+     débarquement tous les 15 jours (au lieu de 30), marge de débarquement en guerre 1,0 (au lieu de 1,1) ; recrute tous les
+     20 jours, un lot de blindés de plus ; première guerre dès la 1re à 3e période ; **proie tirée au sort** (les plus faibles,
+     celles qu'il atteint depuis sa base et les nations presque à terre pèsent plus ; Héros et joueur compris), gardée 3 à 8
+     périodes puis retirée ; 2e proie dès 1,1 fois sa force ; **rompt une trêve au bout de 4 à 8 périodes** (au lieu de 10 :
+     trahison publique). Ses armées loin du front marchent vers une province frontalière (`stageToFront`, aussi Traître et
+     Héros en guerre, Bâtisseur réveillé).
+   - **Héros** : contre la **menace publique** (`publicMenace` : un Conquérant démasqué, ou la nation qui a agressé au moins
+     2 nations en 12 périodes — jamais un caractère caché), il propose des alliances (ses victimes et ceux qui la combattent
+     d'abord ; tirage 60 % par période, moitié pour les autres), accepte plus facilement une victime (tension < 55) et attaque
+     la menace quand elle frappe un de ses alliés, s'il pèse au moins la moitié de sa force et pas à chaque fois (60 %).
+   - **Traître** : « s'allie » volontiers contre un ennemi commun (la menace ou une nation avec qui il est en guerre : tension
+     jusqu'à 55, chances × 1,6) ; l'allié qu'il trahit est **tiré au sort** parmi ceux qui sont mûrs (jamais fixe : Héros,
+     Bâtisseur, joueur…) et il frappe quand cet allié est en guerre ailleurs (troupes parties au front, vues par SA vision,
+     simulation de l'attaque) ; profite des guerres des autres (une nation non alliée en guerre ailleurs et à moins de 0,8 fois
+     sa force devient une proie, 20 % par période) ; après un coup, il **se fait oublier 12 à 30 périodes** (il trahit parfois).
+   - **Bâtisseur** : cherche des alliés (tout voisin calme, 20 % par période, 2 au plus) ; en paix il ne recrute qu'une fenêtre
+     sur deux ; il couvre ses provinces : forteresse (jusqu'au niveau 3) dans chaque province, fermes (3 par province), usine
+     et port partout où c'est possible → la cible la plus riche et la plus dure à prendre en fin de partie.
+4. **Phare de l'île mystérieuse** (idée validée par Jack) : le propriétaire et le co-propriétaire voient **toute flotte d'une
+   autre nation en route vers l'île, et seulement celles-là** (`vision.js` `lighthouseFleets`) : de qui, d'où, arrivée le … ;
+   composition selon les règles de vision habituelles (province de départ connue ou flotte alliée), sinon « composition
+   inconnue ». Avis privé `lighthouse` au départ de la flotte : journal « 🗼 Flotte de Roc-Épine en route vers l'île
+   mystérieuse, arrivée le 12 mars 2027 », bandeau 🗼 (touchable : l'île), lignes 🗼 dans la fiche de l'île. La flotte ne sait
+   pas qu'elle est vue. L'IA propriétaire lit la même liste : si la garnison ne tiendrait pas (composition vue, sinon
+   estimation prudente), elle envoie un renfort qui arrive avant (`ai-island.js` `lighthouseAlarm`). Règles de l'île vérifiées
+   (test) : garnison neutre immobile, rien ne s'y construit ni ne s'y recrute (ferme comprise), super banque, 2e ballon.
+5. **Équilibre** : estimation prudente d'une garnison invisible × 2 en fin de partie (`RULES.realtime.vision.growthAtEnd` 1,
+   au lieu de 2,37) ; Traître au repos 12 à 30 périodes ; Bâtisseur allié 20 %.
+
+**Essais** (`node tools/v17/essais-v17.5b.mjs [parties] [préfixe] [essais]` : chaque essai sur une copie de `src/` avec ses
+réglages ; résultats bruts `tools/v17/resultats-v17.5b-essais.json`). Cible §13.3 : 33,8 conquêtes (±25 % : 25,5 à 42),
+plus grande armée 3 635 (2 726 à 4 544), famine < 5 %, pas d'éliminations en chaîne avant 2 ans.
+
+| Essai (parties de 15 ans) | Parties | Conquêtes | Éliminées | Plus grande armée (médiane) | Famine | Chaîne < 2 ans | Batailles |
+|---|---|---|---|---|---|---|---|
+| IA de la V17.5 — 30 j (base) | 100 | 18,7 | 0,67 | 3 129 | 4,2 % | 0 | 30,5 |
+| IA V17.5 — voisin 20 j, mer 40 / 80 | 100 | 23,3 | 0,86 | 3 214 | 3,4 % | 0 | 35,8 |
+| IA V17.5 — voisin 15 j, mer 30 / 60 | 100 | 20,5 | 0,70 | 3 311 | 2,8 % | 0 | 31,4 |
+| IA V17.5 — 20 j + forteresse +50 %, blindés / artillerie / navires +33 % | 100 | 20,2 | 0,74 | 3 403 | 1,8 % | 0 | 30,7 |
+| Nouvelles personnalités (1re version) — 30 j | 100 | 16 | 0,61 | 3 404 | 3 % | 0 | 26,9 |
+| — 20 j | 100 | 18,5 | 0,67 | 3 290 | 2,6 % | 0 | 28 |
+| — 20 j selon la distance | 100 | 18,5 | 0,70 | 3 312 | 3 % | 0 | 27,9 |
+| Personnalités (2e version) — 15 j | 100 | 17,9 | 0,65 | 2 992 | 2 % | 1 | 26,9 |
+| — 15 j + IA qui attaque / débarque tous les 15 j | 100 | 17,7 | 0,64 | 3 059 | 2 % | 0 | 27 |
+| — 20 j + IA tous les 15 j | 100 | 17,1 | 0,58 | 3 140 | 1,8 % | 0 | 27,1 |
+| — 20 j + IA tous les 15 j + forteresse et recrutements plus longs | 100 | 17,8 | 0,62 | 3 108 | 2 % | 0 | 28 |
+| — 15 j + IA tous les 15 j + marge −0,2 | 100 | 17,8 | 0,69 | 3 108 | 2,6 % | 0 | 27,7 |
+| — 15 j + **2 assauts** au lieu de 3 (pour information) | 100 | 17,8 | 0,60 | 2 989 | 2,8 % | 0 | 32,7 |
+| Diagnostic 20 j (base) | 30 | 19 | 0,67 | 2 827 | 0,7 % | 0 | 28,7 |
+| — Bâtisseur sans alliances | 30 | 20,5 | 0,77 | 3 036 | 0 % | 0 | 31,4 |
+| — Héros sans coalition | 30 | 19,1 | 0,63 | 2 819 | 1,3 % | 0 | 28,9 |
+| — Traître sans repos entre deux coups | 30 | 23,3 | 0,80 | 3 117 | 0,7 % | 0 | 34,9 |
+| — estimation prudente × 2 en fin de partie | 30 | 21,3 | 0,63 | 2 972 | 0,7 % | 0 | 34,6 |
+| — estimation prudente × 1,5 | 30 | 22,5 | 0,80 | 3 023 | 2 % | 0 | 37,6 |
+| Combinaison 15 j + estimation × 2 + Traître 12-30 + Bâtisseur 0,2 | 100 | 20,9 | 0,84 | 3 116 | 2,4 % | 0 | 32,7 |
+| **Combinaison 20 j + estimation × 2 + Traître 12-30 + Bâtisseur 0,2 (retenue, + distance)** | 100 | **21,8** | 0,88 | 3 157 | 1,8 % | 0 | 34,5 |
+| Combinaison 20 j + estimation × 1,5 | 100 | 22,3 | 0,94 | 3 169 | 2,2 % | 0 | 35,6 |
+
+Lecture : **le nombre de conquêtes ne dépend presque pas de la défense** — 2 assauts au lieu de 3, des trajets d'un tiers
+ou de moitié plus courts, des forteresses plus lentes ou une IA qui attaque deux fois plus souvent le laissent entre 17 et 21.
+Les IA lancent peu d'attaques (≈ 30 batailles en 15 ans, 60 % réussies) : leurs armées (≈ 3 000 or au plus) ne suffisent
+pas, à leur propre simulation, contre les garnisons qu'elles voient ou estiment. Les trajets de 20 jours (et non 15 : la
+défense voisine n'a plus le temps de venir, mais l'attaquant non plus) donnent le meilleur résultat ; l'estimation prudente
+moins gonflée et un Traître qui frappe plus souvent rendent ce que les nouvelles alliances (Héros, Bâtisseur) avaient coûté.
+
+**Mesures finales — 300 parties de 15 ans** (`node tools/v17/mesures-v17.5b.mjs 300 v175b-final`, réglages du dépôt ;
+résumé `tools/v17/resultats-v17.5b.json`) :
+
+| Mesure | Valeur | Cible |
+|---|---|---|
+| Conquêtes par partie | **21,5** (8 / 4,6 / 4,8 / 4,1 par quart) | 33,8 ±25 % : **non atteinte (−36 %)** |
+| Nations éliminées par partie | 0,72 | §13.3 : 0,72 |
+| Éliminations avant 2 ans | 18 parties sur 300 ; **en chaîne (2 ou plus) : 1 partie** | pas de chaos ✓ |
+| Plus grande armée finale (médiane / p90 / max) | 3 088 / 3 892 / 5 500 or | 2 726 à 4 544 ✓ |
+| Famine | 2,7 % (40 nations sur 1 500) | < 5 % ✓ |
+| Fin de partie | 300 au dernier jour (aucune victoire par les capitales) | pas trop tôt ✓ |
+| Vainqueur (1er du classement) par caractère | Héros 87, Conquérant 86, Bâtisseur 72, Traître 55 | fins variées ✓ |
+| Vainqueur par nation | Noireflamme 110, Roc-Épine 52, Aurel 51, Valmorne 46, Oroel 41 | Noireflamme avantagée (carte) |
+| Batailles (débarquements) | 33,5 (13) | |
+| Île prise | 0,75 fois par partie, dans 159 parties sur 300 | |
+
+Par caractère (moyennes par nation sur 300 parties ; 375 à 383 nations de chaque caractère) :
+
+| | Assauts lancés (terre / mer) | 1er assaut (jour, médiane) | Conquêtes | Provinces perdues | Trahisons | Alliances (dont contre le Conquérant) | Bâtiments par province | Éliminées | Victoires |
+|---|---|---|---|---|---|---|---|---|---|
+| **Conquérant** | **12,2** (8,1 / 4) | **62** | **6** | 6,2 | 0,94 (trêves rompues) | 1,16 (0) | 2,4 | 81 | 86 |
+| **Traître** | 11,4 (7,5 / 3,9) | 294 | 5,7 | 6,5 | **3,51** (297 Traîtres sur 363 ; 2,24 cibles différentes par partie) | 4,1 (1,55) | 2,84 | 87 | 55 |
+| **Héros** | 4,7 (3,2 / 1,5) | 320 | 3,4 | 2,5 | 0 | 3,82 (**1,86**) | 4,56 | 19 | 87 |
+| **Bâtisseur** | **4,4** (3,2 / 1,2) | 1 188 | 2,2 | 1,7 | 0 | 2,77 (0,82) | **6,82** | 28 | 72 |
+
+Cibles des trahisons du Traître : Héros 547, Bâtisseur 386, Conquérant 210, autre Traître 132 (jamais la même d'une partie à
+l'autre). Le Conquérant attaque le plus tôt et le plus, prend le plus de provinces mais en reperd autant (Héros, coalition,
+trêves rompues qui le démasquent) : dangereux, pas invincible.
+
+**100 parties courtes (7 ans)** (`node tools/v17/mesures-v17.5b.mjs 100 v175b-courte --courte`) : 12,3 conquêtes, 0,32 nation
+éliminée, aucune élimination en chaîne avant 2 ans (6 parties avec une élimination), plus grande armée 1 629 / 1 856 / 2 334 or,
+famine 0,4 %, 100 fins au dernier jour ; vainqueur : Conquérant 30, Héros 29, Traître 25, Bâtisseur 16. Assauts par nation :
+Conquérant 7,5, Traître 5,9, Héros 2,6, Bâtisseur 2,2 ; trahisons par Traître 2,6 ; alliances contre le Conquérant : Héros 1,56,
+Traître 1,05, Bâtisseur 0,79 ; bâtiments par province : Bâtisseur 4,82, Héros 2,91, Traître 1,8, Conquérant 1,41.
+
+**Incohérences résolues en route** : un retour d'armée (demi-tour à l'arrivée) dure le trajet de l'aller ; la fiche de l'île
+donnait ses routes « en tours » en temps réel (maintenant en jours) ; la fiche d'attaque affichait « 30 jours de marche » en dur ;
+un Bâtisseur « réveillé » prenait le quota de 3 attaques du Conquérant (non : c'est sa nature qui compte) et rompait les trêves
+comme lui (non) ; la mesure des essais a été corrigée pour copier le code avant de lancer les parties.
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. **Conquêtes −36 % de la cible** : écart remis au chef de projet / à Jack. Les leviers « défense » (assauts, trajets,
+   forteresses) n'y changent presque rien ; ce qui compte, c'est la décision d'attaquer (armées trop petites face aux
+   garnisons). Pistes pour la V17.9 : armées de l'IA plus grosses (revenus ou coût), ou garnisons de départ plus petites.
+2. Forteresse +50 % et blindés / navires +33 % : non retenus (ils protègent aussi l'attaquant qui s'arme, mesuré −1 à −3).
+3. Trajets de 20 jours (et non 15) : 15 jours ne fait pas mieux (17,9 / 20,9 contre 18,5 / 21,8).
+4. Personnalités en temps réel seulement (le tour par tour, réglage de test, garde ses empreintes).
+5. Le Traître trahit en moyenne 3,5 fois en 15 ans (une fois tous les 4 ans environ) : sans repos, 23,3 conquêtes mais
+   des coups tous les ans ; avec 36 à 66 périodes de repos, ≈ 2 fois mais 3 conquêtes de moins par partie.
+
+**Tests** : `tests/v17-5b.test.js` (12 tests : construction et ballon refusés dans une province attaquée, recrutement aussi ;
+chantier suspendu puis repris, un seul avis, privé ; phare : propriétaire et co-propriétaire voient la flotte vers l'île et
+seulement elle, composition selon la vision, avis privé, bandeau et fiche ; règles de l'île ; durées (distance, aller = retour,
+cavalerie) ; caractères à la graine et rien de révélé au départ ; tempérament ; menace publique ; même graine = même partie ;
+sur 8 parties courtes : le Conquérant attaque le plus, le Bâtisseur le moins et a le plus de bâtiments, le Traître trahit
+parfois et pas toujours la même cible, le Héros s'allie contre le Conquérant plus que les autres ; pureté). **Tests modifiés**
+(durées de trajet tirées des règles au lieu de 30 / 20 / 60 / 120 en dur) : `v17-1`, `v17-2`, `v17-3`, `v17-5` (renfort depuis le
+voisin proche, recrues retenues, rythme de recrutement du Conquérant) ; `v14-0` et `v15-2` (motif du code : trêve et quota du
+Conquérant en temps réel). `npm test` : 857 tests, tous verts. **Non vérifié** : vrai téléphone, Chrome mobile simulé (bandeaux
+🗼 et 🚧 testés par les fonctions pures seulement).
