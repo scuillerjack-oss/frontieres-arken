@@ -20,6 +20,7 @@ import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadg
 import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
+import { unitsLayer } from './map-units-layer.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
 import { moveSource, save, selected, state } from './session.js';
 import { safeEngine, updateTalkBadge } from './talk-screen.js';
@@ -163,9 +164,12 @@ export function render(){
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
   }
-  const convoyLayer=E('g',{class:'convoys'});for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
+  // V17.3 : en temps réel, convois et armées en marche sont des icônes qui avancent chaque jour (map-units-layer.js) ;
+  // l'ancien jeton de convoi « tours restants » reste pour le tour par tour.
+  const rt=state.mode==='realtime',convoyLayer=E('g',{class:'convoys'});if(!rt)for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
   world.append(nationNameLayer(),...routeLayer,labelLayer,convoyLayer);
   world.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
+  if(rt)world.append(safeEngine(()=>unitsLayer(),E('g',{id:'rtUnits'}))); // dans #mapWorld : les copies <use> du défilement sans fin la répètent
   for(const order of playerOrderArrows(state,map)){
     const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button',
       'aria-label':`${order.kind==='bombard'?'Bombardement':order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`}
@@ -174,10 +178,10 @@ export function render(){
   }
   svg.replaceChildren(defs,world,...wrapUses());
   const coalition=coalitionBanner(state,id=>nation(id).short),chip=$('#coalitionBtn');chip.hidden=!coalition;if(coalition){chip.textContent=coalition.text;chip.dataset.mine=coalition.mine?'1':'0';}
-  const army=totalArmy(state,state.playerNationId);$('#turn').innerHTML=`${Math.min(state.turn,gameLengthOf(state))}<span class="turn-max">/${gameLengthOf(state)}</span>`;
+  const army=totalArmy(state,state.playerNationId);if(!rt)$('#turn').innerHTML=`${Math.min(state.turn,gameLengthOf(state))}<span class="turn-max">/${gameLengthOf(state)}</span>`;
     $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>gameLengthOf(state)-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
     $('#armyTotal').textContent=army.total;
-  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); save();announceOrder();syncMusic();if(tutoStep!==null)queueMicrotask(refreshTuto);
+  $('#pendingCount').textContent=state.orders.filter(o=>o.status==='pending').length;updateTalkBadge(); if(!rt)save(); /* V17.3 : en temps réel, sauvegarde espacée (realtime-ui.js) */announceOrder();syncMusic();if(tutoStep!==null)queueMicrotask(refreshTuto);
   if(tutoStep===null)$('#miniTuto').classList.toggle('bottom',Boolean(moveSource)); // V13.4 : ne cache pas le bandeau de déplacement (V14.3 : le tutoriel place sa bulle lui-même)
 }
 // V17.6 : copies de #mapWorld de chaque côté. Elles ne reçoivent pas les touchers eux-mêmes : un toucher sur une copie

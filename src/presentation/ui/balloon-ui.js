@@ -2,13 +2,14 @@
 // Règles : src/domain/engine/balloons.js ; textes : src/presentation/balloon-view.js.
 
 import {
-  balloonBuildStatus, balloonById, balloonDestinations, balloonMax, cancelBalloonOrder, pendingBalloonOrders, queueBalloonBuild,
+  balloonBuildStatus, balloonById, balloonDestinations, balloonMax, balloonPath, cancelBalloonOrder, pendingBalloonOrders, queueBalloonBuild,
   queueBalloonSend, queueBalloonShoot
 } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import {
-  BALLOON_RULE_TEXT, BALLOON_SHOOT_TEXT, balloonMarkers, balloonOf, balloonRouteText, balloonStatusText
+  BALLOON_RULE_TEXT, BALLOON_SHOOT_TEXT, balloonMarkers, balloonOf, balloonRouteText, balloonStatusText, islandCenter
 } from '../balloon-view.js';
+import { balloonHopFraction } from '../realtime-view.js';
 import { isTutorial } from '../tutorial.js';
 import { $, E, nation, province, toast } from './base.js';
 import { eventPopup } from './event-popups.js';
@@ -23,6 +24,11 @@ const pendingFor = (kind, balloonId) => pendingBalloonOrders(state, me()).find(o
 export function balloonLayer() {
   const layer = E('g', { class: 'balloons' });
   for (const m of balloonMarkers(state, map)) {
+    // V17.3 : en temps réel, un ballon en vol avance jour par jour vers l'île suivante de son trajet.
+    if (state.mode === 'realtime' && m.to) {
+      const next = balloonPath(map, m.over, m.to)?.[0], a = islandCenter(map, m.over), b = next && islandCenter(map, next);
+      if (a && b) { const f = balloonHopFraction(balloonById(state, m.id)?.legTurns, state.day); m.x = Math.round(m.x + (b.x - a.x) * f); m.y = Math.round(m.y + (b.y - a.y) * f); }
+    }
     const shoot = !m.own && pendingFor('balloon-shoot', m.id), send = m.own && pendingFor('balloon-send', m.id);
     const g = E('g', { class: `balloon${m.own ? ' own' : ' foreign'}${shoot ? ' targeted' : ''}`, 'data-balloon': m.id, role: 'button', tabindex: '0',
       transform: `translate(${m.x} ${m.y})`,
@@ -31,7 +37,7 @@ export function balloonLayer() {
     const inner = E('g', { class: 'ui-scale' }), icon = E('text', { y: 2, class: 'balloon-icon' });
     icon.textContent = '🎈';
     inner.append(E('circle', { r: 36, class: 'balloon-body' }), icon);
-    if (m.to || send || shoot) { const tag = E('text', { y: 60, class: 'balloon-tag' }); tag.textContent = shoot ? '✖' : send ? '➜' : `${m.eta}`; inner.append(tag); }
+    if (m.to || send || shoot) { const tag = E('text', { y: 60, class: 'balloon-tag' }); tag.textContent = shoot ? '✖' : send ? '➜' : state.mode === 'realtime' ? `${Math.max(1, m.eta * 30 - (state.day - 1) % 30)} j` : `${m.eta}`; inner.append(tag); }
     g.append(inner);
     const open = event => { event.stopPropagation(); openBalloon(m.id); };
     g.addEventListener('click', open);
@@ -101,7 +107,7 @@ export async function showBalloonPopups(events) {
 /** Carte « Ballon d'observation » de l'écran Construction (refus expliqué : usine, maximum, déjà en construction). */
 export function balloonBuildCard(provinceId) {
   const st = balloonBuildStatus(state, { nationId: me(), provinceId });
-  return `<div class="action-card balloon-card"><span><b>🎈 Ballon d’observation</b><small>${st.cost} or · ${st.turns} tour(s) · ${balloonMax(state, me())} au maximum</small>${st.ok ? '' : `<small \
+  return `<div class="action-card balloon-card"><span><b>🎈 Ballon d’observation</b><small>${st.cost} or · ${state.mode === 'realtime' ? '60 jours' : `${st.turns} tour(s)`} · ${balloonMax(state, me())} au maximum</small>${st.ok ? '' : `<small \
 class="prereq">⚠ ${st.reason}</small>`}</span><button data-build-balloon ${st.ok ? '' : 'disabled'}>Vérifier</button></div>`;
 }
 export function bindBalloonBuild(provinceId, after) {

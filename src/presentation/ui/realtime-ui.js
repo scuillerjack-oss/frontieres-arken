@@ -1,156 +1,226 @@
-// Interface — V17.1 : partie en TEMPS RÉEL, écran provisoire (l'interface complète est la V17.3, la carte la V17.6).
-// Une horloge simple (src/presentation/realtime-clock.js, pure) : 1 jour = 2 s, ▶ / ⏸ dans le bandeau au-dessus de la carte,
-// la date à la place du tour. Les ordres du joueur partent tout de suite (executePendingOrders, même en pause). Les armées en
-// marche sont dessinées dans un calque à part ajouté au SVG (#rtMarches), sans toucher au rendu de la carte (map-view.js).
-// Pas de pause automatique pendant le jeu (décision de Jack, cahier §1.1) : seuls la page cachée et une pub arrêtent le temps ;
-// une partie reprise repart en pause (§1.4).
+// Interface — V17.3 : partie en TEMPS RÉEL, interface définitive façon AM 3 (cahier V17 §1, §6, §8, §11, §12 « V17.3 »).
+// - En bas à droite : la date (« 12 mars 2027 ») et ▶ Play / ⏸ Pause / ⏩ ×2 (cadenas sans Premium → écran « Premium
+//   bientôt », la vraie offre est la V17.7). Toucher la date : les troupes en route, avec « Rappeler ».
+// - En haut au centre : le message d'événement (dernier fait connu ; le toucher ouvre le Journal).
+// - Dessous : les alertes en bandeaux (attaque en approche, conquête, proposition, ballon, famine à venir). Elles
+//   n'arrêtent JAMAIS le temps (décision de Jack, §1.1) : la fenêtre de décision s'ouvre en touchant le bandeau, ou plus tard
+//   depuis le Journal (« À décider »).
+// - Sur la carte : troupes, navires et ballons qui avancent chaque jour (ui/map-units-layer.js), touchables.
+// - Plus de « Fin du tour », plus d'animation de fin de tour, plus de bandeau « tour en direct » en temps réel.
+// Le temps ne s'arrête que hors du jeu : Réglages, Aide, Atouts, Palmarès, écran Premium, fin de partie, pub, appli en
+// arrière-plan. Une partie reprise repart toujours en pause (§1.4). Sauvegarde : tous les 10 jours de jeu, à chaque pause,
+// à chaque ordre et à la mise en arrière-plan (§11), au plus une fois par seconde (realtime-clock.js, pur).
 
 import { RULES } from '../../domain/constants.js';
-import { advanceDay, executePendingOrders, formatDate, formatShortDate, recallConvoy, recallMarch } from '../../domain/game-engine.js';
+import {
+  advanceDay, executePendingOrders, formatDate, incomeFor, proposalsToAnswer, recallConvoy, recallMarch
+} from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
-import { createDayClock, dueDays, isClockRunning, setClockPaused, syncClockHolds } from '../realtime-clock.js';
-import { $, E, nation, province, toast } from './base.js';
+import { seaFatePopups } from '../alliances-view.js';
+import {
+  createDayClock, createSaveGate, dueDays, isClockRunning, setClockPaused, setClockSpeed, syncClockHolds, wantSave
+} from '../realtime-clock.js';
+import {
+  compositionText, dateText, eventBanners, incomingBanners, monthlyIncomeText, proposalBanners, seaBanners,
+  tickerText, tokenSheet, visibleBanners
+} from '../realtime-view.js';
+import { $, nation, province, toast } from './base.js';
+import { openBalloon } from './balloon-ui.js';
 import { showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
-import { drawFoodHud, showFoodNews } from './food-ui.js';
-import { render } from './map-view.js';
-import { actionModal, showProvinceSheet } from './province-sheet.js';
-import { save, selected, state } from './session.js';
-import { showEndScreen } from './turn-flow.js';
-import { battleNews, bombardRows, drawBattles, wireBombardRows } from './realtime-battles-ui.js'; // V17.2
+import { currentTokens, setUnitOpener } from './map-units-layer.js';
+import { focusProvince, render } from './map-view.js';
+import { actionModal, selectProvince, showProvinceSheet } from './province-sheet.js';
+import { profile, save, selected, state } from './session.js';
+import { renderJournal, showEndScreen } from './turn-flow.js';
 
-let clock = null, clockGame = null, timer = 0, lastDrawn = '', popups = Promise.resolve(), lastNews = '';
+const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
+const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'];
+let clock = null, clockGame = null, timer = 0, gate = null, alerts = [], seen = new Set(), lastDock = '', lastTicker = '', lastAlerts = '';
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
+const names = { nation: id => nation(id).short, province: id => province(id).name };
 export const realtimeOn = () => Boolean(state) && state.mode === 'realtime';
 const onScreen = () => realtimeOn() && !$('#gameScreen').hidden;
-const unitsOf = x => ['infantry', 'cavalry', 'armor', 'artillery'].reduce((n, k) => n + (x.units?.[k] || 0), 0) + (x.warships || 0);
+export const isPremium = () => profile?.premium === true; // V17.7 : l'achat Premium posera ce drapeau dans le profil
+const savedSpeed = () => { try { return isPremium() && localStorage.getItem(SPEED_KEY) === '2' ? 2 : 1; } catch { return 1; } };
 
-/** Armées visibles du joueur (provisoire, la vision complète est la V17.3) : les siennes, et celles qui viennent chez lui. */
-const visibleMarches = () => (state.marches || []).filter(m => m.nationId === state.playerNationId || state.provinces[m.toId]?.ownerId === state.playerNationId);
-function drawMarches() {
-  const svg = $('#map');
-  if (!svg) return;
-  svg.querySelector('#rtMarches')?.remove();
-  const layer = E('g', { id: 'rtMarches', class: 'rt-marches' });
-  for (const m of visibleMarches()) {
-    const a = province(m.fromId).markerAnchor, b = province(m.toId).markerAnchor, span = Math.max(1, m.arriveDay - m.startDay);
-    const f = .15 + .7 * Math.min(1, Math.max(0, (state.day - m.startDay) / span)), x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f;
-    const own = m.nationId === state.playerNationId;
-    const g = E('g', { class: `rt-march${own ? ' own' : ''}`, 'data-march': m.id, role: 'button', tabindex: '0', transform: `translate(${Math.round(x)} ${Math.round(y)})`,
-      'aria-label': `Armée de ${nation(m.nationId).short} vers ${province(m.toId).name}, arrivée le ${formatDate(m.arriveDay)}` });
-    g.append(E('line', { x1: 0, y1: 0, x2: Math.round(b.x - x), y2: Math.round(b.y - y), stroke: nation(m.nationId).color, 'stroke-width': 6, 'stroke-dasharray': '14 10', opacity: .8 }));
-    const disc = E('circle', { r: 24, fill: nation(m.nationId).color, stroke: '#fff7df', 'stroke-width': 5 });
-    const icon = E('text', { y: 9, 'text-anchor': 'middle', 'font-size': 26 }); icon.textContent = m.returning ? '↩' : '⚔';
-    g.append(disc, icon);
-    g.addEventListener('click', event => { event.stopPropagation(); openMarch(m.id); });
-    layer.append(g);
-  }
-  svg.append(layer);
-  drawBattles(refresh); // V17.2 : ⚔ « n/3 » sur les provinces en bataille
+// --- Sauvegarde espacée ------------------------------------------------------------------------------------------
+function saveFor(reason) {
+  if (!realtimeOn() || !gate) return;
+  if (wantSave(gate, reason, state.day, now())) save();
 }
-/** Fiche d'une armée en marche : composition (les siennes), date d'arrivée, bouton « Rappeler ». */
-function openMarch(id) {
-  const m = (state.marches || []).find(x => x.id === id);
-  if (!m) return;
-  const own = m.nationId === state.playerNationId;
-  actionModal(`Armée ${m.returning ? 'qui rentre' : 'en marche'}`, `${nation(m.nationId).short.toUpperCase()} · ${formatShortDate(state.day)}`,
-    `<div class="order-detail"><span>${province(m.fromId).name} → ${province(m.toId).name}</span><span>Arrivée : ${formatDate(m.arriveDay)}</span>\
-<span>${own ? `${unitsOf(m)} unités` : 'Composition inconnue'}</span></div>${own && !m.returning ? '<button id="rtRecall" class="primary">Rappeler</button>' : ''}`);
+
+// --- Icônes touchées et troupes en route ------------------------------------------------------------------------
+function recall(kind, id) {
+  const r = kind === 'convoy' ? recallConvoy(state, { nationId: state.playerNationId, convoyId: id }) : recallMarch(state, { nationId: state.playerNationId, marchId: id });
+  toast(r.ok ? `${kind === 'convoy' ? 'Convoi rappelé' : 'Armée rappelée'} : retour le ${formatDate(r.arriveDay)}` : r.error);
+  if (r.ok) saveFor('order');
+  refresh();
+  return r;
+}
+/** Fiche d'une icône de la carte : qui, d'où vers où, arrivée prévue, composition (selon la vision), « Rappeler ». */
+export function openUnit(token) {
+  const s = tokenSheet(token, state.day, names);
+  actionModal(s.title, s.kicker.toUpperCase(), `<div class="order-detail unit-sheet"><b>${s.route}</b><span>📅 ${s.arrival}</span><span>${token.known ? '👁' : '❔'} ${s.composition}</span></div>\
+<div class="confirm-actions rt-unit-actions"><button class="cancel" id="rtUnitSee">Voir l’arrivée</button>${token.recallable ? '<button class="primary" id="rtRecall">Rappeler</button>' : ''}</div>\
+${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-tour sur place : le retour dure le temps déjà parcouru.</p>' : ''}`);
+  $('#rtUnitSee').onclick = () => { $('#actionDialog').close(); focusProvince(token.toId); };
   const b = $('#rtRecall');
-  if (b) b.onclick = () => { const r = recallMarch(state, { nationId: state.playerNationId, marchId: m.id }); $('#actionDialog').close(); toast(r.ok ? `Armée rappelée : retour le ${formatDate(r.arriveDay)}` : r.error); refresh(); };
+  if (b) b.onclick = () => { $('#actionDialog').close(); recall(token.kind, token.id); };
 }
-/** Liste des troupes en route du joueur (marches et convois), avec « Rappeler » : ouverte en touchant le bandeau. */
+setUnitOpener(openUnit);
+/** Liste des troupes en route du joueur (marches et convois), avec « Rappeler » : en touchant la date. */
 function openTroops() {
-  const me = state.playerNationId, marches = (state.marches || []).filter(m => m.nationId === me), convoys = (state.transports || []).filter(t => t.nationId === me);
-  const row = (kind, x, arrive) => `<div class="unit-row"><span>${kind === 'march' ? '⚔' : '⛵'} ${province(x.fromId).name} → ${province(x.toId).name} · ${unitsOf(x)} unités · arrivée le ${formatDate(arrive)}</span>\
-${x.returning ? '<b>retour</b>' : `<button data-recall-${kind}="${x.id}">Rappeler</button>`}</div>`;
-  actionModal('Troupes en route', formatDate(state.day).toUpperCase(), [...marches.map(m => row('march', m, m.arriveDay)), ...convoys.map(t => row('convoy', t, t.arriveDay ?? state.day + t.turns - t.stage))].join('')
-    + bombardRows() || '<p>Aucune troupe en route. Touchez une de vos provinces pour donner un ordre : il part tout de suite.</p>');
-  wireBombardRows(openTroops);
-  document.querySelectorAll('[data-recall-march]').forEach(b => b.onclick = () => { const r = recallMarch(state, { nationId: me, marchId: b.dataset.recallMarch }); toast(r.ok ? `Armée rappelée : retour le ${formatDate(r.arriveDay)}` : r.error); refresh(); openTroops(); });
-  document.querySelectorAll('[data-recall-convoy]').forEach(b => b.onclick = () => { const r = recallConvoy(state, { nationId: me, convoyId: b.dataset.recallConvoy }); toast(r.ok ? `Convoi rappelé : retour le ${formatDate(r.arriveDay)}` : r.error); refresh(); openTroops(); });
+  const mine = currentTokens().filter(t => t.own);
+  actionModal('Troupes en route', dateText(state.day).toUpperCase(), mine.map(t => `<div class="unit-row troop-row"><span>${t.kind === 'convoy' ? '⛵' : '⚔'} ${province(t.fromId).name} → \
+${province(t.toId).name}<small>${compositionText(t)} · arrivée le ${formatDate(t.arriveDay)}</small></span>${t.recallable ? `<button data-recall="${t.kind}:${t.id}">Rappeler</button>` : '<b>retour</b>'}</div>`).join('')
+    || '<p>Aucune troupe en route. Touchez une de vos provinces puis « Déplacer / Attaquer » : l’ordre part tout de suite et l’armée apparaît sur la carte.</p>');
+  document.querySelectorAll('[data-recall]').forEach(b => b.onclick = () => { const [kind, id] = b.dataset.recall.split(':'); recall(kind, id); openTroops(); });
 }
-/** Ligne d'information du bandeau : dernier fait marquant connu du joueur, sinon les troupes en route. */
-function newsLine() {
-  const last = [...(state.turnJournal || [])][0];
-  const mine = (state.marches || []).filter(m => m.nationId === state.playerNationId).length + (state.transports || []).filter(t => t.nationId === state.playerNationId).length;
-  const coming = (state.marches || []).filter(m => m.nationId !== state.playerNationId && state.provinces[m.toId]?.ownerId === state.playerNationId).length;
-  const fight = battleNews(); // V17.2
-  if (fight) return fight;
-  if (coming) return `⚠ ${coming} armée${coming > 1 ? 's' : ''} ennemie${coming > 1 ? 's' : ''} en route vers vos provinces`;
-  if (mine) return `${mine} troupe${mine > 1 ? 's' : ''} en route · touchez ici pour les voir ou les rappeler`;
-  return last?.text ? String(last.text).split('\n')[0] : 'Touchez une province pour donner un ordre : il part tout de suite.';
+
+// --- Bandeaux d'alerte -------------------------------------------------------------------------------------------
+function pushBanners(list) {
+  const t = now();
+  for (const b of list) { if (seen.has(b.key)) continue; seen.add(b.key); alerts.push({ ...b, at: t, day: state.day }); }
+  if (alerts.length > 40) alerts = alerts.slice(-40);
 }
-function drawBar() {
+function collectBanners(events) {
+  const me = state.playerNationId;
+  const fresh = [...eventBanners(events, me, names), ...seaBanners(seaFatePopups(events, me, names), state.day).map(b => ({ ...b, action: { type: 'sea', events } })),
+    ...incomingBanners(state, currentTokens(), me, names, seen), ...proposalBanners(proposalsToAnswer(state, me), names, seen)];
+  pushBanners(fresh);
+}
+/** Fenêtre de décision d'un bandeau (le temps continue de tourner). */
+function openAlert(a) {
+  a.dismissed = true; lastAlerts = ''; drawAlerts();
+  const act = a.action || {};
+  if (act.type === 'province') { focusProvince(act.provinceId); selectProvince(act.provinceId); }
+  else if (act.type === 'capital') showCapitalPopups([act.event]);
+  else if (act.type === 'sea') showSeaPopups(act.events);
+  else if (act.type === 'balloon') openBalloon(act.balloonId);
+  else if (act.type === 'proposal') { const list = proposalsToAnswer(state, state.playerNationId).filter(p => p.from === act.from); if (list.length) showProposalPopups(list).then(() => saveFor('order')); else toast('Cette proposition n’est plus valable'); }
+  else if (act.type === 'unit') { const t = currentTokens().find(x => x.kind === act.kind && x.id === act.id); if (t) { focusProvince(t.toId); openUnit(t); } else toast('Ces troupes sont arrivées'); }
+  else renderJournal(false);
+}
+function drawAlerts() {
+  const box = $('#rtAlerts');
+  if (!box) return;
+  const list = visibleBanners(alerts, now()), key = list.map(a => a.key).join('|');
+  if (key === lastAlerts) return;
+  lastAlerts = key;
+  box.hidden = !list.length;
+  box.innerHTML = list.map(a => `<div class="rt-alert ${a.tone}" data-kind="${a.kind}"><button class="rt-alert-main" data-alert="${a.key}"><i aria-hidden="true">${a.icon}</i><span>${a.text}</span></button>\
+<button class="rt-alert-x" data-dismiss="${a.key}" aria-label="Fermer l’alerte">×</button></div>`).join('');
+  box.querySelectorAll('[data-alert]').forEach(b => b.onclick = () => { const a = alerts.find(x => x.key === b.dataset.alert); if (a) openAlert(a); });
+  box.querySelectorAll('[data-dismiss]').forEach(b => b.onclick = () => { const a = alerts.find(x => x.key === b.dataset.dismiss); if (a) a.dismissed = true; lastAlerts = ''; drawAlerts(); });
+}
+/** Journal en temps réel : « À décider » (propositions en attente) et les dernières alertes, chacune rouvrable. */
+export function realtimeJournalHtml() {
+  if (!realtimeOn()) return '';
+  const props = proposalsToAnswer(state, state.playerNationId);
+  const decide = props.map(p => `<div class="journal-entry gold rt-decide"><small>À décider</small><div>${nation(p.from).short} vous propose ${p.action === 'alliance' ? 'une alliance' : 'un cessez-le-feu'}.</div>\
+<button class="rt-journal-btn" data-rt-proposal="${p.from}">Répondre</button></div>`).join('');
+  const recent = [...alerts].reverse().slice(0, 8).map(a => `<div class="journal-entry ${a.tone === 'bad' ? 'red' : a.tone === 'good' ? 'treasure' : 'blue'}"><small>Alerte · ${formatDate(a.day)}</small>\
+<div>${a.icon} ${a.text}</div>${a.action && !['journal', 'proposal'].includes(a.action.type) ? `<button class="rt-journal-btn" data-rt-alert="${a.key}">Voir</button>` : ''}</div>`).join('');
+  return decide + recent;
+}
+export function bindRealtimeJournal() {
+  document.querySelectorAll('[data-rt-proposal]').forEach(b => b.onclick = () => { $('#journalDialog').close(); openAlert({ action: { type: 'proposal', from: b.dataset.rtProposal } }); });
+  document.querySelectorAll('[data-rt-alert]').forEach(b => b.onclick = () => { const a = alerts.find(x => x.key === b.dataset.rtAlert); $('#journalDialog').close(); if (a) openAlert(a); });
+}
+
+// --- Date, ▶ ⏸ ⏩, message d'événement, barre du haut ------------------------------------------------------------
+function drawDock() {
+  const dock = $('#rtDock');
+  if (!dock) return;
+  dock.hidden = false;
+  const paused = clock.paused, running = isClockRunning(clock), fast = clock.speed === 2;
+  const key = JSON.stringify([state.day, paused, running, fast, isPremium()]);
+  if (key === lastDock) return;
+  lastDock = key;
+  $('#rtDateText').textContent = dateText(state.day);
+  $('#rtSpeedTag').textContent = paused ? 'EN PAUSE' : !running ? 'ARRÊTÉ' : fast ? '×2' : '×1';
+  dock.classList.toggle('paused', paused); dock.classList.toggle('fast', fast && !paused);
+  $('#rtPlay').setAttribute('aria-pressed', String(!paused && !fast)); $('#rtPause').setAttribute('aria-pressed', String(paused));
+  $('#rtFast').setAttribute('aria-pressed', String(!paused && fast)); $('#rtFast').classList.toggle('locked', !isPremium());
+  $('#rtDate').setAttribute('aria-label', `${dateText(state.day)} : voir les troupes en route`);
+}
+function drawTicker() {
   const bar = $('#liveBar');
   if (!bar) return;
-  bar.hidden = false; document.body.classList.add('live-on');
-  const running = clock && isClockRunning(clock), paused = clock?.paused;
-  const title = `📅 ${formatDate(state.day)}`, time = running ? '×1' : paused ? 'En pause' : 'Arrêté', news = paused ? '⏸ En pause — touchez ▶ pour faire avancer le temps' : newsLine();
-  const key = JSON.stringify([title, time, news, paused]);
-  bar.classList.toggle('paused', !running);
-  $('#liveProgress').style.width = `${Math.round(Math.min(1, (clock?.carryMs || 0) / RULES.realtime.clock.msPerDay) * 1000) / 10}%`;
-  if (key === lastDrawn) return;
-  lastDrawn = key;
-  $('#liveTitle').textContent = title; $('#liveTime').textContent = time; $('#liveKind').hidden = true; $('#liveNews').textContent = news;
-  const pause = $('#livePause');
-  pause.textContent = paused ? '▶ Jouer' : '⏸ Pause'; pause.setAttribute('aria-pressed', String(Boolean(paused))); pause.disabled = false;
+  bar.hidden = false;
+  const tokens = currentTokens(), me = state.playerNationId;
+  const t = tickerText(state, me, { paused: clock.paused, mine: tokens.filter(x => x.own).length, coming: tokens.filter(x => x.relation === 'foreign' && !x.returning && state.provinces[x.toId]?.ownerId === me).length }), key = t.icon + t.text;
+  bar.classList.toggle('paused', clock.paused);
+  if (key === lastTicker) return;
+  lastTicker = key;
+  $('#liveTitle').textContent = ''; $('#liveTime').textContent = ''; $('#liveKind').hidden = true;
+  $('#liveNews').textContent = `${t.icon} ${t.text}`;
 }
-/** HUD : la date à la place du tour ; plus de bouton « Fin du tour ». */
+/** Barre du haut : plus de « TOUR » (la date est en bas à droite) ; trésor avec le revenu par mois (§3.1). */
 function drawHud() {
-  const turn = $('#turn');
-  const text = formatShortDate(state.day);
-  if (turn && turn.textContent !== text) { turn.textContent = text; turn.dataset.rtDay = String(state.day); turn.style.fontSize = '.72em'; }
-  const label = turn?.closest('.hud-stat')?.querySelector('small');
-  if (label && label.textContent !== 'DATE') label.textContent = 'DATE';
-  const next = $('#nextTurn'); next.hidden = true; next.style.display = 'none'; // la feuille de style du paysage l'affiche malgré [hidden]
-  drawFoodHud(); // V17.4 : réserve de vivres et « +N / jour »
+  const label = $('#goldLabel'), rate = `TRÉSOR · ${monthlyIncomeText(incomeFor(state, state.playerNationId)).replace(' or / mois', '/MOIS')}`;
+  if (label && label.textContent !== rate) label.textContent = rate;
 }
 function refresh() {
   render();
   if (selected && !$('#provinceSheet').hidden) showProvinceSheet();
-  drawMarches(); drawHud(); lastDrawn = ''; drawBar();
+  lastDock = ''; lastTicker = '';
+  drawHud(); drawDock(); drawTicker(); drawAlerts();
 }
-const chain = task => { popups = popups.then(task).catch(() => {}); };
-/** Un battement : ordres du joueur partis, jours dus joués, fenêtres d'événements (sans arrêter le temps). */
+function leaveRealtime() {
+  document.body.classList.remove('rt-on', 'live-on');
+  for (const id of ['#rtDock', '#rtAlerts']) { const el = $(id); if (el) el.hidden = true; }
+  const label = $('#goldLabel'); if (label && label.textContent !== 'TRÉSOR') label.textContent = 'TRÉSOR';
+}
+const outOfGame = () => OUT_OF_GAME.some(sel => $(sel)?.open);
+
+/** Un battement (250 ms) : ordres du joueur partis, jours dus joués, bandeaux, sauvegarde espacée. */
 export function syncRealtime() {
-  if (!onScreen()) {
-    if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; }
-    if (!realtimeOn()) { drawFoodHud(); const turn = $('#turn'); if (turn?.dataset.rtDay) { delete turn.dataset.rtDay; turn.style.fontSize = ''; const l = turn.closest('.hud-stat')?.querySelector('small'); if (l) l.textContent = 'TOUR'; const next = $('#nextTurn'); next.hidden = false; next.style.display = ''; } }
-    return;
-  }
+  if (!onScreen()) { if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; } if (!realtimeOn() || $('#gameScreen').hidden) leaveRealtime(); return; }
   const t = now();
-  if (!clock || clockGame !== state) { clock = createDayClock({ now: t, paused: true }); clockGame = state; lastDrawn = ''; refresh(); }
-  if (state.gameOver) { drawHud(); drawBar(); return; }
-  syncClockHolds(clock, { hidden: document.visibilityState === 'hidden', ad: document.body.dataset.adPlaying === '1' }, t);
+  document.body.classList.add('rt-on', 'live-on');
+  if (!clock || clockGame !== state) {
+    clock = createDayClock({ now: t, paused: true }); setClockSpeed(clock, savedSpeed(), t); clockGame = state;
+    gate = createSaveGate({ day: state.day, now: t }); alerts = []; seen = new Set(); lastAlerts = '';
+    refresh(); collectBanners([]);
+  }
+  if (state.gameOver) { drawDock(); drawTicker(); return; }
+  syncClockHolds(clock, { hidden: document.visibilityState === 'hidden', ad: document.body.dataset.adPlaying === '1', menu: outOfGame() }, t);
   let changed = false;
-  if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; }
+  if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; saveFor('order'); }
   const days = dueDays(clock, t), eventStart = state.events.length;
   for (let i = 0; i < days && !state.gameOver; i++) advanceDay(state, map);
-  if (days) changed = true;
-  if (changed) refresh();
-  else { if (!$('#rtMarches')) drawMarches(); drawHud(); drawBar(); }
-  if (!days) return;
-  const events = state.events.slice(eventStart);
-  if (state.gameOver) { save(); setClockPaused(clock, true, t); showEndScreen(); return; }
-  const news = events.find(e => e.type === 'conquest' && (e.defender === state.playerNationId || e.newOwnerId === state.playerNationId));
-  if (news && news.provinceId !== lastNews) { lastNews = news.provinceId; toast(news.newOwnerId === state.playerNationId ? `${province(news.provinceId).name} est à vous !` : `${province(news.provinceId).name} est tombée`); }
-  showFoodNews(events); // V17.4
-  chain(() => showCapitalPopups(events));
-  chain(() => showSeaPopups(events));
-  if (events.some(e => e.type === 'talk' || e.type === 'diplomatic-action' || e.type === 'ceasefire-offer')) chain(() => showProposalPopups());
+  if (days || changed) refresh();
+  if (days || changed) collectBanners(state.events.slice(eventStart));
+  if (state.gameOver) { save(); setClockPaused(clock, true, t); drawDock(); showEndScreen(); return; }
+  saveFor('day');
+  drawHud(); drawDock(); drawTicker(); drawAlerts();
 }
-export function toggleRealtimePause() {
+/** ▶ / ⏸ / ⏩. `mode` : 'play', 'pause', 'fast' ou 'toggle' (ancien bouton du bandeau, tour par tour). */
+export function setRealtimeSpeed(mode) {
   if (!clock || !realtimeOn()) return false;
-  setClockPaused(clock, !clock.paused, now());
-  if (clock.paused) save();
-  lastDrawn = ''; drawBar();
+  const t = now();
+  if (mode === 'toggle') mode = clock.paused ? 'play' : 'pause';
+  if (mode === 'fast' && !isPremium()) { $('#premiumDialog')?.showModal(); return true; }
+  if (mode === 'pause') { setClockPaused(clock, true, t); saveFor('pause'); }
+  else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (isPremium()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
+  lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
   return true;
 }
+export const toggleRealtimePause = () => setRealtimeSpeed('toggle');
 export function installRealtime() {
   // Page cachée : arrêt du temps et sauvegarde ; au retour, la partie reste en pause (cahier §1.4).
-  document.addEventListener('visibilitychange', () => { if (!realtimeOn() || !clock) return; if (document.visibilityState === 'hidden') { setClockPaused(clock, true, now()); save(); } syncRealtime(); });
-  addEventListener('pagehide', () => { if (realtimeOn()) save(); });
-  $('#liveBar')?.addEventListener('click', event => { if (!realtimeOn() || event.target.closest('#livePause')) return; openTroops(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!realtimeOn() || !clock) return;
+    if (document.visibilityState === 'hidden') { setClockPaused(clock, true, now()); saveFor('hidden'); }
+    syncRealtime();
+  });
+  addEventListener('pagehide', () => { if (realtimeOn()) saveFor('hidden'); });
+  $('#liveBar')?.addEventListener('click', event => { if (!realtimeOn() || event.target.closest('#livePause')) return; renderJournal(false); });
+  $('#rtPlay')?.addEventListener('click', () => setRealtimeSpeed('play'));
+  $('#rtPause')?.addEventListener('click', () => setRealtimeSpeed('pause'));
+  $('#rtFast')?.addEventListener('click', () => setRealtimeSpeed('fast'));
+  $('#rtDate')?.addEventListener('click', () => { if (realtimeOn()) openTroops(); });
   clearInterval(timer); timer = setInterval(syncRealtime, RULES.realtime.clock.tickMs);
   syncRealtime();
 }

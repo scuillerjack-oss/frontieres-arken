@@ -1,6 +1,6 @@
 // Interface — fenêtres d'événements : récit, capitale, mer, propositions.
 
-import { proposalsToAnswer, respondToProposal } from '../../domain/game-engine.js';
+import { formatDate, proposalsToAnswer, respondToProposal } from '../../domain/game-engine.js';
 import { INTRO_STORY, capitalPopups, seaFatePopups } from '../alliances-view.js';
 import { coalitionDetails, coalitionPopups } from '../coalition-view.js';
 import { toneMeta } from '../leaders-view.js';
@@ -41,12 +41,13 @@ export function openCoalition(){
   const c=coalitionDetails(state,id=>nation(id).short);if(!c)return;
   eventPopup({kicker:c.kicker,title:c.title,cls:'capital coalition',html:`<p class="capital-lead">${c.lead}</p><p>${c.rule}</p><p class="help-intro">${c.note}</p>`,buttons:[{label:'Fermer',value:true,primary:true}]});
 }
-export async function showProposalPopups(){
-  for(const p of safeEngine(()=>proposalsToAnswer(state,state.playerNationId,{fresh:true}),[])){
+// V17.3 : `list` = propositions choisies (bandeau ou Journal en temps réel) ; sinon celles reçues au dernier tour.
+export async function showProposalPopups(list=null){
+  for(const p of list||safeEngine(()=>proposalsToAnswer(state,state.playerNationId,{fresh:true}),[])){
     const msg=(state.talk||[]).find(m=>m.id===p.talkId),alliance=p.action==='alliance';
     const answer=await eventPopup({kicker:`PROPOSITION · ${nation(p.from).name.toUpperCase()}`,title:alliance?`${nation(p.from).short} vous propose une alliance`:`${nation(p.from).short} propose un cessez-le-feu`,cls:'proposal',
       html:`${msg?`<blockquote class="talk-quote ${toneMeta(msg.tone).cls}">${nationBadge(p.from)} ${escapeHtml(msg.text)}</blockquote>`:''}<div class="proposal-facts">${nationChips(p.from)}</div>${p.refusedBefore?`<p \
-class="proposal-memo">↺ Vous avez déjà refusé ${p.refusedBefore>1?`${p.refusedBefore} fois`:'une fois'}${p.lastRefusedTurn?` (dernier refus au tour ${p.lastRefusedTurn})`:''}.</p>`:''}${!alliance&&p.amount>0?`<p \
+class="proposal-memo">↺ Vous avez déjà refusé ${p.refusedBefore>1?`${p.refusedBefore} fois`:'une fois'}${p.lastRefusedTurn?` (dernier refus ${state.mode==='realtime'?`en ${formatDate((p.lastRefusedTurn-1)*30+1).replace(/^\S+ /,'')}`:`au tour ${p.lastRefusedTurn}`})`:''}.</p>`:''}${!alliance&&p.amount>0?`<p \
 class="capital-gold">+${p.amount} or si vous acceptez</p>`:''}<p class="help-intro">${alliance?`Alliés, vous ne pourrez plus vous faire la guerre, et vous pourrez lui demander de l’aide. ${PASSAGE_TEXT} \
 (dans les deux sens). Mais un Traître se cache peut-être derrière ce sourire…`:'La guerre s’arrête aussitôt : une trêve commence entre vos deux nations.'}</p>`,
       buttons:[{label:'Non',value:false},{label:'Oui',value:true,primary:true}]});

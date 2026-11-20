@@ -112,6 +112,26 @@ body.live-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
 body.live-on #moveBanner{top:calc(max(6px,var(--st)) + 62px)}
 body.live-on #turnAnim{padding-top:calc(var(--st) + 70px)}
 #settingsDialog .setting-choices.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* --- V17.3 : temps réel — message d'événement en haut au centre (compact), alertes juste dessous, date et ▶ ⏸ ⏩ en bas
+   à droite, contre la bande de boutons. Fiche ouverte : la date passe à gauche de la fiche, les alertes sous les boutons. --- */
+body.rt-on .live-bar{min-height:0}
+body.rt-on .boost-map-btn{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on #moveBanner{top:calc(max(6px,var(--st)) + 52px)}
+body.rt-on .zoom{top:auto}
+.rt-dock{right:calc(var(--side) + 6px);bottom:max(8px,var(--sb));flex-direction:row;align-items:center;gap:8px;padding:5px 6px 5px 10px}
+.rt-date{align-items:flex-end;min-width:118px}
+.rt-date b{font-size:1.05rem}
+.rt-speed button{min-width:46px;min-height:44px}
+.rt-alerts{top:calc(max(6px,var(--st)) + 50px);bottom:auto;left:calc(var(--hud-w) + 14px + var(--sl));right:calc(var(--side) + 8px)}
+body.rt-on #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
+body.rt-on #tutorialBubble:not(.top){right:calc(var(--side) + 300px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-dock{top:auto;bottom:max(8px,var(--sb));right:calc(var(--side) + var(--sheet-w) + 16px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .live-bar{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-alerts{top:calc(max(6px,var(--st)) + 104px);bottom:auto;left:calc(120px + var(--sl));right:calc(var(--side) + var(--sheet-w) + 16px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .boost-map-btn{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .coalition-chip{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])) #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
 }
 /* Très petits téléphones couchés (≤ 340 px de haut) : la colonne se resserre encore. */
 @media (orientation:landscape) and (max-height:340px){

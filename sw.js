@@ -33,6 +33,8 @@ const ASSETS=[
   './src/presentation/food-view.js',
   './src/presentation/ui/realtime-battles-ui.js',
   './src/presentation/realtime-clock.js',
+  './src/presentation/realtime-view.js',
+  './src/presentation/ui/map-units-layer.js',
   './src/domain/engine/ai-help.js',
   './src/domain/engine/ai-naval.js',
   './src/domain/engine/ai.js',
