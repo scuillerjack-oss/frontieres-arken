@@ -83,6 +83,8 @@ export function queueRecruitment(state, { nationId, provinceId, type, lots = 1 }
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
   if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Unité inconnue' };
+  // V17.5 (décidé par le chef de projet) : pas de recrutement dans une province assiégée (bataille en cours).
+  if ((state.battles || []).some(b => b.provinceId === provinceId)) return { ok: false, error: 'Province assiégée : impossible de recruter pendant la bataille' };
   // V13 : un navire de guerre exige un port CONSTRUIT et une usine dans la même province (le point de port ne suffit pas).
   if (r.requiresPort && r.requiresFactory && (!p.buildings.port || !p.buildings.factory)) return { ok: false,
     error: `Navire de guerre : il faut un port construit et une usine dans cette province (manque : ${[!p.buildings.port && 'port', !p.buildings.factory && 'usine'].filter(Boolean).join(' et ')})` };

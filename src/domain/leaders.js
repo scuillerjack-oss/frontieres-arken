@@ -63,6 +63,9 @@ export function strengthOf(state, nationId) {
   for (const p of Object.values(state.provinces || {})) if (p.ownerId === nationId) n += combatValue(provinceForce(p));
   for (const t of state.transports || []) if (t.nationId === nationId) n += combatValue(legacyForce(t));
   for (const e of state.stationed || []) if (e.nationId === nationId) n += combatValue(legacyForce(e)); // V13.4 : troupes chez un allié
+  // V17.5 (temps réel) : armées en marche et troupes engagées à l'assaut d'une bataille.
+  for (const m of state.marches || []) if (m.nationId === nationId) n += combatValue(legacyForce(m));
+  for (const b of state.battles || []) for (const e of b.attackers || []) if (e.nationId === nationId) n += combatValue(legacyForce(e));
   return n;
 }
 

@@ -4,6 +4,7 @@ import {
   acceptsAlliance, addTension, archetypeOf, ceasefireBias, getTension, recordAggression, reputation, reveal,
   setTension, strengthOf
 } from '../leaders.js';
+import { RULES } from '../constants.js';
 import { settleStationed } from '../passage.js';
 import { settleMysteryIsland } from '../mystery-island.js';
 import { aiOfferTalk } from '../talk.js';
@@ -31,7 +32,7 @@ export function queueDiplomaticOrder(state, { nationId, target, action, offerLev
   if(action==='ultimatum')action='ceasefire';
   if (!state.nations[target] || nationId === target) return { ok: false, error: 'Cible invalide' };
   if (!['war', 'alliance', 'ceasefire', 'break'].includes(action)) return { ok: false, error: 'Action indisponible en V5' };
-  if ((state.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === nationId && o.target === target && o.status === 'pending')) return { ok: false, error: 'Une action envers ce pays est déjà prévue pour l’inter-tour' };
+  if ((state.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === nationId && o.target === target && (o.status === 'pending' || o.status === 'awaiting'))) return { ok: false, error: 'Une action envers ce pays est déjà prévue pour l’inter-tour' };
   const atWar = pairWar(state, nationId, target), relation = (state.diplomacy.treaties || []).find(t => t.active !== false && t.parties.includes(nationId) && t.parties.includes(target))?.type || 'neutral';
   if (action === 'ceasefire' && !atWar) return { ok: false, error: 'Aucune guerre active' };
   if (action === 'alliance' && (atWar || relation === 'alliance')) return { ok: false, error: 'Un cessez-le-feu est requis et une alliance existe déjà' };
@@ -137,8 +138,16 @@ export const PROPOSAL_TURNS = 6;
 function dropProposals(state, a, b) {
   state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => !([p.from, p.to].includes(a) && [p.from, p.to].includes(b)));
 }
+/**
+ * Une proposition d'IA est-elle encore valable ? Tour par tour : PROPOSAL_TURNS tours. V17.5, temps réel : 180 jours
+ * exactement depuis le jour où elle a été faite (RULES.realtime.diplomacy.proposalDays).
+ */
+export function proposalAlive(state, p) {
+  if (state.mode === 'realtime' && Number.isFinite(p.day)) return state.day - p.day < RULES.realtime.diplomacy.proposalDays;
+  return p.turn > state.turn - PROPOSAL_TURNS;
+}
 export function activeProposal(state, from, to, action) {
-  return (state.diplomacy.proposals || []).find(p => p.from === from && p.to === to && (!action || p.action === action) && p.turn > state.turn - PROPOSAL_TURNS) || null;
+  return (state.diplomacy.proposals || []).find(p => p.from === from && p.to === to && (!action || p.action === action) && proposalAlive(state, p)) || null;
 }
 /** V13.2 : une proposition d'IA rendue caduque dans le même inter-tour (trêve déjà conclue) ne s'affiche plus au journal. */
 function supersedeProposalEvents(state, a, b) {
@@ -199,7 +208,7 @@ export function resolveDiplomacy(state, orders, random, map = null) {
       const gold = o.action === 'ceasefire' ? aiCeasefireGold(state, o.nationId, o.target, refused.count) : 0;
       const msg = aiOfferTalk(state, map, o.nationId, o.target, o.action, { again: refused.count > 0, gold });
       state.diplomacy.proposals ||= [];
-      state.diplomacy.proposals.push({ from: o.nationId, to: o.target, action: o.action, turn: state.turn, talkId: msg.id, amount: gold, ...(refused.count ? { refusedBefore: refused.count, lastRefusedTurn: refused.turn } : {}) });
+      state.diplomacy.proposals.push({ from: o.nationId, to: o.target, action: o.action, turn: state.turn, ...(state.mode === 'realtime' ? { day: state.day } : {}), talkId: msg.id, amount: gold, ...(refused.count ? { refusedBefore: refused.count, lastRefusedTurn: refused.turn } : {}) });
       state.events.push({ turn: state.turn, type: 'diplomatic-action', nationId: o.nationId, target: o.target, action: o.action, proposal: true, amount: gold });
       continue;
     }
@@ -258,7 +267,7 @@ export function resolveDiplomacy(state, orders, random, map = null) {
  * reçues à l'inter-tour qui vient d'être résolu.
  */
 export function proposalsToAnswer(state, nationId = state.playerNationId, { fresh = false } = {}) {
-  return (state.diplomacy?.proposals || []).filter(p => p.to === nationId && p.turn > state.turn - PROPOSAL_TURNS && (!fresh || p.turn === state.turn - 1)
+  return (state.diplomacy?.proposals || []).filter(p => p.to === nationId && proposalAlive(state, p) && (!fresh || p.turn === state.turn - 1)
     && !state.nations[p.from]?.eliminated
     && !(p.action === 'alliance' && state.coalition?.target === nationId && state.coalition.members?.includes(p.from)) // V15.2
     && (p.action === 'alliance' ? !pairTreaty(state, p.from, nationId, 'alliance') && !pairWar(state, p.from, nationId) : pairWar(state, p.from, nationId)));

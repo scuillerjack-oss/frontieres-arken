@@ -91,7 +91,7 @@ export function aiIslandOrders(state, map, nationId, targets, threshold) {
   if (agreed) {
     const theirs = allyForce(agreed);
     if (theirs && takesIsland(state, mergeForce(myForce, theirs), margin) && queueMoveOrder(state, map, { nationId, fromId: from.id, toId: MYSTERY_ISLAND_ID, units: mine, warships }).ok) { mem.islandTry = state.turn; return; }
-  } else if (state.turn - (mem.islandAsk ?? -99) >= ASK_EVERY && !(state.orders || []).some(o => o.kind === 'help' && o.status === 'pending' && o.nationId === nationId)) {
+  } else if (state.turn - (mem.islandAsk ?? -99) >= ASK_EVERY && !(state.orders || []).some(o => o.kind === 'help' && (o.status === 'pending' || o.status === 'awaiting') && o.nationId === nationId)) {
     // Demande « Prends l'île avec moi » à l'allié dont l'armée, ajoutée à la sienne, suffirait.
     const ally = allies.find(a => { const f = allyForce(a); return f && takesIsland(state, mergeForce(myForce, f), margin); });
     if (ally && queueHelpRequest(state, { from: nationId, to: ally, kind: 'island' }).ok) { mem.islandAsk = state.turn; return; }

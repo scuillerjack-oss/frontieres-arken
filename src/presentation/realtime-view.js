@@ -155,6 +155,23 @@ export function balloonHopFraction(legTurns, day, hopTurns = RULES.balloon.hopTu
   const into = (Math.max(1, Math.floor(num(day))) - 1) % R.daysPerPeriod;
   return clamp01((num(legTurns) * R.daysPerPeriod + into) / (Math.max(1, hopTurns) * R.daysPerPeriod));
 }
+/**
+ * V17.5 : avancement d'un ballon sur son saut en cours, en jours (`legDays` ÷ RULES.realtime.durations.balloonHop) ;
+ * ancienne sauvegarde sans `legDays` : calcul par périodes ci-dessus.
+ */
+export function balloonLegFraction(balloon, day) {
+  if (balloon && Number.isFinite(balloon.legDays)) return clamp01(balloon.legDays / Math.max(1, R.durations.balloonHop));
+  return balloonHopFraction(balloon?.legTurns, day);
+}
+/**
+ * V17.5 : ordre du joueur en attente de la réponse d'une IA (proposition d'alliance, trêve, demande d'aide), ou null.
+ * `kind` : 'diplomacy' (cible `target`) ou 'help' (allié `target`).
+ */
+export function awaitingOrder(state, nationId, target, kind = 'diplomacy') {
+  return (state.orders || []).find(o => o.status === 'awaiting' && o.nationId === nationId && o.kind === kind && (kind === 'help' ? o.to : o.target) === target) || null;
+}
+/** « En attente de réponse — au plus tard le 14 mars 2027 » (la réponse se lit le lendemain du jour où l'IA décide). */
+export const awaitingText = o => `En attente de réponse — au plus tard le ${formatDate(num(o.answerDay) + 1)}`;
 /** Toutes les icônes du jour (marches puis convois). */
 export const unitTokens = (state, map, me, visible) => [...marchTokens(state, map, me, visible), ...convoyTokens(state, map, me, visible)];
 /** Petite étiquette sous l'icône : jours restants (« 18 j »), « ↩ 6 j » au retour. */

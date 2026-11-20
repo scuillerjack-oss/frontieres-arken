@@ -305,7 +305,8 @@ test('V17.4 : partie IA de 4 ans — chaque nation construit des fermes, presque
   let famineNations = 0;
   for (const id of NATIONS) {
     if (s.nations[id].eliminated) continue;
-    const farms = owned(s, id).reduce((n, p) => n + (s.provinces[p].buildings.farm || 0), 0);
+    // V17.5 : fermes construites pendant la partie (une ferme prise avec sa province compte : la nation l'a bien bâtie).
+    const farms = s.events.filter(e => e.type === 'production-complete' && e.productionType === 'farm' && e.nationId === id).length;
     assert.ok(farms >= 1, `${id} : ${farms} ferme(s)`);
     if (s.events.some(e => e.type === 'famine-start' && e.nationId === id)) famineNations++;
   }

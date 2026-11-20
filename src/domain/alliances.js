@@ -146,7 +146,7 @@ export function helpLineLists() {
   walk(HELP_LINES, '');
   return out;
 }
-const pendingHelp = (state, from, to) => (state.orders || []).find(o => o.kind === 'help' && o.status === 'pending' && o.nationId === from && o.to === to) || null;
+const pendingHelp = (state, from, to) => (state.orders || []).find(o => o.kind === 'help' && (o.status === 'pending' || o.status === 'awaiting') && o.nationId === from && o.to === to) || null;
 export const helpPacts = state => (state.diplomacy && Array.isArray(state.diplomacy.help)) ? state.diplomacy.help : [];
 
 /** Une demande d'aide est-elle possible ? { ok, error } — messages clairs pour l'interface. */

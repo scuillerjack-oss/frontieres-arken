@@ -223,6 +223,7 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:2, type:'ORDRE ANNULÉ', category:'neutral',
         text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,
         event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
+    case 'production-held': return { priority:2, type:'production', category:'neutral', text:`${where} est assiégée : recrues (${(RULES.units[event.productionType]?.label || 'troupes').toLowerCase()}) livrées à la fin de la bataille (remboursés si la province tombe).` };
     case 'production-lost': if (event.reason === 'max') return { priority:2, type:'production', category:'neutral', text:`Ballon d’observation non livré à ${where} : vous avez déjà le maximum de ballons. ${safeNum(event.refund)} or remboursés.` };
       return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({
       bank:'banque',factory:'usine',fort:'forteresse',port:'port',balloon:'ballon d’observation'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
@@ -320,7 +321,7 @@ function aggregateEntries(entries) {
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['difficulty-gold','bombardment','assault','battle-reinforced','battle-retreat','bombard-ordered','bombard-stopped','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
-    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
+    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-held','production-lost','retreat-lost','interception','convoy-arrived',
     'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot','mystery-coowner-lost']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;

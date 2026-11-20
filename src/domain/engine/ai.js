@@ -2,7 +2,7 @@
 
 import { activeHelpPacts, helpWarTargets } from '../alliances.js';
 import {
-  COMBAT_TYPES, combatValue, hasCombatUnits, legacyForce, normalizeForce, provinceForce, resolveBattle,
+  COMBAT_TYPES, combatValue, hasCombatUnits, legacyForce, mergeForce, normalizeForce, provinceForce, resolveBattle,
   resolveCombat, scaleForce, splitForce
 } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
@@ -16,7 +16,7 @@ import { neighbors } from '../talk.js';
 import { perceivedForce, perceivedStrength, visibleProvinces } from '../vision.js';
 import { coalitionPartners, coalitionTargetFor, inCoalitionAgainst } from './coalition.js';
 import { helpReinforce, helpStation, recallStationed } from './ai-help.js';
-import { aiBalloonOrders } from './balloons.js';
+import { aiBalloonBuild, aiBalloonOrders } from './balloons.js';
 import { aiNavalOrders, defenseOf, hasOrQueued, landThreat, landThreatForce, navalBase } from './ai-naval.js';
 import { aiIslandHelpers, aiIslandOrders } from './ai-island.js';
 import { isMysteryIsland } from '../mystery-island.js';
@@ -24,6 +24,8 @@ import { fortBreach } from './bombard.js';
 import { TRUCE_BETRAYAL_TURNS, queueDiplomaticOrder, recentTruce, refusalsOf } from './diplomacy.js';
 import { availableForces, buildingCount, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
 import { aiFarmOrders } from '../realtime/food.js';
+import { attackQuota, attacksInPace, incomingSupport, noteAttack, notePace, openOrder, paceReady } from '../realtime/ai-schedule.js';
+import { isRealtime } from '../realtime/clock.js';
 import { isPortPoint, legalDestinations, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, spendableTreasury } from './shared.js';
 
@@ -37,6 +39,8 @@ const ARCH_ATTACKS = { conquerant: 2, traitre: 1, heros: 1, batisseur: 1 };
 // À 85 %, la guerre est de toute façon déclarée automatiquement (hostilityWars).
 const HERO_MEMORY_TURNS = 5;
 const WAR_RISK = { heros: .12, traitre: .08, batisseur: .04, conquerant: 0 };
+/** Lots de recrutement en cours ou commandés (V17.5 : sert au rythme des recrutements). */
+const recruitCount = (state, nationId) => (state.orders || []).filter(o => o.kind === 'recruitment' && o.nationId === nationId && o.status === 'pending').length;
 export const aiMemory = (state, id) => { state.ai.plans ||= {}; return state.ai.plans[id] ||= {}; };
 const reachable = (state, map, a, b) => neighbors(state, map, a, b);
 /** Nations que ce dirigeant est prêt à attaquer ce tour-ci. */
@@ -137,7 +141,7 @@ function traitorState(state, map, id) {
   if (mem.mark && pairTreaty(state, id, mem.mark, 'alliance') && aliveNations(state).some(n => n !== id && pairWar(state, mem.mark, n)) && state.turn >= mem.strikeTurn - 3) mem.strikeTurn = Math.min(mem.strikeTurn, state.turn);
   return mem;
 }
-const pendingDiplo = (state, id, target) => (state.orders || []).some(o => o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === id && o.target === target);
+const pendingDiplo = (state, id, target) => (state.orders || []).some(o => o.kind === 'diplomacy' && openOrder(o) && o.nationId === id && o.target === target); // V17.5 : en attente de réponse compris
 /** Diplomatie IA (B9) : alliances et trêves proposées selon la personnalité. */
 function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
   const alive = aliveNations(state).filter(n => n !== id), mem = aiMemory(state, id);
@@ -221,10 +225,17 @@ function aiPlan(state, map, nationId) {
   }
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);
-  const treasury = () => spendableTreasury(state, nationId), level = levelOf(state);
+  // V17.5 : en temps réel, marge d'attaque corrigée par RULES.realtime.ai.marginAdd (la bataille en 3 assauts, les renforts
+  // et les réactions de l'IA favorisent la défense : réglage d'équilibre, pas une règle nouvelle).
+  const base0 = levelOf(state), level = isRealtime(state) ? { ...base0, marginAdd: (base0.marginAdd || 0) + RULES.realtime.ai.marginAdd } : base0;
+  const treasury = () => spendableTreasury(state, nationId);
   // V17.4 : en temps réel, la ferme passe avant tout achat (cahier §4.5 ; refonte de l'IA en V17.5).
   // Faute d'or pour la ferme nécessaire, elle épargne : ni recrutement ni banque à cette décision.
   const farm = aiFarmOrders(state, nationId), hungry = Boolean(farm && farm.needed && !farm.ok);
+  // V17.5 : en temps réel, le ballon passe avant les recrutements (épargne raisonnable : RULES.realtime.ai.balloonReserve).
+  if (isRealtime(state) && !hungry) aiBalloonBuild(state, map, nationId, RULES.realtime.ai.balloonReserve);
+  // V17.5 : recruter au plus une fois par fenêtre de RULES.realtime.ai.pace.recruit jours (toujours au tour par tour).
+  const recruitsBefore = recruitCount(state, nationId), canRecruit = paceReady(state, nationId, 'recruit');
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
@@ -252,10 +263,12 @@ function aiPlan(state, map, nationId) {
       if (lvl < 3 && (worry || nature === 'batisseur') && treasury() >= RULES.buildings.fort.costs[lvl] + 40) { if (queueConstruction(state, { nationId, provinceId: p.id, type: 'fort' }).ok) reputation(state, nationId).builds++; break; }
     }
   }
-    if (!saving && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
-  if (arch === 'conquerant' && !saving && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
+  const recruit = !saving && canRecruit;
+    if (recruit && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
+  if (arch === 'conquerant' && recruit && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
   // V15.3 : le trésor accumulé du Bâtisseur réveillé part en blindés ; en Difficile, toutes les IA dépensent mieux leur trésor.
-  if (factory && !saving) for (let i = 0; i < Math.max(awake ? RULES.ai.builderSpendLots : 0, level.spendLots) && treasury() >= RULES.units.armor.cost + 40; i++) if (!queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' }).ok) break;
+  if (factory && recruit) for (let i = 0; i < Math.max(awake ? RULES.ai.builderSpendLots : 0, level.spendLots) && treasury() >= RULES.units.armor.cost + 40; i++) if (!queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' }).ok) break;
+  if (recruitCount(state, nationId) > recruitsBefore) notePace(state, nationId, 'recruit');
   if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
@@ -265,18 +278,21 @@ function aiPlan(state, map, nationId) {
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
   const threshold = ARCH_MARGIN[arch] + level.marginAdd;
-  let launched = 0;
+  // V17.5 : en temps réel, le quota d'attaques terrestres vaut pour une fenêtre de RULES.realtime.ai.pace.attack jours
+  // (Facile : une seule attaque par 30 jours), pas pour chacune des 3 décisions d'une période.
+  let launched = attacksInPace(state, nationId, level.oneAttack ? RULES.realtime.diplomacy.easyAttackEveryDays : RULES.realtime.ai.pace.attack);
+  const quota = attackQuota(state, ARCH_ATTACKS[arch] || 1);
   for (const x of attacks) {
     // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.
     // V15.2 : le Héros et le Bâtisseur restent dans leur quota, comme le dit le cahier (mesuré : pas d'effet sur les cibles).
     if (launched && level.oneAttack) break; // V15.3 : Facile
-    if (launched >= (ARCH_ATTACKS[arch] || 1) && !((arch === 'conquerant' || arch === 'traitre') && ambitionOf(state, map, x.to))) break;
+    if (launched >= quota && !((arch === 'conquerant' || arch === 'traitre') && ambitionOf(state, map, x.to))) break;
     if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
     const margin = x.atWar ? Math.max((arch === 'conquerant' ? .8 : .85) + level.marginAdd, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
     if (!units) continue;
-    if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) launched++;
+    if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) { launched++; noteAttack(state, nationId); }
     else if (arch !== 'conquerant') break; // comportement V14.1 conservé pour les autres personnalités
   }
   recallStationed(state, map, nationId, owned); // V14.0 : rappel des troupes stationnées chez un allié
@@ -315,7 +331,7 @@ function redeployInterior(state, map, nationId, owned, base) {
 function traitorPrepare(state, nationId) {
   const mem = aiMemory(state, nationId), mark = mem.mark;
   if (!mark || !pairTreaty(state, nationId, mark, 'alliance') || state.turn < mem.strikeTurn) return;
-  state.orders = state.orders.filter(o => !(o.kind === 'diplomacy' && o.status === 'pending' && o.nationId === nationId && o.target === mark));
+  state.orders = state.orders.filter(o => !(o.kind === 'diplomacy' && openOrder(o) && o.nationId === nationId && o.target === mark));
   // Délai largement dépassé : rupture + déclaration de guerre, même sans invasion prête.
   const r = queueDiplomaticOrder(state, { nationId, target: mark, action: 'break' });
   if (r.ok && state.turn >= mem.strikeTurn + 6) state.orders.find(o => o.id === r.orderId).war = true;
@@ -340,7 +356,10 @@ export function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, 
     ? scaleForce(legacyForce({ warships: harborShips }), Math.max(1, margin)) : null;
   // V14.1 : province invisible mais garnison vue lors d'un assaut repoussé récent : on retient la plus forte des deux.
   const perceived = perceivedForce(state, map, nationId, toId, seen), recalled = seen.has(toId) ? null : rememberedGarrison(state, nationId, toId);
-  const defense = scaleForce(recalled && combatValue(recalled) > combatValue(perceived) ? recalled : perceived, Math.max(1, margin));
+  // V17.5 : renforts du défenseur visibles en route vers la cible (temps réel) : ils défendront aussi.
+  const support = state.marches?.length ? incomingSupport(state, map, nationId, toId, seen) : null;
+  const known = recalled && combatValue(recalled) > combatValue(perceived) ? recalled : perceived;
+  const defense = scaleForce(support ? mergeForce(known, support) : known, Math.max(1, margin));
   const home = provinceForce(state.provinces[fromId]);
   // V16.2 : depuis l'île mystérieuse, l'IA garde toujours au moins RULES.mysteryIsland.aiKeepShare de ses troupes sur l'île.
   for (const share of RULES.ai.attackShares.filter(x => !isMysteryIsland(fromId) || x <= 1 - RULES.mysteryIsland.aiKeepShare)) {
