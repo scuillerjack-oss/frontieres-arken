@@ -313,17 +313,20 @@ test('V17.2 : fireFactor — 1 par défaut (rien ne change), 0,7 = 70 % des dég
   assert.equal(awaitImport.fireFactorFor(game(), ME), 1, 'point de branchement de la famine (V17.4)');
 });
 
-test('V17.2 : sauvegarde en pleine bataille — reprise identique jour par jour', () => {
+test('V17.2 : sauvegarde en pleine bataille — reprise identique jour par jour (état complet)', () => {
   const s = siege({ def: 300, atk: 300, fort: 3 });
   const m = send(s, 'p02', 'p04', { infantry: 300 });
   untilDay(s, m.arriveDay + 1);
-  assert.equal(s.battles.length, 1);
+  assert.equal(s.battles.length, 1); assert.equal(s.battles[0].assaults, 1);
   const r = decodeRealtimeSave(encodeSave(s));
   const t = r.state || r;
-  assert.equal(t.battles.length, 1);
-  for (let i = 0; i < 10; i++) { E.advanceDay(s, map); E.advanceDay(t, map); }
-  assert.deepEqual(JSON.parse(JSON.stringify(t.provinces)), JSON.parse(JSON.stringify(s.provinces)));
-  assert.deepEqual(t.marches, s.marches);
+  const norm = x => JSON.parse(JSON.stringify(x));
+  assert.deepEqual(norm(t), norm(s), 'état décodé identique');
+  for (let i = 0; i < 10; i++) {
+    E.advanceDay(s, map); E.advanceDay(t, map);
+    assert.deepEqual(norm(t), norm(s), `jour ${s.day} : état complet identique`);
+  }
+  assert.equal(s.battles.length, 0, 'la bataille s\'est terminée pendant la comparaison');
 });
 
 test('V17.2 : une nation dont toutes les troupes sont à l\'assaut n\'est pas éliminée', () => {
@@ -351,6 +354,50 @@ test('V17.2 : partie IA de 2 ans — batailles en assauts, aucune bataille éter
   for (const b of s.battles) { assert.ok(s.day - b.startDay <= R.battle.maxDays + 1, 'une bataille dure 6 jours au plus'); assert.ok(b.assaults <= 3); }
   assert.ok(evs(s, ev, 'assault').length > 0);
   for (const a of evs(s, ev, 'assault')) assert.ok(a.assault >= 1 && a.assault <= 3);
+  // Rien de perdu : pour chaque bataille repoussée, unités engagées − pertes = survivants repartis (battle-retreat), unité par
+  // unité, sauf si la nation a déserté (famine V17.4) pendant la bataille.
+  const all = s.events.slice(ev), units = o => Object.values(o || {}).reduce((n, v) => n + (v || 0), 0);
+  let checked = 0;
+  for (const fin of all.filter(e => e.type === 'battle' && e.battleId)) {
+    for (const id of fin.attackers) {
+      const window = all.filter(e => e.day >= fin.startDay && e.day <= fin.day);
+      if (window.some(e => e.type === 'famine-desertion' && e.nationId === id)) continue;
+      const back = all.filter(e => e.type === 'battle-retreat' && e.battleId === fin.battleId && e.nationId === id).reduce((n, e) => n + e.amount, 0);
+      assert.equal(units(fin.engagedByNation[id]) - units(fin.lossesByNation[id]), back, `${fin.battleId} ${id}`);
+      checked++;
+    }
+  }
+  for (const fin of all.filter(e => e.type === 'conquest' && e.battleId)) for (const id of fin.attackers.filter(x => x !== fin.newOwnerId)) {
+    if (all.some(e => e.day >= fin.startDay && e.day <= fin.day && e.type === 'famine-desertion' && e.nationId === id)) continue;
+    const back = all.filter(e => e.type === 'battle-retreat' && e.battleId === fin.battleId && e.nationId === id).reduce((n, e) => n + e.amount, 0);
+    // ≥ : un allié co-propriétaire de l'île mystérieuse garde ses survivants sur place (V16.2).
+    assert.ok(units(fin.engagedByNation[id]) - units(fin.lossesByNation[id]) >= back, `${fin.battleId} ${id}`);
+    checked++;
+  }
+  assert.ok(checked > 0, 'au moins une bataille vérifiée');
+});
+
+test('V17.2 : trêve, paix ou alliance signée entre l\'arrivée d\'un renfort et l\'assaut suivant — il fait demi-tour, sans trahison', () => {
+  for (const kind of ['ceasefire', 'alliance', 'peace']) {
+    const s = siege({ def: 400, atk: 300, fort: 3 });
+    const near = map.provinces.find(p => p.id === 'p04').landConnections.find(id => id !== 'p02');
+    s.provinces[near].ownerId = 'noireflamme'; s.provinces[near].units = inf(600);
+    war(s, 'noireflamme', 'aurel');
+    const m = send(s, 'p02', 'p04', { infantry: 300 });
+    untilDay(s, s.day + 1);
+    const m2 = send(s, near, 'p04', { infantry: 300 }, 'noireflamme');
+    untilDay(s, m2.arriveDay); // arrivé entre l'assaut 1 et l'assaut 2
+    assert.ok(s.battles[0].attackers.some(e => e.nationId === 'noireflamme' && e.fresh), kind);
+    s.diplomacy.wars = s.diplomacy.wars.filter(w => !w.participants.includes('noireflamme'));
+    if (kind !== 'peace') s.diplomacy.treaties.push({ type: kind, parties: ['noireflamme', 'aurel'], active: true, started: s.turn });
+    const ev = s.events.length;
+    untilDay(s, m.arriveDay + 10);
+    assert.ok(!evs(s, ev, 'betrayal').length, `${kind} : pas de trahison`);
+    assert.ok(!s.diplomacy.wars.some(w => w.participants.includes('noireflamme') && w.participants.includes('aurel')), `${kind} : pas de guerre rouverte`);
+    assert.ok(evs(s, ev, 'battle-retreat').some(e => e.nationId === 'noireflamme' && e.reason === 'peace'), `${kind} : demi-tour`);
+    assert.ok(!evs(s, ev, 'assault').some(e => e.attackers.includes('noireflamme')), `${kind} : n'a pas attaqué`);
+    assert.ok(s.marches.some(x => x.nationId === 'noireflamme' && x.returning), kind);
+  }
 });
 
 test('V17.2 : attaquer sans guerre déclarée la déclare (V10) et la bataille a lieu ; paix signée pendant la bataille : l\'attaquant rentre', () => {

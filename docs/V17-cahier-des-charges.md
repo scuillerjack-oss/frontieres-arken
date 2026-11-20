@@ -912,8 +912,10 @@ pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le
     V17.5 avec `battleForecast`) : départ le jour même. Plus aucun attaquant : récit « la défense a tenu ».
   - **Replis** : par la terre, marche de retour vers la 1re origine encore à soi (30 j, 20 pour la cavalerie seule) ; par la mer,
     le convoi rembarque et rentre (même durée que l'aller, `turnBack`). Paix ou trêve signée pendant la bataille : l'attaquant
-    qui a déjà combattu rentre sans assaut suivant (`battle-retreat`, raison `peace`) ; un arrivant, lui, déclare la guerre en
-    attaquant (règle V10).
+    qui a déjà combattu rentre sans assaut suivant (`battle-retreat`, raison `peace`). Correction de la relecture : chaque arrivant
+    garde l'état diplomatique de son arrivée (`warOnArrival`, `treatiesOnArrival`) ; trêve, paix ou alliance apparue avant son
+    premier assaut → demi-tour, jamais de guerre rouverte ni de trahison. Seul un arrivant sans guerre qui attaque le jour même de
+    son arrivée, sans nouveau traité, déclare la guerre en attaquant (règle V10).
   - Récit : un événement `assault` par assaut (« ⚔ Bataille de X, assaut 2/3 … Prochain assaut le … ») et, à la fin, **un seul**
     `battle` / `conquest` avec les chiffres de toute la bataille (pertes, forces engagées renforts compris, PV perdus, passes).
   - `fireFactorFor(state, nationId)` (V17.4) appelé pour chaque camp à chaque assaut.
@@ -954,7 +956,8 @@ pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le
 6. Batailles navales (interceptions, rencontres de convois) et rencontres en chemin : toujours instantanées (§5.4, §5.6).
 7. L'IA ne bat pas encore en retraite d'elle-même et ne compte pas ses troupes à l'assaut : V17.5.
 
-**Tests** : `tests/v17-2.test.js` (21 tests) : valeurs, 3 assauts J / J+3 / J+6 et repli ; **équivalence sur 38 batailles**
+**Tests** : `tests/v17-2.test.js` (22 tests ; après relecture : trêve / paix / alliance dans la fenêtre d'un renfort, sauvegarde comparée
+sur l'état complet jour par jour, troupes comptées unité par unité sur toutes les batailles d'une partie IA de 2 ans) : valeurs, 3 assauts J / J+3 / J+6 et repli ; **équivalence sur 38 batailles**
 (forteresses 0 à 3, blindés, artillerie, blessés : forces, prise, pertes, PV, forces engagées, passes et survivants identiques
 au `fight` de 3 passes) ; prise au 2e assaut (B4) ; renfort attaquant ; renfort défenseur et allié stationné ; retraite
 volontaire ; défenseur bloqué ; B2 ; débarquement repoussé qui rentre ; île mystérieuse neutre et publique ; guerre déclarée
@@ -963,7 +966,7 @@ referme, annulation) ; guérison (10/3 %, bloquée 10 jours, jamais en bataille)
 `fireFactor` 0,7 ; troupes à l'assaut nourries et famine à 70 % pendant un assaut ; sauvegarde en pleine bataille ; nation à
 l'assaut non éliminée ; écran provisoire ; partie IA de 2 ans. Les scénarios donnent une grosse réserve de vivres (pas de famine).
 **Tests modifiés** : `tests/helpers/sources.js` (modules `realtime/battles` et `ui/realtime-battles-ui`). Aucun test retiré ni
-changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm test` après rebase sur `v17` (V17.4 comprise) : 783 tests, tous verts.
+changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm test` après rebase sur `v17` (V17.4 comprise) : 784 tests, tous verts.
 
 **Mesures — 100 parties IA de 15 ans** (`node tools/v17/partie-jours.mjs 100 v17j`, résultats `tools/v17/resultats-v17.2.json`) :
 
