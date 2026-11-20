@@ -265,7 +265,8 @@ test('V15.4 : interface : choix de la durée à côté du niveau, 80 présélect
 });
 test('V15.4 : pub de début de partie : même appel qu’en 80 tours, sans condition sur la durée', () => {
   const flow = readSource('src/presentation/ui/game-flow.js');
-  assert.match(flow, /showGameStartAd\(\{profile,inTutorial:isTutorial\(state\)\|\|shouldStartMiniTuto\(\)\}\)/);
+  // V17.7 : la pub de début de partie est supprimée (cahier V17 §10.2), quelle que soit la durée.
+  assert.doesNotMatch(flow, /showGameStartAd\(/);
   assert.doesNotMatch(readFileSync(join(root, 'src/presentation/ads.js'), 'utf8'), /gameLength/);
 });
 test('V15.4 : modules purs : ni DOM, ni hasard, ni date ; présents hors ligne ; version 15.4.0', () => {

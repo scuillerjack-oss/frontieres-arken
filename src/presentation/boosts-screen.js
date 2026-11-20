@@ -19,12 +19,16 @@ export function boostScreenHtml(profile, date, { inGame = false } = {}) {
 <span class="mission-main"><b>${esc(m.label)}</b><span class="mission-bar"><i style="width:${Math.round(100 * m.progress / m.target)}%"></i></span></span>\
 <span class="mission-count">${m.progress}/${m.target}</span>${m.ad && !m.done ? '<button class="mission-ad" data-watch-ad>Regarder</button>' : ''}</div>`).join('');
   const items = storeItems(profile);
-  const pack = items.find(x => x.id === 'pack_debutant');
-  const packHtml = profile.starterPack
-    ? `<div class="pack owned"><b>✔ Pack débutant actif</b><small>Plus aucune publicité au début des parties.</small></div>`
-    : `<div class="pack"><b>Pack débutant</b><small>Plus aucune publicité + ${STARTER_PACK_TOKENS} jetons immédiats. Achat unique.</small><button class="buy-test" \
-data-buy="pack_debutant" ${pack?.available ? '' : 'disabled'}>${BILLING_ENABLED ? `Acheter${pack?.price ? ` · ${esc(pack.price)}` : ''}` : 'Achat de test (gratuit)'}</button></div>`;
-  const tokenItems = items.filter(x => x.id !== 'pack_debutant').map(x => `<button class="token-buy" data-buy="${x.id}">${esc(x.label)}<small>${BILLING_ENABLED ? esc(x.price || '') : 'test gratuit'}</small></button>`).join('');
+  const pack = items.find(x => x.id === 'pack_debutant'), prem = items.find(x => x.id === 'premium');
+  const buyText = x => BILLING_ENABLED ? `Acheter${x?.price ? ` · ${esc(x.price)}` : ''}` : 'Achat de test (gratuit)';
+  // V17.7 : Premium (vitesse ×2 + plus de pub imposée) ; le Pack débutant = Premium + 3 jetons.
+  const packHtml = profile.premium
+    ? `<div class="pack owned"><b>✔ ${profile.starterPack ? 'Pack débutant actif · Premium' : 'Premium actif'}</b><small>Vitesse ×2 et plus aucune pub imposée.</small></div>`
+    : `<div class="pack"><b>Premium</b><small>Vitesse ×2 + plus aucune pub imposée. Achat unique.</small><button class="buy-test" \
+data-buy="premium" ${prem?.available ? '' : 'disabled'}>${buyText(prem)}</button></div>\
+<div class="pack"><b>Pack débutant</b><small>Premium + ${STARTER_PACK_TOKENS} jetons immédiats. Achat unique.</small><button class="buy-test" \
+data-buy="pack_debutant" ${pack?.available ? '' : 'disabled'}>${buyText(pack)}</button></div>`;
+  const tokenItems = items.filter(x => !x.oneTime).map(x => `<button class="token-buy" data-buy="${x.id}">${esc(x.label)}<small>${BILLING_ENABLED ? esc(x.price || '') : 'test gratuit'}</small></button>`).join('');
   return `<div class="tokens-head"><span class="token-coin" aria-hidden="true">✦</span><div><b id="tokenCount">${profile.tokens}</b><small>jeton${profile.tokens > 1 ? 's' : ''} à placer</small></div>\
 <p>1 jeton = +1 % sur un atout, jusqu’à +10 %. ${inGame ? 'Les atouts s’appliquent tout de suite à ta nation, jamais aux IA.' : 'Les atouts s’appliquent à ta nation, jamais aux IA.'}</p></div>
   <h3 class="v12-h">Atouts</h3><div class="boost-list">${boosts}</div>
@@ -35,7 +39,7 @@ regardées = +1 jeton, autant de fois que tu veux.</small><span class="mission-b
 <span class="mission-count">${profile.bonusAds || 0}/${BONUS_ADS_PER_TOKEN}</span><button class="mission-ad" data-bonus-ad>Regarder</button></div>
   <h3 class="v12-h">Boutique ${BILLING_ENABLED ? '' : '<span class="test-badge">BÊTA · AUCUN PAIEMENT</span>'}</h3>${packHtml}
   <div class="token-shop">${tokenItems}</div>
-  <p class="v12-note">On n’achète jamais d’or ni de troupes : seulement des jetons d’atouts et la suppression des publicités.</p>
+  <p class="v12-note">On n’achète jamais d’or ni de troupes : seulement des jetons d’atouts et le confort de Premium.</p>
   <h3 class="v12-h">Sécurité du profil</h3><p class="v12-note">En attendant la sauvegarde Google Play Jeux, garde une copie de ton profil (jetons, atouts, achats) dans tes notes.</p>
   <div class="profile-tools"><button id="copyProfile" class="welcome-secondary">Copier mon profil</button><button id="restoreProfile" class="welcome-secondary">Restaurer</button></div>
   <button id="adsPrivacyBoost" class="welcome-secondary" data-ads-privacy hidden>Choix de confidentialité des publicités</button>`;

@@ -144,3 +144,10 @@ body.rt-on:has(#provinceSheet:not([hidden])) #toast{bottom:calc(max(8px,var(--sb
 .hud .hud-stat{min-height:36px}.hud .hud-stat b{font-size:1rem}.hud .icon-btn{width:42px;height:42px}#settingsBtn{top:calc(max(8px,var(--st)) + 48px)}
 nav.bottom-bar{gap:5px}nav.bottom-bar button{min-height:46px}nav.bottom-bar #nextTurn{min-height:56px}.zoom button{width:38px;height:38px}
 }
+/* V17.7 — icône 🎁 en paysage : bord gauche, sous le bouton Atouts (et sous l'alerte de coalition si elle est là). */
+@media (orientation:landscape) and (max-height:560px){
+.gift-btn{left:calc(6px + var(--sl));top:calc(max(6px,var(--st)) + 104px)}
+body:has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])):has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 196px)}
+}

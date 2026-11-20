@@ -287,7 +287,7 @@ test('V17.3 : interface — ▶ ⏸ ⏩ et date en bas à droite, cadenas Premiu
   // Le temps ne s'arrête que hors du jeu (Réglages, Aide, Atouts, Palmarès, Premium, fin de partie), pub, arrière-plan.
   assert.match(ui, /OUT_OF_GAME = \['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'\]/);
   assert.doesNotMatch(ui.match(/const OUT_OF_GAME[^\n]*/)[0], /actionDialog|eventDialog|journalDialog|talkDialog/, 'fiches, alertes, journal, échanges : le temps tourne');
-  assert.match(ui, /if \(mode === 'fast' && !isPremium\(\)\) \{ \$\('#premiumDialog'\)\?\.showModal\(\)/);
+  assert.match(ui, /if \(mode === 'fast' && !isPremium\(\)\) \{ openPremium\(\{ from: 'fast' \}\)/); // V17.7 : vraie offre Premium (achat de test)
   assert.match(ui, /createDayClock\(\{ now: t, paused: true \}\)/, 'reprise toujours en pause');
   assert.match(ui, /if\(rt\)world\.append\(safeEngine\(\(\)=>unitsLayer\(\)/, 'icônes DANS #mapWorld (copies <use>)');
   assert.match(ui, /if\(!rt\)save\(\)/, 'plus de sauvegarde à chaque rendu en temps réel');
