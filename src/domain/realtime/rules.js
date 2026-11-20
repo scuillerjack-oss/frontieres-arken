@@ -48,7 +48,7 @@ export const REALTIME_RULES = freezeDeep({
     hundredths: 100, provinceDaily: 8, islandDaily: 0, farmDaily: 10, farmMax: 5, farmCosts: [20, 25, 30, 35, 40], farmDays: 60,
     goldPerRation: 20, startReserve: 900, granaryDays: 180, alertDays: 10, alertRepeatDays: 30,
     famineFireFactor: .7, famineDesertPct: 1, noFaminePointDays: 50,
-    aiTargetMargin: 1.1, aiGoldReserve: 10
+    aiTargetMargin: 1.1, aiGoldReserve: 10, aiReserveDays: 15
   },
   // §5 Combats (V17.2)
   battle: {

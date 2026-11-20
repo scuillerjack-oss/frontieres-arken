@@ -14,6 +14,7 @@ import { embark } from './convoys.js';
 import { autoWar, ensureWar } from './diplomacy.js';
 import { pairTreaty, pairWar } from './shared.js';
 import { NEUTRAL_KEY, isMysteryIsland } from '../mystery-island.js';
+import { fireFactorFor } from '../realtime/food.js';
 
 // --- V10 : déplacements et combats simultanés ------------------------------------------------------------
 export const lossCount = byType => COMBAT_TYPES.reduce((n, k) => n + (byType?.[k] || 0), 0);
@@ -81,8 +82,8 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
   const own = provinceForce(target);
   const before = guests.reduce((f, e) => mergeForce(f, legacyForce(e)), own);
   const breach = fortBreach(state, toId); // V14.4 : forteresse bombardée (ce tour ou avant, pas encore réparée)
-  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode, warshipFactor: navalBonusFactor(state, g.nationId) })), fortLevel: target.buildings.fort || 0,
-    fortBonus: fortBonusFactor(state, defender), defenderWarshipFactor: navalBonusFactor(state, defender), fortBreach: breach });
+  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode, warshipFactor: navalBonusFactor(state, g.nationId), fireFactor: fireFactorFor(state, g.nationId) })), fortLevel: target.buildings.fort || 0,
+    fortBonus: fortBonusFactor(state, defender), defenderWarshipFactor: navalBonusFactor(state, defender), fortBreach: breach, defenderFireFactor: fireFactorFor(state, defender) });
   fought.add(toId);
   // V14.1 : un assaillant repoussé a vu la garnison ; il s'en souvient (l'IA ne retente pas un débarquement suicide).
   if (!res.captured) for (const g of groups) rememberGarrison(state, g.nationId, toId, before);

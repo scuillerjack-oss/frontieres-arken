@@ -6,6 +6,8 @@
 // Pour chaque partie (5 IA, graine fixe) : conquêtes (total et par quart de partie), nations éliminées, plus grande armée
 // finale en or (provinces, troupes stationnées, convois ET armées en marche), victoires par les capitales, combats,
 // rencontres en chemin, interceptions, rappels, temps de calcul d'un jour (médiane, p99, max) et d'une décision d'IA.
+// V17.4 : nourriture (§4.6) — niveaux de ferme par nation et par province en fin de partie, part de l'or des chantiers et
+// recrutements dépensé en fermes, nations ayant connu la famine, jours de famine, déserteurs.
 // Math.random est interdit pendant la simulation (le moteur doit être déterministe).
 import { performance } from 'node:perf_hooks';
 import { arkenV9Map as map } from '../../src/map/arken-v9-map.js';
@@ -35,6 +37,7 @@ export function playGame(seed, { short = false, nation = NATIONS[0] } = {}) {
   const s = createRealtimeGame({ map, playerNationId: nation, seed, gameLength: short ? 40 : undefined });
   for (const id of NATIONS) s.controllers[id] = 'ai';
   const days = gameDaysOf(s), quarter = Math.ceil(days / 4);
+  const seen = new Set(), spent = Object.fromEntries(NATIONS.map(id => [id, { all: 0, farm: 0 }])), famine = Object.fromEntries(NATIONS.map(id => [id, { days: 0, longest: 0, run: 0, deserted: 0 }]));
   const r = { conquestsByQuarter: [0, 0, 0, 0], battles: 0, fieldBattles: 0, interceptions: 0, landings: 0, marches: 0, convoys: 0, dayMs: [], aiMs: [] };
   while (!s.gameOver) {
     const day = s.day, before = Object.fromEntries(Object.entries(s.provinces).map(([id, p]) => [id, p.ownerId])), ev = s.events.length;
@@ -50,12 +53,20 @@ export function playGame(seed, { short = false, nation = NATIONS[0] } = {}) {
       else if (e.type === 'interception') r.interceptions++;
       else if (e.type === 'march-departed') r.marches++;
       else if (e.type === 'convoy-departed' && !e.returning) r.convoys++;
+      else if (e.type === 'famine-desertion') famine[e.nationId].deserted += Object.values(e.deserted).reduce((a, b) => a + b, 0);
     }
+    for (const q of s.productionQueue) if (!seen.has(q)) { seen.add(q); if (spent[q.nationId]) { spent[q.nationId].all += q.cost || 0; if (q.type === 'farm') spent[q.nationId].farm += q.cost || 0; } }
+    for (const id of NATIONS) { const f = famine[id]; if (!s.nations[id].eliminated && s.nations[id].food?.famine) { f.days++; f.run++; f.longest = Math.max(f.longest, f.run); } else f.run = 0; }
   }
   const gold = armyGoldByNation(s);
+  const alive = NATIONS.filter(id => !s.nations[id].eliminated);
+  const farmsOf = id => Object.values(s.provinces).filter(p => p.ownerId === id).reduce((n, p) => n + (p.buildings.farm || 0), 0);
+  const provincesOf = id => Object.values(s.provinces).filter(p => p.ownerId === id).length;
+  const food = alive.map(id => ({ farms: farmsOf(id), perProvince: farmsOf(id) / Math.max(1, provincesOf(id)), goldShare: spent[id].all ? spent[id].farm / spent[id].all : 0 }))
+    .concat(NATIONS.filter(id => s.nations[id].eliminated).map(() => null));
   return { seed, endDay: s.day, reason: s.gameOver.reason, conquests: r.conquestsByQuarter.reduce((a, b) => a + b, 0), ...r,
     eliminated: NATIONS.filter(id => s.nations[id].eliminated).length, biggestArmyGold: Math.round(Math.max(...NATIONS.filter(id => !s.nations[id].eliminated).map(id => gold[id]))),
-    treasury: NATIONS.map(id => s.nations[id].treasury) };
+    treasury: NATIONS.map(id => s.nations[id].treasury), food: food.filter(Boolean), famine: NATIONS.map(id => famine[id]) };
 }
 
 export function run(parties, prefixe, { short = false } = {}) {
@@ -74,6 +85,11 @@ export function run(parties, prefixe, { short = false } = {}) {
     interceptionsParPartie: round(mean(all('interceptions')), 2), marchesParPartie: round(mean(all('marches'))), convoisParPartie: round(mean(all('convoys'))),
     msParJour: { mediane: round(median(dayMs), 2), p99: round(pct(dayMs, .99), 2), max: round(dayMs.reduce((a, b) => Math.max(a, b), 0), 1) },
     msJourAvecDecisionIA: { mediane: round(median(aiMs), 2), p90: round(pct(aiMs, .9), 2), max: round(aiMs.reduce((a, b) => Math.max(a, b), 0), 1) },
+    nourriture: (() => { const f = games.flatMap(x => x.food), fam = games.flatMap(x => x.famine), hit = fam.filter(x => x.days > 0);
+      const q = (a, k) => ({ mediane: round(median(a.map(x => x[k])), 2), p90: round(pct(a.map(x => x[k]), .9), 2), max: round(Math.max(...a.map(x => x[k])), 2) });
+      return { fermesParNation: q(f, 'farms'), fermesParProvince: q(f, 'perProvince'), partOrFermes: { mediane: round(100 * median(f.map(x => x.goldShare))), p90: round(100 * pct(f.map(x => x.goldShare), .9)) },
+        nationsAvecFamine: `${hit.length} sur ${fam.length}`, tauxFamine: round(100 * hit.length / Math.max(1, fam.length), 1), joursDeFamine: hit.length ? q(hit, 'days') : null,
+        plusLongueFamine: hit.length ? Math.max(...hit.map(x => x.longest)) : 0, deserteursParNationAffamee: hit.length ? round(mean(hit.map(x => x.deserted))) : 0 }; })(),
     fins: Object.fromEntries([...new Set(all('reason'))].map(k => [k, games.filter(x => x.reason === k).length]))
   };
 }

@@ -7,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
-  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui'];
+  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
 // V17.1 : moteur du temps réel (src/domain/realtime/), lu avec le moteur (mêmes règles de pureté).
-export const REALTIME = Object.freeze(['rules', 'clock', 'marches', 'day', 'create']);
+export const REALTIME = Object.freeze(['rules', 'clock', 'marches', 'day', 'create', 'food']);
 
 /** V15.3 : modules du domaine ajoutés hors de engine/ (lus par tests/v15-3.test.js, qui vérifie qu'ils restent purs). */
 export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', 'src/domain/nations.js']);
@@ -24,6 +24,9 @@ export const DOMAIN_MODULES_V16_2 = Object.freeze(['src/domain/mystery-island.js
 
 /** V17.6 : module de présentation pur de la carte « façon AM 3 » (lu par tests/v17-6.test.js : sans DOM, en cache hors ligne). */
 export const PRESENTATION_MODULES_V17_6 = Object.freeze(['src/presentation/map-am3-view.js']);
+
+/** V17.4 : module de présentation pur de la nourriture (lu par tests/v17-4.test.js : sans DOM, en cache hors ligne). */
+export const PRESENTATION_MODULES_V17_4 = Object.freeze(['src/presentation/food-view.js']);
 
 function group(dir, names, first) {
   const present = readdirSync(join(root, dir)).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();

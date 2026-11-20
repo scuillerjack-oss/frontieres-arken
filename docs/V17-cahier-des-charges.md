@@ -826,3 +826,71 @@ exacts, sauvegarde en pleine marche identique, pas de fuite). Écarts relevés, 
 plus de ballon en temps réel (elle dépense son or tous les 10 jours et n'atteint jamais 90 or) ; en Facile, « une attaque
 terrestre par tour » s'applique à chaque décision (jusqu'à 3 par 30 jours) ; l'IA ne voit pas encore les armées en marche.
 Mineur : un groupe venu de plusieurs provinces se replie vers l'origine de la première marche.
+
+### V17.4 — Fermes et nourriture (20/11/2026)
+**Fait** (branche `mission/V17.4`, version inchangée : elle sera montée à l'intégration sur `v17`) :
+- `src/domain/realtime/food.js` (pur, déterministe, tout en **centièmes de vivre**) : production (province 8, île 0, ferme
+  +10 par niveau), consommation (1 vivre / jour pour 20 or de troupes : fantassin 5, cavalier 20, blindé 150, canon 125,
+  navire 325 centièmes ; provinces, stationnées, en marche, en mer, blessés compris), réserve nationale `nation.food`
+  (900 au départ, créée à la volée pour une sauvegarde V17.1), grenier = 180 jours de production (surplus perdu,
+  « grenier plein »), alerte sous 10 jours (une fois, puis tous les 30 jours), famine (réserve à 0 et consommation >
+  production), désertion exacte du §4.4 (report en centièmes par type, plus grosse pile ; égalité : province, chez soi,
+  stationnées, marches, convois), fin de famine (« Les vivres sont revenus », report remis à zéro). Événements privés
+  `food-alert`, `famine-start`, `famine-desertion`, `famine-end`. Étape « 6 bis » du jour (`day.js`, après les revenus).
+- **Famine au combat** : `fireFactorFor(state, nationId)` (0,7 en famine, toujours 1 au tour par tour) ; `combat.js` :
+  chaque attaquant peut porter `fireFactor` et `resolveBattle` / `resolveCombat` acceptent `defenderFireFactor` (1 par
+  défaut, multiplie les dégâts infligés). Branché dans les 4 batailles du temps réel : arrivée d'armée (`battles.js` `fight`),
+  rencontre en chemin (`marches.js`), combat naval de convoi (`convoys.js`), bataille en rade (`bombard.js`). Garnison
+  défendue par un allié stationné : facteur du propriétaire de la province. **À la fusion avec la V17.2** : garder ces noms
+  (`fireFactor` par attaquant, `defenderFireFactor`) ou les renommer d'un seul coup dans les 4 appels.
+- **Ferme** : `RULES.buildings.farm` lu dans `RULES.realtime.food` (`costs` 20…40, 2 périodes = 60 jours, `max` 5,
+  `realtimeOnly`) ; `BUILDING_TYPES` + `farm` ; `queueConstruction` : un niveau à la fois (« Ferme : un niveau est déjà en
+  construction »), plafond 5, refus sur l'île et au tour par tour (« Ferme : seulement dans une partie en temps réel ») ;
+  chantier perdu avec la province = remboursé (B4, mécanisme existant).
+- **IA (minimum, refonte en V17.5)** : `aiFarmOrders`, appelée dans `aiPlan` avant tout achat : si la production prévue
+  (fermes en chantier comprises) est sous 110 % de la consommation prévue (recrutements en cours compris), ou si la réserve
+  tient moins de 15 jours (`aiReserveDays`, ajouté à `RULES.realtime.food`) alors que la production ne suffit pas : un niveau
+  dans sa province qui en a le moins (égalité : identifiant), s'il lui reste 10 or ; une ferme en chantier à la fois.
+  **Écart** : sans l'or de la ferme, l'IA **épargne** (ni recrutement ni banque à cette décision) — sans cela, elle dépense
+  tout son or tous les 10 jours et 47 % des nations connaissaient la famine (essai sur 3 parties).
+- Interface (changements localisés) : case « 🌾 VIVRES 900 · +2,5/j » dans la barre du haut, juste après le trésor
+  (`src/presentation/ui/food-ui.js`, appelée par `realtime-ui.js` ; orange en alerte, rouge en famine ; la toucher explique
+  l'état), messages de famine et d'alerte (toast), ligne « 🌾 +18 vivres / jour · ferme niveau 1 » dans la fiche de ses
+  provinces, carte « 🌾 Ferme 20 or · 60 jours · +10 🌾/jour » dans l'écran Construction (temps réel seulement), « 🌾 Ferme 1 »
+  dans les constructions de la fiche. Textes purs dans `src/presentation/food-view.js`. Les bandeaux orange / vert du §4.4
+  restent à brancher par la V17.3 (les événements existent).
+- Outil `tools/v17/partie-jours.mjs` : mesures de nourriture ajoutées (résultats : `tools/v17/resultats-v17.4.json`).
+
+**Mesures — 100 parties IA de 15 ans jour par jour** (`node tools/v17/partie-jours.mjs 100 v17j`), comparées au §4.6 :
+
+| Mesure | §4.6 (tour par tour, 90 tours) | **V17.4 (moteur en jours)** |
+|---|---|---|
+| Fermes par nation en fin de partie (médiane / p90 / max) | 11 / 15 / 22 | **12 / 17 / 33** |
+| Fermes par province (médiane / p90 / max) | 2,3 / 3,7 / 5 | **2,2 / 3,75 / 5** |
+| Part de l'or dépensé dans les fermes (médiane / p90) | 7 % / 10 % | **7,2 % / 12,2 %** (chantiers + recrutements) |
+| Nations ayant connu la famine | 8 sur 455 (1,8 %) | **12 sur 500 (2,4 %)**, 14 jours en médiane, au plus 34 jours, 8 déserteurs en moyenne |
+| Conquêtes par partie / nations éliminées | (V17.1 : 28,6 / 0,70) | **26,3 / 0,80** |
+| Plus grande armée finale (médiane / p90 / max, or) | (V17.1 : 3 947 / 5 085 / 7 451) | **3 534 / 4 787 / 7 759** |
+
+Partie courte (100 parties) : 5 fermes par nation (p90 7), 1 par province, 7,2 % de l'or, famine 4 nations sur 500 (0,8 %),
+14,9 conquêtes. Coût : 0,18 ms par jour en médiane (V17.1 : 0,07), 0,84 ms un jour de décision d'IA ; pire jour 787 ms,
+mesuré pendant que `npm test` tournait sur la même machine (V17.1 : 61 ms) — à remesurer au calme en V17.5.
+Lecture : calibrage du §4.6 retrouvé sur le vrai moteur (fermes, part de l'or, famine rare et courte chez l'IA) ; les
+armées finales baissent un peu (−10 % en médiane) : la nourriture freine les plus grosses armées, comme prévu.
+
+**Tests** : `tests/v17-4.test.js` (17 tests : règles ; départ à l'équilibre 32 / 29,5 et +25 exact en 10 jours ; ferme livrée
+au 60e jour, +10 ; 5 niveaux, un à la fois, coûts 20…40, île et tour par tour refusés ; ferme perdue remboursée ; grenier et
+grenier qui rétrécit ; alerte à 10 jours puis rappel à 30 ; désertion exacte jour par jour sur 100 jours contre un calcul de
+référence ; départage des piles ; fin de famine (fermes, puis d'elle-même) ; `fireFactor` 0,7 : paramètre neutre à 1, ≈ 70 %
+des dégâts, transmis par le vrai `fight` en attaque et en défense ; IA : règle des 110 %, province, 10 or gardés, une à la
+fois, épargne sans or, partie IA de 4 ans avec des fermes partout et déterministe ; sauvegarde ; pureté ; textes et
+branchements de l'interface). **Test modifié** : `tests/economy.test.js` (règles figées : + `farm`). `tests/helpers/sources.js` :
+`food`, `food-ui`, `PRESENTATION_MODULES_V17_4`. `npm test` : 760 tests, tous verts. Tour par tour inchangé (empreintes V16.4.1
+identiques : la ferme y est refusée et le facteur vaut 1).
+
+**Vérifié dans Chrome mobile simulé** (Playwright, 844 × 390 et 360 × 740, `node scripts/build.js`, serveur local) : barre du
+haut « 🌾 VIVRES 900 +2,5/j » ; fiche de la capitale « 🌾 +8 vivres / jour » ; Construire → carte Ferme (20 or · 60 jours ·
++10 🌾/jour) → Vérifier → Confirmer : trésor 120 → 100, chantier de 60 jours ; second niveau grisé « un niveau est déjà en
+construction » (25 or) ; ▶ pendant 2 minutes : livrée le 5 mars 2027, barre « 1 097,5 +12,5/j », fiche « 🌾 +18 vivres / jour ·
+ferme niveau 1 », « 🌾 Ferme 1 », toucher la case → « Production 42 · consommation 29,5 ». 0 erreur JS, 0 fichier manquant,
+pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le navigateur (couverte par les tests du moteur).

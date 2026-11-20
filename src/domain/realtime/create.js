@@ -5,6 +5,7 @@
 import { REALTIME_SCHEMA_VERSION } from '../constants.js';
 import { createGameState } from '../../state/create-game-state.js';
 import { nextAiDays, periodOfDay } from './clock.js';
+import { foodOf } from './food.js';
 
 export function createRealtimeGame({ map, playerNationId, seed = 'arken-v0', difficulty, gameLength }) {
   const state = createGameState({ map, playerNationId, seed, difficulty, gameLength });
@@ -13,6 +14,7 @@ export function createRealtimeGame({ map, playerNationId, seed = 'arken-v0', dif
   state.day = 1;
   state.turn = periodOfDay(1);
   for (const n of Object.values(state.nations)) n.goldCarry = 0;  // report des revenus, en 1/60 d'or (§3.1)
+  for (const id of Object.keys(state.nations)) foodOf(state, id);   // V17.4 : réserve de 900 vivres (en centièmes, §4.3)
   state.marches = []; state.marchSequence = 1;                    // armées en marche par la terre (§6)
   state.battles = [];                                              // batailles en cours (V17.2)
   state.bombardOrders = [];                                        // ordres de bombardement permanents (V17.2)

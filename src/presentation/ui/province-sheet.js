@@ -19,6 +19,7 @@ import { moveEvent } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
 import { MYSTERY_ISLAND_ID, islandSheetView } from '../mystery-island-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
+import { farmCardText, provinceFoodLine } from '../food-view.js';
 import { balloonBuildCard, balloonSheetChips, bindBalloonBuild, bindBalloonChips } from './balloon-ui.js';
 import { openDiplomacy } from './diplomacy-screen.js';
 import { render } from './map-view.js';
@@ -36,7 +37,7 @@ export function showProvinceSheet(){
   const island=selected===MYSTERY_ISLAND_ID?islandSheetView(state,map,state.playerNationId,id=>nation(id).short,id=>province(id).name):null; // V16.2
   $('#sheetKicker').textContent=island?island.kicker:`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;
-  const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'?` ${n}`:''}`).join(' · ')||'Aucune construction';
+  const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'||key==='farm'?` ${n}`:''}`).join(' · ')||'Aucune construction';
   // V13 : une seule ligne en chiffres pour le régiment (« Régiment : 344 PV · 52 dégâts par assaut ») ; troupes hors de vue
   // ou retranchées dans une forteresse ennemie : « Régiment : effectif inconnu » (vision : docs/V13-vision.md).
   const troops=provinceTroopView(state,map,selected);
@@ -46,7 +47,7 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   // V13 : point de port (construit ou non) → destinations par mer ; sinon, rien (le refus s'explique au déplacement).
   const naval=mine&&isPortPoint(map,selected)?`<span class="info-chip note">⚓ Point de port : embarquement vers ${legalDestinations(map,state,
     selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port||island?'':' (port à construire pour les navires de guerre)'}</span>`:'';
-  const yieldGold=RULES.baseIncome+Object.entries(p.buildings).reduce((n,[k,v])=>n+(v>0?buildingIncome(k):0),0),yieldChip=mine?`<span class="info-chip income">💰 Rapporte +${yieldGold} or/tour</span>`:'';
+  const yieldGold=RULES.baseIncome+Object.entries(p.buildings).reduce((n,[k,v])=>n+(v>0?buildingIncome(k):0),0),yieldChip=mine?`<span class="info-chip income">💰 Rapporte +${yieldGold} or/tour</span>${provinceFoodLine(state,selected)?`<span class="info-chip food-chip">${provinceFoodLine(state,selected)}</span>`:''}`:''; // V17.4 : ligne 🌾
   const allyChip=relation==='alliance'?`<span class="info-chip ally-chip">🤝 Votre allié : vous ne pouvez pas l’attaquer</span><span class="info-chip passage-chip">${passageChip(state,state.playerNationId,p.ownerId)}</span>`:'';
   // V13.4 : bonus réel de la forteresse (lu dans le moteur), troupes alliées stationnées ici, mes troupes chez l'allié.
   const fort=fortInfo(state,selected),fortChip=fort.level?`<span class="info-chip fort-chip">${fort.text}${troops.entrenched?' · troupes cachées':''}</span>`:'';
@@ -183,16 +184,17 @@ function openRecruit(){
 }
 function openBuild(){
   const p=state.provinces[selected],orders=state.orders.filter(o=>o.kind==='construction'&&o.provinceId===selected&&o.status==='pending'),active=state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected);
-  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],
-    count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;
+  // V17.4 : la ferme (temps réel seulement) : 5 niveaux, un à la fois, 20 à 40 or, +10 vivres / jour par niveau.
+  const types=['bank','factory','fort',...(p.portSite?['port']:[]),...(state.mode==='realtime'?['farm']:[])],items=types.map(type=>{const rule=RULES.buildings[type],
+    count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=Array.isArray(rule.costs)?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;
     return{type,rule,cost,turns:rule.turns,count,built,queued:count-built};
     }).map(x=>({...x,reason:buildingUnavailableReason({type:x.type,label:buildingNames[x.type],rule:x.rule,count:x.count,built:x.built,portSite:p.portSite,cost:x.cost??0,
     spendable:spendableTreasury(state,state.playerNationId)})}));
   actionModal('Construction',province(selected).name,
     `<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,
     state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span>\
-<b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${buildingIncome(x.type)?` · <b class="income-tag">rapporte +${buildingIncome(x.type)} or/tour</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,
-    selected)}</b>`:''}${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small \
+<b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.type==='farm'?`${x.cost??'—'} or · ${farmCardText(x.count).days} jours · <b class="food-tag">${farmCardText(x.count).gain}</b>`:`${x.cost??'—'} or · ${x.turns} tour(s)`}${x.type==='farm'?'':buildingIncome(x.type)?` · <b class="income-tag">rapporte +${buildingIncome(x.type)} or/tour</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,
+    selected)}</b>`:''}${x.built?` · ${x.type==='fort'||x.type==='farm'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small \
 class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}${balloonBuildCard(selected)}</div>`);
   bindBalloonBuild(selected,showProvinceSheet); // V16.1 : ballon d'observation (usine requise)
   document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;

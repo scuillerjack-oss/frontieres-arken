@@ -15,6 +15,8 @@ const stat = k => C().units[k];
 const mult = (s, t) => C().multipliers[s]?.[t] ?? 1;
 const isLand = k => k !== 'warship';
 const int = n => Math.max(0, Math.floor(Number(n) || 0));
+// V17.4 : facteur de dégâts (famine 0,7) ; 1 par défaut, toute valeur non valable vaut 1.
+const factorOf = f => Number.isFinite(Number(f)) && Number(f) >= 0 && f !== null && f !== '' ? Number(f) : 1;
 
 export const emptyCounts = () => Object.fromEntries(COMBAT_TYPES.map(k => [k, 0]));
 export const emptyForce = () => ({ units: emptyCounts(), wounds: emptyCounts() });
@@ -119,22 +121,24 @@ export const regimentText = stats => stats ? `Régiment : ${stats.hp} PV · ${st
  * @param {number} [p.fortLevel=0]  forteresse (0 à 3) : divise les dégâts reçus par le DÉFENSEUR seulement.
  * @param {boolean} [p.naval=false] bataille en mer : seuls les navires tirent, aucune forteresse,
  *        les troupes embarquées sont une cargaison (dégâts reçus × convoyVulnerability), pas de prise.
+ * @param {number} [p.defenderFireFactor=1] V17.4 : multiplie les dégâts infligés par le défenseur (famine : 0,7).
+ *        Chaque attaquant peut aussi porter `fireFactor` (1 par défaut) : ses dégâts infligés sont multipliés.
  * @returns {{defender, attackers:Array<{id,force,lossesByType,hpLost}>, passes, captured, winnerId,
  *            defenderLossesByType, defenderHpLost}}
  */
-export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes, fortBonus = 1, defenderWarshipFactor = 1, fortBreach = 0 }) {
+export function resolveBattle({ defender, attackers, fortLevel = 0, naval = false, passes = C().passes, fortBonus = 1, defenderWarshipFactor = 1, fortBreach = 0, defenderFireFactor = 1 }) {
   let d = normalizeForce(defender);
-  let atk = attackers.map(a => ({ id: a.id, mode: naval ? 'naval' : (a.mode || 'land'), force: normalizeForce(a.force), warshipFactor: Number(a.warshipFactor) > 0 ? Number(a.warshipFactor) : 1 }));
+  let atk = attackers.map(a => ({ id: a.id, mode: naval ? 'naval' : (a.mode || 'land'), force: normalizeForce(a.force), warshipFactor: Number(a.warshipFactor) > 0 ? Number(a.warshipFactor) : 1, fireFactor: factorOf(a.fireFactor) }));
   const start = { d: normalizeForce(d), atk: atk.map(a => normalizeForce(a.force)) };
   const level = Math.max(0, Math.min(3, int(fortLevel)));
   // V12 : atout « défense des forts » du joueur (fortBonus = 1 + N %) : multiplie l'effet d'un fort construit.
   // V14.4 : forteresse bombardée — fortBreach (0 à 100) = part de sa protection neutralisée pour ce tour.
   const fort = naval ? 1 : breachedFactor((RULES.fortDefense[level] || 1) * (level > 0 && Number(fortBonus) > 0 ? Number(fortBonus) : 1), fortBreach);
-  const dWarship = Number(defenderWarshipFactor) > 0 ? Number(defenderWarshipFactor) : 1;
+  const dWarship = Number(defenderWarshipFactor) > 0 ? Number(defenderWarshipFactor) : 1, dFire = factorOf(defenderFireFactor);
   const output = (force, k, mode, warshipFactor = 1) => typeFire(force, k, naval ? 'naval' : mode, warshipFactor);
   const canFight = (force, mode) => COMBAT_TYPES.some(k => output(force, k, mode) > 0);
   // Feu d'une force vers une liste de forces cibles ; renvoie, pour chaque cible, les dégâts par type.
-  const fire = (shooter, mode, targets, defenderTargets, warshipFactor = 1) => {
+  const fire = (shooter, mode, targets, defenderTargets, warshipFactor = 1, fireFactor = 1) => {
     const out = targets.map(() => emptyCounts());
     const weights = targets.map(t => Object.fromEntries(COMBAT_TYPES.map(k => [k, poolOf(t, k) * (stat(k).targetWeight ?? 1)])));
     // V16.0 (Jack : « les navires de guerre ne peuvent attaquer que les troupes qui sont dans l'eau ») : à terre
@@ -144,7 +148,7 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
     // impossibles et la carte se figeait — conquêtes de fin de partie divisées par 3).
     const allowed = (s, t) => naval || s !== 'warship' || t === 'warship';
     for (const s of COMBAT_TYPES) {
-      const shot = output(shooter, s, mode, warshipFactor);
+      const shot = output(shooter, s, mode, warshipFactor) * fireFactor;
       if (!shot) continue;
       const total = weights.reduce((n, w) => n + COMBAT_TYPES.reduce((a, t) => a + (allowed(s, t) ? w[t] : 0), 0), 0);
       if (!total) continue;
@@ -167,8 +171,8 @@ export function resolveBattle({ defender, attackers, fortLevel = 0, naval = fals
     if (!alive.length || totalHp(d) <= 0) break;
     if (!canFight(d, naval ? 'naval' : 'land') && !alive.some(a => canFight(a.force, a.mode))) break;
     const toD = emptyCounts();
-    for (const a of alive) { const [x] = fire(a.force, a.mode, [d], true, a.warshipFactor); for (const k of COMBAT_TYPES) toD[k] += x[k]; }
-    const toA = fire(d, naval ? 'naval' : 'land', alive.map(a => a.force), false, dWarship);
+    for (const a of alive) { const [x] = fire(a.force, a.mode, [d], true, a.warshipFactor, a.fireFactor); for (const k of COMBAT_TYPES) toD[k] += x[k]; }
+    const toA = fire(d, naval ? 'naval' : 'land', alive.map(a => a.force), false, dWarship, dFire);
     alive.forEach((a, j) => { a.force = apply(a.force, toA[j]); });
     d = apply(d, toD);
     log.push({ pass: i + 1, defenderHp: totalHp(d), attackersHp: atk.map(a => totalHp(a.force)) });
@@ -216,8 +220,8 @@ export function breachedFactor(factor, breach = 0) {
 export const FORT_MAX_LEVEL = () => RULES.fortDefense.length - 1;
 
 /** Raccourci à un seul attaquant. mode : 'land' | 'landing' | 'naval'. */
-export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land', passes, fortBreach = 0 }) {
-  const r = resolveBattle({ defender, attackers: [{ id: 'attacker', force: attacker, mode: mode === 'naval' ? 'land' : mode }], fortLevel, naval: mode === 'naval', passes, fortBreach });
+export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land', passes, fortBreach = 0, fireFactor = 1, defenderFireFactor = 1 }) {
+  const r = resolveBattle({ defender, attackers: [{ id: 'attacker', force: attacker, mode: mode === 'naval' ? 'land' : mode, fireFactor }], fortLevel, naval: mode === 'naval', passes, fortBreach, defenderFireFactor });
   const a = r.attackers[0];
   return {
     attacker: a.force, defender: r.defender, passes: r.passes, captured: r.captured,

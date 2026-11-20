@@ -23,6 +23,7 @@ import { isMysteryIsland } from '../mystery-island.js';
 import { fortBreach } from './bombard.js';
 import { TRUCE_BETRAYAL_TURNS, queueDiplomaticOrder, recentTruce, refusalsOf } from './diplomacy.js';
 import { availableForces, buildingCount, queueConstruction, queueMoveOrder, queueRecruitment } from './orders.js';
+import { aiFarmOrders } from '../realtime/food.js';
 import { isPortPoint, legalDestinations, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, spendableTreasury } from './shared.js';
 
@@ -221,6 +222,9 @@ function aiPlan(state, map, nationId) {
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);
   const treasury = () => spendableTreasury(state, nationId), level = levelOf(state);
+  // V17.4 : en temps réel, la ferme passe avant tout achat (cahier §4.5 ; refonte de l'IA en V17.5).
+  // Faute d'or pour la ferme nécessaire, elle épargne : ni recrutement ni banque à cette décision.
+  const farm = aiFarmOrders(state, nationId), hungry = Boolean(farm && farm.needed && !farm.ok);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
@@ -235,7 +239,7 @@ function aiPlan(state, map, nationId) {
   const ships = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + (state.transports || []).filter(t => t.nationId === nationId).reduce((n, t) => n + (t.warships || 0), 0)
     + (state.productionQueue || []).filter(q => q.kind === 'unit' && q.type === 'warship' && q.nationId === nationId).reduce((n, q) => n + q.amount, 0)
     + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
-  const saving = warlike && base && ships < (arch === 'conquerant' ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0);
+  const saving = hungry || (warlike && base && ships < (arch === 'conquerant' ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0));
   if (!factory && treasury() >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
   const banks = nature === 'batisseur' ? owned : owned.filter(p => p.id !== source.id);
   const bankProvince = banks.find(p => !hasOrQueued(state, p.id, 'bank'));

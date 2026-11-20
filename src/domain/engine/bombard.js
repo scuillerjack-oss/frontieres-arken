@@ -1,6 +1,7 @@
 // Moteur — bombardement des forteresses côtières par les navires de guerre (V14.4).
 
 import { fortBonusFactor, navalBonusFactor } from '../boosts.js';
+import { fireFactorFor } from '../realtime/food.js';
 import {
   firePower, fortReductionPct, maxWoundsFor, mergeForce, provinceForce, resolveBattle, splitForce,
   writeProvinceForce
@@ -99,7 +100,7 @@ export function resolveBombardments(state, map, orders, fought) {
     // Flotte ennemie à quai (port construit) : bataille navale d'abord.
     if (target.buildings?.port && target.warships > 0) {
       const { taken: docked, rest: ashore } = splitForce(provinceForce(target), { warship: target.warships });
-      const res = resolveBattle({ defender: docked, attackers: [{ id: o.nationId, force: fleet, warshipFactor: navalBonusFactor(state, o.nationId) }], naval: true, defenderWarshipFactor: navalBonusFactor(state, owner) });
+      const res = resolveBattle({ defender: docked, attackers: [{ id: o.nationId, force: fleet, warshipFactor: navalBonusFactor(state, o.nationId), fireFactor: fireFactorFor(state, o.nationId) }], naval: true, defenderWarshipFactor: navalBonusFactor(state, owner), defenderFireFactor: fireFactorFor(state, owner) });
       fleet = res.attackers[0].force;
       writeProvinceForce(target, mergeForce(ashore, res.defender));
       event.harbor = { attackerLost: res.attackers[0].lossesByType.warship, defenderLost: res.defenderLossesByType.warship, defenderLeft: res.defender.units.warship };

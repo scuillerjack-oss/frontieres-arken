@@ -1,6 +1,7 @@
 // Moteur — convois, étapes en mer, interceptions, débarquements (docs/V10-marine.md).
 
 import { navalBonusFactor } from '../boosts.js';
+import { fireFactorFor } from '../realtime/food.js';
 import {
   COMBAT_TYPES, legacyForce, mergeForce, provinceForce, resolveBattle, splitForce, toLegacy, writeProvinceForce
 } from '../combat.js';
@@ -53,7 +54,7 @@ const convoyAlive = t => COMBAT_TYPES.some(k => (k === 'warship' ? t.warships : 
 const writeConvoy = (t, force) => Object.assign(t, toLegacy(force));
 /** Combat naval : `attacker` (flotte ou convoi) contre le convoi `t`. Seuls les navires tirent ; la cargaison encaisse ×1,5. */
 function navalClash(state, { attackerId, attackerForce, t, kind, provinceId }) {
-  const res = resolveBattle({ defender: legacyForce(t), attackers: [{ id: attackerId, force: attackerForce, warshipFactor: navalBonusFactor(state, attackerId) }], naval: true, defenderWarshipFactor: navalBonusFactor(state, t.nationId) });
+  const res = resolveBattle({ defender: legacyForce(t), attackers: [{ id: attackerId, force: attackerForce, warshipFactor: navalBonusFactor(state, attackerId), fireFactor: fireFactorFor(state, attackerId) }], naval: true, defenderWarshipFactor: navalBonusFactor(state, t.nationId), defenderFireFactor: fireFactorFor(state, t.nationId) });
   const a = res.attackers[0];
   writeConvoy(t, res.defender);
   const destroyed = !convoyAlive(t);
