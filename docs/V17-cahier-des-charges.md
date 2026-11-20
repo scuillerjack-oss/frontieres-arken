@@ -1283,7 +1283,7 @@ achats de test gratuits, `play-config.js` inchangé) :
 au plus une pub imposée par 10 min et seulement à un moment calme, jamais en tutoriel / Premium / pendant une action / après
 un refus, remise à zéro par la 🎁, `showForcedAd`, compteur relu sans perte, Premium / Pack / anciens Packs / restauration,
 écran Premium, branchements), `tests/economie-v17.test.js` (4 tests). **Tests modifiés** (pub de début de partie supprimée,
-produit `premium`) : `v14-4-play` (2), `v15-4`, `v16-4` (2), `v17-3` (⏩ → `openPremium`). `npm test` : 823 tests, tous verts.
+produit `premium`) : `v14-4-play` (2), `v15-4`, `v16-4` (2), `v17-3` (⏩ → `openPremium`). `npm test` : 844 tests, tous verts (après rebase sur la V17.5).
 
 **Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v177.mjs` et `v177b.mjs`, 844 × 390 et 390 × 844, vrais gestes,
 `?pub-test=60`) : nouvelle partie sans pub ; ⏸ à 1 min → pas de pub (trop tôt) ; 🎁 apparue après 5 à 9 min de jeu, en haut à
