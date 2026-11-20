@@ -5,11 +5,11 @@
 //
 // Vision (§8) : une armée en marche est vue de la nation qui voit sa province de départ OU d'arrivée (on voit toujours ce
 // qui vient chez soi) ; sa composition seulement si la province de départ est visible (ou si c'est soi / un allié).
-// Les convois sont vus de tous en mer ; composition pour soi, ses alliés, ou si l'une de leurs provinces est visible.
+// Les convois sont vus de tous en mer ; composition pour soi, ses alliés, ou si les troupes du port de départ sont connues.
 
 import { LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
 import { formatDate, formatShortDate } from '../domain/realtime/clock.js';
-import { visionSharers } from '../domain/vision.js';
+import { provinceIntel, visionSharers } from '../domain/vision.js';
 import { convoySeaPath, pointAlong } from './map-orders-view.js';
 import { foodEventText } from './food-view.js';
 
@@ -97,6 +97,12 @@ export function compositionText(x) {
   if (num(x.warships) > 0) parts.push(`${x.warships} navire${x.warships > 1 ? 's' : ''} de guerre`);
   return parts.join(' · ') || 'aucune troupe';
 }
+/**
+ * Composition d'une armée ou d'un convoi connue ? Pour soi et ses alliés ; sinon seulement si les troupes de la province de
+ * DÉPART sont connues selon la vision (provinceIntel : voisinage, ballon, forteresse) — jamais à cause de l'arrivée
+ * (une armée qui vient chez moi se voit, sa composition non).
+ */
+export const compositionKnown = (state, map, me, rel, fromId, visible) => rel !== 'foreign' || Boolean(provinceIntel(state, map, me, fromId, visible)?.troopsKnown);
 const relationOf = (state, me, nationId) => nationId === me ? 'own' : visionSharers(state, me).has(nationId) ? 'ally' : 'foreign';
 
 /**
@@ -111,7 +117,7 @@ export function marchTokens(state, map, me, visible) {
     const a = anchorOf(map, m.fromId), b = anchorOf(map, m.toId);
     if (!a || !b) continue;
     const path = [a, b], f = routeFraction(m.startDay, m.arriveDay, state.day), at = tokenPoint(path, f);
-    const known = rel !== 'foreign' || seesFrom;
+    const known = compositionKnown(state, map, me, rel, m.fromId, visible);
     out.push({
       id: m.id, kind: 'march', nationId: m.nationId, relation: rel, own: rel === 'own', fromId: m.fromId, toId: m.toId, path, x: at.x, y: at.y, ahead: pointsAhead(path, at.g, { x: at.x, y: at.y }),
       heading: headingAt(path, f), fraction: f, startDay: m.startDay, arriveDay: m.arriveDay, returning: Boolean(m.returning),
@@ -130,7 +136,7 @@ export function convoyTokens(state, map, me, visible) {
     const turns = Math.max(1, num(t.turns)), start = Number.isFinite(t.departDay) ? t.departDay : state.day - num(t.stage);
     const arrive = Number.isFinite(t.arriveDay) ? t.arriveDay : start + turns;
     const f = Number.isFinite(t.departDay) && Number.isFinite(t.arriveDay) ? routeFraction(start, arrive, state.day) : clamp01(num(t.stage) / turns);
-    const rel = relationOf(state, me, t.nationId), known = rel !== 'foreign' || visible.has(t.fromId) || visible.has(t.via);
+    const rel = relationOf(state, me, t.nationId), known = compositionKnown(state, map, me, rel, t.fromId, visible);
     const at = tokenPoint(path, f, 30);
     out.push({
       id: t.id, kind: 'convoy', nationId: t.nationId, relation: rel, own: rel === 'own', fromId: t.fromId, toId: t.toId, path, x: at.x, y: at.y, ahead: pointsAhead(path, at.g, { x: at.x, y: at.y }),
@@ -261,7 +267,19 @@ export function realtimeText(text) {
     .replace(/pour ce tour/g, 'pour l’instant').replace(/ce tour-ci/g, 'aujourd’hui')
     .replace(/il y a (\d+) tours?/g, (_, n) => `il y a environ ${Number(n) * R.daysPerPeriod} jours`)
     .replace(/\b([Aa])u tour (\d+)/g, (_, a, n) => `${a === 'A' ? 'E' : 'e'}n ${formatDate((Number(n) - 1) * R.daysPerPeriod + 1).replace(/^\S+ /, '')}`)
-    .replace(/prochain tour/g, 'mois prochain').replace(/\bce tour\b/g, 'ce mois-ci');
+    .replace(/prochain tour/g, 'mois prochain')
+    // Ordres immédiats en temps réel (diplomatie, messages) et rythmes « par tour » devenus « par mois ».
+    .replace(/à l’inter-tour/g, 'immédiatement').replace(/au début (?:du prochain|de l’)inter-tour/g, 'immédiatement')
+    .replace(/(?:dans )?le même tour/g, 'le même jour')
+    .replace(/ajoutée? aux ordres du tour/g, 'donnée : elle part tout de suite')
+    .replace(/Elle s’applique à la fin du tour/g, 'Elle s’applique tout de suite')
+    .replace(/réponse à la fin du tour/g, 'réponse à sa prochaine décision (10 jours au plus)')
+    .replace(/(partira|part) à la fin du tour/g, '$1 à la fin du mois de jeu')
+    .replace(/(\d+(?:,\d+)?) or par tour/g, (_, n) => `${String(Number(n.replace(',', '.')) / 2).replace('.', ',')} or par mois`)
+    .replace(/plus de (\d+) tours/g, (_, n) => `plus de ${Number(n) * R.daysPerPeriod} jours`)
+    .replace(/\bce tour\b/g, 'ce mois-ci')
+    // Reste : un délai « en tours » du moteur est une période de 30 jours.
+    .replace(/(\d+) tours?\b/g, (_, n) => `${Number(n) * R.daysPerPeriod} jours`);
 }
 
 // --- Message d'événement (en haut au centre) ------------------------------------------------------------------------

@@ -133,6 +133,25 @@ test('V17.3 : convois visibles de tous, position selon les jours en mer, composi
   if (after) assert.ok(after.fraction > before, 'le navire avance d’un jour');
   assert.ok(unitTokens(s, map, 'valmorne', vis(s)).length >= 1);
 });
+test('V17.3 (relecture) : pas de fuite — un convoi ou une armée ennemie qui vise MA province ne montre pas sa composition', () => {
+  const s = game('fuite'), me = 'valmorne', owner = id => s.provinces[id].ownerId;
+  const lane = map.seaLanes.find(l => [l.from, l.to].some(id => owner(id) === me) && [l.from, l.to].some(id => owner(id) && owner(id) !== me));
+  assert.ok(lane, 'une route maritime entre moi et une autre nation');
+  const mine = owner(lane.from) === me ? lane.from : lane.to, theirs = mine === lane.from ? lane.to : lane.from, enemy = owner(theirs);
+  const visible = vis(s);
+  assert.ok(visible.size > 0 && visible.has(mine) && !visible.has(theirs), 'ma province visible, leur port hors de vue');
+  s.transports.push({ id: 'cx', nationId: enemy, fromId: theirs, toId: mine, via: mine, lane: [lane.from, lane.to].sort().join('|'), stage: 10, turns: 60, departDay: s.day - 10, arriveDay: s.day + 50,
+    units: { infantry: 50, cavalry: 0, armor: 4, artillery: 0 }, warships: 2, wounds: {} });
+  const t = convoyTokens(s, map, me, visible).find(x => x.id === 'cx');
+  assert.ok(t, 'la flotte se voit en mer');
+  assert.equal(t.known, false); assert.equal(t.composition, null); assert.equal(t.units, null);
+  s.marches.push({ id: 'mz', kind: 'land', nationId: enemy, fromId: theirs, toId: mine, units: { infantry: 30 }, warships: 0, wounds: {}, startDay: s.day, arriveDay: s.day + 30, hostile: true, truces: [] });
+  const m = marchTokens(s, map, me, visible).find(x => x.id === 'mz');
+  assert.ok(m); assert.equal(m.known, false, 'l’arrivée chez moi ne révèle rien');
+  // Le port de départ devient visible avec ses troupes connues (allié ou ballon) : la composition se voit.
+  s.diplomacy.treaties.push({ type: 'alliance', parties: [me, enemy], active: true, startedTurn: s.turn });
+  assert.equal(convoyTokens(s, map, me, vis(s)).find(x => x.id === 'cx').known, true);
+});
 test('V17.3 : ballon en vol — avance jour par jour sur son saut de 60 jours', () => {
   assert.equal(balloonHopFraction(0, 1), 0);
   assert.equal(balloonHopFraction(0, 16), 15 / 60);

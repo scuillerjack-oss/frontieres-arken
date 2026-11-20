@@ -11,13 +11,21 @@ import { ceasefireOffers } from '../map-orders-view.js';
 import { diplomacyActions, relationWithPlayer } from '../overview-view.js';
 import { PASSAGE_TEXT } from '../passage-fort-view.js';
 import { truceWarning } from '../truce-warning.js';
-import { $, nation, province, toast } from './base.js';
-import { eventPopup } from './event-popups.js';
+import { $, nation, province, toast as toast0 } from './base.js';
+import { eventPopup as eventPopup0 } from './event-popups.js';
 import { render } from './map-view.js';
-import { actionModal, cancelMove, confirmationModal } from './province-sheet.js';
+import { actionModal as actionModal0, cancelMove, confirmationModal as confirmationModal0 } from './province-sheet.js';
 import { state } from './session.js';
 import { escapeHtml, nationPanel, openTalkCompose, safeEngine } from './talk-screen.js';
 import { miniTuto, tuto, tutorial } from './tutorials.js';
+import { realtimeText } from '../realtime-view.js';
+
+// V17.3 : en temps réel, les ordres diplomatiques partent tout de suite : les textes écrits pour l'inter-tour sont relus.
+const rtx = t => state?.mode === 'realtime' && typeof t === 'string' ? realtimeText(t) : t;
+const actionModal = (title, kicker, html) => actionModal0(rtx(title), rtx(kicker), rtx(html));
+const confirmationModal = (title, details, onConfirm) => confirmationModal0(rtx(title), rtx(details), onConfirm);
+const eventPopup = o => eventPopup0({ ...o, title: rtx(o.title), html: rtx(o.html) });
+const toast = t => toast0(rtx(t));
 
 function diplomaticExplanation(id,target){return({break:`Rompre l’alliance avec ${nation(target).short} à l’inter-tour. Rompre et attaquer dans le même tour est une trahison que tout Arken verra.`,
   war:`Déclarer la guerre à ${nation(target).short}. L’état de guerre s’appliquera à l’inter-tour.${truceWarning(state,state.playerNationId,target,
@@ -80,7 +88,7 @@ export function openDiplomacy(target=null){
   $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));miniTuto('diplomacy');tuto(`diplomacy:${target}`);
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
-  tutorial('diplomacy','Diplomatie en deux étapes','Choisissez une action : vous verrez ses conséquences avant de confirmer. Elle s’applique à la fin du tour.');
+  tutorial('diplomacy','Diplomatie en deux étapes',rtx('Choisissez une action : vous verrez ses conséquences avant de confirmer. Elle s’applique à la fin du tour.'));
 }
 // --- V13 : demandes d'aide à un allié (« Défends-moi », « Attaque X avec moi ») ------------------------------------
 function helpText(o){const x=o.target?nation(o.target).short:null;return o.help==='island'?'prendre l’île mystérieuse avec vous':o.help==='attack'?`attaquer ${x} avec vous`:x?`vous défendre contre ${x}`:o.provinceId?`défendre ${province(o.provinceId).name}`:'vous défendre contre quiconque vous attaque';}

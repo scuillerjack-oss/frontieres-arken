@@ -26,7 +26,7 @@ import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
 import { miniTuto, placeTutorial, tuto, tutorial } from './tutorials.js';
-import { durationText, monthlyIncomeText, productionDays, seaDays } from '../realtime-view.js';
+import { durationText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
 
 // V17.3 : en temps réel, les ordres partent tout de suite et les durées se lisent en jours, les revenus par mois.
 const rtOn=()=>state?.mode==='realtime';
@@ -69,7 +69,7 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   const bombardChips=mine?pendingBombardChip(state,selected,id=>province(id).name).map(c=>`<span class="info-chip bombard-chip">${c.text} <button class="chip-cancel" data-cancel-bombard="${c.id}">Annuler</button></span>`).join(''):''; // V14.4
   const balloonChips=mine?balloonSheetChips(selected):''; // V16.1
   // V16.2 : fiche « Île mystérieuse » — garnison (toujours visible), super banque, routes, co-propriétaire ; seulement « Déplacer ».
-  const islandChips=island?island.chips.map(t=>`<span class="info-chip island-chip">${t}</span>`).join(''):'';
+  const islandChips=island?island.chips.map(t=>`<span class="info-chip island-chip">${rtOn()?realtimeText(t):t}</span>`).join(''):''; // V17.3 : jours / mois en temps réel
   $('#sheetInfo').innerHTML=island?`${islandChips}${forcesHtml}${shipChip}${mineChip}${naval}${island.canDiplo&&!mine?nationChips(p.ownerId):''}`
     :`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${mine?foodChip:''}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
@@ -124,9 +124,9 @@ function openForceSelection(fromId,toId){
   const bySea=route?.type==='sea',rows=[...LAND_UNIT_TYPES.map(k=>row(k,unitKeys[k])),...(bySea?[row('warships','Navires (escorte)')]:[])].join('');
   const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le point de port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}</b> en mer${rtOn()?'':' (1 étape par tour)'}${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landingPenalty*100)} %)`:passage?', puis stationnement chez votre allié':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>${attack?(()=>{
     const v=provinceTroopView(state,map,toId),cap=Object.values(state.nations).some(n=>n.capitalId===toId);
-    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}${toId===MYSTERY_ISLAND_ID?' Île mystérieuse : un allié qui y débarque le même tour la prend avec vous (super banque partagée). L’attaque sera connue de toutes les nations.':''}</p>`;})():''}`:'';
+    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}${toId===MYSTERY_ISLAND_ID?` Île mystérieuse : un allié qui y débarque le même ${rtOn()?'jour':'tour'} la prend avec vous (super banque partagée). L’attaque sera connue de toutes les nations.`:''}</p>`;})():''}`:'';
   const passageNote=passage?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes stationneront à ${province(toId).name}${province(toId).name===nation(to.ownerId).short?'':` (${nation(to.ownerId).short})`} et la défendront avec votre allié.</p>`:'';
-  const truceNote=attack&&truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)?`<p class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)}</p>`:'';
+  const truceText=()=>{const t=truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short);return t&&rtOn()?realtimeText(t):t;},truceNote=attack&&truceText()?`<p class="sea-warn truce-warn">${truceText()}</p>`:'';
   const fortNote=attack&&fortAttackWarning(state,toId)?`<p class="sea-warn fort-warn">${fortAttackWarning(state,toId)}</p>`:'';
   actionModal(attack?(bySea?'Préparer un débarquement':'Préparer une attaque'):passage?'Passage chez un allié':'Préparer un déplacement',
     `${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}`:rtOn()?' · 30 jours de marche (20 en cavalerie seule)':''}`,
@@ -148,8 +148,7 @@ function openForceSelection(fromId,toId){
     confirmationModal(attack?'Confirmer l’attaque':passage?'Confirmer le passage':'Confirmer le déplacement',
       `<div class="order-detail"><span>Action : ${attack?'attaquer':passage?`stationner chez ${nation(to.ownerId).short} (allié)`:'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span>\
 <span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>\
-Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceWarning(state,
-      state.playerNationId,to.ownerId,nation(to.ownerId).short)}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});
+Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceText()}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});
       if(!result.ok)return toast(result.error);$('#actionDialog').close();setSelected(null);render();toast(rtOn()?'Ordre donné : les troupes partent':'Ordre ajouté à la planification');
       tuto(moveEvent({routeType:route?.type,attack,toId,units,warships}));miniTuto('move');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
   };

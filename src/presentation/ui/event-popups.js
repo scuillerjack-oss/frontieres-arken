@@ -30,8 +30,12 @@ export async function showCapitalPopups(events){
       label:c.kind==='won'?'Gloire à nous !':'Nous les reprendrons',value:true,primary:true}]});
 }
 export async function showSeaPopups(events){
-  for(const c of seaFatePopups(events,state.playerNationId,{nation:id=>nation(id).short,province:id=>province(id).name}))
-    await eventPopup({kicker:c.kicker,title:c.title,cls:`capital lost sea ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>${c.tip&&hintsOn()?`<p class="sea-tip">💡 ${c.tip}</p>`:''}`,buttons:[{label:'Compris',value:true,primary:true}]});
+  for(const c of seaFatePopups(events,state.playerNationId,{nation:id=>nation(id).short,province:id=>province(id).name}))await showSeaPopup(c);
+}
+/** V17.3 : une seule fenêtre « mer » (bandeau touché en temps réel). */
+export function showSeaPopup(c){
+    if(state.mode==='realtime')c={...c,text:String(c.text).replace(/(\d+) tours?\b/g,'$1 jours')}; // durées de convoi déjà en jours
+    return eventPopup({kicker:c.kicker,title:c.title,cls:`capital lost sea ${c.kind}`,html:`<p class="capital-lead">${c.lead}</p><p>${c.text}</p>${c.tip&&hintsOn()?`<p class="sea-tip">💡 ${c.tip}</p>`:''}`,buttons:[{label:'Compris',value:true,primary:true}]});
 }
 // V15.1 : coalition annoncée (formation, dissolution), et détail quand on touche le bandeau de la carte.
 export async function showCoalitionPopups(events){

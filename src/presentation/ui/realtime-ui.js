@@ -26,7 +26,7 @@ import {
 } from '../realtime-view.js';
 import { $, nation, province, toast } from './base.js';
 import { openBalloon } from './balloon-ui.js';
-import { showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
+import { showCapitalPopups, showProposalPopups, showSeaPopup } from './event-popups.js';
 import { drawFoodHud, explainFood } from './food-ui.js';
 import { currentTokens, setUnitOpener } from './map-units-layer.js';
 import { battleNews, bombardRows, openBattle, setBattleRefresh, wireBombardRows } from './realtime-battles-ui.js';
@@ -96,7 +96,7 @@ function pushBanners(list) {
 }
 function collectBanners(events) {
   const me = state.playerNationId;
-  const fresh = [...eventBanners(events, me, names), ...seaBanners(seaFatePopups(events, me, names), state.day).map(b => ({ ...b, action: { type: 'sea', events } })),
+  const fresh = [...eventBanners(events, me, names), ...seaBanners(seaFatePopups(events, me, names), state.day),
     ...incomingBanners(state, currentTokens(), me, names, seen), ...proposalBanners(proposalsToAnswer(state, me), names, seen)];
   const start = (events || []).filter(e => e.type === 'famine-start' && e.nationId === me).at(-1);
   if (start) famineDay = Number(start.day) || state.day;
@@ -112,7 +112,7 @@ function openAlert(a) {
   const act = a.action || {};
   if (act.type === 'province') { focusProvince(act.provinceId); selectProvince(act.provinceId); }
   else if (act.type === 'capital') showCapitalPopups([act.event]);
-  else if (act.type === 'sea') showSeaPopups(act.events);
+  else if (act.type === 'sea') showSeaPopup(act.popup); // seulement SA fenêtre
   else if (act.type === 'balloon') openBalloon(act.balloonId);
   else if (act.type === 'proposal') { const list = proposalsToAnswer(state, state.playerNationId).filter(p => p.from === act.from); if (list.length) showProposalPopups(list).then(() => saveFor('order')); else toast('Cette proposition n’est plus valable'); }
   else if (act.type === 'food') explainFood();

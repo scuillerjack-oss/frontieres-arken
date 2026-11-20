@@ -1028,12 +1028,12 @@ V17.4, même résultat). Non vérifié : vrai téléphone.
   « Arrivée prévue le … (dans N jours) », composition, « Voir l'arrivée » et **« Rappeler »** pour les siennes. Vision §8 :
   armée étrangère visible seulement si l'on voit sa province de départ ou d'arrivée, composition seulement si l'on voit le
   départ (sinon « ? » et « Composition inconnue ») ; alliés : tout ; convois visibles de tous, composition pour soi, ses alliés
-  ou si leur port est visible. L'ancien jeton de convoi « tours restants » reste pour le tour par tour.
+  ou si les troupes de leur port de départ sont connues (relecture : jamais à cause de la province d'arrivée). L'ancien jeton de convoi « tours restants » reste pour le tour par tour.
 - **Ordres immédiats depuis la fiche** : « Envoyer maintenant », « elles partent tout de suite et apparaissent sur la
   carte », « 30 jours de marche (20 en cavalerie seule) », mer en jours (60 / 120), recrutement et chantiers en jours
   (30 / 60 / 90), « Rapporte +2 or / mois », plus de ligne « ordres déjà prévus ». Barre du haut : plus de « TOUR » ;
   « TRÉSOR · +8/MOIS » (§3.1, revenu de base sans les bonus d'atout).
-- **Plus aucun « tour » à l'écran en temps réel** : pas de « Fin du tour » ni de compteur d'ordres, journal « JOURNAL · date »
+- **Plus de « tour » à l'écran en temps réel, sauf l'Aide (?)**, dont les textes restent à refaire avec le tutoriel en V17.9 : pas de « Fin du tour » ni de compteur d'ordres, journal « JOURNAL · date »
   avec onglets Récent / Historique, armée datée, réglages du déroulé cachés ; les textes du moteur écrits pour le tour par tour
   sont relus à l'affichage (`realtimeText` : « Revenus du mois », « 60 jours en mer », « au tour 3 » → « en mars 2027 »…) dans le
   journal, le message d'événement, les Échanges et les propositions — le moteur n'est pas touché. L'animation de fin de tour et le
@@ -1105,3 +1105,27 @@ montre la bataille en cours ; bombardements permanents (« Arrêter ») dans « 
 le nettoyage du journal garde maintenant la barre de « 2/3 » (elle était retirée). Vérifié (Playwright 844 × 390 et 390 × 844) :
 attaque jusqu'au 3e assaut (assauts aux jours J, J+3, J+6, prise au 3e), ⚔ 1/3 puis 2/3 sur la carte, fiche avec Retraite, bandeaux
 sans fenêtre ouverte, lignes ASSAUT 1/3, 2/3, 3/3 dans le Journal, 0 erreur JS, rien de caché. `npm test` : 804 tests, verts.
+
+**Corrections après relecture (20/11/2026)** :
+1. **Fuite de vision corrigée** : la composition d'une armée ou d'un convoi n'est connue que pour soi, ses alliés, ou si les
+   troupes de la province de DÉPART sont connues selon la vision (`provinceIntel(...).troopsKnown` : voisinage, ballon,
+   forteresse) — plus jamais à cause de la province d'arrivée (une flotte ennemie qui débarque chez moi ne montre plus ce
+   qu'elle transporte). Test : convoi et armée ennemis visant une de mes provinces, ensemble visible non vide.
+2. **Date jamais coupée** : fiche ouverte en paysage, le bloc date passe en colonne (date au-dessus de ▶ ⏸ ⏩) à gauche de la
+   fiche. Vérifié par Playwright (`/home/claude/pw/v173-date.mjs`) en 667 × 375, 844 × 390, 390 × 844 et 360 × 740, fiche ouverte
+   ou non, avec « 11 janvier », « 30 septembre » et « 30 novembre 2027 » : texte entier, dans l'écran, dans le bloc, sans
+   chevaucher la fiche.
+3. **« tour » retiré en temps réel** : Échanges (« FIL PUBLIC DES DIRIGEANTS · date », mois du message au lieu de « T3 », « au fil
+   des mois », message qui part « à la fin du mois de jeu (dans N jours) ») ; ballon (arrivée « dans N jours », trajets en jours,
+   règle « tous les 30 jours / 60 jours par île », « abattu immédiatement », construction 60 jours, départ à la fin du mois de
+   jeu) ; Diplomatie (ordres « immédiatement », réponse d'un allié « à sa prochaine décision, 10 jours au plus ») ; avertissement
+   de trêve, île mystérieuse, fenêtres de la mer (durées de convoi en jours). Restent en « tours » : l'Aide (?) et le tutoriel
+   (V17.9), le détail « PV et dégâts » du recrutement et la réparation des navires (`recruit-repair-view.js`), l'aperçu du
+   bombardement (à reprendre avec les règles en jours de la V17.2), le récit de fin de partie (V17.8).
+4. Toucher un bandeau « mer » n'ouvre plus que sa propre fenêtre (`showSeaPopup`).
+5. Barre du haut en portrait : sous 370 px de large, l'en-tête était caché (règle d'avant) ; il montre maintenant le numéro de
+   version (les cases se resserrent) ; jusqu'à 430 px, la version ne se coupe plus. Vérifié avec une vraie version longue
+   (« v17.3.0+1a2b3c4 ») en 320, 360, 390, 667 et 844 px.
+`npm test` : 805 tests, tous verts. Playwright (`v173.mjs`) en 844 × 390, 390 × 844, 667 × 375 et 360 × 740 : une minute de jeu,
+ordre, icône qui avance, rappel, pause, bandeaux sans pause, bataille jusqu'au 3e assaut, Échanges / ballon / Diplomatie sans
+« tour », ⏩ cadenas, reprise en pause : 0 erreur JS, rien de caché ni coupé.

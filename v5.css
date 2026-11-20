@@ -651,3 +651,18 @@ body.rt-on .live-settings{display:none}
 .battle-count{font:900 24px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff7df;paint-order:stroke;stroke:#3a0606;stroke-width:6px;stroke-linejoin:round}
 @media (prefers-reduced-motion:no-preference){.rt-battle.mine .battle-disc{animation:battle-pulse 1.6s ease-in-out infinite}}
 @keyframes battle-pulse{50%{stroke-width:10}}
+/* V17.3 (relecture) : sous 370 px de large, l'en-tête n'est plus caché : seul le numéro de version reste (il sert à vérifier la
+   mise à jour de la bêta, et l'en-tête ramène à l'accueil) ; les cases se resserrent pour lui laisser la place. */
+@media(max-width:430px) and (orientation:portrait){
+.hud{gap:4px;padding-left:5px;padding-right:5px}
+.brand{min-width:80px}
+.brand small #hud-version{font-size:.54rem;white-space:nowrap;overflow:visible}
+.hud-stat{min-width:0;padding:2px 3px}.hud .icon-btn{width:34px;flex:none}
+}
+@media(max-width:370px){
+.brand{display:flex;flex-direction:column;justify-content:center;flex:1 1 0;min-width:80px}
+.brand b,.brand small > :not(#hud-version){display:none}
+.brand small{font-size:0;letter-spacing:0}
+.brand small #hud-version{font-size:.54rem;white-space:nowrap;overflow:visible}
+.hud-stat b{font-size:1.05rem}
+}
