@@ -1093,3 +1093,15 @@ Barre du haut (remarque de la relecture V17.4) : le revenu passe sous le trésor
 peut passer sur deux lignes au lieu d'être coupée : le numéro de version est toujours lisible en entier (vérifié en 844 × 390 et
 390 × 844). Tests : `tests/v17-3.test.js` (+1 test famine / branchements), `tests/v17-4.test.js` (2 assertions adaptées aux
 bandeaux et à `sheetSlots.food`).
+
+**Intégration avec la V17.2 (20/11/2026, après rebase sur `v17`)** : l'écran provisoire des batailles est branché dans
+l'interface V17.3 : ⚔ « n/3 » sur la province en bataille, en couche `#rtBattles` **dans `#mapWorld`** (donc aussi sur les copies
+du défilement sans fin), lisible à tout zoom, liseré or qui bat doucement pour ses propres batailles ; le toucher ouvre la fiche
+de bataille de la V17.2 (assaut joué, prochain assaut, PV, **Retraite**, suivie d'une sauvegarde) ; chaque assaut qui concerne le
+joueur donne un **bandeau** (« Bataille de X : assaut 2/3 · prochain le 02/03/2027 », un seul par bataille à l'écran, le suivant
+remplace le précédent), qui n'arrête pas le temps ; une prise passe par les bandeaux de conquête / capitale ; le message du haut
+montre la bataille en cours ; bombardements permanents (« Arrêter ») dans « Troupes en route ». Journal : en temps réel, l'onglet
+« Récent » montre les derniers faits du journal permanent (rempli chaque jour, donc les lignes « ⚔ ASSAUT n/3 » tout de suite) ;
+le nettoyage du journal garde maintenant la barre de « 2/3 » (elle était retirée). Vérifié (Playwright 844 × 390 et 390 × 844) :
+attaque jusqu'au 3e assaut (assauts aux jours J, J+3, J+6, prise au 3e), ⚔ 1/3 puis 2/3 sur la carte, fiche avec Retraite, bandeaux
+sans fenêtre ouverte, lignes ASSAUT 1/3, 2/3, 3/3 dans le Journal, 0 erreur JS, rien de caché. `npm test` : 804 tests, verts.

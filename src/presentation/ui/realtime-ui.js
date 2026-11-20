@@ -29,6 +29,7 @@ import { openBalloon } from './balloon-ui.js';
 import { showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
 import { drawFoodHud, explainFood } from './food-ui.js';
 import { currentTokens, setUnitOpener } from './map-units-layer.js';
+import { battleNews, bombardRows, openBattle, setBattleRefresh, wireBombardRows } from './realtime-battles-ui.js';
 import { focusProvince, render } from './map-view.js';
 import { actionModal, selectProvince, showProvinceSheet } from './province-sheet.js';
 import { profile, save, selected, state } from './session.js';
@@ -70,19 +71,27 @@ ${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-to
   if (b) b.onclick = () => { $('#actionDialog').close(); recall(token.kind, token.id); };
 }
 setUnitOpener(openUnit);
+setBattleRefresh(() => { saveFor('order'); refresh(); }); // après une retraite
 /** Liste des troupes en route du joueur (marches et convois), avec « Rappeler » : en touchant la date. */
 function openTroops() {
   const mine = currentTokens().filter(t => t.own);
   actionModal('Troupes en route', dateText(state.day).toUpperCase(), mine.map(t => `<div class="unit-row troop-row"><span>${t.kind === 'convoy' ? '⛵' : '⚔'} ${province(t.fromId).name} → \
 ${province(t.toId).name}<small>${compositionText(t)} · arrivée le ${formatDate(t.arriveDay)}</small></span>${t.recallable ? `<button data-recall="${t.kind}:${t.id}">Rappeler</button>` : '<b>retour</b>'}</div>`).join('')
-    || '<p>Aucune troupe en route. Touchez une de vos provinces puis « Déplacer / Attaquer » : l’ordre part tout de suite et l’armée apparaît sur la carte.</p>');
+    + bombardRows() || '<p>Aucune troupe en route. Touchez une de vos provinces puis « Déplacer / Attaquer » : l’ordre part tout de suite et l’armée apparaît sur la carte.</p>');
+  wireBombardRows(openTroops); // V17.2 : bombardements permanents (« Arrêter »)
   document.querySelectorAll('[data-recall]').forEach(b => b.onclick = () => { const [kind, id] = b.dataset.recall.split(':'); recall(kind, id); openTroops(); });
 }
 
 // --- Bandeaux d'alerte -------------------------------------------------------------------------------------------
 function pushBanners(list) {
   const t = now();
-  for (const b of list) { if (seen.has(b.key)) continue; seen.add(b.key); alerts.push({ ...b, at: t, day: state.day }); }
+  for (const b of list) {
+    if (seen.has(b.key)) continue;
+    seen.add(b.key);
+    // Une seule alerte par bataille à l'écran : l'assaut suivant remplace le précédent.
+    if (b.action?.battleId) for (const a of alerts) if (a.action?.battleId === b.action.battleId) a.dismissed = true;
+    alerts.push({ ...b, at: t, day: state.day });
+  }
   if (alerts.length > 40) alerts = alerts.slice(-40);
 }
 function collectBanners(events) {
@@ -107,6 +116,7 @@ function openAlert(a) {
   else if (act.type === 'balloon') openBalloon(act.balloonId);
   else if (act.type === 'proposal') { const list = proposalsToAnswer(state, state.playerNationId).filter(p => p.from === act.from); if (list.length) showProposalPopups(list).then(() => saveFor('order')); else toast('Cette proposition n’est plus valable'); }
   else if (act.type === 'food') explainFood();
+  else if (act.type === 'battle') { focusProvince(act.provinceId); if ((state.battles || []).some(b => b.id === act.battleId)) openBattle(act.battleId); else toast('La bataille est terminée'); }
   else if (act.type === 'unit') { const t = currentTokens().find(x => x.kind === act.kind && x.id === act.id); if (t) { focusProvince(t.toId); openUnit(t); } else toast('Ces troupes sont arrivées'); }
   else renderJournal(false);
 }
@@ -158,7 +168,7 @@ function drawTicker() {
   if (!bar) return;
   bar.hidden = false;
   const tokens = currentTokens(), me = state.playerNationId;
-  const t = tickerText(state, me, { paused: clock.paused, mine: tokens.filter(x => x.own).length, coming: tokens.filter(x => x.relation === 'foreign' && !x.returning && state.provinces[x.toId]?.ownerId === me).length }), key = t.icon + t.text;
+  const t = tickerText(state, me, { paused: clock.paused, mine: tokens.filter(x => x.own).length, coming: tokens.filter(x => x.relation === 'foreign' && !x.returning && state.provinces[x.toId]?.ownerId === me).length, battle: battleNews() }), key = t.icon + t.text;
   bar.classList.toggle('paused', clock.paused);
   if (key === lastTicker) return;
   lastTicker = key;

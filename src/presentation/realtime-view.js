@@ -169,7 +169,7 @@ export function tokenSheet(token, day, names) {
 /**
  * Bandeaux tirés des événements d'un ou plusieurs jours. Chaque bandeau : { key, kind, tone, icon, text, action } ;
  * `action` dit à l'interface quelle fenêtre ouvrir quand on touche le bandeau.
- * kinds : conquest (prise / perte), capital, sea, balloon, famine, final.
+ * kinds : conquest (prise / perte), capital, battle (assaut n/3, V17.2), sea, balloon, famine, final.
  */
 export function eventBanners(events, me, names) {
   const out = [];
@@ -179,6 +179,12 @@ export function eventBanners(events, me, names) {
       out.push({ key: `conquest:${e.provinceId}:${e.day ?? e.turn}`, kind: 'conquest', tone: won ? 'good' : 'bad', icon: won ? '🏴' : '⚠',
         text: won ? `${names.province(e.provinceId)} est à vous !` : `${names.province(e.provinceId)} est tombée aux mains de ${names.nation(e.newOwnerId || e.attacker)}`,
         action: { type: 'province', provinceId: e.provinceId } });
+    } else if (e.type === 'assault' && !e.captured && ([...(e.attackers || []), e.attacker].includes(me) || e.defender === me)) {
+      const defending = e.defender === me, n = `${num(e.assault)}/${num(e.assaults)}`;
+      out.push({ key: `assault:${e.battleId}:${e.assault}`, kind: 'battle', tone: defending ? 'bad' : 'info', icon: '⚔',
+        text: e.over ? `Bataille de ${names.province(e.provinceId)} : assaut ${n}, ${defending ? 'nous tenons la province' : 'la province résiste'}`
+          : `Bataille de ${names.province(e.provinceId)} : assaut ${n}${defending ? ' contre nous' : ''} · prochain le ${shortDateText(num(e.nextAssaultDay) + 1)}`,
+        action: { type: 'battle', battleId: e.battleId, provinceId: e.provinceId } });
     } else if (e.type === 'capital-plunder' && (e.attacker === me || e.defender === me)) {
       out.push({ key: `capital:${e.provinceId}:${e.day ?? e.turn}`, kind: 'capital', tone: e.attacker === me ? 'good' : 'bad', icon: '👑',
         text: e.attacker === me ? `Capitale prise : ${names.province(e.provinceId)} · touchez pour le butin` : `Notre capitale ${names.province(e.provinceId)} est tombée · touchez pour voir`,
@@ -260,10 +266,12 @@ export function realtimeText(text) {
 
 // --- Message d'événement (en haut au centre) ------------------------------------------------------------------------
 /** Dernier fait marquant connu du joueur ; à défaut, une consigne. `paused` : rappel de la pause. */
-export function tickerText(state, me, { paused = false, mine = 0, coming = 0 } = {}) {
+export function tickerText(state, me, { paused = false, mine = 0, coming = 0, battle = '' } = {}) {
   if (paused) return { icon: '⏸', text: 'En pause — touchez ▶ pour faire avancer le temps' };
+  if (battle) return { icon: '⚔', text: battle };
   if (coming) return { icon: '⚠', text: `${coming} armée${coming > 1 ? 's' : ''} étrangère${coming > 1 ? 's' : ''} en route vers vos provinces` };
-  const last = (state.turnJournal || [])[0];
+  // Temps réel : le journal permanent se remplit chaque jour (le récapitulatif « Récent » du moteur, lui, une fois par période).
+  const last = state.mode === 'realtime' ? (state.chronicle || []).at(-1) : (state.turnJournal || [])[0];
   if (last?.text) return { icon: '📜', text: realtimeText(String(last.text).split('\n')[0]) };
   if (mine) return { icon: '⚔', text: `${mine} troupe${mine > 1 ? 's' : ''} en route · touchez la date pour les voir ou les rappeler` };
   return { icon: '🧭', text: 'Touchez une de vos provinces pour donner un ordre : il part tout de suite.' };

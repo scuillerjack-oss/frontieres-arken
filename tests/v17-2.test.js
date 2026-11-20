@@ -340,7 +340,8 @@ test('V17.2 : une nation dont toutes les troupes sont à l\'assaut n\'est pas é
 
 test('V17.2 : écran provisoire — ⚔ « n/3 » sur la province, fiche de bataille avec Retraite, bandeau, journal « assaut 2/3 »', () => {
   const ui = readSource('app.js');
-  assert.match(ui, /drawBattles\(refresh\)/); assert.match(ui, /`\$\{s\.assaultsDone\}\/\$\{s\.assaults\}`/);
+  assert.match(ui, /if\(rt\)world\.append\(safeEngine\(\(\)=>battlesLayer\(\)/); // V17.3 : couche dans #mapWorld (copies comprises)
+  assert.match(ui, /`\$\{s\.assaultsDone\}\/\$\{s\.assaults\}`/);
   assert.match(ui, /retreatFromBattle\(state, map/); assert.match(ui, /battleNews\(\)/); assert.match(ui, /cancelBombardOrder\(state/);
   const text = E.journalEntry({ type: 'assault', provinceId: 'p04', attackers: [ME], attacker: ME, defender: 'aurel', assault: 2, assaults: 3, nextAssaultDay: 40, attackerHpLost: 5, defenderHpLost: 9 }, map, ME);
   assert.match(text.type, /ASSAUT 2\/3/); assert.match(text.text, /assaut 2\/3/); assert.match(text.text, /Prochain assaut le/);

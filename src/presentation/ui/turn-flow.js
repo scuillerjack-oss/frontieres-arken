@@ -32,7 +32,8 @@ import { bindRealtimeJournal, realtimeJournalHtml } from './realtime-ui.js';
 import { realtimeText } from '../realtime-view.js';
 
 export function renderJournal(permanent=false){
-  const entries=(permanent?state.chronicle:state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
+  // V17.3 : en temps réel, « Récent » = les derniers faits du journal permanent (rempli chaque jour), les plus récents d'abord.
+  const entries=(permanent?state.chronicle:state.mode==='realtime'?[...(state.chronicle||[])].slice(-40).reverse():state.turnJournal||state.journal||[]).map(entry=>sanitizeJournalEntry(entry.text?entry:journalEntry(entry,map,state.playerNationId))).filter(Boolean);
   const rt=state.mode==='realtime'; // V17.3 : plus de « tour » en temps réel ; alertes et décisions en tête du journal récent
   $('#journalDialog').dataset.permanent=permanent?'true':'false';$('#journalMode').textContent=permanent?'JOURNAL PERMANENT':rt?`JOURNAL · ${formatDate(state.day).toUpperCase()}`:'RÉCAPITULATIF INTER-TOUR';
   $('#journalTabs').innerHTML=`<button data-journal="recent" class="${permanent?'':'active'}">${rt?'Récent':'Inter-tour'}</button><button data-journal="history" class="${permanent?'active':''}">Historique</button>`;

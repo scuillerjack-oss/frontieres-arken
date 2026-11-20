@@ -642,3 +642,12 @@ body.rt-on #tutorialBubble:not(.top){bottom:190px}
 body.rt-on .live-settings{display:none}
 .gold-stat i{display:block;font-style:normal;font-size:.6rem;font-weight:700;color:#e9d39a;font-variant-numeric:tabular-nums}
 .gold-stat i[hidden]{display:none}
+/* V17.2 / V17.3 : ⚔ « n/3 » des batailles en cours (sur la province, à droite de la ville ; copies de la carte comprises) */
+.rt-battles{pointer-events:none}
+.rt-battle{pointer-events:auto;cursor:pointer}
+.battle-disc{fill:#8a1414;stroke:#fff7df;stroke-width:5}
+.rt-battle.mine .battle-disc{stroke:#ffd84a;stroke-width:6}
+.battle-icon{font:700 30px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff}
+.battle-count{font:900 24px system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;fill:#fff7df;paint-order:stroke;stroke:#3a0606;stroke-width:6px;stroke-linejoin:round}
+@media (prefers-reduced-motion:no-preference){.rt-battle.mine .battle-disc{animation:battle-pulse 1.6s ease-in-out infinite}}
+@keyframes battle-pulse{50%{stroke-width:10}}

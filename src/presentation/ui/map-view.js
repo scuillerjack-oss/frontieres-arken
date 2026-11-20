@@ -21,6 +21,7 @@ import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
 import { unitsLayer } from './map-units-layer.js';
+import { battlesLayer } from './realtime-battles-ui.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
 import { moveSource, save, selected, state } from './session.js';
 import { safeEngine, updateTalkBadge } from './talk-screen.js';
@@ -169,7 +170,8 @@ export function render(){
   const rt=state.mode==='realtime',convoyLayer=E('g',{class:'convoys'});if(!rt)for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
   world.append(nationNameLayer(),...routeLayer,labelLayer,convoyLayer);
   world.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
-  if(rt)world.append(safeEngine(()=>unitsLayer(),E('g',{id:'rtUnits'}))); // dans #mapWorld : les copies <use> du défilement sans fin la répètent
+  if(rt)world.append(safeEngine(()=>unitsLayer(),E('g',{id:'rtUnits'})));
+  if(rt)world.append(safeEngine(()=>battlesLayer(),E('g',{id:'rtBattles'}))); // V17.2 / V17.3 : ⚔ « n/3 » des batailles en cours // dans #mapWorld : les copies <use> du défilement sans fin la répètent
   for(const order of playerOrderArrows(state,map)){
     const arrow=E('path',{d:pathData(arrowPoints(order)),class:`order-arrow ${order.kind}${order.routeType==='sea'?' sea':''}`,'data-order-id':order.id,tabindex:'0',role:'button',
       'aria-label':`${order.kind==='bombard'?'Bombardement':order.kind==='attack'?'Attaque':'Déplacement'}${order.routeType==='sea'?` par mer (${order.turns||2} tours)`:''} : ${order.fromName} vers ${order.toName}`}

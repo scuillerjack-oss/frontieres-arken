@@ -18,6 +18,7 @@ import {
   seaDays, tickerText, tokenPoint, tokenSheet, tokenTag, unitTokens, visibleBanners
 } from '../src/presentation/realtime-view.js';
 import { PRESENTATION_MODULES_V17_3, readSource, root } from './helpers/sources.js';
+import { sanitizeJournalEntry } from '../src/presentation/guide-input.js';
 
 const read = p => readFileSync(join(root, p), 'utf8');
 const names = { nation: id => ({ valmorne: 'Valmorne', 'roc-epine': 'Roc-Épine', noireflamme: 'Noireflamme', oroel: 'Oroël', aurel: 'Aurel' })[id] || id, province: id => map.provinces.find(p => p.id === id)?.name || id };
@@ -171,6 +172,22 @@ test('V17.3 : bandeaux d’alerte — attaque en approche, conquête, capitale, 
   assert.deepEqual(visibleBanners(list, 3500).map(b => b.key), ['b', 'd']);
   assert.deepEqual(visibleBanners(list, BANNER_MS + 1500).map(b => b.key), ['d']);
 });
+test('V17.3 + V17.2 : bandeaux d’assaut (n/3) sans pause, prise = bandeau de conquête, rien pour les batailles des autres', () => {
+  const me = 'valmorne';
+  const b = eventBanners([
+    { type: 'assault', battleId: 'b1', provinceId: 'p05', attacker: me, attackers: [me], defender: 'roc-epine', assault: 1, assaults: 3, over: false, nextAssaultDay: 40 },
+    { type: 'assault', battleId: 'b2', provinceId: 'p02', attacker: 'aurel', attackers: ['aurel'], defender: me, assault: 3, assaults: 3, over: true },
+    { type: 'assault', battleId: 'b1', provinceId: 'p05', attacker: me, attackers: [me], defender: 'roc-epine', assault: 2, assaults: 3, captured: true, newOwnerId: me, over: true },
+    { type: 'assault', battleId: 'b3', provinceId: 'p09', attacker: 'aurel', attackers: ['aurel'], defender: 'oroel', assault: 1, assaults: 3 }
+  ], me, names);
+  assert.deepEqual(b.map(x => x.kind), ['battle', 'battle']);
+  assert.match(b[0].text, /assaut 1\/3 · prochain le 10\/02\/2027/); assert.equal(b[0].tone, 'info');
+  assert.deepEqual(b[0].action, { type: 'battle', battleId: 'b1', provinceId: 'p05' });
+  assert.match(b[1].text, /assaut 3\/3, nous tenons la province/); assert.equal(b[1].tone, 'bad');
+  assert.match(tickerText(game(), me, { battle: 'Bataille de X : assaut 1/3' }).text, /assaut 1\/3/);
+  assert.equal(sanitizeJournalEntry({ text: 'Bataille, assaut 2/3 : a / b | c' }).text, 'Bataille, assaut 2/3 : a b c', 'journal : « 2/3 » lisible');
+  assert.match(readSource('app.js'), /setBattleRefresh\(\(\) => \{ saveFor\('order'\); refresh\(\); \}\)/, 'retraite : sauvegarde et rendu');
+});
 test('V17.3 + V17.4 : famine — un bandeau au début, puis au plus un rappel tous les 30 jours (pas un par désertion)', () => {
   const me = 'valmorne', des = day => ({ type: 'famine-desertion', nationId: me, day, deserted: { infantry: 2 } });
   assert.equal(FAMINE_REMINDER_DAYS, 30);
@@ -193,9 +210,9 @@ test('V17.3 : message d’événement — pause, armées en approche, dernier fa
   const s = game();
   assert.match(tickerText(s, 'valmorne', { paused: true }).text, /En pause — touchez ▶/);
   assert.match(tickerText(s, 'valmorne', { coming: 2 }).text, /2 armées étrangères en route/);
-  s.turnJournal = [];
+  s.chronicle = [];
   assert.match(tickerText(s, 'valmorne', { mine: 1 }).text, /1 troupe en route/);
-  s.turnJournal = [{ text: '💰 Revenus du tour : +8 or\nsuite' }];
+  s.chronicle = [{ text: 'ancien' }, { text: '💰 Revenus du tour : +8 or\nsuite' }];
   assert.equal(tickerText(s, 'valmorne').text, '💰 Revenus du mois : +8 or');
 });
 
