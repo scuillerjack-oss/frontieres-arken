@@ -241,7 +241,9 @@ export function realtimeText(text) {
     .replace(/à chaque tour/g, 'sur leurs revenus')
     .replace(/\(à partir du prochain tour\)/g, '(dans les 30 prochains jours)')
     .replace(/pour ce tour/g, 'pour l’instant').replace(/ce tour-ci/g, 'aujourd’hui')
-    .replace(/il y a (\d+) tours?/g, (_, n) => `il y a environ ${Number(n) * R.daysPerPeriod} jours`);
+    .replace(/il y a (\d+) tours?/g, (_, n) => `il y a environ ${Number(n) * R.daysPerPeriod} jours`)
+    .replace(/\b([Aa])u tour (\d+)/g, (_, a, n) => `${a === 'A' ? 'E' : 'e'}n ${formatDate((Number(n) - 1) * R.daysPerPeriod + 1).replace(/^\S+ /, '')}`)
+    .replace(/prochain tour/g, 'mois prochain').replace(/\bce tour\b/g, 'ce mois-ci');
 }
 
 // --- Message d'événement (en haut au centre) ------------------------------------------------------------------------

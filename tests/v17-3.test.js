@@ -48,6 +48,8 @@ test('V17.3 : date « 12 mars 2027 », jours restants, durées en jours, revenus
   assert.equal(realtimeText('Convoi : 60 tours en mer.'), 'Convoi : 60 jours en mer.');
   assert.equal(realtimeText('il y a 2 tours'), 'il y a environ 60 jours');
   assert.equal(realtimeText('les navires font demi-tour'), 'les navires font demi-tour');
+  assert.equal(realtimeText('Nous sommes au tour 3 : rien n’est joué.'), 'Nous sommes en mars 2027 : rien n’est joué.');
+  assert.equal(realtimeText('Au tour 2, accordons-nous avant le prochain tour.'), 'En janvier 2027, accordons-nous avant le mois prochain.');
 });
 
 // --- Icônes des troupes en route -------------------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
 import { tuto, tutorial } from './tutorials.js';
+import { realtimeText } from '../realtime-view.js';
 
 // --- V11 : personnalités des dirigeants, fil d'échanges et tension ------------------------------------------
 // Les appels au moteur V11 sont protégés : une erreur ne doit jamais bloquer la carte ni la fin du tour.
@@ -32,7 +33,7 @@ function talkLine(item){const tone=toneMeta(item.tone),from=nation(item.from),to
    <div class="talk-head">${nationBadge(item.from)}<b>${from.short}</b><span class="talk-to">${to?`→ ${item.toMe?'vous':to.short}`:'→ à tous'}</span><span class="talk-tone" title="Ton ${tone.label.toLowerCase()}" \
 aria-label="Ton ${tone.label.toLowerCase()}">${tone.icon}</span><small>T${item.turn}</small></div>
    ${item.replyTo&&item.replyToFrom?`<small class="talk-reply">en réponse à ${item.replyToFrom===state.playerNationId?'vous':nation(item.replyToFrom).short}</small>`:''}
-   <p>${escapeHtml(item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
+   <p>${escapeHtml(state.mode==='realtime'?realtimeText(item.text):item.text)}</p>${item.awaitingReply?`<button class="talk-answer" data-reply="${escapeHtml(item.id)}" data-to="${item.from}">Répondre</button>`:''}</article>`;}
 function plannedTalk(){return(state.orders||[]).filter(o=>o.kind==='talk'&&o.status==='pending'&&o.nationId===state.playerNationId);}
 export function openTalk(){
   const feed=safeEngine(()=>talkFeed(state),[]),planned=plannedTalk(),others=map.nations.filter(n=>n.id!==state.playerNationId);
@@ -50,9 +51,9 @@ export function openTalkCompose(to,replyTo=null){
   if($('#talkDialog').open)$('#talkDialog').close();
   const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
   actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · ${t.war?`EN GUERRE · TENSION ${t.value} %`:`TENSION ${t.value} % (${t.label.toUpperCase()})`}`,
-   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
+   `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(state.mode==='realtime'?realtimeText(original.text):original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
    <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);
-     return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;
+     return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(state.mode==='realtime'?realtimeText(o.text):o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;
      }).join(''):'<p>Aucun message possible pour l’instant.</p>'}</div>
    <div class="confirm-actions"><button class="cancel" id="talkBack">Retour</button><button class="primary" id="talkSend" disabled>Envoyer</button></div>`);
   let chosen=null;

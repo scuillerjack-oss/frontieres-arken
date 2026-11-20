@@ -615,7 +615,7 @@ body.rt-on:has(#provinceSheet:not([hidden])) .rt-dock{bottom:auto;top:150px}
 @media not all and (orientation:landscape) and (max-height:560px){body.rt-on:has(#provinceSheet:not([hidden])) .whole-map-btn{top:100px}}
 body.rt-on:has(#provinceSheet:not([hidden])) .rt-alerts{bottom:auto;top:54px;left:64px;right:64px}
 body.rt-on #toast{bottom:112px}
-body.rt-on #tutorialBubble:not(.top){bottom:172px}
+body.rt-on #tutorialBubble:not(.top){bottom:190px}
 .rt-units{pointer-events:none}
 .unit-token{pointer-events:auto;cursor:pointer}
 .unit-body{fill:var(--nation);stroke:var(--ring);stroke-width:6}
