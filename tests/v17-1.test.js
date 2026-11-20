@@ -36,8 +36,10 @@ test('V17.1 : RULES.realtime porte les valeurs du cahier (lecture seule)', () =>
   assert.equal(R.daysPerPeriod, 30); assert.equal(R.incomeDays, 60);
   assert.deepEqual(R.durations.units, { infantry: 30, cavalry: 30, armor: 60, artillery: 60, warship: 90 });
   assert.deepEqual(R.durations.buildings, { bank: 90, factory: 90, port: 90, fort: 60, farm: 60 });
-  assert.equal(R.durations.land, 30); assert.equal(R.durations.cavalryLand, 20); assert.equal(R.durations.sea, 60); assert.equal(R.durations.islandSea, 120);
-  assert.equal(R.durations.interceptDaysLeft, 30); assert.equal(R.durations.balloon, 60); assert.equal(R.durations.balloonHop, 60);
+  // V17.5b : trajets raccourcis d'un tiers (décision de l'équipe d'équilibrage, demande de Jack), terre selon la distance.
+  assert.equal(R.durations.land, 20); assert.equal(R.durations.cavalryLand, 13); assert.equal(R.durations.sea, 40); assert.equal(R.durations.islandSea, 80);
+  assert.equal(R.durations.sea, 2 * R.durations.landPerSeaTurn); assert.equal(R.durations.islandSea, RULES.mysteryIsland.routeTurns * R.durations.landPerSeaTurn);
+  assert.equal(R.durations.interceptDaysLeft, 20); assert.equal(R.durations.balloon, 60); assert.equal(R.durations.balloonHop, 60);
   assert.equal(R.food.provinceDaily, 8); assert.equal(R.food.farmDaily, 10); assert.deepEqual(R.food.farmCosts, [20, 25, 30, 35, 40]); assert.equal(R.food.startReserve, 900);
   assert.equal(R.battle.assaults, 3); assert.equal(R.battle.assaultEveryDays, 3);
   assert.equal(R.ai.decisionEveryDays, 10); assert.equal(R.ai.offsetDays, 2);
@@ -132,31 +134,35 @@ test('V17.1 : chaque production dure ses jours (fantassins 30, blindés 60, navi
 });
 
 // --- Déplacements ------------------------------------------------------------------------------------------------------
-test('V17.1 : départ immédiat (même en pause) ; 30 jours par la terre, 20 pour une armée de cavalerie seule', () => {
+// V17.5b : durées terrestres = RULES.realtime.durations.land (20) × la distance (p01 → p02 : 17 jours), cavalerie seule plus rapide.
+test('V17.1 : départ immédiat (même en pause) ; RULES.realtime.durations.land par la terre (selon la distance), moins pour une armée de cavalerie seule', () => {
+  const d12 = E.landTravelDays({ infantry: 1 }, map, 'p01', 'p02'), c13 = E.landTravelDays({ cavalry: 1 }, map, 'p01', 'p03');
   const s = game(), me = 'valmorne';
   const inf0 = s.provinces.p01.units.infantry;
   assert.ok(E.queueMoveOrder(s, map, { nationId: me, fromId: 'p01', toId: 'p02', units: { infantry: 50 } }).ok);
   E.executePendingOrders(s, map); // ce que fait l'interface juste après l'ordre, sans attendre le jour suivant
   assert.equal(s.provinces.p01.units.infantry, inf0 - 50, 'les troupes ont quitté la province le jour de l\'ordre');
   assert.equal(s.orders.length, 0); assert.equal(s.marches.length, 1);
-  assert.deepEqual([s.marches[0].startDay, s.marches[0].arriveDay], [1, 31]);
+  assert.deepEqual([s.marches[0].startDay, s.marches[0].arriveDay], [1, 1 + d12]);
   const inf2 = s.provinces.p02.units.infantry;
-  assert.equal(until(s, () => s.provinces.p02.units.infantry !== inf2), 30); assert.equal(s.provinces.p02.units.infantry, inf2 + 50);
+  assert.equal(until(s, () => s.provinces.p02.units.infantry !== inf2), d12); assert.equal(s.provinces.p02.units.infantry, inf2 + 50);
   assert.ok(E.queueMoveOrder(s, map, { nationId: me, fromId: 'p01', toId: 'p03', units: { cavalry: 5 } }).ok);
   E.executePendingOrders(s, map);
-  assert.equal(s.marches[0].arriveDay - s.marches[0].startDay, 20);
-  assert.equal(E.landTravelDays({ cavalry: 5, infantry: 1 }), 30); assert.equal(E.landTravelDays({ cavalry: 5 }), 20);
+  assert.equal(s.marches[0].arriveDay - s.marches[0].startDay, c13);
+  assert.ok(c13 < E.landTravelDays({ infantry: 1 }, map, 'p01', 'p03'));
+  assert.equal(E.landTravelDays({ cavalry: 5, infantry: 1 }), R.durations.land); assert.equal(E.landTravelDays({ cavalry: 5 }), R.durations.cavalryLand);
 });
-test('V17.1 : par la mer, 60 jours entre deux nations, 120 vers l\'île mystérieuse (convoi daté)', () => {
+test('V17.1 : par la mer, RULES.realtime.durations.sea entre deux nations, islandSea vers l\'île mystérieuse (convoi daté)', () => {
+  const SEA = R.durations.sea, ISLE = R.durations.islandSea; // V17.5b : 40 et 80 jours (60 et 120 avant)
   const s = game(), me = 'valmorne';
   s.provinces.p03.units.infantry = 100;
   assert.ok(E.queueMoveOrder(s, map, { nationId: me, fromId: 'p03', toId: 'p21', units: { infantry: 60 } }).ok);
   assert.ok(E.queueMoveOrder(s, map, { nationId: me, fromId: 'p02', toId: 'p05', units: { infantry: 20 } }).ok);
   E.executePendingOrders(s, map);
   const isle = s.transports.find(t => t.toId === 'p21'), ring = s.transports.find(t => t.toId === 'p05');
-  assert.equal(isle.turns, 120); assert.deepEqual([isle.departDay, isle.arriveDay], [1, 121]);
-  assert.equal(ring.turns, 60); assert.deepEqual([ring.departDay, ring.arriveDay], [1, 61]);
-  assert.equal(until(s, () => !s.transports.some(t => t.id === ring.id)), 60, 'débarquement le jour 61');
+  assert.equal(isle.turns, ISLE); assert.deepEqual([isle.departDay, isle.arriveDay], [1, 1 + ISLE]);
+  assert.equal(ring.turns, SEA); assert.deepEqual([ring.departDay, ring.arriveDay], [1, 1 + SEA]);
+  assert.equal(until(s, () => !s.transports.some(t => t.id === ring.id)), SEA, `débarquement le jour ${1 + SEA}`);
 });
 test('V17.1 : rappel en route — demi-tour, le retour dure le temps déjà parcouru ; rappel le jour même = retour immédiat', () => {
   const s = game(), me = 'valmorne', inf0 = s.provinces.p01.units.infantry;
@@ -189,11 +195,13 @@ test('V17.1 : rencontre en chemin — deux armées ennemies en sens opposés sur
   assert.ok(E.queueMoveOrder(s, map, { nationId: 'aurel', fromId: 'p04', toId: 'p02', units: { infantry: 100 } }).ok);
   E.executePendingOrders(s, map);
   assert.equal(s.marches.length, 2);
-  const ev = s.events.length; E.advanceDays(s, map, 14);
+  // V17.5b : au milieu du trajet (durée selon la distance p02 – p04, la même dans les deux sens).
+  const half = Math.ceil(E.landTravelDays({ infantry: 1 }, map, 'p02', 'p04') / 2);
+  const ev = s.events.length; E.advanceDays(s, map, half - 1);
   assert.equal(s.events.slice(ev).filter(e => e.type === 'field-battle').length, 0, 'pas encore croisées');
   E.advanceDay(s, map);
   const battles = s.events.slice(ev).filter(e => e.type === 'field-battle');
-  assert.equal(battles.length, 1, 'rencontre le 15e jour (15 + 15 = 30)'); assert.equal(battles[0].day, 15);
+  assert.equal(battles.length, 1, 'rencontre à mi-chemin'); assert.equal(battles[0].day, half);
   E.advanceDays(s, map, 5); assert.equal(s.events.slice(ev).filter(e => e.type === 'field-battle').length, 1, 'une seule fois');
 });
 test('V17.1 : interception par le port d\'arrivée quand il reste 30 jours de traversée', () => {
@@ -216,15 +224,15 @@ test('V17.1 : arrivée revérifiée — trêve signée après le départ : pas d
   assert.ok(!s.events.slice(ev).some(e => e.type === 'battle' || e.type === 'conquest'));
   assert.equal(s.marches[0].returning, true); assert.equal(s.marches[0].toId, 'p02');
 });
-test('V17.1 : attaque à l\'arrivée — combat immédiat en 3 passes ; repoussés, les survivants rentrent par la route (30 jours)', () => {
-  const s = game(), me = 'valmorne';
+test('V17.1 : attaque à l\'arrivée — combat immédiat en 3 passes ; repoussés, les survivants rentrent par la route (même durée qu\'à l\'aller)', () => {
+  const s = game(), me = 'valmorne', d = E.landTravelDays({ infantry: 1 }, map, 'p02', 'p04'); // V17.5b : selon la distance
   s.provinces.p04.ownerId = 'aurel'; s.provinces.p04.units = { infantry: 400, cavalry: 0, armor: 0, artillery: 0 }; war(s, me, 'aurel');
   E.queueMoveOrder(s, map, { nationId: me, fromId: 'p02', toId: 'p04', units: { infantry: 30 } }); E.executePendingOrders(s, map);
-  const ev = s.events.length; E.advanceDays(s, map, 30);
+  const ev = s.events.length; E.advanceDays(s, map, d);
   const b = s.events.slice(ev).find(e => e.type === 'battle');
-  assert.ok(b); assert.equal(b.day, 30); assert.equal(s.provinces.p04.ownerId, 'aurel');
+  assert.ok(b); assert.equal(b.day, d); assert.equal(s.provinces.p04.ownerId, 'aurel');
   const back = s.marches.find(m => m.returning);
-  if (back) assert.equal(back.arriveDay - back.startDay, 30);
+  if (back) assert.equal(back.arriveDay - back.startDay, d);
 });
 
 // --- IA rythmée -------------------------------------------------------------------------------------------------------

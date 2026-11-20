@@ -34,12 +34,15 @@ export const REALTIME_RULES = freezeDeep({
     buildings: { bank: 90, factory: 90, port: 90, fort: 60, farm: 60 },
     balloon: 60,             // construction d'un ballon
     balloonHop: 60,          // un saut d'île en île
-    land: 30,                // province voisine par la terre
-    cavalryLand: 20,         // armée composée uniquement de cavalerie
-    sea: 60,                 // mer, entre deux nations (anneau)
-    islandSea: 120,          // vers / depuis l'île mystérieuse
-    interceptDaysLeft: 30,   // interception par le port d'arrivée quand il reste 30 jours de traversée
-    landPerSeaTurn: 30       // conversion des durées maritimes « en tours » de la carte (2 tours = 60 j, 4 = 120 j)
+    // V17.5b (Jack : la province attaquée a moins le temps de se préparer, même vitesse pour tous, plus loin = plus long) :
+    // trajets raccourcis d'un tiers (30 → 20 jours ; mer 60 → 40, île 120 → 80), mesuré : docs/V17 « Réalisé V17.5b ».
+    land: 20,                // province voisine par la terre (voisin à la distance de référence)
+    cavalryLand: 13,         // armée composée uniquement de cavalerie (même proportion qu'avant : 20 / 30)
+    landDistance: { reference: 245, min: .75, max: 1.5 }, // × distance entre les repères des 2 provinces ÷ 245, borné (15 à 30 j)
+    sea: 40,                 // mer, entre deux nations (anneau) : 2 tours de carte au moins, plus pour une route longue
+    islandSea: 80,           // vers / depuis l'île mystérieuse
+    interceptDaysLeft: 20,   // interception par le port d'arrivée quand il reste 20 jours de traversée
+    landPerSeaTurn: 20       // conversion des durées maritimes « en tours » de la carte (2 tours = 40 j, 4 = 80 j)
   },
   // §3 Économie (coûts inchangés) : revenus « par mois » affichés = revenu par tour ÷ 2
   income: { perMonth: { province: 2, bank: 2.5, factory: 1.5, port: 1, islandBank: 5 }, recapEveryDays: 30 },
@@ -53,7 +56,7 @@ export const REALTIME_RULES = freezeDeep({
   // §5 Combats (V17.2)
   battle: {
     assaults: 3, assaultEveryDays: 3, maxDays: 6, noHealDays: 10,
-    retreatLandDays: 30,     // repli par la terre (30 j, 20 j pour la cavalerie seule : durations.cavalryLand)
+    retreatLandDays: 20,     // repli par la terre : même durée que l'aller (durations.land × distance ; cavalerie seule : cavalryLand)
     meetSameDirectionDays: 1 // deux convois ennemis dans le même sens à moins d'un jour l'un de l'autre se rencontrent
   },
   // §2.2 Guérison, réparations, bombardement (V17.2)
@@ -78,14 +81,25 @@ export const REALTIME_RULES = freezeDeep({
     balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
     recallMargin: .6,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
-    emergencyRecruit: true   // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
+    emergencyRecruit: true,  // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
+    // V17.5b (Jack : personnalités plus vivantes, jamais la même partie) : realtime/personalities.js, engine/ai.js.
+    // jitter : variation (±) des seuils de chaque dirigeant, tirée à la graine de la partie. Périodes = 30 jours.
+    personality: {
+      jitter: .12,
+      conquerant: { margin: .9, warMargin: .78, attacks: 3, extraLots: 1, recruitPace: 20, landingPace: 15, landingWarFloor: .9, startPeriods: [1, 3], truceBreakPeriods: [4, 8], preyPeriods: [3, 8], secondPrey: 1.1 },
+      heros: { menaceVictims: 2, menaceMemory: 12, coalitionChance: .6, strikeMenaceStrength: .5 },
+      traitre: { opportunityChance: .2, opportunityRatio: .8, courtChance: .35, courtFromPeriod: [5, 10], busyRatio: .85, calmRatio: .6, maxAllies: 2, restPeriods: [12, 30] },
+      batisseur: { allyChance: .2, maxAllies: 2, fortMax: 3, farmsPerProvince: 3, reserve: 20, skipRecruit: .5 }
+    }
   },
   // §7 Rythmes du monde
   world: { coalitionEveryDays: 10, eliminationEveryDays: 10, tensionEveryDays: 30, balloonReportEveryDays: 30 },
   // §2.2 Phases de partie (jours) — repères ; le moteur passe par scaleTurn (périodes)
   phases: { coalitionDay: 685, lateDay: 3081, builderRevealDay: 1370, traitorCourtDay: 685, builderHeroDay: 411 },
-  // §2.2 Garnison estimée : × (1 + 2,37 × jour ÷ 5 479)
-  vision: { growthAtEnd: 2.37, referenceDays: 5479 },
+  // §2.2 Garnison estimée : × (1 + growthAtEnd × jour ÷ 5 479) (V17.0 : 2,37, comme au tour par tour)
+  // V17.5b : estimation prudente d'une garnison invisible moins gonflée en fin de partie (× 2 au lieu de × 3,37) : l'IA
+  // n'écartait plus que des attaques gagnables (mesuré : +3 conquêtes par partie, docs/V17 « Réalisé V17.5b »).
+  vision: { growthAtEnd: 1, referenceDays: 5479 },
   // §9 Fin de partie et classement (V17.8)
   ranking: { province: 100, capital: 150, troopGoldPerPoint: 20, treasuryGoldPerPoint: 20, noFamineDaysPerPoint: 50, refreshEveryDays: 10 },
   end: { peaceDays: 90, reofferDays: 180 },

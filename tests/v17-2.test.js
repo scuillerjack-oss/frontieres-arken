@@ -37,6 +37,9 @@ function siege({ def = 300, atk = 300, fort = 0, seed } = {}) {
 const send = (s, from, to, units, nationId = ME) => { const r = E.queueMoveOrder(s, map, { nationId, fromId: from, toId: to, units }); assert.ok(r.ok, r.error); E.executePendingOrders(s, map); return s.marches.at(-1); };
 const evs = (s, from, type) => s.events.slice(from).filter(e => e.type === type);
 const untilDay = (s, day) => { while (s.day < day && !s.gameOver) E.advanceDay(s, map); };
+/** V17.5b : jour de départ depuis `from` pour arriver à p04 un jour après la marche `m` (durées selon la distance). */
+const oneDayAfter = (m, from) => m.arriveDay + 1 - E.landTravelDays(inf(1), map, from, 'p04');
+const d24 = () => E.landTravelDays(inf(1), map, 'p02', 'p04');
 
 test('V17.2 : RULES.realtime.battle — 3 assauts tous les 3 jours, 6 jours au plus, pas de guérison 10 jours après', () => {
   assert.deepEqual([R.battle.assaults, R.battle.assaultEveryDays, R.battle.maxDays, R.battle.noHealDays], [3, 3, 6, 10]);
@@ -59,7 +62,7 @@ test('V17.2 : une bataille = 3 assauts, le jour de l\'arrivée (J), J+3 et J+6 ;
   assert.equal(b.length, 1); assert.equal(b[0].day, J + 6); assert.equal(b[0].passes, 3); assert.equal(b[0].assaults, 3);
   assert.equal(s.provinces.p04.ownerId, 'aurel'); assert.equal(s.battles.length, 0);
   const back = s.marches.find(x => x.returning && x.nationId === ME);
-  assert.ok(back, 'repli par la route'); assert.equal(back.startDay, J + 7); assert.equal(back.arriveDay - back.startDay, 30); assert.equal(back.toId, 'p02');
+  assert.ok(back, 'repli par la route'); assert.equal(back.startDay, J + 7); assert.equal(back.arriveDay - back.startDay, d24()); assert.equal(back.toId, 'p02');
   assert.ok(evs(s, ev, 'battle-retreat').some(x => x.reason === 'repelled'));
 });
 
@@ -164,7 +167,7 @@ test('V17.2 : retraite volontaire — les survivants repartent tout de suite par
   const r = E.retreatFromBattle(s, map, { nationId: ME, battleId: b.id });
   assert.ok(r.ok); assert.equal(s.battles.length, 0);
   const back = s.marches.find(x => x.returning);
-  assert.equal(back.startDay, s.day); assert.equal(r.arriveDay, s.day + 30); assert.equal(back.toId, 'p02');
+  assert.equal(back.startDay, s.day); assert.equal(r.arriveDay, s.day + d24()); assert.equal(back.toId, 'p02');
   assert.ok(evs(s, ev, 'battle-retreat').some(e => e.reason === 'retreat'));
   const fin = evs(s, ev, 'battle'); assert.equal(fin.length, 1); assert.equal(fin[0].assaults, 1);
   untilDay(s, s.day + 8); assert.equal(evs(s, ev, 'assault').length, 1, 'plus aucun assaut');
@@ -192,7 +195,7 @@ test('V17.2 : plusieurs nations (B2) — une 2e nation en guerre rejoint la bata
   s.provinces[near].ownerId = 'noireflamme'; s.provinces[near].units = inf(600);
   war(s, 'noireflamme', 'aurel');
   const m = send(s, 'p02', 'p04', { infantry: 200 }), ev = s.events.length;
-  untilDay(s, s.day + 1);
+  untilDay(s, oneDayAfter(m, near)); // V17.5b : arrive un jour après nous (trajets selon la distance)
   send(s, near, 'p04', { infantry: 500 }, 'noireflamme');
   untilDay(s, m.arriveDay + 12);
   const c = evs(s, ev, 'conquest')[0];
@@ -385,7 +388,7 @@ test('V17.2 : trêve, paix ou alliance signée entre l\'arrivée d\'un renfort e
     s.provinces[near].ownerId = 'noireflamme'; s.provinces[near].units = inf(600);
     war(s, 'noireflamme', 'aurel');
     const m = send(s, 'p02', 'p04', { infantry: 300 });
-    untilDay(s, s.day + 1);
+    untilDay(s, oneDayAfter(m, near));
     const m2 = send(s, near, 'p04', { infantry: 300 }, 'noireflamme');
     untilDay(s, m2.arriveDay); // arrivé entre l'assaut 1 et l'assaut 2
     assert.ok(s.battles[0].attackers.some(e => e.nationId === 'noireflamme' && e.fresh), kind);
@@ -441,7 +444,7 @@ function peacefulReinforcement() {
   const near = map.provinces.find(p => p.id === 'p04').landConnections.find(id => id !== 'p02');
   s.provinces[near].ownerId = 'noireflamme'; s.provinces[near].units = inf(600);
   const m = send(s, 'p02', 'p04', { infantry: 300 });
-  untilDay(s, s.day + 1);
+  untilDay(s, oneDayAfter(m, near));
   const m2 = send(s, near, 'p04', { infantry: 300 }, 'noireflamme');
   assert.equal(m2.warAtDeparture, false); assert.equal(m2.treatiesAtDeparture, '');
   return { s, m, m2 };

@@ -161,7 +161,9 @@ test('V17.5 : recrutements rythmés — au plus une décision qui recrute par 30
   }
   const emergencies = s.ai.rtStats?.emergencyRecruits || 0;
   let tight = 0;
-  for (const set of Object.values(days)) { const d = [...set].sort((a, b) => a - b); for (let i = 1; i < d.length; i++) if (d[i] - d[i - 1] < R.ai.pace.recruit) tight++; }
+  // V17.5b : le Conquérant recrute plus souvent (RULES.realtime.ai.personality.conquerant.recruitPace).
+  const paceOf = id => s.leaders?.[id]?.archetype === 'conquerant' ? R.ai.personality.conquerant.recruitPace : R.ai.pace.recruit;
+  for (const [id, set] of Object.entries(days)) { const d = [...set].sort((a, b) => a - b); for (let i = 1; i < d.length; i++) if (d[i] - d[i - 1] < paceOf(id)) tight++; }
   assert.ok(Object.keys(days).length >= 3, 'les IA recrutent');
   assert.ok(tight <= emergencies, `recrutements à moins de 30 jours d'intervalle (${tight}) seulement pour une province menacée (${emergencies})`);
   assert.equal(paceReady({ mode: 'tour' }, AI, 'recruit'), true, 'tour par tour : aucune limite');
@@ -217,7 +219,10 @@ test('V17.5 : troupes en marche et à l\'assaut comptées dans la force de la na
 
 test('V17.5 : l\'IA renforce une province menacée par une armée VISIBLE qu\'elle ne tiendrait pas', () => {
   const s = island({ seed: 'def' });
-  s.provinces.p03.units = inf(60); s.provinces.p01.units = inf(700); s.provinces.p02.units = inf(520);
+  // V17.5b : le renfort doit arriver avant le dernier assaut — trajets selon la distance : le voisin proche (p04) aide,
+  // le voisin lointain (p01, 30 jours) arriverait trop tard face à une armée partie de p02 (22 jours).
+  s.provinces.p04.ownerId = AI;
+  s.provinces.p03.units = inf(60); s.provinces.p04.units = inf(700); s.provinces.p01.units = inf(700); s.provinces.p02.units = inf(520);
   sendAs(s, ME, 'p02', 'p03', inf(500)); // 500 fantassins marchent sur Branvale (p03), qui n'en a que 60
   const seen = visibleProvinces(s, map, AI);
   const threat = incomingThreat(s, map, AI, 'p03', seen);
@@ -226,7 +231,7 @@ test('V17.5 : l\'IA renforce une province menacée par une armée VISIBLE qu\'el
   assert.ok(combatValue(landThreatForce(map, s, AI, 'p03')) >= combatValue(threat.force), 'la menace compte dans landThreatForce');
   assert.ok(aiDefend(s, map, AI) >= 1);
   const o = s.orders.find(x => x.nationId === AI && x.defend);
-  assert.ok(o, 'renfort commandé'); assert.equal(o.fromId, 'p01'); assert.equal(o.toId, 'p03');
+  assert.ok(o, 'renfort commandé'); assert.equal(o.fromId, 'p04'); assert.equal(o.toId, 'p03');
   // Elle ne vide pas pour autant une province qui doit tenir : ordre limité aux troupes disponibles.
   assert.ok(o.units.infantry <= 700);
   // Sans armée en route : aucun renfort.
@@ -365,19 +370,20 @@ test('V17.5 (décidé par le chef de projet) : une province assiégée ne livre 
   const s = island({ seed: 'held', ais: [] });
   s.provinces.p03.units = inf(540); s.provinces.p04.units = inf(400); s.provinces.p04.buildings.fort = 3;
   s.nations[ME].treasury = 500;
-  const m = sendAs(s, AI, 'p03', 'p04', inf(500));
-  // Recrues commandées pour être livrées pendant la bataille (le jour du 1er assaut).
-  untilDay(s, m.arriveDay - 30);
+  // Recrues commandées pour être livrées pendant la bataille (le lendemain du 1er assaut). V17.5b : trajet selon la distance,
+  // plus court que la formation des recrues : l'armée part après la commande.
   assert.ok(E.queueRecruitment(s, { nationId: ME, provinceId: 'p04', type: 'infantry' }).ok);
   E.executePendingOrders(s, map);
   const q = s.productionQueue.find(x => x.nationId === ME && x.provinceId === 'p04');
+  untilDay(s, s.day + q.remaining - 1 - E.landTravelDays(inf(1), map, 'p03', 'p04'));
+  const m = sendAs(s, AI, 'p03', 'p04', inf(500));
   const ev = s.events.length;
-  untilDay(s, m.arriveDay);
+  untilDay(s, m.arriveDay + 2);
   assert.ok(s.battles.length, 'bataille en cours après le 1er assaut');
   assert.ok(s.productionQueue.includes(q) && q.held, 'recrues retenues');
   assert.equal(s.events.slice(ev).filter(e => e.type === 'production-held').length, 1, 'un seul avis');
   const r = E.queueRecruitment(s, { nationId: ME, provinceId: 'p04', type: 'infantry' });
-  assert.equal(r.ok, false); assert.match(r.error, /assiégée/);
+  assert.equal(r.ok, false); assert.match(r.error, /attaquée \(assiégée\)/);
   const before = s.provinces.p04.units.infantry;
   untilDay(s, m.arriveDay + 10);
   assert.ok(!s.battles.length, 'bataille terminée');

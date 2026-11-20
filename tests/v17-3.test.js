@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import * as E from '../src/domain/game-engine.js';
+import { RULES } from '../src/domain/constants.js';
 import { createRealtimeGame } from '../src/domain/realtime/create.js';
 import { visibleProvinces } from '../src/domain/vision.js';
 import {
@@ -43,7 +44,7 @@ test('V17.3 : date « 12 mars 2027 », jours restants, durées en jours, revenus
   assert.equal(durationText(1), '1 jour'); assert.equal(durationText(30), '30 jours');
   assert.equal(productionDays('unit', 'infantry'), 30); assert.equal(productionDays('unit', 'warship'), 90);
   assert.equal(productionDays('building', 'bank'), 90); assert.equal(productionDays('building', 'fort'), 60); assert.equal(productionDays('balloon'), 60);
-  assert.equal(seaDays(2), 60); assert.equal(seaDays(4), 120);
+  assert.equal(seaDays(2), 2 * RULES.realtime.durations.landPerSeaTurn); assert.equal(seaDays(4), 4 * RULES.realtime.durations.landPerSeaTurn); // V17.5b : 40 / 80
   assert.equal(monthlyIncomeText(16), '+8 or / mois'); assert.equal(monthlyIncomeText(5), '+2,5 or / mois');
   assert.equal(realtimeText('💰 Revenus du tour : +8 or'), '💰 Revenus du mois : +8 or');
   assert.equal(realtimeText('Convoi : 60 tours en mer.'), 'Convoi : 60 jours en mer.');
@@ -72,18 +73,18 @@ test('V17.3 : position de l’icône sur la flèche — extrémités en retrait 
   assert.deepEqual(ahead, [{ x: 500, y: 100 }, { x: 500, y: 500 }], 'les étapes déjà passées disparaissent');
 });
 test('V17.3 : une armée envoyée part aussitôt et son icône avance chaque jour le long de sa flèche, jusqu’à l’arrivée', () => {
-  const s = game(), m = sendHalf(s);
-  assert.equal(m.arriveDay - m.startDay, 30);
+  const s = game(), m = sendHalf(s), D = m.arriveDay - m.startDay; // V17.5b : durée selon la distance
+  assert.equal(D, E.landTravelDays({ infantry: 1 }, map, m.fromId, m.toId));
   const a = anchor(m.fromId), b = anchor(m.toId), seen = [];
-  for (let d = 0; d < 30; d++) {
+  for (let d = 0; d < D; d++) {
     const [t] = marchTokens(s, map, 'valmorne', vis(s));
     assert.equal(t.id, m.id); assert.equal(t.own, true); assert.equal(t.known, true); assert.equal(t.recallable, true);
-    assert.equal(t.fraction, d / 30, `jour ${d}`);
+    assert.equal(t.fraction, d / D, `jour ${d}`);
     seen.push(Math.hypot(t.x - a.x, t.y - a.y));
     // sur la droite départ → arrivée
     const cross = (b.x - a.x) * (t.y - a.y) - (b.y - a.y) * (t.x - a.x);
     assert.ok(Math.abs(cross) / Math.hypot(b.x - a.x, b.y - a.y) < 1.5, 'sur la flèche');
-    assert.equal(tokenTag(t, s.day), `${30 - d} j`);
+    assert.equal(tokenTag(t, s.day), `${D - d} j`);
     E.advanceDay(s, map);
   }
   for (let i = 1; i < seen.length; i++) assert.ok(seen[i] > seen[i - 1], 'avance d’un pas chaque jour');

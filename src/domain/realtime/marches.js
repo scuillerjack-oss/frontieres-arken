@@ -19,19 +19,32 @@ const D = RULES.realtime.durations;
 const hasUnits = f => COMBAT_TYPES.some(k => f.units[k] > 0);
 const marchForce = m => legacyForce(m);
 
-/** Durée d'un trajet terrestre : 30 jours ; 20 pour une armée composée uniquement de cavalerie. */
-export function landTravelDays(units = {}) {
+/**
+ * V17.5b : facteur de distance d'un trajet terrestre (« plus c'est loin, plus c'est long ») : distance entre les repères des
+ * deux provinces ÷ RULES.realtime.durations.landDistance.reference, borné à [min, max]. Sans carte : 1.
+ */
+export function landDistanceFactor(map, fromId, toId) {
+  const L = D.landDistance, a = map?.provinces?.find(p => p.id === fromId)?.markerAnchor, b = map?.provinces?.find(p => p.id === toId)?.markerAnchor;
+  if (!L || !a || !b) return 1;
+  return Math.max(L.min, Math.min(L.max, Math.hypot(a.x - b.x, a.y - b.y) / L.reference));
+}
+/**
+ * Durée d'un trajet terrestre : RULES.realtime.durations.land jours (cavalerie seule : cavalryLand), × le facteur de
+ * distance quand la carte est donnée (V17.5b). Même durée pour l'attaquant et le défenseur.
+ */
+export function landTravelDays(units = {}, map = null, fromId = null, toId = null) {
   const others = LAND_UNIT_TYPES.filter(k => k !== 'cavalry').some(k => (units[k] || 0) > 0);
-  return (units.cavalry || 0) > 0 && !others ? D.cavalryLand : D.land;
+  const base = (units.cavalry || 0) > 0 && !others ? D.cavalryLand : D.land;
+  return Math.max(1, Math.round(base * landDistanceFactor(map, fromId, toId)));
 }
 function nextMarchId(state) {
   state.marchSequence = Math.max(1, Number(state.marchSequence) || 1);
   return `m${state.marchSequence++}`;
 }
 /** Une armée prend la route : elle quitte sa province maintenant (elle ne la défend plus). */
-export function createMarch(state, { nationId, fromId, toId, force, startDay = state.day, returning = false, passage = false, guest = false }) {
+export function createMarch(state, { nationId, fromId, toId, force, startDay = state.day, returning = false, passage = false, guest = false, map = null, days: fixed = null }) {
   const owner = state.provinces[toId]?.ownerId ?? null;
-  const legacy = toLegacy(force), days = landTravelDays(legacy.units);
+  const legacy = toLegacy(force), days = fixed ?? landTravelDays(legacy.units, map, fromId, toId);
   const m = {
     id: nextMarchId(state), kind: 'land', nationId, fromId, toId, ...legacy, startDay, arriveDay: startDay + days,
     targetOwner: owner, hostile: !returning && owner !== nationId && !hasPassage(state, nationId, owner), truces: trucesOf(state, nationId),
@@ -67,7 +80,7 @@ export function departMoves(state, map, orders) {
     if (!force || !hasUnits(force)) continue;
     if (o.routeType === 'sea') embark(state, map, o, force);
     else {
-      const m = createMarch(state, { nationId: o.nationId, fromId: o.fromId, toId: o.toId, force, passage: Boolean(o.passage), guest: Boolean(o.guest) });
+      const m = createMarch(state, { nationId: o.nationId, fromId: o.fromId, toId: o.toId, force, passage: Boolean(o.passage), guest: Boolean(o.guest), map });
       state.events.push({ turn: state.turn, type: 'march-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, provinceId: o.toId, marchId: m.id, amount: unitCount(force), arriveDay: m.arriveDay, hostile: m.hostile });
     }
     state.ai?.replay?.push({ turn: state.turn, nationId: o.nationId, action: 'move', target: o.toId });
@@ -102,7 +115,7 @@ export function marchEncounters(state, day = state.day) {
 }
 /** Demi-tour d'une armée arrivée au bout de sa route sans pouvoir entrer : elle rentre par le même trajet. */
 function sendBack(state, m, force, day) {
-  createMarch(state, { nationId: m.nationId, fromId: m.toId, toId: m.fromId, force, startDay: day + 1, returning: true });
+  createMarch(state, { nationId: m.nationId, fromId: m.toId, toId: m.fromId, force, startDay: day + 1, returning: true, days: Math.max(1, m.arriveDay - m.startDay) }); // même trajet, même durée
 }
 /** Arrivée chez soi (retour ou repli) : province d'origine encore à soi, sinon chez l'allié, sinon perdue (règles actuelles). */
 function arriveHome(state, m, force) {

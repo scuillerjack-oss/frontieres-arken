@@ -22,7 +22,7 @@
 
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { aliveNations, archetypeOf, getTension, recentAggressions } from '../leaders.js';
-import { queuedOrder } from './orders.js';
+import { queuedOrder, UNDER_ATTACK_BUILD_REFUSAL, underAttack } from './orders.js';
 import { pairWar, spendableTreasury } from './shared.js';
 
 const B = RULES.balloon;
@@ -104,6 +104,7 @@ export function balloonBuildStatus(state, { nationId, provinceId }) {
   const p = state.provinces[provinceId], base = { cost: B.cost, turns: B.turns };
   if (!p || p.ownerId !== nationId) return { ...base, ok: false, reason: 'Province non contrôlée' };
   if (!p.buildings?.factory) return { ...base, ok: false, reason: BALLOON_ERRORS.factory };
+  if (underAttack(state, provinceId)) return { ...base, ok: false, reason: UNDER_ATTACK_BUILD_REFUSAL }; // V17.5b
   const max = balloonMax(state, nationId), have = balloonsOf(state, nationId).length, building = balloonsInConstruction(state, nationId);
   if (have + building >= max) return { ...base, ok: false, reason: building ? BALLOON_ERRORS.building : haveText(have, max) };
   if (spendableTreasury(state, nationId) < B.cost) return { ...base, ok: false, reason: 'Trésor insuffisant ou réservé à un cessez-le-feu' };

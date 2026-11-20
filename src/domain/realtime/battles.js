@@ -119,7 +119,7 @@ function leave(state, map, b, e, force, { startDay, reason }) {
     return;
   }
   const home = homeOf(state, e);
-  const m = createMarch(state, { nationId: e.nationId, fromId: b.provinceId, toId: home, force, startDay, returning: true });
+  const m = createMarch(state, { nationId: e.nationId, fromId: b.provinceId, toId: home, force, startDay, returning: true, map });
   state.events.push({ turn: state.turn, type: 'battle-retreat', nationId: e.nationId, attacker: e.nationId, defender: b.defenderId, provinceId: b.provinceId, battleId: b.id, reason,
     toId: home, amount, arriveDay: m.arriveDay, marchId: m.id });
 }

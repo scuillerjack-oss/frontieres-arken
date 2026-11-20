@@ -64,6 +64,7 @@ const ASSETS=[
   './src/domain/realtime/marches.js',
   './src/domain/realtime/battles.js',
   './src/domain/realtime/ai-schedule.js',
+  './src/domain/realtime/personalities.js',
   './src/domain/realtime/rules.js',
   './src/domain/game-engine.js',
   './src/domain/leaders.js',

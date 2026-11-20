@@ -26,6 +26,7 @@ import { availableForces, buildingCount, queueConstruction, queueMoveOrder, queu
 import { aiFarmOrders } from '../realtime/food.js';
 import { attackQuota, attacksInPace, incomingSupport, noteAttack, notePace, openOrder, paceReady } from '../realtime/ai-schedule.js';
 import { isRealtime } from '../realtime/clock.js';
+import { between, publicMenace, temper, weightedPick } from '../realtime/personalities.js';
 import { isPortPoint, legalDestinations, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, spendableTreasury } from './shared.js';
 
@@ -43,6 +44,34 @@ const WAR_RISK = { heros: .12, traitre: .08, batisseur: .04, conquerant: 0 };
 const recruitCount = (state, nationId) => (state.orders || []).filter(o => o.kind === 'recruitment' && o.nationId === nationId && o.status === 'pending').length;
 export const aiMemory = (state, id) => { state.ai.plans ||= {}; return state.ai.plans[id] ||= {}; };
 const reachable = (state, map, a, b) => neighbors(state, map, a, b);
+// V17.5b : réglages des personnalités en temps réel (RULES.realtime.ai.personality), variés à la graine pour chaque dirigeant.
+const PERS = () => RULES.realtime.ai.personality;
+const provinceCountOf = (state, map, n) => map.provinces.filter(p => state.provinces[p.id].ownerId === n).length;
+/** Marge d'attaque du caractère ; en temps réel, propre à ce dirigeant (Conquérant : nettement plus audacieux). */
+function archMargin(state, id, arch) {
+  if (!isRealtime(state)) return ARCH_MARGIN[arch];
+  return temper(state, id, 'margin', arch === 'conquerant' ? PERS().conquerant.margin : ARCH_MARGIN[arch]);
+}
+/** V17.5b : le Conquérant rompt une trêve plus tôt que les autres (au bout de 4 à 8 périodes, tiré à la graine) : c'est une trahison publique. */
+function conqTruceOver(state, id, n) {
+  const t = (state.diplomacy.treaties || []).find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n));
+  if (!t) return true;
+  const limit = isRealtime(state) && archetypeOf(state, id) === 'conquerant' ? between(state, PERS().conquerant.truceBreakPeriods, 'conq-truce', id, n, t.started) : TRUCE_BETRAYAL_TURNS;
+  return state.turn - t.started >= limit;
+}
+/**
+ * V17.5b : la proie du Conquérant, tirée au sort (les plus faibles et celles qu'il atteint depuis sa base pèsent plus),
+ * gardée quelques périodes (3 à 8) puis retirée : jamais la même proie d'une partie à l'autre, ni toute la partie.
+ */
+function conquerorPrey(state, map, id, prey, fromBase) {
+  const mem = aiMemory(state, id);
+  if (mem.prey && prey.includes(mem.prey) && state.turn < (mem.preyUntil ?? 0)) return mem.prey;
+  const ranked = [...prey].sort((a, b) => perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
+  const weights = [5, 3, 2, 1, 1];
+  mem.prey = weightedPick(state, ranked.map((n, i) => ({ id: n, w: (weights[i] ?? 1) * (fromBase(n) ? 2 : 1) * (provinceCountOf(state, map, n) <= RULES.ai.finishProvinces ? 2 : 1) })), 'conq-prey', id, state.turn);
+  mem.preyUntil = state.turn + between(state, PERS().conquerant.preyPeriods, 'conq-prey-len', id, state.turn);
+  return mem.prey;
+}
 /** Nations que ce dirigeant est prêt à attaquer ce tour-ci. */
 function warTargets(state, map, id, arch) {
   const out = new Set(), mem = aiMemory(state, id), alive = aliveNations(state).filter(n => n !== id);
@@ -51,18 +80,27 @@ function warTargets(state, map, id, arch) {
   if (arch === 'conquerant') {
     // Domination : il choisit tôt une proie (la plus faible qu'il peut atteindre), sans attendre la tension,
     // et ne respecte une trêve que le temps qu'elle cesse d'être une trahison (V14.0 : 10 tours, avant 5).
-    const startTurn = 2 + Math.floor(chance(state, 'conq-start', id) * 3) + levelOf(state).warDelay;
+    const rt = isRealtime(state);
+    const startTurn = (rt ? between(state, PERS().conquerant.startPeriods, 'conq-start-rt', id) : 2 + Math.floor(chance(state, 'conq-start', id) * 3)) + levelOf(state).warDelay;
     // Proie atteignable depuis sa base navale (là où sont sa flotte et son armée) ou par la terre.
     const owned = map.provinces.filter(p => state.provinces[p.id].ownerId === id), base = navalBase(map, state, owned);
     const coast = new Set([...(base ? seaDestinations(map, base.id).map(d => d.id) : []), ...owned.flatMap(p => p.landConnections || [])]);
     const fromBase = n => [...coast].some(pid => state.provinces[pid]?.ownerId === n);
     if (state.turn >= startTurn) {
       const prey = alive.filter(n => !pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n))
-        .filter(n => { const t = state.diplomacy.treaties.find(x => x.active !== false && x.type === 'ceasefire' && x.parties.includes(id) && x.parties.includes(n)); return !t || state.turn - t.started >= TRUCE_BETRAYAL_TURNS; })
+        .filter(n => conqTruceOver(state, id, n))
         .sort((a, b) => Number(fromBase(b)) - Number(fromBase(a)) || perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
-      if (prey.length && !out.size) out.add(prey[0]);
-      // Assez fort : une deuxième proie (V14.2 : dès 1,25 fois sa force, avant 1,5).
-      if (prey.length > 1 && strengthOf(state, id) > 1.25 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
+      if (rt) {
+        // V17.5b : proie tirée au sort (pondérée), même déjà en guerre ailleurs ; une 2e proie s'il se sent assez fort.
+        const first = conquerorPrey(state, map, id, prey, fromBase);
+        if (first) out.add(first);
+        const second = prey.filter(n => !out.has(n)).find(n => strengthOf(state, id) > temper(state, id, 'second-prey', PERS().conquerant.secondPrey) * perceivedStrength(state, map, id, n));
+        if (second) out.add(second);
+      } else {
+        if (prey.length && !out.size) out.add(prey[0]);
+        // Assez fort : une deuxième proie (V14.2 : dès 1,25 fois sa force, avant 1,5).
+        if (prey.length > 1 && strengthOf(state, id) > 1.25 * perceivedStrength(state, map, id, prey[1])) out.add(prey[1]);
+      }
     }
     // V14.2 (Jack : « les provocations doivent le pousser à attaquer ») : qui le provoque devient une cible, dès le tour
     // suivant (sauf un allié, ou une trêve récente qu'il ne rompt pas pour ne pas passer pour un traître).
@@ -74,9 +112,25 @@ function warTargets(state, map, id, arch) {
     // V15.1 : la fin de partie multiplie les agressions ; le Héros répond aux plus récentes (5 tours, avant 10), sinon il attaque autant qu'un Conquérant.
     for (const a of recentAggressions(state, HERO_MEMORY_TURNS)) if (a.attacker !== id && !pairTreaty(state, id, a.attacker, 'alliance') && !state.nations[a.attacker]?.eliminated && reachable(state, map, id,
       a.attacker) && !(charmOf(state, id, a.attacker) >= 3 && !pairWar(state, id, a.attacker))) out.add(a.attacker);
+    // V17.5b : la menace publique (Conquérant démasqué ou agresseur de plusieurs nations) qui attaque un allié du Héros
+    // devient sa cible, s'il n'est pas trop faible pour l'affronter et pas à chaque fois (il n'est pas un pantin).
+    const menace = isRealtime(state) ? publicMenace(state, id) : null;
+    if (menace && !pairTreaty(state, id, menace, 'alliance') && reachable(state, map, id, menace) && !recentTruce(state, id, menace)
+      && aliveNations(state).some(n => n !== id && n !== menace && pairTreaty(state, id, n, 'alliance') && pairWar(state, n, menace))
+      && strengthOf(state, id) >= temper(state, id, 'hero-strike', PERS().heros.strikeMenaceStrength) * perceivedStrength(state, map, id, menace)
+      && chance(state, 'hero-menace', id, menace, state.turn) < temper(state, id, 'hero-menace', PERS().heros.coalitionChance)) out.add(menace);
   }
   if (arch === 'traitre') {
     const t = traitorState(state, map, id);
+    // V17.5b : il profite des guerres des autres — une nation (non alliée) déjà en guerre ailleurs et plus faible que lui
+    // devient une proie, de temps en temps (tirage par période) : la cible change selon l'occasion.
+    if (isRealtime(state)) {
+      const C = PERS().traitre;
+      const busy = alive.filter(n => !pairTreaty(state, id, n, 'alliance') && !recentTruce(state, id, n) && reachable(state, map, id, n)
+        && alive.some(x => x !== n && x !== id && pairWar(state, n, x)) && perceivedStrength(state, map, id, n) < temper(state, id, 'opp-ratio', C.opportunityRatio) * strengthOf(state, id));
+      const pick = busy.length && chance(state, 'traitor-opp', id, state.turn) < temper(state, id, 'opp', C.opportunityChance) ? weightedPick(state, busy.map(n => ({ id: n, w: 1 })), 'traitor-opp-pick', id, state.turn) : null;
+      if (pick) out.add(pick);
+    }
     if (t.mark && state.turn >= t.strikeTurn && pairTreaty(state, id, t.mark, 'alliance')) out.add(t.mark);
     else if (t.mark && !pairTreaty(state, id, t.mark, 'alliance') && state.turn >= t.strikeTurn + 4) out.add(t.mark);
   }
@@ -116,18 +170,28 @@ export function ambitionOf(state, map, toId) {
 function traitorState(state, map, id) {
   const mem = aiMemory(state, id);
   // V14.2 : coup porté (plus allié avec sa marque) → il passe à la suivante au bout de 6 tours (avant 12).
-  if (mem.mark && (state.nations[mem.mark]?.eliminated || (state.turn > (mem.strikeTurn || 0) + 6 && !pairTreaty(state, id, mem.mark, 'alliance')))) { mem.mark = null; }
+  if (mem.mark && (state.nations[mem.mark]?.eliminated || (state.turn > (mem.strikeTurn || 0) + 6 && !pairTreaty(state, id, mem.mark, 'alliance')))) {
+    // V17.5b (temps réel) : après un coup, il se fait oublier un moment (restPeriods, tiré à la graine) : il trahit parfois, pas sans cesse.
+    if (isRealtime(state) && !state.nations[mem.mark]?.eliminated) mem.restUntil = state.turn + between(state, PERS().traitre.restPeriods, 'traitor-rest', id, state.turn);
+    mem.mark = null;
+  }
+  const resting = isRealtime(state) && state.turn < (mem.restUntil ?? -1);
   // V14.2 (Jack : « le traître peut trahir n'importe qui, autant de fois que c'est à son avantage ») : N'IMPORTE QUEL
   // allié devient la marque dès que c'est payant — allié depuis au moins 5 tours, et plus faible que lui : à moins de
   // 85 % de sa force s'il est occupé par une autre guerre, à moins de 60 % sinon. Même une ancienne victime peut être retrahie.
+  // V17.5b (temps réel) : rapports de force propres à ce dirigeant (graine), et l'allié « mûr » tiré au sort parmi les
+  // candidats (le plus faible a plus de chances, pas toutes) : sa cible n'est jamais fixe.
+  const rt = isRealtime(state), C = PERS().traitre;
+  const busyRatio = rt ? temper(state, id, 'busy-ratio', C.busyRatio) : .85, calmRatio = rt ? temper(state, id, 'calm-ratio', C.calmRatio) : .6;
   const ripe = aliveNations(state).filter(n => n !== id && pairTreaty(state, id, n, 'alliance') && reachable(state, map, id, n)
     && state.turn - (state.diplomacy.treaties.find(t => t.active !== false && t.type === 'alliance' && t.parties.includes(id) && t.parties.includes(n))?.started ?? state.turn) >= 5
-    && (aliveNations(state).some(x => x !== id && x !== n && pairWar(state, n, x)) ? perceivedStrength(state, map, id, n) < .85 * strengthOf(state, id) : perceivedStrength(state, map, id, n) < .6 * strengthOf(state, id)))
+    && (aliveNations(state).some(x => x !== id && x !== n && pairWar(state, n, x)) ? perceivedStrength(state, map, id, n) < busyRatio * strengthOf(state, id) : perceivedStrength(state, map, id, n) < calmRatio * strengthOf(state, id)))
     .sort((a, b) => perceivedStrength(state, map, id, a) - perceivedStrength(state, map, id, b) || a.localeCompare(b));
-  if (ripe.length && (!mem.mark || !pairTreaty(state, id, mem.mark, 'alliance') || state.turn < (mem.strikeTurn || 0) - 3)) {
-    if (mem.mark !== ripe[0]) { mem.mark = ripe[0]; mem.strikeTurn = state.turn; }
+  if (ripe.length && !resting && (!mem.mark || !pairTreaty(state, id, mem.mark, 'alliance') || state.turn < (mem.strikeTurn || 0) - 3)) {
+    const chosen = rt ? (ripe.includes(mem.mark) ? mem.mark : weightedPick(state, ripe.map((n, i) => ({ id: n, w: Math.max(1, 3 - i) })), 'traitor-ripe', id, state.turn)) : ripe[0];
+    if (mem.mark !== chosen) { mem.mark = chosen; mem.strikeTurn = state.turn; }
   }
-  if (!mem.mark) {
+  if (!mem.mark && !resting) {
     const cand = aliveNations(state).filter(n => n !== id && reachable(state, map, id, n) && !pairWar(state, id, n));
     if (cand.length) {
       mem.mark = pickFrom(state, cand.sort(), 'traitor-mark', id, state.turn);
@@ -175,13 +239,33 @@ function aiDiplomacy(state, map, id, arch, targets, helpTargets = new Set()) {
     // V14.2 : le Traître courtise sa marque, mais aussi tout voisin calme (tension < 40) : chaque alliance est une
     // trahison possible plus tard, « autant de fois que c'est à son avantage ». Au plus 2 alliés à la fois, et pas avant
     // le tour 10 (sinon il « endort » le Conquérant dès le début et retarde les premières guerres).
+    const rt = isRealtime(state), allies = alive.filter(x => pairTreaty(state, id, x, 'alliance')).length;
     if (arch === 'traitre') {
-      const t = traitorState(state, map, id), allies = alive.filter(x => pairTreaty(state, id, x, 'alliance')).length;
+      const t = traitorState(state, map, id);
       if (n === t.mark && state.turn >= 2 && state.turn < t.strikeTurn) propose(n, 'alliance');
-      else if (state.turn >= scaleTurn(state, 10) && allies < 2 && reachable(state, map, id, n) && getTension(state, id, n) < 40 && chance(state, 'traitor-court', state.turn, id, n) < .35) propose(n, 'alliance');
+      else if (rt) {
+        // V17.5b : il « s'allie » volontiers contre un ennemi commun (la menace publique, ou une nation avec qui il est en
+        // guerre) : Héros, joueur, Bâtisseur… selon l'occasion. Chaque alliance est une trahison possible plus tard.
+        const C = PERS().traitre, menace = publicMenace(state, id);
+        const common = alive.some(x => x !== n && (x === menace || pairWar(state, id, x)) && pairWar(state, n, x));
+        if (state.turn >= between(state, C.courtFromPeriod, 'traitor-court-from', id) && allies < C.maxAllies && reachable(state, map, id, n) && getTension(state, id, n) < (common ? 55 : 40)
+          && chance(state, 'traitor-court', state.turn, id, n) < temper(state, id, 'court', C.courtChance) * (common ? 1.6 : 1)) propose(n, 'alliance');
+      } else if (state.turn >= scaleTurn(state, 10) && allies < 2 && reachable(state, map, id, n) && getTension(state, id, n) < 40 && chance(state, 'traitor-court', state.turn, id, n) < .35) propose(n, 'alliance');
     }
     if (arch === 'heros' && recentAggressions(state, 6).some(a => a.victim === n && a.attacker !== id) && getTension(state, id, n) < 40) propose(n, 'alliance');
+    if (arch === 'heros' && rt) {
+      // V17.5b : contre la menace publique, le Héros cherche des alliés — ses victimes et ceux qui la combattent d'abord —
+      // pas à chaque décision (tirage par période), et jamais la menace elle-même.
+      const menace = publicMenace(state, id);
+      if (menace && n !== menace && getTension(state, id, n) < 55) {
+        const against = pairWar(state, n, menace) || recentAggressions(state, PERS().heros.menaceMemory).some(a => a.attacker === menace && a.victim === n);
+        if (chance(state, 'hero-coalition', state.turn, id, n) < temper(state, id, 'coalition', PERS().heros.coalitionChance) * (against ? 1 : .5)) propose(n, 'alliance');
+      }
+    }
     if (arch === 'batisseur' && state.turn >= scaleTurn(state, 6) && getTension(state, id, n) < 15 && archetypeOf(state, n) === 'heros' && state.controllers?.[n] === 'ai') propose(n, 'alliance');
+    // V17.5b : le Bâtisseur cherche des alliés (tout voisin calme), pour bâtir en paix.
+    if (arch === 'batisseur' && rt && state.turn >= scaleTurn(state, 4) && allies < PERS().batisseur.maxAllies && reachable(state, map, id, n) && getTension(state, id, n) < 30
+      && chance(state, 'builder-ally', state.turn, id, n) < temper(state, id, 'ally', PERS().batisseur.allyChance)) propose(n, 'alliance');
   }
 }
 /**
@@ -235,7 +319,7 @@ function aiPlan(state, map, nationId) {
   // V17.5 : en temps réel, le ballon passe avant les recrutements (épargne raisonnable : RULES.realtime.ai.balloonReserve).
   if (isRealtime(state) && !hungry) aiBalloonBuild(state, map, nationId, RULES.realtime.ai.balloonReserve);
   // V17.5 : recruter au plus une fois par fenêtre de RULES.realtime.ai.pace.recruit jours (toujours au tour par tour).
-  const recruitsBefore = recruitCount(state, nationId), canRecruit = paceReady(state, nationId, 'recruit');
+  const recruitsBefore = recruitCount(state, nationId), canRecruit = paceReady(state, nationId, 'recruit', isRealtime(state) && nature === 'conquerant' ? PERS().conquerant.recruitPace : undefined);
   const factory = owned.find(p => state.provinces[p.id].buildings.factory);
   const source = factory || base || owned[0];
   // Le Conquérant (et le Traître qui prépare son coup) arment d'abord la flotte ; les autres construisent l'économie.
@@ -243,14 +327,14 @@ function aiPlan(state, map, nationId) {
   // (sauf pour en finir avec un ennemi à bout de forces, ou si un allié le lui demande) : il garde son caractère en fin de partie.
   if (arch === 'heros') for (const n of [...targets]) if (!helpTargets.has(n) && !recentAggressions(state, HERO_MEMORY_TURNS).some(a => a.attacker === n) && map.provinces.filter(p => state.provinces[p.id].ownerId === n).length > RULES.ai.finishProvinces) targets.delete(n);
   const warlike = arch === 'conquerant' || arch === 'traitre' || targets.size > 0;
-  aiIslandOrders(state, map, nationId, targets, ARCH_MARGIN[arch] + level.marginAdd); // V16.2 : l'île mystérieuse
-  if (warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
+  aiIslandOrders(state, map, nationId, targets, archMargin(state, nationId, arch) + level.marginAdd); // V16.2 : l'île mystérieuse
+  if (warlike) aiNavalOrders(state, map, nationId, owned, base, archMargin(state, nationId, arch) + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   // Épargne pour la flotte : sans au moins 2 navires (en service ou en chantier), une nation belliqueuse
   // n'achète ni infanterie ni banque (sinon le trésor ne permet jamais d'armer un navire : IA passive de la V10).
   const ships = owned.reduce((n, p) => n + (state.provinces[p.id].warships || 0), 0) + (state.transports || []).filter(t => t.nationId === nationId).reduce((n, t) => n + (t.warships || 0), 0)
     + (state.productionQueue || []).filter(q => q.kind === 'unit' && q.type === 'warship' && q.nationId === nationId).reduce((n, q) => n + q.amount, 0)
     + (state.orders || []).filter(o => o.kind === 'recruitment' && o.type === 'warship' && o.nationId === nationId && o.status === 'pending').reduce((n, o) => n + o.amount, 0);
-  const saving = hungry || (warlike && base && ships < (arch === 'conquerant' ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0));
+  const saving = hungry || (warlike && base && ships < (arch === 'conquerant' && !isRealtime(state) ? 3 : 2) && !owned.some(p => landThreat(map, state, nationId, p.id) > 0));
   if (!factory && treasury() >= RULES.buildings.factory.cost) queueConstruction(state, { nationId, provinceId:source.id, type:'factory' });
   const banks = nature === 'batisseur' ? owned : owned.filter(p => p.id !== source.id);
   const bankProvince = banks.find(p => !hasOrQueued(state, p.id, 'bank'));
@@ -263,25 +347,46 @@ function aiPlan(state, map, nationId) {
       if (lvl < 3 && (worry || nature === 'batisseur') && treasury() >= RULES.buildings.fort.costs[lvl] + 40) { if (queueConstruction(state, { nationId, provinceId: p.id, type: 'fort' }).ok) reputation(state, nationId).builds++; break; }
     }
   }
-  const recruit = !saving && canRecruit;
+  // V17.5b (temps réel) : le Bâtisseur couvre ses provinces — une forteresse (jusqu'au niveau fortMax) puis une ferme de plus
+  // dans une autre province à chaque décision, s'il lui reste de quoi (réserve) : la cible la plus riche, la plus dure à prendre.
+  if (nature === 'batisseur' && isRealtime(state) && !saving) {
+    const C = PERS().batisseur, cap = state.nations[nationId].capitalId;
+    const spots = owned.filter(p => p.id !== cap && p.id !== base?.id).sort((a, b) => buildingCount(state, a.id, 'fort') - buildingCount(state, b.id, 'fort') || a.id.localeCompare(b.id));
+    const fortAt = spots.find(p => buildingCount(state, p.id, 'fort') < C.fortMax && buildingCount(state, p.id, 'fort') === (state.provinces[p.id].buildings.fort || 0));
+    if (fortAt && treasury() >= RULES.buildings.fort.costs[buildingCount(state, fortAt.id, 'fort')] + C.reserve) { if (queueConstruction(state, { nationId, provinceId: fortAt.id, type: 'fort' }).ok) reputation(state, nationId).builds++; }
+    const farmAt = owned.filter(p => buildingCount(state, p.id, 'farm') < C.farmsPerProvince && buildingCount(state, p.id, 'farm') === (state.provinces[p.id].buildings.farm || 0)).sort((a, b) => buildingCount(state, a.id, 'farm') - buildingCount(state, b.id, 'farm') || a.id.localeCompare(b.id))[0];
+    const farmCost = farmAt ? RULES.realtime.food.farmCosts[buildingCount(state, farmAt.id, 'farm')] : Infinity;
+    if (farmAt && treasury() >= farmCost + C.reserve + 20) { if (queueConstruction(state, { nationId, provinceId: farmAt.id, type: 'farm' }).ok) reputation(state, nationId).builds++; }
+    // Puis une usine dans chaque province (revenus), et le port de chaque province qui peut en avoir un.
+    for (const type of ['factory', 'port']) {
+      const at = owned.find(p => !hasOrQueued(state, p.id, type) && (type !== 'port' || state.provinces[p.id].portSite) && !isMysteryIsland(p.id));
+      if (at && treasury() >= RULES.buildings[type].cost + C.reserve + 30) { if (queueConstruction(state, { nationId, provinceId: at.id, type }).ok) { reputation(state, nationId).builds++; break; } }
+    }
+  }
+  // V17.5b (temps réel) : en paix et sans tension, le Bâtisseur préfère bâtir — il ne recrute qu'une fenêtre sur deux environ.
+  const calmBuilder = isRealtime(state) && nature === 'batisseur' && !awake && !aliveNations(state).some(n => n !== nationId && (pairWar(state, nationId, n) || getTension(state, nationId, n) >= 50))
+    && chance(state, 'builder-recruit', nationId, state.turn) < PERS().batisseur.skipRecruit;
+  const recruit = !saving && canRecruit && !calmBuilder;
     if (recruit && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
   if (arch === 'conquerant' && recruit && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
   // V15.3 : le trésor accumulé du Bâtisseur réveillé part en blindés ; en Difficile, toutes les IA dépensent mieux leur trésor.
-  if (factory && recruit) for (let i = 0; i < Math.max(awake ? RULES.ai.builderSpendLots : 0, level.spendLots) && treasury() >= RULES.units.armor.cost + 40; i++) if (!queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' }).ok) break;
+  // V17.5b (temps réel) : le Conquérant arme davantage (extraLots blindés de plus quand le trésor le permet).
+  const conqLots = isRealtime(state) && nature === 'conquerant' ? PERS().conquerant.extraLots : 0;
+  if (factory && recruit) for (let i = 0; i < Math.max(awake ? RULES.ai.builderSpendLots : 0, level.spendLots, conqLots) && treasury() >= RULES.units.armor.cost + 40; i++) if (!queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' }).ok) break;
   if (recruitCount(state, nationId) > recruitsBefore) notePace(state, nationId, 'recruit');
-  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, ARCH_MARGIN[arch] + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
+  if (!warlike) aiNavalOrders(state, map, nationId, owned, base, archMargin(state, nationId, arch) + level.marginAdd, owner => targets.has(owner), arch, helpTargets);
   const attacks = owned.flatMap(p => legalDestinations(map, state, p.id).filter(d => {
     const target=state.provinces[d.id],owner=target?.ownerId;
-    return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||(arch==='conquerant'&&!recentTruce(state,nationId,owner)))&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
+    return owner&&owner!==nationId&&d.type==='land'&&targets.has(owner)&&(!pairTreaty(state,nationId,owner,'ceasefire')||(arch==='conquerant'&&(isRealtime(state)?conqTruceOver(state,nationId,owner):!recentTruce(state,nationId,owner))))&&(!pairTreaty(state,nationId,owner,'alliance')||arch==='traitre');
   }).map(d => ({ from:p, to:d.id, owner:state.provinces[d.id].ownerId, atWar:pairWar(state,nationId,state.provinces[d.id].ownerId) })));
   attacks.sort((a,b)=>Number(helpTargets.has(b.owner))-Number(helpTargets.has(a.owner))||ambitionOf(state,map,b.to)-ambitionOf(state,map,a.to)||Number(b.atWar)-Number(a.atWar)||defenseOf(state,a.to,map,nationId)-defenseOf(state,b.to,map,nationId)||a.to.localeCompare(b.to)||a.from.id.localeCompare(b.from.id));
   // V10 : l'IA évalue l'attaque en simulant le vrai combat (déterministe) contre la garnison majorée d'une marge
   // selon sa personnalité ; elle engage la plus petite part de ses forces disponibles qui gagne, en gardant de quoi tenir.
-  const threshold = ARCH_MARGIN[arch] + level.marginAdd;
+  const threshold = archMargin(state, nationId, arch) + level.marginAdd;
   // V17.5 : en temps réel, le quota d'attaques terrestres vaut pour une fenêtre de RULES.realtime.ai.pace.attack jours
   // (Facile : une seule attaque par 30 jours), pas pour chacune des 3 décisions d'une période.
   let launched = attacksInPace(state, nationId, level.oneAttack ? RULES.realtime.diplomacy.easyAttackEveryDays : RULES.realtime.ai.pace.attack);
-  const quota = attackQuota(state, ARCH_ATTACKS[arch] || 1);
+  const quota = attackQuota(state, isRealtime(state) && nature === 'conquerant' ? PERS().conquerant.attacks : ARCH_ATTACKS[arch] || 1); // V17.5b : 3 pour le Conquérant
   for (const x of attacks) {
     // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.
     // V15.2 : le Héros et le Bâtisseur restent dans leur quota, comme le dit le cahier (mesuré : pas d'effet sur les cibles).
@@ -289,7 +394,7 @@ function aiPlan(state, map, nationId) {
     if (launched >= quota && !((arch === 'conquerant' || arch === 'traitre') && ambitionOf(state, map, x.to))) break;
     if (launched && state.orders.some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === nationId && (o.fromId === x.from.id || o.toId === x.to))) continue;
     // V14.2 : en guerre, le Conquérant se contente d'un avantage minime (0,8 au lieu de 0,85).
-    const margin = x.atWar ? Math.max((arch === 'conquerant' ? .8 : .85) + level.marginAdd, threshold - .2) : threshold;
+    const margin = x.atWar ? Math.max((arch === 'conquerant' ? (isRealtime(state) ? temper(state, nationId, 'war-margin', PERS().conquerant.warMargin) : .8) : .85) + level.marginAdd, threshold - .2) : threshold;
     const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin, 'land');
     if (!units) continue;
     if (queueMoveOrder(state, map, { nationId, fromId:x.from.id, toId:x.to, units }).ok) { launched++; noteAttack(state, nationId); }
@@ -299,6 +404,7 @@ function aiPlan(state, map, nationId) {
   if (activeHelpPacts(state, nationId).some(p => p.kind === 'defend')) helpReinforce(state, map, nationId, owned, base);
   helpStation(state, map, nationId, owned); // V13.4 : droit de passage — stationner chez un allié menacé
   redeployInterior(state, map, nationId, owned, base); // après l'aide aux alliés : on ne marche qu'avec ce qui reste libre
+  if (isRealtime(state) && (nature === 'conquerant' || ((arch === 'traitre' || arch === 'heros' || awake) && targets.size))) stageToFront(state, map, nationId, owned, base, targets);
   if (arch === 'traitre') traitorStrike(state, nationId);
 }
 /** V15.1 : au-dessous de cette valeur (fantassins équivalents), une garnison de l'intérieur ne vaut pas le déplacement. */
@@ -321,6 +427,28 @@ function redeployInterior(state, map, nationId, owned, base) {
     const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * INTERIOR_MARCH_SHARE)]));
     if (LAND_UNIT_TYPES.some(k => units[k])) queueMoveOrder(state, map, { nationId, fromId: p.id, toId: to, units });
   }
+}
+/**
+ * V17.5b (temps réel) : une armée qui attend loin du front ne sert à rien. Les troupes d'une province qui ne touche aucune
+ * cible par la terre marchent vers la province voisine à soi qui en touche une (une seule marche par décision ; la base
+ * navale reste en place si une cible est à portée de mer). Mêmes ordres que le joueur : un déplacement ordinaire. Mesuré :
+ * le Conquérant lançait ses attaques depuis des provinces frontalières presque vides (8 réussites sur 4 050 essais).
+ */
+function stageToFront(state, map, nationId, owned, base, targets) {
+  const hostile = id => targets.has(state.provinces[id]?.ownerId);
+  const front = p => (p.landConnections || []).some(hostile);
+  const seaTarget = base && seaDestinations(map, base.id).some(d => hostile(d.id));
+  for (const p of owned) {
+    if (front(p) || (p.id === base?.id && seaTarget) || landThreat(map, state, nationId, p.id) > 0 || isMysteryIsland(p.id)) continue;
+    const available = availableForces(state, p.id);
+    if (combatValue({ units: available }) < combatValue({ units: { infantry: INTERIOR_STACK_INFANTRY } })) continue;
+    const to = (p.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId && front(map.provinces.find(d => d.id === id)))
+      .sort((a, b) => a.localeCompare(b))[0];
+    if (!to) continue;
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * INTERIOR_MARCH_SHARE)]));
+    if (LAND_UNIT_TYPES.some(k => units[k]) && queueMoveOrder(state, map, { nationId, fromId: p.id, toId: to, units }).ok) return true;
+  }
+  return false;
 }
 /**
  * Le coup du Traître : une invasion part vers son allié (ou le délai est largement dépassé) → il rompt l'alliance

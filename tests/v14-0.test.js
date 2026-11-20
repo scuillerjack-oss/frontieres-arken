@@ -96,7 +96,9 @@ test('le cas du dominant : guerre → trêve en exigeant de l\'or → guerre aus
 
 test('IA : un Conquérant attend 10 tours avant de rompre une trêve ; s\'il la rompt plus tôt, c\'est une trahison', () => {
   const src = readSource('src/domain/game-engine.js');
-  assert.match(src, /state\.turn - t\.started >= TRUCE_BETRAYAL_TURNS/, 'le choix de la proie respecte la trêve 10 tours');
+  // V17.5b : en temps réel, le Conquérant rompt une trêve plus tôt (4 à 8 périodes, tiré à la graine : trahison publique) ;
+  // au tour par tour, toujours 10 tours.
+  assert.match(src, /archetypeOf\(state, id\) === 'conquerant' \? between\(.*\) : TRUCE_BETRAYAL_TURNS;\s*return state\.turn - t\.started >= limit;/, 'le choix de la proie respecte la trêve 10 tours');
   // Une IA qui attaque pendant une trêve récente : même règle que le joueur (le moteur ne distingue pas).
   const s = freshState({ allHuman: true });
   s.controllers['roc-epine'] = 'ai';

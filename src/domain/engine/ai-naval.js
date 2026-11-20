@@ -16,6 +16,7 @@ import { pairTreaty, pairWar, provinceDef } from './shared.js';
 import { MYSTERY_ISLAND_ID, isMysteryIsland } from '../mystery-island.js';
 import { garrisonForce } from '../passage.js';
 import { incomingThreat, notePace, paceReady } from '../realtime/ai-schedule.js';
+import { isRealtime } from '../realtime/clock.js';
 
 // --- IA maritime (V9, corrige B11) -------------------------------------------------------------
 // Uniquement avec les mécaniques V6 : ports (une route n'est ouverte que si ses deux ports sont construits),
@@ -84,7 +85,9 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
   // 4. Débarquement escorté : au plus un nouveau par tour, et au plus RULES-libre 2 invasions en mer à la fois.
   const invasionsAtSea = (state.transports || []).filter(t => t.nationId === nationId && !t.returning && state.provinces[t.toId]?.ownerId !== nationId).length;
   // V17.5 : en temps réel, un nouveau débarquement au plus par fenêtre de RULES.realtime.ai.pace.landing jours.
-  if (invasionsAtSea < 2 && paceReady(state, nationId, 'landing')) {
+  // V17.5b : le Conquérant débarque plus souvent (fenêtre landingPace) et accepte un débarquement plus serré.
+  const bold = isRealtime(state) && arch === 'conquerant', P = RULES.realtime.ai.personality.conquerant;
+  if (invasionsAtSea < 2 && paceReady(state, nationId, 'landing', bold ? P.landingPace : undefined)) {
     const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
     // V13 : les nations visées au titre d'une aide promise à un allié passent en premier.
@@ -98,7 +101,7 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     const busy = owner => Object.keys(state.nations).some(n => n !== nationId && n !== owner && pairWar(state, owner, n));
     // V15.1 : tard dans la partie, une côte qu'on ne voit pas est sûrement bien plus garnie que l'estimation prudente.
     const seenCoasts = visibleProvinces(state, map, nationId), blind = x => (state.turn >= scaleTurn(state, RULES.ai.lateTurn) && !seenCoasts.has(x.to) && map.provinces.filter(p => state.provinces[p.id].ownerId === x.owner).length > 2 ? RULES.ai.lateBlindFactor : 1);
-    const margin = (x) => blind(x) * ((x.atWar ? Math.max(1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
+    const margin = (x) => blind(x) * ((x.atWar ? Math.max(bold ? P.landingWarFloor : 1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
     let launched = false;
     for (const x of targets) {
       const warships = availableForces(state, x.from.id).warships;
