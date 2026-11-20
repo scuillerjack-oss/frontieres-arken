@@ -812,7 +812,7 @@ déterminisme, pureté du dossier `realtime/`, empreintes du tour par tour, écr
   schéma inconnu vérifié est le 14.
 - `tests/v15-2.test.js`, `tests/v15-4.test.js`, `tests/v14-3-tutoriel.test.js` : version 16.4.1 → 17.1.0.
 - `tests/helpers/sources.js` : nouveaux modules (`realtime/*`, `ui/realtime-ui`) dans les listes lues par les tests.
-`npm test` : 725 tests, tous verts.
+`npm test` : 740 tests (après intégration de la carte V17.6), tous verts.
 
 **Vérifié dans Chrome mobile simulé** (Playwright, 844 × 390, `node scripts/build.js`, serveur local) : nouvelle partie (en
 pause, 1er janvier 2027), ▶ puis 1 minute de jeu = 30 jours (31 janvier 2027, trésor 120 → 128), un ordre donné par les vrais
@@ -820,3 +820,9 @@ gestes (province → Déplacer → destination → 50 % → Confirmer) : troupes
 marche du 32e au 62e jour, icône sur la carte), ⏸ arrête le temps, « Troupes en route » → Rappeler, rechargement → reprise en
 pause au même jour ; une sauvegarde tour par tour → message de refus, « Continuer » caché, sauvegarde gardée. 0 erreur JS,
 0 fichier manquant. Non vérifié : sur un vrai téléphone (APK), la pub de début de partie, une partie longue dans le navigateur.
+
+**Relecture indépendante V17.1** : rien de bloquant (durées exactes sur 4 parties complètes, rappel intact, revenus
+exacts, sauvegarde en pleine marche identique, pas de fuite). Écarts relevés, **à corriger en V17.5** : l'IA ne construit
+plus de ballon en temps réel (elle dépense son or tous les 10 jours et n'atteint jamais 90 or) ; en Facile, « une attaque
+terrestre par tour » s'applique à chaque décision (jusqu'à 3 par 30 jours) ; l'IA ne voit pas encore les armées en marche.
+Mineur : un groupe venu de plusieurs provinces se replie vers l'origine de la première marche.
