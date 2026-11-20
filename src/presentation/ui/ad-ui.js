@@ -1,7 +1,7 @@
 // Interface — V17.7 : pubs du temps réel (docs/V17-cahier-des-charges.md §10). Les décisions sont dans ad-timer.js (pur) ;
 // ce module ne fait que brancher :
 // - l'icône 🎁 discrète sur le bord gauche de la carte (#giftBtn), qui apparaît 5 à 10 min de jeu après la pub précédente
-//   et reste jusqu'à ce que le joueur la touche ; une courte confirmation, puis la pub récompensée ; vue en entier =
+//   et reste jusqu'à ce qu'elle soit regardée en entier ; une courte confirmation, puis la pub récompensée ; vue en entier =
 //   un mois de revenus (10 or minimum) ; le temps est arrêté pendant la pub (data-ad-playing → horloge en attente) ;
 // - la pub imposée, seulement à un moment calme (⏸, menu hors jeu, retour à l'accueil, retour dans le jeu), au plus une
 //   toutes les 10 min de jeu, jamais pendant une action, en tutoriel, pour un Premium ou après un refus.
@@ -96,8 +96,7 @@ export function openGift() {
       giftUsed(timer, { rewarded: true }); persist();
       toast(`🎁 +${gold} or ajoutés au trésor`);
     } else if (r?.dismissed) {
-      giftUsed(timer, { rewarded: false }); persist();
-      toast('Publicité fermée avant la fin : pas de bonus, et plus aucune pub imposée jusqu’au prochain lancement');
+      toast('Publicité fermée avant la fin : pas de bonus (l’icône reste là), et plus aucune pub imposée jusqu’au prochain lancement');
     } else toast('Publicité indisponible pour le moment : l’icône reste là, réessayez plus tard');
     lastGift = ''; drawGift();
   };

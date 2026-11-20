@@ -63,7 +63,9 @@ test('V17.7 🎁 : apparaît 5 à 10 min de jeu après la précédente (tirage �
   assert.equal(giftInMs(t), 0);
   assert.equal(giftAvailable(t, { tutorial: true }), false, 'jamais dans le tutoriel');
   assert.equal(giftAvailable(t, { gameOver: true }), false);
-  // Délai après visionnage : l'icône disparaît et revient 5 à 10 min de jeu plus tard.
+  // Fermée avant la fin : elle reste. Vue en entier : elle disparaît et revient 5 à 10 min de jeu plus tard.
+  giftUsed(t, { rewarded: false });
+  assert.equal(giftAvailable(t), true, 'pub fermée avant la fin : l’icône reste');
   giftUsed(t, { rewarded: true });
   assert.equal(giftAvailable(t), false);
   assert.ok(giftInMs(t) >= 5 * MIN && giftInMs(t) <= 10 * MIN);
@@ -120,6 +122,8 @@ test('V17.7 pub imposée : jamais en tutoriel, jamais pour un Premium, jamais pe
   assert.equal(forcedAdCheck(t, calm).reason, 'too-soon');
   const u = createAdTimer({ seed: 'y', now: 0 }); play(u, 30, 0); giftUsed(u, { rewarded: false });
   assert.equal(forcedAdCheck(u, calm).ok, true);
+  // Demande de Jack : une 🎁 refusée (« Plus tard ») ou fermée avant la fin NE DISPARAÎT PAS, pas de nouveau délai.
+  assert.equal(giftAvailable(u), true); assert.equal(u.gifts, 0); assert.equal(giftInMs(u), 0);
 });
 
 test('V17.7 ads.js : showForcedAd refuse Premium / Pack / tutoriel / refus ; rien de vrai en bêta ; refus = plus de pub imposée', async () => {
@@ -231,6 +235,8 @@ test('V17.7 branchements : 🎁 sur le bord de la carte, pubs aux moments calmes
   assert.match(ui, /battlesOf\(state, state\.playerNationId\)\.length/);
   assert.match(ui, /document\.body\.dataset\.adPlaying = '1'[\s\S]*showRewardedAd[\s\S]*finally \{ delete document\.body\.dataset\.adPlaying;/);
   assert.match(ui, /applyGiftReward\(game, me, gold, \{ rewarded: true \}\)/);
+  assert.doesNotMatch(ui, /giftUsed\(timer, \{ rewarded: false \}\)/, 'refus : l’icône reste');
+  assert.match(ui, /\$\('#giftLater'\)\.onclick = \(\) => \$\('#actionDialog'\)\.close\(\);/, '« Plus tard » : rien ne change');
   assert.match(rt, /if \(!isNewGame\(state\)\) calmMoment\('return'\)/, 'jamais de pub au début d’une nouvelle partie');
   assert.match(flow, /markNewGame\(state\);\$\('#nationDialog'\)\.close\(\);save\(\);/);
   assert.match(flow, /export function showWelcome\(\)\{\n  if\(state&&!\$\('#gameScreen'\)\.hidden\)save\(\);/, 'retour à l’accueil : la partie est écrite (bug trouvé en V17.7)');

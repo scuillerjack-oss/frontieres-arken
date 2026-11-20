@@ -141,7 +141,7 @@ le test fermé. Reprise par la V17.7 ci-dessous (monétisation codée).
 
 Ce qui est maintenant dans le jeu (en bêta : **emplacements de test et achats de test gratuits, rien de payant n'est activé**) :
 - **Pub récompensée 🎁** : petite icône sur le bord gauche de la carte, 5 à 10 min de jeu après la précédente (minutes où le
-  temps tourne, pauses exclues), qui reste tant qu'on ne l'a pas touchée ; vue en entier = **un mois de revenus (10 or
+  temps tourne, pauses exclues), qui reste tant qu'on ne l'a pas regardée en entier ; vue en entier = **un mois de revenus (10 or
   minimum)**. Disponible aussi pour les Premium.
 - **Pub imposée** : au plus **une toutes les 10 min de jeu**, et seulement à un moment calme (⏸, ouverture d'un menu hors
   jeu, retour à l'accueil, retour dans le jeu) ; jamais pendant une action, jamais dans le tutoriel, jamais pour un Premium,

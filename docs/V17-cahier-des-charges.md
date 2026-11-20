@@ -1254,8 +1254,9 @@ achats de test gratuits, `play-config.js` inchangé) :
   (jamais au milieu), qui apparaît **5 à 10 min de jeu** après la précédente et **reste tant qu'on ne l'a pas touchée**.
   La toucher : courte confirmation (« Plus tard » la garde), puis la pub ; **le temps est arrêté pendant la pub** ; vue en
   entier = **un mois de revenus** (revenu par tour ÷ 2, arrondi au multiple de 5 supérieur, **10 or minimum**) versé au
-  trésor ; puis nouveau délai de 5 à 10 min. Fermée avant la fin : pas de bonus, refus (plus de pub imposée jusqu'au
-  prochain lancement). Pub indisponible : l'icône reste. Jamais dans le tutoriel ; proposée aussi aux Premium.
+  trésor ; puis nouveau délai de 5 à 10 min. **Demande de Jack : l'icône ne disparaît pas tant qu'elle n'a pas été
+  regardée** : « Plus tard », pub fermée avant la fin (pas de bonus, refus : plus de pub imposée jusqu'au prochain
+  lancement) ou pub indisponible → l'icône reste, sans nouveau délai. Seule une pub vue en entier relance le délai. Jamais dans le tutoriel ; proposée aussi aux Premium.
 - **Pub imposée** (`showForcedAd`, décision `forcedAdCheck`) : au plus **une toutes les 10 min de jeu**, seulement à un
   **moment calme** : ⏸, ouverture d'un menu hors jeu (Réglages, Aide, Atouts, Palmarès — jamais l'écran Premium ni la fin),
   retour à l'accueil, retour dans le jeu (partie reprise, appli revenue au premier plan). **Jamais** pendant une action
@@ -1301,7 +1302,7 @@ un Premium voit encore la 🎁 (voulu : c'est un choix) ; les textes de l'écran
    (le profil n'a pas de graine ; même effet : délais déterministes et non rejouables).
 2. Fiche de province ouverte : pas considérée comme une action (consulter n'est pas agir) ; la fenêtre d'ordre l'est.
 3. Retour au menu et retour dans le jeu sont aussi des moments calmes (liste du §10.2) ; ouvrir l'écran Premium ne l'est jamais.
-4. Pub 🎁 fermée avant la fin : l'icône disparaît aussi (nouveau délai), pour ne pas reproposer tout de suite une pub refusée.
+4. Pub 🎁 fermée avant la fin ou « Plus tard » : l'icône reste (demande de Jack, 20/11/2026) ; seule une pub vue en entier relance le délai.
 5. Non vérifié : vraie pub AdMob et vrai achat Google Play (rien n'est activé : ce sera le test interne de la V17.10, avec
    le produit `premium` à créer dans la Play Console) ; refus d'une pub 🎁 seulement par les tests (l'emplacement de test
    se ferme seul).

@@ -5,7 +5,7 @@
 // arrière-plan exclus). En ×2 (Premium), une minute reste une minute.
 //
 // - Pub récompensée (🎁) : disponible 5 à 10 min de jeu après la précédente (tirage à graine), elle reste disponible tant
-//   que le joueur ne l'a pas touchée. Récompense = un mois de revenus (revenu par tour ÷ 2, arrondi au multiple de 5
+//   que le joueur ne l'a pas regardée en entier (« Plus tard » ou pub fermée avant la fin : elle reste). Récompense = un mois de revenus (revenu par tour ÷ 2, arrondi au multiple de 5
 //   supérieur, au moins 10 or). La regarder remet à zéro le compteur de pub imposée.
 // - Pub imposée : au plus une toutes les 10 min de jeu, et seulement à un MOMENT CALME (pause, menu hors jeu, retour au
 //   menu, retour dans le jeu). Jamais pendant une action, jamais dans le tutoriel, jamais pour un Premium, jamais après
@@ -83,11 +83,12 @@ export function giftAvailable(t, { tutorial = false, gameOver = false } = {}) {
 /** Minutes de jeu avant la prochaine icône (0 si elle est là). */
 export const giftInMs = t => Math.max(0, t.giftAtMs - t.playMs);
 /**
- * Pub 🎁 terminée. `rewarded` : vue en entier (récompense versée par l'interface) ; sinon fermée avant la fin. Dans les
- * deux cas l'icône disparaît et la suivante revient 5 à 10 min de jeu plus tard ; vue en entier, elle remet à zéro le
- * compteur de pub imposée (le joueur qui choisit ses pubs n'en subit pas d'autres).
+ * Pub 🎁 terminée. `rewarded` : vue en entier (récompense versée par l'interface) : l'icône disparaît, la suivante revient
+ * 5 à 10 min de jeu plus tard, et le compteur de pub imposée repart de zéro (le joueur qui choisit ses pubs n'en subit
+ * pas d'autres). Fermée avant la fin (ou « Plus tard ») : RIEN ne change, l'icône reste disponible (demande de Jack).
  */
 export function giftUsed(t, { rewarded }) {
+  if (!rewarded) return t;
   t.gifts++;
   t.giftAtMs = t.playMs + giftDelayMs(t.seed, t.gifts);
   if (rewarded) t.lastForcedMs = t.playMs;
