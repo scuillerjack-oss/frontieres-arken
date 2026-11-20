@@ -306,9 +306,9 @@ test('V17.2 : fireFactor — 1 par défaut (rien ne change), 0,7 = 70 % des dég
   assert.ok(hungry.defenderHpLost < fed.defenderHpLost); assert.ok(Math.abs(hungry.defenderHpLost - .7 * fed.defenderHpLost) <= 2);
   const dh = resolveBattle({ defender: def, attackers: [{ id: 'a', force: att }], passes: 1, defenderFireFactor: .7 });
   assert.ok(dh.attackers[0].hpLost < fed.attackers[0].hpLost);
-  const rc = resolveCombat({ attacker: att, defender: def, attackerFireFactor: .7, passes: 1 });
+  const rc = resolveCombat({ attacker: att, defender: def, fireFactor: .7, passes: 1 });
   assert.equal(rc.defenderHpLost, hungry.defenderHpLost);
-  assert.equal(awaitImport.fireFactorOf(game(), ME), 1, 'point de branchement de la famine (V17.4)');
+  assert.equal(awaitImport.fireFactorFor(game(), ME), 1, 'point de branchement de la famine (V17.4)');
 });
 
 test('V17.2 : sauvegarde en pleine bataille — reprise identique jour par jour', () => {

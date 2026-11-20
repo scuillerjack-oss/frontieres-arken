@@ -36,7 +36,7 @@ const writeEntry = (e, force) => Object.assign(e, toLegacy(force));
  * Facteur de tir d'une nation dans une bataille (1 = normal). V17.4 (famine) le branche ici : 0,7 pour une nation affamée
  * (RULES.realtime.food.famineFireFactor). Rien d'autre à changer : il est transmis à resolveBattle par camp.
  */
-export const fireFactorOf = (state, nationId) => 1; // eslint-disable-line no-unused-vars
+export const fireFactorFor = (state, nationId) => 1; // eslint-disable-line no-unused-vars
 
 /** Bataille en cours dans une province (ou null). */
 export const battleAt = (state, provinceId) => (state.battles || []).find(b => b.provinceId === provinceId) || null;
@@ -176,8 +176,8 @@ function accumulate(state, b, ctx) {
 function assault(state, map, b, fought, day) {
   const target = state.provinces[b.provinceId];
   const groups = b.attackers.filter(e => !isEmpty(entryForce(e))).map(e => ({ nationId: e.nationId, force: entryForce(e), originIds: e.originIds, retreatTo: e.retreatTo, mode: e.mode,
-    fireFactor: fireFactorOf(state, e.nationId), fresh: e.fresh !== false, entry: e }));
-  const ctx = fightAssault(state, b.provinceId, groups, fought, { passes: 1, strike: g => g.fresh, defenderFireFactor: target.ownerId ? fireFactorOf(state, target.ownerId) : 1 });
+    fireFactor: fireFactorFor(state, e.nationId), fresh: e.fresh !== false, entry: e }));
+  const ctx = fightAssault(state, b.provinceId, groups, fought, { passes: 1, strike: g => g.fresh, defenderFireFactor: target.ownerId ? fireFactorFor(state, target.ownerId) : 1 });
   if (!ctx) { endBattle(state, b); return; }
   for (const e of b.attackers) e.fresh = false;
   ctx.res.attackers.forEach((a, i) => writeEntry(ctx.groups[i].entry, a.force));
