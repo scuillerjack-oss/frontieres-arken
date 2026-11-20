@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const slower = { buildings: { fort: 90 }, units: { armor: 80, artillery: 80, warship: 120 } }; // forteresse +50 %, blindés / artillerie / navires +33 %
 const trip = (land, cav, perSea) => ({ land, cavalryLand: cav, landPerSeaTurn: perSea, interceptDaysLeft: perSea });
+const rythme15 = { recruit: 30, ship: 30, landing: 15, attack: 15 };
 const dist = { landDistance: { reference: 245, min: .75, max: 1.5 } }; // « plus c'est loin, plus c'est long » (distance des repères)
 export const ESSAIS = {
   'base-30j': {},
@@ -22,7 +23,15 @@ export const ESSAIS = {
   'voisin-15j-lent': { durations: { ...trip(15, 10, 15), ...slower } },
   'voisin-20j-lent-distance': { durations: { ...trip(20, 13, 20), ...slower, ...dist } },
   'voisin-15j-lent-distance': { durations: { ...trip(15, 10, 15), ...slower, ...dist } },
-  'voisin-20j-distance': { durations: { ...trip(20, 13, 20), ...dist } }
+  'voisin-20j-distance': { durations: { ...trip(20, 13, 20), ...dist } },
+  'voisin-15j-distance': { durations: { ...trip(15, 10, 15), ...dist } },
+  // Rythme de l'IA : débarquements et attaques terrestres tous les 15 jours (au lieu de 30) ; marge d'attaque plus basse.
+  'voisin-15j-rythme15': { durations: trip(15, 10, 15), ai: { pace: rythme15 } },
+  'voisin-20j-rythme15': { durations: trip(20, 13, 20), ai: { pace: rythme15 } },
+  'voisin-20j-rythme15-lent': { durations: { ...trip(20, 13, 20), ...slower }, ai: { pace: rythme15 } },
+  'voisin-15j-rythme15-marge': { durations: trip(15, 10, 15), ai: { pace: rythme15, marginAdd: -.2 } },
+  // Pour information (changerait une règle du cahier, décision de Jack) : 2 assauts au lieu de 3.
+  'voisin-15j-2assauts': { durations: trip(15, 10, 15), battle: { assaults: 2, maxDays: 3 } }
 };
 
 const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) && a[k] && typeof a[k] === 'object' ? merge({ ...a[k] }, v) : v; return a; };
@@ -55,6 +64,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2), plain = args.filter(a => !a.startsWith('--')), short = args.includes('--courte');
   const [parties = 100, prefixe = 'v175b', list] = plain;
   const names = list ? list.split(',') : Object.keys(ESSAIS);
+  for (const n of names) if (!ESSAIS[n]) throw new Error(`essai inconnu : ${n}`);
   const outFile = join(ROOT, 'tools', 'v17', `resultats-v17.5b-essais${short ? '-courtes' : ''}.json`);
   const results = existsSync(outFile) ? JSON.parse(readFileSync(outFile, 'utf8')) : {};
   const dirs = Object.fromEntries(names.map(n => [n, prepare(n, ESSAIS[n])])); // copies faites d'abord : le code peut changer pendant les essais
