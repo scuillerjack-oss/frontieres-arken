@@ -12,6 +12,7 @@ import { bombardSummary } from '../bombard-view.js';
 import { balloonOrderText } from '../balloon-view.js';
 import { showBalloonPopups } from './balloon-ui.js';
 import { endStoryHtml } from '../end-view.js';
+import { RANKING_RULE, endDurationHtml, finalRankingHtml, periodLabel, rankText, realtimeEndKicker, realtimeEndWhy, revealedCharactersHtml } from '../ranking-view.js';
 import { endTitlesHtml, palmaresHtml } from '../palmares-view.js';
 import { TUTORIAL_GUIDE, sanitizeJournalEntry } from '../guide-input.js';
 import { journalCategoryClass } from '../map-orders-view.js';
@@ -58,6 +59,7 @@ export function showEndScreen(){
   const record=recordFinishedGame(profile,state);if(record.counted)saveMyProfile();
   const me=state.playerNationId,mine=go.ranking.find(r=>r.nationId===me),won=go.winnerId===me;
   const title=go.reason==='player-eliminated'?'Défaite':won?'Victoire !':'Fin de la partie';
+  if(state.mode==='realtime'&&go.scoring==='points')return showRealtimeEnd(go,record,{me,mine,won,title});
   const rt=state.mode==='realtime'&&Number.isFinite(go.day); // V17.1 : la date à la place du tour
   const why=go.reason==='capitals'?`${nation(go.winnerId).name} tient les cinq capitales.`:go.reason==='player-eliminated'?`${nation(me).name} n’a plus aucune province.`:rt?`Le temps est écoulé : nous sommes le ${formatDate(go.day)}.`:`Les ${go.turn} tours sont écoulés.`;
   $('#endKicker').textContent=`${rt?formatDate(go.day).toUpperCase():`TOUR ${go.turn}`} · ${go.reason==='capitals'?'VICTOIRE ANTICIPÉE':go.reason==='player-eliminated'?'NATION ÉLIMINÉE':rt?'FIN DE LA PARTIE':`FIN DES ${go.turn} TOURS`}`;
@@ -65,6 +67,20 @@ export function showEndScreen(){
   $('#endBody').innerHTML=`<p class="end-why">${why} ${go.reason==='player-eliminated'?'':won?'Votre nation termine première.':`Votre nation termine ${mine?.rank===1?'1re':`${mine?.rank}e`} sur ${go.ranking.length}.`} ${levelSummary()}</p>\
 ${endTitlesHtml(record.titles)}${endStoryHtml(safeEndStory())}`;$('#endDialog').scrollTop=0;
   $('#endDialog').showModal();return true;
+}
+/**
+ * V17.8 : écran de fin du temps réel (cahier V17 §9) : date de fin, durée de jeu, classement final à points (détail de
+ * chaque nation : tout est révélé), caractères des dirigeants, titres obtenus, récit daté au mois. Le temps est arrêté.
+ */
+function showRealtimeEnd(go,record,{me,mine,won,title}){
+  const story=safeEndStory(),name=id=>nation(id).name;
+  const conquest=go.reason==='capitals'||go.reason==='last-nation';
+  $('#endKicker').textContent=realtimeEndKicker(go);$('#endTitle').textContent=title;
+  $('#endDialog').dataset.result=go.reason==='player-eliminated'||!won&&conquest?'defeat':won?'victory':'end';
+  const place=go.reason==='player-eliminated'?'':won?`Votre nation termine première avec ${mine.score} points.`:`Votre nation termine ${rankText(mine?.rank||go.ranking.length)} sur ${go.ranking.length} avec ${mine?.score||0} points ; ${nation(go.winnerId).short} gagne avec ${go.ranking[0].score} points.`;
+  $('#endBody').innerHTML=`<p class="end-why">${realtimeEndWhy(go,{me,name})} ${place} ${levelSummary()}</p>${endDurationHtml(go,state.rt?.playMs)}\
+${endTitlesHtml(record.titles)}${finalRankingHtml(go,{me,nations:map.nations})}${revealedCharactersHtml(story?.nations)}${endStoryHtml(story,{when:periodLabel,realtime:true,rule:`Classement à points : ${RANKING_RULE}`})}`;
+  $('#endDialog').scrollTop=0;$('#endDialog').showModal();return true;
 }
 /** V16.4 : le déroulé en direct s'applique-t-il à cette partie ? (jamais en tutoriel ni pendant le mini tuto) */
 export const liveOn=()=>Boolean(state)&&state.mode!=='realtime'&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});

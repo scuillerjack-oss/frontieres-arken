@@ -685,3 +685,26 @@ body:has(#coalitionBtn:not([hidden])) .gift-btn{top:150px}
 .premium-pack small{display:block;color:#d8cfb6;font-size:.76rem}
 .premium-pack .buy-test{margin-top:0;min-height:44px;font-size:.82rem;padding:4px 10px}
 #premiumDialog .kicker .test-badge{margin-left:4px}
+/* V17.8 — Classement à points (🏆), paix générale, fin de partie du temps réel */
+#rankBtn{display:none}
+body.rt-on #rankBtn{display:flex;flex:1;color:#ffe9b8;background:#123142;border:1.5px solid #8c7449;gap:6px;padding:6px 6px;font-size:.95rem}
+body.rt-on #rankBtn span{font-size:.9rem}body.rt-on #rankBtn i{font-size:1.25rem}
+#rankDialog section,#peaceDialog section{max-width:min(560px,100%)}
+.rank-when,.rank-rule{font-size:.74rem;color:#a8bbc4;margin:4px 0}
+.rank-list{list-style:none;margin:6px 0;padding:0}
+.rank-row{padding:7px 4px;border-bottom:1px solid #1d3644}
+.rank-row.me{background:#14384a}.rank-row.out{opacity:.65}
+.rank-line{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:center}
+.rank-pos{font:700 1rem Georgia,serif;color:var(--gold);text-align:center}
+.rank-name{min-width:0;overflow-wrap:anywhere}.rank-name i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--nation);margin-right:6px}
+.rank-name small{font-weight:400;color:#a8bbc4}
+.rank-score{font-weight:800;white-space:nowrap}
+.rank-detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px 12px;margin:6px 0 0 30px;font-size:.76rem}
+.rank-detail div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dotted #2a4656}
+.rank-detail dt{color:#cfdbe0}.rank-detail dt small{color:#8fa5af}.rank-detail dd{margin:0;font-weight:700}
+.rank-secret{margin:4px 0 0 30px;font-size:.72rem;color:#8fa5af}
+.rank-list.compact .rank-row{padding:4px}
+.peace-verdict{font-weight:700;color:#ffe9b8}
+.end-duration{font-size:.82rem;color:#cfdbe0;margin:4px 0}
+.end-ranking .rank-detail{margin-left:30px}
+.end-characters small{color:#a8bbc4}

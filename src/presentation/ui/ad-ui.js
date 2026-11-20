@@ -22,7 +22,7 @@ import { moveSource, profile, save, state } from './session.js';
 import { miniStep, tutoStep } from './tutorials.js';
 
 const KEY = 'frontieres-arken-pub';
-const ACTION_DIALOGS = ['#actionDialog', '#eventDialog', '#nationDialog', '#replaceSaveDialog', '#endDialog', '#premiumDialog'];
+const ACTION_DIALOGS = ['#actionDialog', '#eventDialog', '#nationDialog', '#replaceSaveDialog', '#endDialog', '#premiumDialog', '#peaceDialog']; // V17.8 : paix générale
 let timer = null, busy = false, wasOn = false, leftTutorial = false, lastSaved = -1, lastGift = '';
 const speedup = (() => { try { const v = Number(new URLSearchParams(globalThis.location?.search || '').get('pub-test')); return v > 0 ? Math.min(v, 600) : 1; } catch { return 1; } })();
 

@@ -42,6 +42,9 @@ export {
 } from './realtime/clock.js';
 export { landTravelDays, recallConvoy, recallMarch } from './realtime/marches.js';
 export { createRealtimeGame } from './realtime/create.js';
+// V17.8 : fin de partie et classement à points du temps réel.
+export { famineTotal, nationScore, nextRankingDay, noFamineDays, rankingSnapshot, realtimeRanking, refreshRanking, troopGold } from './realtime/ranking.js';
+export { aliveNations, allAllied, answerPeaceOffer, combatBetweenAlive, dailyEnd, endRealtimeGame, peaceDays, peaceOfferPending } from './realtime/end.js';
 export { FARM_IN_PROGRESS, FARM_REALTIME_ONLY } from './engine/orders.js';
 export {
   aiFarmOrders, dailyFood, desertion, farmCost, farmLevel, fireFactorFor, foodConsumption, foodOf, foodProduction, foodStatus,
