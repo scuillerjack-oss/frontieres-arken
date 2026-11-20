@@ -36,7 +36,7 @@ const queueItemCost = q => Number.isFinite(q.cost) ? q.cost : q.kind === 'buildi
   : Math.round((RULES.units[q.type]?.cost || 0) * (q.amount || 0) / (RULES.units[q.type]?.amount || 1));
 
 /** Province qui change de main : production annulée et remboursée (B4), pillage de capitale (V10). */
-function onCapture(state, provinceId, newOwner, oldOwner) {
+export function onCapture(state, provinceId, newOwner, oldOwner) {
   const capital = state.nations[oldOwner]?.capitalId === provinceId;
   if (capital) {
     let chest = 0;
@@ -63,15 +63,32 @@ export function refundProduction(state, q, provinceId) {
 
 /**
  * Un affrontement dans une province : tous les groupes attaquants (une entrée par nation) contre la garnison.
- * groups : [{ nationId, force, originIds:[...], mode:'land'|'landing', retreatTo:[...] }]
+ * groups : [{ nationId, force, originIds:[...], mode:'land'|'landing', retreatTo:[...], fireFactor? }]
  * Renvoie la liste des replis (survivants des attaquants non vainqueurs), appliqués par l'appelant.
+ * V17.2 : composé de fightAssault (l'issue de l'assaut), fightEvent (le récit) et onCapture (la prise), réutilisés par
+ * le temps réel (src/domain/realtime/battles.js : une bataille en 3 assauts d'une passe).
  */
 export function fight(state, toId, groups, fought, { naval = false } = {}) {
+  const ctx = fightAssault(state, toId, groups, fought);
+  if (!ctx) return [];
+  state.events.push(fightEvent(state, toId, ctx, { naval }));
+  if (ctx.res.captured) onCapture(state, toId, ctx.res.winnerId, ctx.defender);
+  return ctx.retreats;
+}
+/**
+ * V17.2 — L'issue d'un assaut, sans récit ni prise comptable (pillage, productions) : guerre et agression (groupes pour
+ * lesquels `strike(g)` est vrai : au tour par tour tous, en temps réel ceux qui arrivent), alliés stationnés en défense,
+ * resolveBattle (`passes` : 3 au tour par tour, 1 par assaut en temps réel), survivants écrits (garnison, alliés au prorata,
+ * vainqueur et co-propriétaire de l'île), mémoire de la garnison. `defenderFireFactor` / `g.fireFactor` : famine (par défaut
+ * fireFactorFor de la V17.4).
+ * Renvoie le contexte de l'issue (null sans attaquant).
+ */
+export function fightAssault(state, toId, groups, fought, { passes, strike = () => true, defenderFireFactor } = {}) {
   const target = state.provinces[toId], defender = target.ownerId;
   groups = groups.filter(g => g.nationId !== defender && !isEmptyForce(g.force)).sort((a, b) => a.nationId.localeCompare(b.nationId));
-  if (!groups.length) return [];
+  if (!groups.length) return null;
   // V16.2 : une province neutre (l'île mystérieuse) n'a pas de nation : ni guerre ni agression contre personne.
-  if (defender) for (const g of groups) { ensureWar(state, g.nationId, defender); recordStrike(state, g.nationId, defender); }
+  if (defender) for (const g of groups) if (strike(g)) { ensureWar(state, g.nationId, defender); recordStrike(state, g.nationId, defender); }
   // V13.4 : les troupes alliées stationnées défendent la province avec la garnison (sauf contre leur propre allié).
   // V14.1 : deux alliés ne se combattent jamais — un contingent allié d'un des assaillants reste à l'écart ; une nation
   // éliminée (ancienne sauvegarde) ne défend plus.
@@ -82,8 +99,8 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
   const own = provinceForce(target);
   const before = guests.reduce((f, e) => mergeForce(f, legacyForce(e)), own);
   const breach = fortBreach(state, toId); // V14.4 : forteresse bombardée (ce tour ou avant, pas encore réparée)
-  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode, warshipFactor: navalBonusFactor(state, g.nationId), fireFactor: fireFactorFor(state, g.nationId) })), fortLevel: target.buildings.fort || 0,
-    fortBonus: fortBonusFactor(state, defender), defenderWarshipFactor: navalBonusFactor(state, defender), fortBreach: breach, defenderFireFactor: fireFactorFor(state, defender) });
+  const res = resolveBattle({ defender: before, attackers: groups.map(g => ({ id: g.nationId, force: g.force, mode: g.mode, warshipFactor: navalBonusFactor(state, g.nationId), fireFactor: g.fireFactor ?? fireFactorFor(state, g.nationId) })), fortLevel: target.buildings.fort || 0,
+    fortBonus: fortBonusFactor(state, defender), defenderWarshipFactor: navalBonusFactor(state, defender), fortBreach: breach, passes, defenderFireFactor: defenderFireFactor ?? fireFactorFor(state, defender) });
   fought.add(toId);
   // V14.1 : un assaillant repoussé a vu la garnison ; il s'en souvient (l'IA ne retente pas un débarquement suicide).
   if (!res.captured) for (const g of groups) rememberGarrison(state, g.nationId, toId, before);
@@ -94,7 +111,7 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
     ? [...res.attackers].filter(a => a.id !== res.winnerId && pairTreaty(state, a.id, res.winnerId, 'alliance')).sort((x, y) => totalHp(y.force) - totalHp(x.force) || x.id.localeCompare(y.id))[0] || null
     : null;
   const retreats = [];
-  res.attackers.forEach((a, i) => { if (a.id !== res.winnerId && a !== partner && !isEmptyForce(a.force)) retreats.push({ nationId: a.id, force: a.force, to: groups[i].retreatTo || groups[i].originIds }); });
+  res.attackers.forEach((a, i) => { if (a.id !== res.winnerId && a !== partner && !isEmptyForce(a.force)) retreats.push({ nationId: a.id, force: a.force, to: groups[i].retreatTo || groups[i].originIds, group: groups[i] }); });
   const guestLosses = {}, guestHpLost = {};
   if (res.captured) {
     for (const e of guests) { guestLosses[e.nationId] = Object.fromEntries(COMBAT_TYPES.map(k => [k, legacyForce(e).units[k]])); guestHpLost[e.nationId] = totalHp(legacyForce(e)); setStationedForce(state, e.nationId, toId, normalizeForce({})); }
@@ -117,8 +134,16 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
   } else writeProvinceForce(target, res.defender);
   // V13.4 : pertes du propriétaire = pertes totales de la garnison moins celles des renforts alliés.
   const ownLosses = Object.fromEntries(COMBAT_TYPES.map(k => [k, Math.max(0, (res.defenderLossesByType[k] || 0) - Object.values(guestLosses).reduce((n, l) => n + (l[k] || 0), 0))]));
+  return { target, defender, groups, guests, own, before, breach, res, partner, retreats, guestLosses, guestHpLost, ownLosses };
+}
+/**
+ * Récit d'un affrontement (événement 'battle' ou 'conquest') à partir du contexte de fightAssault. `totals` (temps réel)
+ * remplace les chiffres d'un assaut par ceux de toute la bataille (pertes, forces engagées, PV perdus, nations).
+ */
+export function fightEvent(state, toId, ctx, { naval = false, totals = null } = {}) {
+  const { target, defender, groups, guests, own, breach, res, guestLosses, guestHpLost, ownLosses } = ctx;
   const primary = res.winnerId || [...res.attackers].sort((x, y) => totalHp(y.force) - totalHp(x.force) || x.id.localeCompare(y.id))[0].id;
-  state.events.push({
+  const event = {
     turn: state.turn, type: res.captured ? 'conquest' : 'battle', attacker: primary, attackers: groups.map(g => g.nationId), defender,
     ...(res.captured ? { newOwnerId: res.winnerId } : {}), provinceId: toId, originIds: groups.flatMap(g => g.originIds), naval: groups.some(g => g.mode === 'landing') || naval,
     attackerLosses: res.attackers.reduce((n, a) => n + lossCount(a.lossesByType), 0), defenderLosses: lossCount(res.defenderLossesByType),
@@ -133,9 +158,9 @@ export function fight(state, toId, groups, fought, { naval = false } = {}) {
     ...(guests.length ? { guests: guests.map(e => e.nationId), guestLosses } : {}),
     // V16.2 : toute attaque contre l'île mystérieuse est publique, chiffres compris (morts de chaque camp, troupes restantes).
     ...(isMysteryIsland(toId) ? { mystery: { left: unitCount(provinceForce(target)) + guestsAt(state, toId).reduce((n, e) => n + unitCount(legacyForce(e)), 0), ...(res.captured && target.coOwnerId ? { coOwnerId: target.coOwnerId } : {}) } } : {})
-  });
-  if (res.captured) onCapture(state, toId, res.winnerId, defender);
-  return retreats;
+  };
+  if (totals) Object.assign(event, totals);
+  return event;
 }
 /** Repli : les survivants d'une attaque non victorieuse rentrent dans la 1re province d'origine encore à eux ; sinon perdus. */
 function applyRetreats(state, retreats) {

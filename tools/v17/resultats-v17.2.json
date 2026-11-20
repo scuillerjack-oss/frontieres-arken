@@ -1,0 +1,214 @@
+{
+ "avant_V17_1": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 378.7,
+  "conquetesParPartie": 28.6,
+  "conquetesParQuart": [
+   8.4,
+   5.9,
+   8.2,
+   6.1
+  ],
+  "nationsElimineesParPartie": 0.7,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3947,
+   "p90": 5085,
+   "max": 7451
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 36,
+  "debarquementsParPartie": 12.7,
+  "rencontresEnCheminParPartie": 0.17,
+  "interceptionsParPartie": 1.47,
+  "marchesParPartie": 108.7,
+  "convoisParPartie": 40.2,
+  "msParJour": {
+   "mediane": 0.09,
+   "p99": 6.66,
+   "max": 467.1
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.74,
+   "p90": 2.72,
+   "max": 467.1
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "apres_V17_2": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 235,
+  "conquetesParPartie": 25.6,
+  "conquetesParQuart": [
+   7.8,
+   5.2,
+   7.8,
+   4.8
+  ],
+  "nationsElimineesParPartie": 0.71,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3930,
+   "p90": 5176,
+   "max": 6700
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 34.8,
+  "debarquementsParPartie": 12.8,
+  "rencontresEnCheminParPartie": 0.11,
+  "assautsParPartie": 65.4,
+  "renfortsEnBatailleParPartie": 0.07,
+  "replisParPartie": 4.4,
+  "batailleFinieAuAssaut": [
+   12.8,
+   11.6,
+   9.5
+  ],
+  "bombardementsParPartie": 2.04,
+  "interceptionsParPartie": 1.98,
+  "marchesParPartie": 117.2,
+  "convoisParPartie": 42.1,
+  "msParJour": {
+   "mediane": 0.11,
+   "p99": 2.31,
+   "max": 110.8
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.69,
+   "p90": 1.5,
+   "max": 110.8
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "apres_V17_2_courte": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": true,
+  "jours": 2557,
+  "dureeTotaleS": 116.4,
+  "conquetesParPartie": 14.1,
+  "conquetesParQuart": [
+   4.6,
+   2.7,
+   3.4,
+   3.4
+  ],
+  "nationsElimineesParPartie": 0.23,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2016,
+   "p90": 2186,
+   "max": 2426
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 19.7,
+  "debarquementsParPartie": 7.8,
+  "rencontresEnCheminParPartie": 0.05,
+  "assautsParPartie": 35.6,
+  "renfortsEnBatailleParPartie": 0,
+  "replisParPartie": 2.5,
+  "batailleFinieAuAssaut": [
+   7.9,
+   6.8,
+   4.5
+  ],
+  "bombardementsParPartie": 8.77,
+  "interceptionsParPartie": 0.91,
+  "marchesParPartie": 58.6,
+  "convoisParPartie": 21.2,
+  "msParJour": {
+   "mediane": 0.22,
+   "p99": 2.27,
+   "max": 31.7
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.72,
+   "p90": 1.53,
+   "max": 31.7
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "apres_rebase_V17_4": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 301.2,
+  "conquetesParPartie": 24.3,
+  "conquetesParQuart": [
+   6.5,
+   4.8,
+   7.3,
+   5.7
+  ],
+  "nationsElimineesParPartie": 0.72,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3464,
+   "p90": 4406,
+   "max": 6514
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 33.2,
+  "debarquementsParPartie": 12.3,
+  "rencontresEnCheminParPartie": 0.18,
+  "assautsParPartie": 61.6,
+  "renfortsEnBatailleParPartie": 0.13,
+  "replisParPartie": 4.3,
+  "batailleFinieAuAssaut": [
+   12.9,
+   10.4,
+   9
+  ],
+  "bombardementsParPartie": 2.42,
+  "interceptionsParPartie": 1.46,
+  "marchesParPartie": 106.9,
+  "convoisParPartie": 37.7,
+  "msParJour": {
+   "mediane": 0.22,
+   "p99": 2.86,
+   "max": 173.4
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.81,
+   "p90": 1.72,
+   "max": 173.4
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 12,
+    "p90": 16,
+    "max": 29
+   },
+   "fermesParProvince": {
+    "mediane": 2.22,
+    "p90": 3.75,
+    "max": 4.25
+   },
+   "partOrFermes": {
+    "mediane": 7.4,
+    "p90": 12.1
+   },
+   "nationsAvecFamine": "23 sur 500",
+   "tauxFamine": 4.6,
+   "joursDeFamine": {
+    "mediane": 39,
+    "p90": 59,
+    "max": 162
+   },
+   "plusLongueFamine": 162,
+   "deserteursParNationAffamee": 98.3
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ }
+}

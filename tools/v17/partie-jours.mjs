@@ -30,6 +30,7 @@ export function armyGoldByNation(s) {
   for (const e of s.stationed || []) add(e.nationId, e.units, e.warships);
   for (const t of s.transports || []) add(t.nationId, t.units, t.warships);
   for (const m of s.marches || []) add(m.nationId, m.units, m.warships);
+  for (const b of s.battles || []) for (const e of b.attackers || []) add(e.nationId, e.units, e.warships); // V17.2 : à l'assaut
   return out;
 }
 
@@ -38,7 +39,7 @@ export function playGame(seed, { short = false, nation = NATIONS[0] } = {}) {
   for (const id of NATIONS) s.controllers[id] = 'ai';
   const days = gameDaysOf(s), quarter = Math.ceil(days / 4);
   const seen = new Set(), spent = Object.fromEntries(NATIONS.map(id => [id, { all: 0, farm: 0 }])), famine = Object.fromEntries(NATIONS.map(id => [id, { days: 0, longest: 0, run: 0, deserted: 0 }]));
-  const r = { conquestsByQuarter: [0, 0, 0, 0], battles: 0, fieldBattles: 0, interceptions: 0, landings: 0, marches: 0, convoys: 0, dayMs: [], aiMs: [] };
+  const r = { conquestsByQuarter: [0, 0, 0, 0], battles: 0, assaults: 0, reinforced: 0, retreats: 0, bombardTicks: 0, assaultsByBattle: [0, 0, 0], fieldBattles: 0, interceptions: 0, landings: 0, marches: 0, convoys: 0, dayMs: [], aiMs: [] };
   while (!s.gameOver) {
     const day = s.day, before = Object.fromEntries(Object.entries(s.provinces).map(([id, p]) => [id, p.ownerId])), ev = s.events.length;
     const decider = aiNationOfDay(s, day);
@@ -50,6 +51,10 @@ export function playGame(seed, { short = false, nation = NATIONS[0] } = {}) {
     for (const e of s.events.slice(ev)) {
       if (e.type === 'battle' || e.type === 'conquest') { r.battles++; if (e.naval) r.landings++; }
       else if (e.type === 'field-battle') r.fieldBattles++;
+      else if (e.type === 'assault') { r.assaults++; if (e.over) r.assaultsByBattle[Math.min(2, e.assault - 1)]++; }
+      else if (e.type === 'battle-reinforced') r.reinforced++;
+      else if (e.type === 'battle-retreat') r.retreats++;
+      else if (e.type === 'bombardment') r.bombardTicks++;
       else if (e.type === 'interception') r.interceptions++;
       else if (e.type === 'march-departed') r.marches++;
       else if (e.type === 'convoy-departed' && !e.returning) r.convoys++;
@@ -82,6 +87,9 @@ export function run(parties, prefixe, { short = false } = {}) {
     plusGrandeArmeeFinaleOr: { mediane: median(all('biggestArmyGold')), p90: pct(all('biggestArmyGold'), .9), max: Math.max(...all('biggestArmyGold')) },
     victoiresParCapitales: games.filter(x => x.reason === 'capitals').length,
     combatsParPartie: round(mean(all('battles'))), debarquementsParPartie: round(mean(all('landings'))), rencontresEnCheminParPartie: round(mean(all('fieldBattles')), 2),
+    // V17.2 : assauts, renforts pendant une bataille, replis, batailles terminées au 1er / 2e / 3e assaut, tirs de bombardement.
+    assautsParPartie: round(mean(all('assaults'))), renfortsEnBatailleParPartie: round(mean(all('reinforced')), 2), replisParPartie: round(mean(all('retreats')), 1),
+    batailleFinieAuAssaut: [0, 1, 2].map(i => round(mean(games.map(x => x.assaultsByBattle[i])), 1)), bombardementsParPartie: round(mean(all('bombardTicks')), 2),
     interceptionsParPartie: round(mean(all('interceptions')), 2), marchesParPartie: round(mean(all('marches'))), convoisParPartie: round(mean(all('convoys'))),
     msParJour: { mediane: round(median(dayMs), 2), p99: round(pct(dayMs, .99), 2), max: round(dayMs.reduce((a, b) => Math.max(a, b), 0), 1) },
     msJourAvecDecisionIA: { mediane: round(median(aiMs), 2), p90: round(pct(aiMs, .9), 2), max: round(aiMs.reduce((a, b) => Math.max(a, b), 0), 1) },

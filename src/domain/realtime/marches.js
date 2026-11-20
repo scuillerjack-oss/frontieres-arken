@@ -8,10 +8,11 @@
 import { COMBAT_TYPES, legacyForce, mergeForce, normalizeForce, resolveCombat, toLegacy } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
-import { addToProvince, fight, lossCount, takeOrderForces, unitCount } from '../engine/battles.js';
+import { addToProvince, lossCount, takeOrderForces, unitCount } from '../engine/battles.js';
+import { besieged, joinBattle } from './battles.js';
 import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
-import { pairTreaty, pairWar } from '../engine/shared.js';
+import { departureDiplomacy, pairTreaty, pairWar } from '../engine/shared.js';
 import { fireFactorFor } from './food.js';
 
 const D = RULES.realtime.durations;
@@ -34,6 +35,7 @@ export function createMarch(state, { nationId, fromId, toId, force, startDay = s
   const m = {
     id: nextMarchId(state), kind: 'land', nationId, fromId, toId, ...legacy, startDay, arriveDay: startDay + days,
     targetOwner: owner, hostile: !returning && owner !== nationId && !hasPassage(state, nationId, owner), truces: trucesOf(state, nationId),
+    ...(returning ? {} : departureDiplomacy(state, nationId, owner)),
     ...(returning ? { returning: true } : {}), ...(passage ? { passage: true } : {}), ...(guest ? { guest: true } : {})
   };
   (state.marches ||= []).push(m);
@@ -49,6 +51,11 @@ export function departMoves(state, map, orders) {
     const owner = state.provinces[o.toId]?.ownerId, from = state.provinces[o.fromId];
     if (o.passage && o.routeType !== 'sea' && owner !== o.nationId && !hasPassage(state, o.nationId, owner)) {
       state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'passage-lost' });
+      continue;
+    }
+    // V17.2 : le défenseur ne peut pas quitter une province assiégée tant que la bataille dure (ses alliés stationnés non plus).
+    if (besieged(state, o.fromId, o.nationId)) {
+      state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'besieged', naval: o.routeType === 'sea' });
       continue;
     }
     const guestOk = o.guest && from && from.ownerId !== o.nationId && hasPassage(state, o.nationId, from.ownerId);
@@ -105,8 +112,8 @@ function arriveHome(state, m, force) {
   state.events.push({ turn: state.turn, type: 'retreat-lost', nationId: m.nationId, provinceId: m.toId, amount: unitCount(force) });
 }
 /**
- * Arrivées du jour : renfort chez soi, stationnement chez un allié, retour, ou combat (immédiat, 3 passes : provisoire
- * jusqu'à la V17.2). La cible est revérifiée à l'arrivée : passage perdu, trêve signée après le départ, province passée à
+ * Arrivées du jour : renfort chez soi, stationnement chez un allié, retour, ou bataille (V17.2 : realtime/battles.js,
+ * 3 assauts sur 6 jours ; les survivants d'une attaque repoussée rentrent par la route). La cible est revérifiée à l'arrivée : passage perdu, trêve signée après le départ, province passée à
  * une nation avec qui l'on n'est pas en guerre → demi-tour. Toutes les nations qui arrivent le même jour sur une province
  * combattent ensemble (B2). Les survivants d'une attaque repoussée rentrent par la route (30 jours).
  */
@@ -139,11 +146,8 @@ export function marchArrivals(state, map, fought, day = state.day) {
       if (!g.originIds.includes(m.fromId)) { g.originIds.push(m.fromId); g.retreatTo.push(m.fromId); }
       groups.set(m.nationId, g);
     }
-    if (!groups.size) continue;
-    for (const r of fight(state, toId, [...groups.values()], fought)) {
-      const m = groups.get(r.nationId).marches[0];
-      sendBack(state, m, r.force, day);
-    }
+    // V17.2 : une bataille en 3 assauts commence (ou les arrivants rejoignent celle en cours, au prochain assaut).
+    if (groups.size) joinBattle(state, toId, [...groups.values()], day);
   }
 }
 /**

@@ -53,6 +53,8 @@ function piles(state, nationId) {
   for (const e of state.stationed || []) if (e.nationId === nationId) out.push({ kind: 'stationed', rank: 1, provinceId: e.provinceId, ref: e, force: legacyForce(e) });
   for (const m of state.marches || []) if (m.nationId === nationId) out.push({ kind: 'march', rank: 2, provinceId: m.fromId, ref: m, force: legacyForce(m) });
   for (const t of state.transports || []) if (t.nationId === nationId) out.push({ kind: 'convoy', rank: 3, provinceId: t.fromId, ref: t, force: legacyForce(t) });
+  // V17.2 : les troupes à l'assaut d'une province mangent (et désertent) aussi ; une entrée vidée quitte la bataille au prochain assaut.
+  for (const b of state.battles || []) for (const e of b.attackers || []) if (e.nationId === nationId) out.push({ kind: 'battle', rank: 4, provinceId: b.provinceId, ref: e, force: legacyForce(e) });
   return out;
 }
 /** Consommation de la nation, en centièmes / jour. */

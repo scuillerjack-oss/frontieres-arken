@@ -28,7 +28,7 @@ import { recordStory } from '../story.js';
 import { aiTalk, pruneTalkPending } from '../talk.js';
 import { planAIOrders } from '../engine/ai.js';
 import { resolveBalloonFlights, resolveBalloonShots } from '../engine/balloons.js';
-import { repairForts, resolveBombardments } from '../engine/bombard.js';
+import { bombardTick, registerBombardOrders, repairForts, resolveBombardments } from '../engine/bombard.js';
 import { updateCoalition } from '../engine/coalition.js';
 import { resolveTransports, stampConvoy } from '../engine/convoys.js';
 import { PROPOSAL_TURNS, hostilityWar, resolveAllianceBreaks, resolveDiplomacy } from '../engine/diplomacy.js';
@@ -41,6 +41,7 @@ import { checkGameOver, publishTalkOrders, seededRandom } from '../engine/turn.j
 import { aiNationOfDay, endAlertDays, isPeriodEnd, isRealtime, nextAiDays, periodOfDay } from './clock.js';
 import { dailyFood } from './food.js';
 import { departMoves, marchArrivals, marchEncounters } from './marches.js';
+import { joinBattle, resolveBattles } from './battles.js';
 
 const R = RULES.realtime;
 const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
@@ -76,7 +77,9 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
   resolveBalloonShots(state, map, locked);
   resolveAllianceBreaks(state, locked);
   settleStationed(state, map);
-  const bombarded = resolveBombardments(state, map, locked, fought);
+  // V17.2 : « Bombarder » devient un ordre permanent, qui tire tous les 10 jours (bombardTick).
+  registerBombardOrders(state, locked);
+  const bombarded = resolveBombardments(state, map, [], fought);
   departMoves(state, map, locked);
   settleStationed(state, map);
   resolveDiplomacy(state, locked, random, map);
@@ -107,7 +110,6 @@ function dailyIncome(state) {
 /** Fin de période (tous les 30 jours) : ce que le tour par tour faisait une fois par tour, hors ordres et combats. */
 function periodEnd(state, map) {
   const rt = realtimeLedger(state), day = state.day;
-  healProvinces(state, recentSet(rt.fought, day, R.daysPerPeriod));
   repairForts(state, recentSet(rt.bombarded, day, R.daysPerPeriod));
   settleStationed(state, map);
   const balloonOrders = (state.orders || []).filter(o => o.kind === 'balloon-send');
@@ -151,10 +153,20 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   marchArrivals(state, map, fought, day);
   settleStationed(state, map);
   const before = new Set((state.transports || []).map(t => t.id));
-  resolveTransports(state, map, fought);
+  resolveTransports(state, map, fought, { onLanding: (toId, groups) => joinBattle(state, toId, groups, day) });
   for (const t of state.transports || []) if (!before.has(t.id)) stampConvoy(state, t, day + 1);
   settleStationed(state, map);
+  // 4) Assauts du jour (V17.2) : J, J+3, J+6 ; renforts arrivés entre-temps compris.
+  resolveBattles(state, map, fought, day);
+  settleStationed(state, map);
+  // 7a) Tous les 10 jours : bombardements permanents, puis guérison (pas dans une province en bataille, ni 10 jours après).
+  if (day % R.bombard.everyDays === 0) markDays(rt.bombarded, bombardTick(state, map, fought), day);
   markDays(rt.fought, fought, day);
+  if (day % R.recovery.healEveryDays === 0) {
+    const blocked = recentSet(rt.fought, day, R.battle.noHealDays);
+    for (const b of state.battles || []) blocked.add(b.provinceId);
+    healProvinces(state, blocked);
+  }
   // 5) Chantiers et recrutements.
   progressProjects(state);
   // 6) Revenus.
