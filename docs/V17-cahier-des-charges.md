@@ -722,3 +722,107 @@ Voir §10.4.
   `tools/v17/economie-v17.mjs` (rentabilité du temps réel), résultats dans `tools/v17/resultats-v17.0.json`.
 - `docs/RENTABILITE-ARKEN.md` : section « Projection V17 (temps réel) ».
 - Aucun fichier de `src/` modifié ; `npm test` vert.
+
+### V17.1 — Moteur en jours (19/11/2026)
+**Fait** (version 17.1.0, branche `mission/V17.1`) :
+- `src/domain/realtime/rules.js` : `RULES.realtime` (branché dans `constants.js`, gelé) = toutes les valeurs du cahier :
+  horloge (§1), date de départ, durées de partie en jours et en périodes, alertes de fin, conversions 30 / 60 jours,
+  durées d'action (§2.2), revenus par mois (§3), nourriture (§4), assauts (§5), guérison / bombardement en jours,
+  délais diplomatiques en jours, IA (§7), rythmes du monde, phases, vision, classement (§9.2), fins (§9.1), pubs et
+  Premium (§10), sauvegarde (§11). Les équipes suivantes n'ont qu'à les lire.
+- `realtime/clock.js` : jour ↔ date (calendrier grégorien calculé sans `Date`, bissextiles comprises), « 14 mars 2029 » /
+  « 14/03/2029 », période de 30 jours, longueur 5 479 / 2 557 jours (183 / 86 périodes), alertes de fin (jours 5 115 et
+  5 450 ; partie courte : 1er juillet 2033 et dernier mois), calendrier des décisions d'IA.
+- `realtime/day.js` : `advanceDay(state, map)` dans l'ordre du §12 ; `executePendingOrders` (ordres partis tout de suite,
+  appelé aussi par l'interface juste après un ordre du joueur, même en pause).
+- `realtime/marches.js` : départ immédiat, 30 jours par la terre (20 pour la cavalerie seule), rencontre en chemin (une fois,
+  sens opposés, somme des avancées ≥ trajet), arrivée revérifiée (passage perdu, trêve signée après le départ, cible passée à
+  un tiers → demi-tour), combat immédiat en 3 passes à l'arrivée (B2 : toutes les nations arrivées le même jour ensemble),
+  repli des survivants par la route (30 j), rappel des marches et des convois (retour = temps déjà parcouru ; rappel le jour
+  même = retour immédiat).
+- `realtime/create.js` : `createRealtimeGame` (état de départ du tour par tour + `mode:'realtime'`, `day`, `goldCarry`,
+  `marches`, `battles`, `bombardOrders`, `nextAiDay`, `endOffer`, registre `rt`).
+- Moteur existant réutilisé, modifié au minimum : `production.js` (`startProjects` / `progressProjects`, durées en jours en
+  temps réel), `convoys.js` (`stage` / `turns` en jours, `departDay` / `arriveDay`, interception à J−30, rencontre de convois
+  une fois au croisement, sauvetage en jours), `ai.js` (`planAIOrders(state, map, { only })`), `turn.js` (fin au dernier jour,
+  `publishTalkOrders` / `talkReactions` sortis de `resolveTalk`), `recovery.js` (une nation qui a une armée en marche n'est pas
+  éliminée), `game-length.js` (183 / 86 périodes), `vision.js` (garnison estimée × (1 + 2,37 × jour ÷ 5 479)),
+  `save-codec.js` (schéma 13, `decodeRealtimeSave`, refus des schémas ≤ 12), `constants.js` (`REALTIME_SCHEMA_VERSION = 13`).
+- Revenus : chaque jour `goldCarry += revenu par tour (+ bonus)`, `trésor += ⌊goldCarry / 60⌋` : en 60 jours, exactement un
+  tour de revenus, trésor toujours entier. Récapitulatif `income` dans le journal tous les 30 jours (or réellement entré).
+- IA : la nation n° i décide les jours où (jour + 2 i) % 10 = 0 (une seule par jour, jours impairs : personne), même logique
+  que l'IA actuelle ; ses ordres partent le jour même.
+- Interface provisoire (`src/presentation/ui/realtime-ui.js`, `src/presentation/realtime-clock.js` pur) : bandeau au-dessus de
+  la carte avec la date et ▶ Jouer / ⏸ Pause, la date dans le HUD à la place du tour, plus de « Fin du tour », armées en marche
+  dessinées dans un calque à part (`#rtMarches`, sans toucher à `map-view.js`), fiche d'une armée et liste « Troupes en route »
+  (toucher le bandeau) avec « Rappeler », fenêtres de prise de capitale / mer / propositions sans arrêter le temps. Une partie
+  nouvelle ou reprise commence en pause ; page cachée = pause + sauvegarde.
+- Nouvelles parties en temps réel ; réglage de test caché `?tour-par-tour` dans l'adresse pour créer (et reprendre) une partie
+  tour par tour jusqu'à la V17.3. Une partie tour par tour enregistrée : message du §11 sur l'accueil, « Continuer » caché,
+  sauvegarde non effacée tant qu'une nouvelle partie ne la remplace pas. Le tutoriel reste au tour par tour (V17.9).
+- Outil `tools/v17/partie-jours.mjs` (résultats : `tools/v17/resultats-v17.1.json`). Empreintes du tour par tour de la V16.4.1
+  (`tools/v17/empreintes-tour-par-tour-v16.4.1*.json`) : 81 + 65 parties strictement identiques après la V17.1 (`node
+  tools/equilibre.mjs --empreintes --graines=10 [--longueur=40]`, seules les entrées `regles` et `api` changent).
+
+**Mesures — 100 parties IA de 15 ans jour par jour** (`node tools/v17/partie-jours.mjs 100 v17j`), comparées au §13.3 :
+
+| Mesure | §13.3 (pas de 30 j, tour par tour) | **V17.1 (vrai moteur en jours)** | Écart |
+|---|---|---|---|
+| Conquêtes par partie | 33,8 | **28,6** | −15 % |
+| Par quart de partie | 9,3 / 8,3 / 9,3 / 6,9 | **8,4 / 5,9 / 8,2 / 6,1** | |
+| Nations éliminées par partie | 0,72 | **0,70** | −3 % |
+| Plus grande armée finale (médiane / p90 / max, or) | 3 635 / 4 253 / 5 150 | **3 947 / 5 085 / 7 451** | +9 % / +20 % / +45 % |
+| Victoires par les 5 capitales | 0 | 0 | |
+
+Autres chiffres : 36 combats par partie dont 12,7 débarquements, 0,17 rencontre en chemin, 1,5 interception, 109 marches et
+40 convois par partie. Coût : 0,07 ms par jour en médiane (0,55 ms un jour de décision d'IA, p90 1,25 ms, pire 61 ms) : un
+jour dure 2 000 ms. Partie courte (100 parties, 2 557 jours) : 15,8 conquêtes, 0,15 nation éliminée, plus grande armée
+2 019 or. Lecture : rythme et éliminations dans la cible (< 25 %) ; la queue des plus grosses armées monte (l'IA recrute à
+chacune de ses 3 décisions par période) : à surveiller en V17.5 (rééquilibrage dans `RULES.realtime`). Sauvegarde : 52 ko
+après 1 an, 141 ko après 5 ans, 357 ko en fin de partie (encodage 2 ms).
+
+**Écarts avec le cahier et choix faits (tranchés par l'équipe)** :
+1. Les ordres ne sont pas exécutés DANS `queue*` (`orders.js` inchangé) : ils restent en attente le temps de la décision (l'IA
+   en a besoin : le Traître rompt l'alliance puis vérifie son invasion, l'aide à l'île regarde les ordres du demandeur), puis
+   `executePendingOrders` les exécute tous ensemble, le jour même. Côté joueur, l'interface l'appelle dans les 250 ms qui
+   suivent l'ordre (pause comprise) : même résultat, « départ immédiat ».
+2. Rythmes « par tour » non encore convertis (prévus en V17.2 / V17.5), passés **une fois par période de 30 jours** (le
+   dernier jour) : guérison et réparation des navires (combats des 30 derniers jours), forteresses qui se referment, vols de
+   ballon (un envoi de ballon part à la fin de la période), paroles des IA et réponses aux messages, dérive de la tension,
+   guerres d'hostilité, propositions expirées, histoire de la partie, récapitulatif du journal. Coalition : tous les 10 jours.
+   Éliminations : chaque jour (la fin de partie est vérifiée chaque jour). Réponses de l'IA aux propositions et aux demandes
+   d'aide : immédiates (1 à 10 jours en V17.5). Bombardement : ordre ponctuel comme au tour par tour (permanent en V17.2).
+3. Combat à l'arrivée en 3 passes (V17.2 : 3 assauts sur 6 jours) ; les survivants d'une attaque repoussée rentrent par la
+   route en 30 jours (au tour par tour : retour instantané), comme le prévoit le §5.2.
+4. Nourriture (`food`, fermes) : rien dans l'état de départ, c'est la V17.4 (le schéma 13 l'accueillera).
+5. Une partie nouvelle commence en pause (« touchez ▶ ») comme une partie reprise. Textes de l'interface encore en « tours »
+   (fiche de province, convois de la carte, aide) : V17.3. L'état est sauvegardé à chaque rendu de la carte, donc chaque jour
+   (`map-view.js` n'a pas été touché : équipe V17.6) ; la règle « tous les 10 jours, au plus une fois par seconde » sera
+   appliquée en V17.3.
+6. `Dérive de la tension` : le §7 dit 10 jours, le tableau du §2.2 dit 30 jours ; retenu 30 (montants calibrés par tour).
+
+**Tests** : `tests/v17-1.test.js` (27 tests : valeurs de `RULES.realtime`, dates et bissextiles sur 5 479 jours, périodes et
+seuils étirés, alertes de fin, horloge de l'interface, revenus exacts sur 60 jours et bonus d'or, durée de chaque production,
+départ immédiat, terre 30 / 20, mer 60 / 120, rappel d'une marche et d'un convoi, rencontre en chemin, interception à J−30,
+trêve signée après le départ, combat à l'arrivée et repli, calendrier de l'IA, ordres de l'IA seulement le jour de sa décision,
+parties de 5 479 et 2 557 jours sans `Math.random`, sauvegarde 13 aller-retour au milieu d'une marche, refus des schémas ≤ 12,
+déterminisme, pureté du dossier `realtime/`, empreintes du tour par tour, écran provisoire).
+**Tests modifiés** (aucun test retiré) :
+- `tests/save-codec.test.js` et `tests/v15-4.test.js` : « le schéma 13 est refusé » → c'est désormais le temps réel ; le premier
+  schéma inconnu vérifié est le 14.
+- `tests/v15-2.test.js`, `tests/v15-4.test.js`, `tests/v14-3-tutoriel.test.js` : version 16.4.1 → 17.1.0.
+- `tests/helpers/sources.js` : nouveaux modules (`realtime/*`, `ui/realtime-ui`) dans les listes lues par les tests.
+`npm test` : 740 tests (après intégration de la carte V17.6), tous verts.
+
+**Vérifié dans Chrome mobile simulé** (Playwright, 844 × 390, `node scripts/build.js`, serveur local) : nouvelle partie (en
+pause, 1er janvier 2027), ▶ puis 1 minute de jeu = 30 jours (31 janvier 2027, trésor 120 → 128), un ordre donné par les vrais
+gestes (province → Déplacer → destination → 50 % → Confirmer) : troupes parties aussitôt (capitale 200 → 100 fantassins,
+marche du 32e au 62e jour, icône sur la carte), ⏸ arrête le temps, « Troupes en route » → Rappeler, rechargement → reprise en
+pause au même jour ; une sauvegarde tour par tour → message de refus, « Continuer » caché, sauvegarde gardée. 0 erreur JS,
+0 fichier manquant. Non vérifié : sur un vrai téléphone (APK), la pub de début de partie, une partie longue dans le navigateur.
+
+**Relecture indépendante V17.1** : rien de bloquant (durées exactes sur 4 parties complètes, rappel intact, revenus
+exacts, sauvegarde en pleine marche identique, pas de fuite). Écarts relevés, **à corriger en V17.5** : l'IA ne construit
+plus de ballon en temps réel (elle dépense son or tous les 10 jours et n'atteint jamais 90 or) ; en Facile, « une attaque
+terrestre par tour » s'applique à chaque décision (jusqu'à 3 par 30 jours) ; l'IA ne voit pas encore les armées en marche.
+Mineur : un groupe venu de plusieurs provinces se replie vers l'origine de la première marche.

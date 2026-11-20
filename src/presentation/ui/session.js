@@ -4,7 +4,7 @@
 import { setPlayerBonuses } from '../../domain/boosts.js';
 import { eventKnownToPlayer, journalEntry } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
-import { decodeSave, encodeSave } from '../../persistence/save-codec.js';
+import { decodeRealtimeSave, decodeSave, encodeSave } from '../../persistence/save-codec.js';
 import { SAVE_KEY } from '../guide-input.js';
 import { loadProfile, saveProfile } from '../profile-storage.js';
 import { loadLiveSettings, saveLiveSettings } from '../live-clock.js';
@@ -22,9 +22,26 @@ export const setLiveSettings = value => { liveSettings = { ...liveSettings, ...v
 export const applyBoosts = game => game && !isTutorial(game) ? setPlayerBonuses(game, profile.boosts) : game; // V14.3 : pas d'atouts dans le tutoriel (chiffres de base)
 // V14.3 : la partie de tutoriel a SA clé (frontieres-arken-tutoriel-save) ; la vraie partie garde SAVE_KEY, jamais écrasée.
 export const save = () => { if (state) localStorage.setItem(saveKeyFor(state), encodeSave(state)); };
-export const load = () => { try { const raw=localStorage.getItem(SAVE_KEY); return raw ? decodeSave(raw) : null; } catch { return null; } };
+/** V17.1 : réglage de test caché (jusqu'à la V17.3) — `?tour-par-tour` dans l'adresse : nouvelles parties au tour par tour. */
+export const turnBasedTest = () => { try { return new URLSearchParams(globalThis.location?.search || '').has('tour-par-tour'); } catch { return false; } };
+/** V17.1 : message quand la partie enregistrée a été jouée au tour par tour (elle n'est pas effacée, mais ne se reprend pas). */
+export let refusedSave = null;
+export const load = () => {
+  refusedSave = null;
+  try {
+    const raw=localStorage.getItem(SAVE_KEY); if (!raw) return null;
+    if (turnBasedTest()) return decodeSave(raw);
+    const r = decodeRealtimeSave(raw);
+    if (r.refused) refusedSave = r.message;
+    return r.state;
+  } catch { return null; }
+};
 function savedOnOtherMap(value){return Boolean(value&&value.mapId&&value.mapId!==map.id);}
-export function showSaveNotice(raw){const notice=$('#saveNotice');notice.hidden=!savedOnOtherMap(raw);}
+let noticeHtml = null;
+export function showSaveNotice(raw){const notice=$('#saveNotice');noticeHtml??=notice.innerHTML;
+  if(refusedSave){notice.textContent=`${refusedSave} Touchez « Nouvelle partie ».`;notice.dataset.refused='turn-based';notice.hidden=false;return;}
+  if(notice.dataset.refused){notice.innerHTML=noticeHtml;delete notice.dataset.refused;}
+  notice.hidden=!savedOnOtherMap(raw);}
 export function hydrateState(value){
   if(!value||value.mapId!==map.id)return null;
   value.turnJournal||=value.journal||[];value.chronicle||=[];value.orders||=[];value.tutorial||={seen:[],stage:0,turn:value.turn,shown:[]};value.tutorial.shown||=[];value.tutorial.turn??=value.turn;

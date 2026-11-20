@@ -20,6 +20,7 @@ import { moveSource, save, selected, setSelected, state } from './src/presentati
 import { openTalk } from './src/presentation/ui/talk-screen.js';
 import { openCoalition } from './src/presentation/ui/event-popups.js';
 import { installLive, renderLiveSettings } from './src/presentation/ui/live-ui.js';
+import { installRealtime } from './src/presentation/ui/realtime-ui.js';
 import { openArmy, openHelp, openPalmares, renderJournal, resolveTurn } from './src/presentation/ui/turn-flow.js';
 import {
   endMiniTuto, miniStep, placeTutorial, raiseMiniTuto, refreshTuto, setMiniStep, showMiniTuto, startMiniTuto,
@@ -85,4 +86,5 @@ function handleAppBack(){
   if(!$('#gameScreen').hidden)history.pushState({arkenScreen:'game'},'',location.href);
 }
 installAudio();addEventListener('popstate',handleAppBack);addEventListener('resize',measureFrame);if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');setup();startPlay();installLive(); // V16.4 : tour en direct
+installRealtime(); // V17.1 : partie en temps réel (horloge des jours)
 

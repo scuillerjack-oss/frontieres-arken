@@ -1,10 +1,13 @@
+import { REALTIME_RULES } from './realtime/rules.js';
 // V13 : schéma 9 = suppression du ballon d'observation (migration 8 → 9 dans save-codec.js).
 // V15.1 : schéma 10 = coalition et histoire de la partie (migration 9 → 10 dans save-codec.js).
 // V15.3 : schéma 11 = niveau de difficulté de la partie (migration 10 → 11 : les anciennes parties valent Normal).
 export const SAVE_SCHEMA_VERSION = 11;
 // V15.4 : schéma d'une Partie courte (state.gameLength). Une partie de 80 tours reste au schéma 11, à l'octet près : voir saveSchemaOf.
 export const SHORT_GAME_SCHEMA_VERSION = 12;
-export const saveSchemaOf = state => state?.gameLength ? SHORT_GAME_SCHEMA_VERSION : SAVE_SCHEMA_VERSION;
+// V17.1 : schéma 13 = partie en TEMPS RÉEL (state.mode === 'realtime', partie courte comprise). Les schémas ≤ 12 sont le tour par tour.
+export const REALTIME_SCHEMA_VERSION = 13;
+export const saveSchemaOf = state => state?.mode === 'realtime' ? REALTIME_SCHEMA_VERSION : state?.gameLength ? SHORT_GAME_SCHEMA_VERSION : SAVE_SCHEMA_VERSION;
 export const MAP_SCHEMA_VERSION = 1;
 export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nerys']);
 // V13 : le ballon d'observation est supprimé (remplacé par la vision : src/domain/vision.js, docs/V13-vision.md).
@@ -122,7 +125,9 @@ export const RULES = Object.freeze({
   mysteryIsland:{ provinceId:'p21', garrisonFactor:3, bankIncome:10, routeTurns:4, aiMargin:1.15, aiKeepShare:.5, aiMinGarrison:200 },
   // V10 : fin de partie à la fin du tour RULES.gameLength (V13.2 : 80, avant 60) (classement : provinces, puis capitales tenues, puis trésor) ;
   // victoire anticipée d'une nation qui tient les 5 capitales.
-  gameLength:80
+  gameLength:80,
+  // V17.1 : toutes les valeurs du temps réel (src/domain/realtime/rules.js, docs/V17-cahier-des-charges.md).
+  realtime: REALTIME_RULES
 });
 
 export const HISTORICAL_RULE_REFERENCE = Object.freeze({

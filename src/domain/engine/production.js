@@ -6,15 +6,33 @@ import { deliverBalloon } from './balloons.js';
 import { refundProduction } from './battles.js';
 
 export function resolveProjects(state, orders) {
+  startProjects(state, orders);
+  progressProjects(state);
+}
+/**
+ * V17.1 : durée d'une commande en JOURS dans une partie temps réel (RULES.realtime.durations) ; au tour par tour, la
+ * durée en tours écrite dans l'ordre (`duration`).
+ */
+export function projectDuration(state, o, kind, type) {
+  if (state.mode !== 'realtime') return o.duration;
+  const D = RULES.realtime.durations;
+  return kind === 'balloon' ? D.balloon : kind === 'building' ? D.buildings[type] ?? o.duration * RULES.realtime.daysPerPeriod : D.units[type] ?? o.duration * RULES.realtime.daysPerPeriod;
+}
+/** Commandes de l'inter-tour (ou du jour, en temps réel) mises en chantier. */
+export function startProjects(state, orders) {
   // V16.1 : un ballon d'observation passe aussi par la file de production (kind 'balloon', voir balloons.js).
   const queueKind = o => o.kind === 'construction' ? 'building' : o.kind === 'balloon-build' ? 'balloon' : 'unit';
   for (const o of orders.filter(x => x.kind === 'construction' || x.kind === 'recruitment' || x.kind === 'balloon-build')) {
     const kind = queueKind(o), type = kind === 'balloon' ? 'balloon' : o.type;
     // B4 : une commande passée dans une province perdue pendant cet inter-tour est annulée et remboursée.
     if (state.provinces[o.provinceId]?.ownerId !== o.nationId) { refundProduction(state, { ...o, type, kind }, o.provinceId); continue; }
-    state.productionQueue.push({ kind, type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1, remaining: o.duration, cost: o.cost || 0 });
+    state.productionQueue.push({ kind, type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1, remaining: projectDuration(state, o, kind, type), cost: o.cost || 0,
+      ...(state.mode === 'realtime' ? { startDay: state.day } : {}) });
     state.events.push({ turn: state.turn, type: 'project-started', kind: o.kind, productionType: type, provinceId: o.provinceId, nationId: o.nationId, amount: o.amount || 1 });
   }
+}
+/** Un tour (ou un jour, en temps réel) de chantier : avancée, bonus de vitesse, livraisons. */
+export function progressProjects(state) {
   for (const q of state.productionQueue) q.remaining--;
   // V12 : atout « construction » (+N % de vitesse), V15.3 : et bonus de nation — la nation gagne un tour de chantier supplémentaire chaque fois
   // que le crédit cumulé (N % par chantier actif et par tour) atteint un tour entier ; le chantier le plus avancé d'abord.

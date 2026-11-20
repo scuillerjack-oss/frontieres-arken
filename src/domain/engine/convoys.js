@@ -13,21 +13,34 @@ import { pairWar, provinceDef } from './shared.js';
 // --- V10 marine : convois, étapes en mer, interceptions, débarquements (docs/V10-marine.md) -----------------
 /** Convoi : { id, nationId, fromId, toId, via, stage, turns, units, warships, wounds }.
  *  stage = étapes déjà parcourues (0 au départ) ; arrivée quand stage = turns. Position sur la route : stage / turns. */
+/**
+ * V17.1 : en temps réel, `stage` et `turns` d'un convoi comptent des JOURS (stage = jours écoulés, turns = durée) : le même
+ * code fait avancer les convois d'un jour par appel. Une durée « en tours » de la carte (2, 4 pour l'île) vaut 30 jours
+ * le tour (60 / 120 jours, RULES.realtime.durations). Au tour par tour : inchangé.
+ */
+export const seaDuration = (state, turns) => state?.mode === 'realtime' ? turns * RULES.realtime.durations.landPerSeaTurn : turns;
+/** V17.1 : date de départ et d'arrivée d'un convoi temps réel (affichage, sauvegarde). */
+export function stampConvoy(state, t, day = state.day) {
+  if (state.mode !== 'realtime') return t;
+  if (!Number.isFinite(t.departDay)) t.departDay = day;
+  t.arriveDay = t.departDay + t.turns;
+  return t;
+}
 export function embark(state, map, o, force) {
   const route = seaDestinations(map, o.fromId).find(x => x.id === o.toId)
     || { via: o.via || o.toId, turns: o.turns || seaTravelTurns(laneOf(map, o.fromId, o.via || o.toId)?.length) };
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
-  const id = `c${state.transportSequence++}`;
-  state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns: route.turns, departed: state.turn,
+  const id = `c${state.transportSequence++}`, turns = seaDuration(state, route.turns);
+  state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns, departed: state.turn,
     truces: trucesOf(state, o.nationId), ...(o.navalStrike ? { strike: true } : {}), ...(o.passage ? { passage: true } : {}), ...(allyPortOf(state, o) ? { allyPort: allyPortOf(state, o) } : {}
-    ), ...toLegacy(force) });
-  state.events.push({ turn: state.turn, type: 'convoy-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, convoyId: id, turns: route.turns, escort: force.units.warship, amount: unitCount(force) });
+    ), ...(state.mode === 'realtime' ? { departDay: state.day, arriveDay: state.day + turns } : {}), ...toLegacy(force) });
+  state.events.push({ turn: state.turn, type: 'convoy-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, convoyId: id, turns, escort: force.units.warship, amount: unitCount(force) });
 }
 // V14.0 : convoi parti du port d'un allié (troupes stationnées qui rembarquent) : on retient l'allié, pour ne pas perdre
 // le convoi si l'alliance est rompue pendant la traversée (voir rescueConvoy).
 // V14.1 : trêves en cours au moment où le convoi lève l'ancre (pour reconnaître une trêve signée dans le même inter-tour,
 // après son départ : le convoi fait alors demi-tour au lieu de débarquer).
-const trucesOf = (state, nationId) => (state.diplomacy?.treaties || []).filter(t => t.active !== false && t.type === 'ceasefire' && t.parties?.includes(nationId)).map(t => t.parties.find(x => x !== nationId)).filter(Boolean).sort();
+export const trucesOf = (state, nationId) => (state.diplomacy?.treaties || []).filter(t => t.active !== false && t.type === 'ceasefire' && t.parties?.includes(nationId)).map(t => t.parties.find(x => x !== nationId)).filter(Boolean).sort();
 /** V14.1 : la trêve `truce` avec `owner` a-t-elle été signée après le départ du convoi `t` ? (ancien convoi sans `truces` : règle V13). */
 function truceAfterDeparture(t, truce, owner) {
   const departed = Number.isFinite(t.departed) ? t.departed : -Infinity, started = truce.started ?? 0;
@@ -61,6 +74,21 @@ function navalClash(state, { attackerId, attackerForce, t, kind, provinceId }) {
  *     par les navires de guerre à quai dans la province au bout de la route (`via`) si elle a un port construit et
  *     appartient à une nation en guerre contre lui. Les navires du convoi (escorte) ripostent.
  */
+/**
+ * V17.1 (temps réel, cahier V17 §5.4) : deux convois ennemis se rencontrent UNE fois, le jour où leurs positions se croisent
+ * (sens opposés : somme des avancées ≥ trajet) ou se trouvent à moins d'un jour l'une de l'autre (même sens).
+ */
+function convoysMeet(state, x, y) {
+  if (state.mode !== 'realtime') return true;
+  if ((x.met || []).includes(y.id) || (y.met || []).includes(x.id)) return false;
+  const opposite = x.fromId !== y.fromId;
+  const met = opposite ? x.stage * y.turns + y.stage * x.turns >= x.turns * y.turns
+    : Math.abs(x.stage / x.turns - y.stage / y.turns) * Math.max(x.turns, y.turns) <= RULES.realtime.battle.meetSameDirectionDays;
+  if (met) { (x.met ||= []).push(y.id); (y.met ||= []).push(x.id); }
+  return met;
+}
+/** V17.1 : jours de traversée restants au moment de l'interception par le port d'arrivée (1 étape au tour par tour). */
+const interceptAt = state => state.mode === 'realtime' ? RULES.realtime.durations.interceptDaysLeft : 1;
 function navalEncounters(state) {
   const atSea = state.transports.filter(t => t.stage < t.turns).sort((a, b) => String(a.id).localeCompare(String(b.id)));
   const lanes = [...new Set(atSea.map(laneKey))].sort();
@@ -70,6 +98,7 @@ function navalEncounters(state) {
       const x = here[i], y = here[j];
       if (x.nationId === y.nationId || !pairWar(state, x.nationId, y.nationId) || !convoyAlive(x) || !convoyAlive(y)) continue;
       if (!x.warships && !y.warships) continue;
+      if (!convoysMeet(state, x, y)) continue;
       // Le convoi le mieux armé est l'agresseur (égalité : identifiant le plus petit) ; tout le monde tire en même temps.
       const [atk, def] = (y.warships > x.warships) ? [y, x] : [x, y];
       const survivors = navalClash(state, { attackerId: atk.nationId, attackerForce: legacyForce(atk), t: def, kind: 'sea', provinceId: def.via });
@@ -77,7 +106,7 @@ function navalEncounters(state) {
     }
   }
   for (const t of atSea) {
-    if (t.stage !== t.turns - 1 || !convoyAlive(t)) continue;
+    if (t.stage !== t.turns - interceptAt(state) || !convoyAlive(t)) continue;
     const harbor = state.provinces[t.via];
     if (!harbor || !harbor.buildings?.port || !(harbor.warships > 0) || harbor.ownerId === t.nationId || !pairWar(state, harbor.ownerId, t.nationId)) continue;
     const { taken: fleet, rest } = splitForce(provinceForce(harbor), { warship: harbor.warships });
@@ -131,7 +160,7 @@ function friendlyPortRoute(state, map, nationId, atId) {
     for (const [id, d] of dist) if (!done.has(id) && (cur === null || d < dist.get(cur) || (d === dist.get(cur) && id < cur))) cur = id;
     if (cur === null) return null;
     done.add(cur);
-    if (cur !== atId && isPortPoint(map, cur) && friendly(cur)) return { id: cur, turns: Math.max(RULES.naval.minTurns, dist.get(cur)) };
+    if (cur !== atId && isPortPoint(map, cur) && friendly(cur)) return { id: cur, turns: seaDuration(state, Math.max(RULES.naval.minTurns, dist.get(cur))) };
     const edges = [...(provinceDef(map, cur)?.landConnections || []).map(id => [id, 1]), ...seaRoutesFrom(map, cur).map(r => [r.via, r.turns])];
     for (const [id, w] of edges) if (state.provinces[id] && !done.has(id) && (!dist.has(id) || dist.get(cur) + w < dist.get(id))) dist.set(id, dist.get(cur) + w);
   }
