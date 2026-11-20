@@ -894,3 +894,94 @@ haut « 🌾 VIVRES 900 +2,5/j » ; fiche de la capitale « 🌾 +8 vivres / jou
 construction » (25 or) ; ▶ pendant 2 minutes : livrée le 5 mars 2027, barre « 1 097,5 +12,5/j », fiche « 🌾 +18 vivres / jour ·
 ferme niveau 1 », « 🌾 Ferme 1 », toucher la case → « Production 42 · consommation 29,5 ». 0 erreur JS, 0 fichier manquant,
 pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le navigateur (couverte par les tests du moteur).
+### V17.2 — Combats en temps réel (20/11/2026)
+**Fait** (branche `mission/V17.2`, version laissée à 17.1.0 : le chef de projet la monte à la fusion) :
+- **`src/domain/realtime/battles.js`** (nouveau, pur) : `state.battles[]` = `{ id, provinceId, defenderId, startDay, assaults,
+  nextAssaultDay, attackers:[{ nationId, mode, units, warships, wounds, originIds, retreatTo, convoy?, fresh }], totals }`.
+  - **3 assauts** : le jour de l'arrivée (J), J+3, J+6 (`RULES.realtime.battle`). Chaque assaut = `fightAssault(…, { passes: 1 })`
+    du moteur actuel : PV, forteresse −5 %/niveau (atout et brèche compris), malus de débarquement, navires qui ne tirent que
+    sur des navires à terre, alliés stationnés en défense (V13.4 / V14.1), île mystérieuse neutre et co-propriété (V16.2).
+  - Arrêt : prise (à n'importe quel assaut ; la province change de main le jour de l'assaut gagnant, pillage, B4), plus aucun
+    attaquant, plus personne qui puisse tirer, ou 3e assaut sans prise → tous les survivants se replient.
+  - **Renforts** : une armée hostile (marche ou débarquement) qui arrive rejoint le **prochain assaut** (événement
+    `battle-reinforced`), le compteur ne repart pas à zéro ; plusieurs nations ensemble (B2 : le plus fort survivant prend,
+    les autres rentrent). Défense : garnison + alliés stationnés relus à chaque assaut (troupes arrivées, recrues livrées).
+  - **Défenseur bloqué** : ses ordres de départ (terre ou mer) depuis une province assiégée sont annulés (`attack-cancelled`,
+    raison `besieged`, message au journal), ceux de ses alliés stationnés aussi.
+  - **Retraite volontaire** : `retreatFromBattle(state, map, { nationId, battleId })` (bouton « Retraite » ; l'IA l'utilisera en
+    V17.5 avec `battleForecast`) : départ le jour même. Plus aucun attaquant : récit « la défense a tenu ».
+  - **Replis** : par la terre, marche de retour vers la 1re origine encore à soi (30 j, 20 pour la cavalerie seule) ; par la mer,
+    le convoi rembarque et rentre (même durée que l'aller, `turnBack`). Paix ou trêve signée pendant la bataille : l'attaquant
+    qui a déjà combattu rentre sans assaut suivant (`battle-retreat`, raison `peace`) ; un arrivant, lui, déclare la guerre en
+    attaquant (règle V10).
+  - Récit : un événement `assault` par assaut (« ⚔ Bataille de X, assaut 2/3 … Prochain assaut le … ») et, à la fin, **un seul**
+    `battle` / `conquest` avec les chiffres de toute la bataille (pertes, forces engagées renforts compris, PV perdus, passes).
+  - `fireFactorFor(state, nationId)` appelé pour chaque camp à chaque assaut (stub à 1, remplacé par celui de la V17.4).
+- **`engine/battles.js`** : `fight` découpé en `fightAssault` (issue d'un assaut, `passes`, `strike`, `fireFactor` par groupe,
+  `defenderFireFactor`), `fightEvent` (récit, `totals`) et `onCapture` (exporté). Tour par tour : comportement identique.
+- **`combat.js`** : `fireFactor` par attaquant et `defenderFireFactor` dans `resolveBattle`, `firePower({ fireFactor })`,
+  `resolveCombat({ fireFactor, defenderFireFactor })` (mêmes noms que la V17.4) ; `healForce(force, rate)`.
+- **`engine/bombard.js`** : en temps réel, « Bombarder » devient un **ordre permanent** (`state.bombardOrders`, même trio
+  nation / départ / cible = mis à jour) ; tir tous les 10 jours (jours multiples de 10) : flotte à quai d'abord, puis brèche
+  **+4 par navire intact, +10 au plus par tranche** ; arrêt automatique (paix, plus de navires, forteresse prise, port perdu) ou
+  `cancelBombardOrder` ; la brèche se referme de 10 tous les 30 jours sans bombardement. Tour par tour inchangé.
+- **`engine/recovery.js`** : guérison et réparations **tous les 10 jours** : 10/3 % des PV max par versement (arrondi au
+  supérieur), navires au port en 90 / 120 / 150 jours (9 / 12 / 15 versements, `shipRepairInfo().daysLeft`), fortune 5 % par
+  30 jours ; **aucune guérison dans une province en bataille ni dans les 10 jours qui suivent un combat**. Une nation dont
+  toutes les troupes sont à l'assaut n'est pas éliminée.
+- `realtime/marches.js` (arrivées → `joinBattle`, défenseur bloqué), `engine/convoys.js` (`onLanding`, `turnBack` et
+  `dockEscort` exportés), `realtime/day.js` (étape 4 « assauts du jour », bombardement et guérison tous les 10 jours),
+  `engine/journal.js` (textes `assault`, `battle-reinforced`, `battle-retreat`, `bombard-ordered`, `bombard-stopped`, `besieged`).
+- **Écran provisoire** (`src/presentation/ui/realtime-battles-ui.js`, 3 lignes dans `realtime-ui.js`) : ⚔ rouge avec « n/3 »
+  au-dessus de chaque province en bataille (calque `#rtBattles`, `map-view.js` non touché) ; le toucher ouvre la fiche de la
+  bataille (« Assaut 1/3 joué · assaut 2/3 le 2 février 2027 », camps et PV, rappel des règles, **Retraite** pour l'attaquant,
+  « vos troupes sont bloquées » pour le défenseur) ; le bandeau affiche « ⚔ Bataille de X : assaut 2/3 · prochain le … » ;
+  la liste « Troupes en route » montre les bombardements permanents avec « Arrêter ».
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. Un attaquant = une entrée par nation : une nation arrivée par la terre puis par la mer garde le mode et la route de retour
+   de sa première arrivée (cas rare). Les débarquements gardent le malus 85 % à chaque assaut (équivalence avec le tour par tour).
+2. Arrêt anticipé seulement quand plus personne ne peut tirer (et non dès que l'attaquant n'a plus de troupes terrestres) :
+   c'est ce qui garde l'équivalence exacte avec les 3 passes actuelles (une escorte seule continue d'encaisser).
+3. Dates : comme pour les marches, un assaut joué pendant le traitement du jour D se voit à la date D + 1 ; la fiche et le
+   journal affichent donc `nextAssaultDay + 1` (le moteur garde ses jours). À reprendre en V17.3 si l'interface change de convention.
+4. Bombardement : tirs aux jours multiples de 10 (et non 10 jours après l'ordre) pour qu'annuler / redonner l'ordre ne fasse
+   pas tirer plus souvent ; le premier tir arrive donc 1 à 10 jours après l'ordre. Les navires ne sont pas réservés.
+5. La mémoire de garnison de l'IA (`rememberGarrison`) est mise à jour à chaque assaut (dernière garnison vue).
+6. Batailles navales (interceptions, rencontres de convois) et rencontres en chemin : toujours instantanées (§5.4, §5.6).
+7. L'IA ne bat pas encore en retraite d'elle-même et ne compte pas ses troupes à l'assaut : V17.5.
+
+**Tests** : `tests/v17-2.test.js` (20 tests) : valeurs, 3 assauts J / J+3 / J+6 et repli ; **équivalence sur 38 batailles**
+(forteresses 0 à 3, blindés, artillerie, blessés : forces, prise, pertes, PV, forces engagées, passes et survivants identiques
+au `fight` de 3 passes) ; prise au 2e assaut (B4) ; renfort attaquant ; renfort défenseur et allié stationné ; retraite
+volontaire ; défenseur bloqué ; B2 ; débarquement repoussé qui rentre ; île mystérieuse neutre et publique ; guerre déclarée
+par l'attaque, trêve pendant la bataille ; bombardement permanent (10 / 20 / 30 jours, +10 max, arrêt à la paix, brèche qui se
+referme, annulation) ; guérison (10/3 %, bloquée 10 jours, jamais en bataille) ; navires 90 / 150 jours et fortune ;
+`fireFactor` 0,7 ; sauvegarde en pleine bataille ; nation à l'assaut non éliminée ; écran provisoire ; partie IA de 2 ans.
+**Tests modifiés** : `tests/helpers/sources.js` (modules `realtime/battles` et `ui/realtime-battles-ui`). Aucun test retiré ni
+changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm test` : 762 tests, tous verts (avant rebase sur v17).
+
+**Mesures — 100 parties IA de 15 ans** (`node tools/v17/partie-jours.mjs 100 v17j`, résultats `tools/v17/resultats-v17.2.json`) :
+
+| Mesure | V17.1 (combat immédiat) | **V17.2 (3 assauts)** | Écart |
+|---|---|---|---|
+| Conquêtes par partie | 28,6 | **25,6** | −10 % |
+| Par quart de partie | 8,4 / 5,9 / 8,2 / 6,1 | 7,8 / 5,2 / 7,8 / 4,8 | |
+| Nations éliminées par partie | 0,70 | 0,71 | |
+| Plus grande armée finale (médiane / p90 / max) | 3 947 / 5 085 / 7 451 | 3 930 / 5 176 / 6 700 | |
+| Batailles par partie (dont débarquements) | 36 (12,7) | 34,8 (12,8) | |
+| Assauts par partie | — | 65,4 ; batailles finies au 1er / 2e / 3e assaut : 12,8 / 11,6 / 9,5 | |
+| Renforts arrivés pendant une bataille | — | 0,07 | |
+| Bombardements (tirs) par partie | ordre ponctuel | 2,0 | |
+| Coût d'un jour (médiane / p99 / pire) | 0,09 / 6,7 / 467 ms | 0,11 / 2,3 / 111 ms | |
+
+Partie courte (100 parties) : 14,1 conquêtes (15,8), 0,23 nation éliminée, plus grande armée 2 016 or. Lecture : un peu moins
+de conquêtes (une garnison renforcée ou recrutée pendant les 6 jours tient mieux), aucune dérive ; l'IA ne profite presque pas
+encore des renforts (0,07 par partie) ni des retraites : c'est le travail de la V17.5.
+
+**Vérifié dans Chrome mobile simulé** (Playwright, 844 × 390, `node scripts/build.js`, serveur local) : nouvelle partie,
+province voisine de la capitale transformée en forteresse ennemie (niveau 3, 300 fantassins, en guerre), ordre donné par les
+vrais gestes (capitale → Déplacer → cible → 50 % → Confirmer, 300 fantassins), ▶ : armée arrivée le 31 janvier 2027,
+⚔ « 1/3 » sur la province, fiche « Bataille de Sylvaren — Assaut 1/3 joué · assaut 2/3 le … » avec Retraite, bandeau
+« ⚔ Bataille de Sylvaren : assaut 2/3 · prochain le … », puis 3e assaut : province prise (3 passes au total), journal avec les
+trois lignes « assaut 1/3, 2/3, 3/3 » et le récit complet. 0 erreur JS, 0 fichier manquant. Non vérifié : vrai téléphone.
