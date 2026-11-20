@@ -916,7 +916,7 @@ pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le
     attaquant (règle V10).
   - Récit : un événement `assault` par assaut (« ⚔ Bataille de X, assaut 2/3 … Prochain assaut le … ») et, à la fin, **un seul**
     `battle` / `conquest` avec les chiffres de toute la bataille (pertes, forces engagées renforts compris, PV perdus, passes).
-  - `fireFactorFor(state, nationId)` appelé pour chaque camp à chaque assaut (stub à 1, remplacé par celui de la V17.4).
+  - `fireFactorFor(state, nationId)` (V17.4) appelé pour chaque camp à chaque assaut.
 - **`engine/battles.js`** : `fight` découpé en `fightAssault` (issue d'un assaut, `passes`, `strike`, `fireFactor` par groupe,
   `defenderFireFactor`), `fightEvent` (récit, `totals`) et `onCapture` (exporté). Tour par tour : comportement identique.
 - **`combat.js`** : `fireFactor` par attaquant et `defenderFireFactor` dans `resolveBattle`, `firePower({ fireFactor })`,
@@ -929,6 +929,9 @@ pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le
   supérieur), navires au port en 90 / 120 / 150 jours (9 / 12 / 15 versements, `shipRepairInfo().daysLeft`), fortune 5 % par
   30 jours ; **aucune guérison dans une province en bataille ni dans les 10 jours qui suivent un combat**. Une nation dont
   toutes les troupes sont à l'assaut n'est pas éliminée.
+- Intégration V17.4 (après rebase) : `fireFactorFor` de `realtime/food.js` appelé pour chaque camp à chaque assaut
+  (`fightAssault` l'utilise aussi par défaut) ; les troupes à l'assaut **mangent et désertent** comme les autres
+  (`food.js` : piles `battle`).
 - `realtime/marches.js` (arrivées → `joinBattle`, défenseur bloqué), `engine/convoys.js` (`onLanding`, `turnBack` et
   `dockEscort` exportés), `realtime/day.js` (étape 4 « assauts du jour », bombardement et guérison tous les 10 jours),
   `engine/journal.js` (textes `assault`, `battle-reinforced`, `battle-retreat`, `bombard-ordered`, `bombard-stopped`, `besieged`).
@@ -951,15 +954,16 @@ pas de débordement. Non vérifié : vrai téléphone, une famine vécue dans le
 6. Batailles navales (interceptions, rencontres de convois) et rencontres en chemin : toujours instantanées (§5.4, §5.6).
 7. L'IA ne bat pas encore en retraite d'elle-même et ne compte pas ses troupes à l'assaut : V17.5.
 
-**Tests** : `tests/v17-2.test.js` (20 tests) : valeurs, 3 assauts J / J+3 / J+6 et repli ; **équivalence sur 38 batailles**
+**Tests** : `tests/v17-2.test.js` (21 tests) : valeurs, 3 assauts J / J+3 / J+6 et repli ; **équivalence sur 38 batailles**
 (forteresses 0 à 3, blindés, artillerie, blessés : forces, prise, pertes, PV, forces engagées, passes et survivants identiques
 au `fight` de 3 passes) ; prise au 2e assaut (B4) ; renfort attaquant ; renfort défenseur et allié stationné ; retraite
 volontaire ; défenseur bloqué ; B2 ; débarquement repoussé qui rentre ; île mystérieuse neutre et publique ; guerre déclarée
 par l'attaque, trêve pendant la bataille ; bombardement permanent (10 / 20 / 30 jours, +10 max, arrêt à la paix, brèche qui se
 referme, annulation) ; guérison (10/3 %, bloquée 10 jours, jamais en bataille) ; navires 90 / 150 jours et fortune ;
-`fireFactor` 0,7 ; sauvegarde en pleine bataille ; nation à l'assaut non éliminée ; écran provisoire ; partie IA de 2 ans.
+`fireFactor` 0,7 ; troupes à l'assaut nourries et famine à 70 % pendant un assaut ; sauvegarde en pleine bataille ; nation à
+l'assaut non éliminée ; écran provisoire ; partie IA de 2 ans. Les scénarios donnent une grosse réserve de vivres (pas de famine).
 **Tests modifiés** : `tests/helpers/sources.js` (modules `realtime/battles` et `ui/realtime-battles-ui`). Aucun test retiré ni
-changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm test` : 762 tests, tous verts (avant rebase sur v17).
+changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm test` après rebase sur `v17` (V17.4 comprise) : 783 tests, tous verts.
 
 **Mesures — 100 parties IA de 15 ans** (`node tools/v17/partie-jours.mjs 100 v17j`, résultats `tools/v17/resultats-v17.2.json`) :
 
@@ -975,13 +979,18 @@ changé : les empreintes du tour par tour (V16.4.1) restent identiques. `npm tes
 | Bombardements (tirs) par partie | ordre ponctuel | 2,0 | |
 | Coût d'un jour (médiane / p99 / pire) | 0,09 / 6,7 / 467 ms | 0,11 / 2,3 / 111 ms | |
 
-Partie courte (100 parties) : 14,1 conquêtes (15,8), 0,23 nation éliminée, plus grande armée 2 016 or. Lecture : un peu moins
+**Après rebase sur la V17.4 (nourriture, famine)** — même outil, 100 parties : 24,3 conquêtes (V17.4 seule : 26,3, −8 %),
+par quart 6,5 / 4,8 / 7,3 / 5,7, 0,72 nation éliminée (0,8), plus grande armée 3 464 / 4 406 / 6 514 or (3 534 / 4 787 / 7 759),
+33,2 batailles dont 12,3 débarquements, 61,6 assauts (finies au 1er / 2e / 3e : 12,9 / 10,4 / 9,0), 0,13 renfort en bataille,
+2,4 tirs de bombardement, 0,22 ms par jour en médiane (p99 2,9 ms, pire 173 ms).
+Partie courte (100 parties, avant rebase) : 14,1 conquêtes (15,8), 0,23 nation éliminée, plus grande armée 2 016 or. Lecture : un peu moins
 de conquêtes (une garnison renforcée ou recrutée pendant les 6 jours tient mieux), aucune dérive ; l'IA ne profite presque pas
 encore des renforts (0,07 par partie) ni des retraites : c'est le travail de la V17.5.
 
 **Vérifié dans Chrome mobile simulé** (Playwright, 844 × 390, `node scripts/build.js`, serveur local) : nouvelle partie,
 province voisine de la capitale transformée en forteresse ennemie (niveau 3, 300 fantassins, en guerre), ordre donné par les
 vrais gestes (capitale → Déplacer → cible → 50 % → Confirmer, 300 fantassins), ▶ : armée arrivée le 31 janvier 2027,
-⚔ « 1/3 » sur la province, fiche « Bataille de Sylvaren — Assaut 1/3 joué · assaut 2/3 le … » avec Retraite, bandeau
+⚔ « 1/3 » sur la province, fiche « Bataille de Sylvaren — Assaut 1/3 joué · assaut 2/3 le 3 février 2027 » avec Retraite, bandeau
 « ⚔ Bataille de Sylvaren : assaut 2/3 · prochain le … », puis 3e assaut : province prise (3 passes au total), journal avec les
-trois lignes « assaut 1/3, 2/3, 3/3 » et le récit complet. 0 erreur JS, 0 fichier manquant. Non vérifié : vrai téléphone.
+trois lignes « assaut 1/3, 2/3, 3/3 » et le récit complet. 0 erreur JS, 0 fichier manquant (refait après le rebase sur la
+V17.4, même résultat). Non vérifié : vrai téléphone.

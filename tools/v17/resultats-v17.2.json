@@ -136,5 +136,79 @@
   "fins": {
    "turn-limit": 100
   }
+ },
+ "apres_rebase_V17_4": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 301.2,
+  "conquetesParPartie": 24.3,
+  "conquetesParQuart": [
+   6.5,
+   4.8,
+   7.3,
+   5.7
+  ],
+  "nationsElimineesParPartie": 0.72,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3464,
+   "p90": 4406,
+   "max": 6514
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 33.2,
+  "debarquementsParPartie": 12.3,
+  "rencontresEnCheminParPartie": 0.18,
+  "assautsParPartie": 61.6,
+  "renfortsEnBatailleParPartie": 0.13,
+  "replisParPartie": 4.3,
+  "batailleFinieAuAssaut": [
+   12.9,
+   10.4,
+   9
+  ],
+  "bombardementsParPartie": 2.42,
+  "interceptionsParPartie": 1.46,
+  "marchesParPartie": 106.9,
+  "convoisParPartie": 37.7,
+  "msParJour": {
+   "mediane": 0.22,
+   "p99": 2.86,
+   "max": 173.4
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.81,
+   "p90": 1.72,
+   "max": 173.4
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 12,
+    "p90": 16,
+    "max": 29
+   },
+   "fermesParProvince": {
+    "mediane": 2.22,
+    "p90": 3.75,
+    "max": 4.25
+   },
+   "partOrFermes": {
+    "mediane": 7.4,
+    "p90": 12.1
+   },
+   "nationsAvecFamine": "23 sur 500",
+   "tauxFamine": 4.6,
+   "joursDeFamine": {
+    "mediane": 39,
+    "p90": 59,
+    "max": 162
+   },
+   "plusLongueFamine": 162,
+   "deserteursParNationAffamee": 98.3
+  },
+  "fins": {
+   "turn-limit": 100
+  }
  }
 }
