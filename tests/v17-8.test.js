@@ -252,7 +252,7 @@ test('V17.8 : écran de fin du temps réel — date, durée de jeu, classement f
   const go = s.gameOver, story = buildEndStory(s, map);
   const html = endDurationHtml(go, s.rt.playMs) + finalRankingHtml(go, { me: ME, nations: map.nations }) + revealedCharactersHtml(story.nations)
     + endStoryHtml(story, { when: periodLabel, realtime: true, rule: 'Classement à points' });
-  assert.match(html, /Du 1er janvier 2027 au 4 février 2028 : <b>1 an, 1 mois et 4 jours<\/b> de jeu \(400 jours\) · 14 min passées à jouer/);
+  assert.match(html, /Du 1er janvier 2027 au 4 février 2028 : <b>1 an, 1 mois et 4 jours<\/b> de jeu \(400 jours\) · temps réellement joué : 14 min/);
   assert.equal((html.match(/<dl class="rank-detail">/g) || []).length, 5, 'à la fin, tout est révélé');
   assert.match(html, /Caractères révélés/);
   for (const n of story.nations.filter(n => !n.human)) assert.ok(html.includes(n.trait));

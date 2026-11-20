@@ -1462,3 +1462,76 @@ parfois et pas toujours la même cible, le Héros s'allie contre le Conquérant 
 voisin proche, recrues retenues, rythme de recrutement du Conquérant) ; `v14-0` et `v15-2` (motif du code : trêve et quota du
 Conquérant en temps réel). `npm test` : 857 tests, tous verts. **Non vérifié** : vrai téléphone, Chrome mobile simulé (bandeaux
 🗼 et 🚧 testés par les fonctions pures seulement).
+### V17.8 — Fin de partie et classement (20/11/2026)
+**Fait** (branche `mission/V17.8`, version inchangée : montée par le chef de projet à la fusion) :
+- **`src/domain/realtime/ranking.js`** (nouveau, pur) : formule du §9.2 — 100 par province (île mystérieuse comprise,
+  propriétaire principal), +150 par capitale tenue, 1 point par 20 or de troupes (toutes les piles de `food.js` : provinces,
+  stationnées, en marche, en mer, à l'assaut, blessés compris ; valeur = 1 vivre par jour pour 20 or), 1 par 20 or de trésor,
+  1 par 50 jours sans famine (jours de famine cumulés `state.rt.famineTotal`, au plus 109 / 51 en partie courte) ; nation
+  éliminée 0 point, classée après les vivantes, la plus tardivement éliminée devant (`eliminatedDay`, nouveau) ; égalité :
+  provinces, capitales, identifiant. Chaque ligne garde les champs de `gameRanking` (provinces, capitales, trésor, rang) +
+  `score` et `parts`. **Photo** `state.rt.ranking` prise les jours multiples de 10 (et à la fin) : c'est elle que montre l'écran 🏆.
+- **`src/domain/realtime/end.js`** (nouveau, pur), appelé chaque jour par `advanceDay` (étape 8, à la place de
+  `checkGameOver`, qui reste pour le tour par tour) :
+  1. conquête du monde = victoire immédiate : les 5 capitales (`capitals`) ou la dernière nation debout (`last-nation`) ;
+  2. joueur éliminé (`player-eliminated`) ;
+  3. dernier jour, 31/12/2041 ou 31/12/2033 en partie courte (`turn-limit`, nom gardé pour les titres) ;
+  4. **paix générale** : toutes les nations restantes (au moins 2) alliées deux à deux, aucune bataille en cours entre elles
+     et aucun combat du jour entre deux nations vivantes → compteur `endOffer.peaceSince` ; au 90e jour, offre
+     (`endOffer.offerDay`) **au joueur seul** (jamais sans joueur humain vivant : les parties d'IA ne finissent pas ainsi) ;
+     `answerPeaceOffer(state, false)` → reproposée 180 jours après l'offre (`nextOfferDay`) ; `true` → fin `peace`. Alliance
+     rompue ou combat → compteur, relance et offre remis à zéro.
+  Fins 1 à 4 : `gameOver = { reason, day, turn, winnerId, ranking (à points, du jour même), scoring:'points' }` ; vainqueur
+  = premier du classement à points pour 3 et 4. Journal : textes « dernière nation debout », « paix générale », « classement à points ».
+- **Écran 🏆 « Classement »** (`ui/ranking-ui.js`, textes purs `presentation/ranking-view.js`) : bouton dans la barre des
+  boutons (à la place de « Fin du tour », temps réel seulement ; paysage : bande de droite sous Journal / Échanges) ; rang
+  et total de chaque nation, détail des cinq lignes pour soi et ses alliés, « détail connu de cette nation et de ses alliés
+  seulement » pour les autres, date de la photo et prochaine mise à jour, règle de calcul. **Le temps continue** (§1.1) ;
+  ouvert, il suit la photo tous les 10 jours.
+- **Fenêtre de paix générale** (`#peaceDialog`) : la question, ce que donnerait « Terminer » (classement du jour même), les
+  boutons **Continuer / Terminer** au-dessus du classement (visibles sans défiler, en paysage comme en portrait), pas de
+  fermeture par « retour » ; elle **arrête le temps** (ajoutée aux fenêtres hors jeu) et aucune pub imposée ne passe dessus.
+- **Écran de fin du temps réel** (`showRealtimeEnd`) : « 31 DÉCEMBRE 2041 · FIN DE LA PARTIE » / « CONQUÊTE DU MONDE » /
+  « PAIX GÉNÉRALE », raison en clair, place et points, **durée** (« Du 1er janvier 2027 au … : 4 ans, 2 mois et 11 jours de
+  jeu (1 531 jours) · temps réellement joué : 52 min », minutes d'horloge qui tourne comptées dans `state.rt.playMs`),
+  titres obtenus, **classement final** avec le détail de chaque nation (tout est révélé à la fin), **caractères révélés**
+  (avec leur description), récit daté au mois (« mars 2029 » au lieu de « T12 », « en 5 mois », axe « de janvier 2027 à … »),
+  règle du classement à points. L'écran rouvert repart toujours d'en haut (correction : le défilement restait en bas).
+- **Palmarès et titres** : records en jours — `fastestWinDays` (« 2 ans, 5 mois et 18 jours · Valmorne »), `bestScore`
+  (« Meilleur score : 1 679 points ») ; longueurs comptées en jours (« 3 en 15 ans · 1 en 7 ans (courtes) ») sans mélange
+  avec les anciennes parties en tours ; « Longue marche » = aller au bout d'une partie complète (80 tours ou 15 ans),
+  « Vif comme l'éclair » = partie courte (correction : en temps réel, toute victoire comptait comme « courte »), « Maître
+  d'Arken » = cinq capitales ou dernière nation, **nouveau titre « Paix d'Arken »** (finir par la paix générale). Une partie
+  abandonnée ne compte toujours pas.
+- **Une seule partie, recommençable** : « Nouvelle partie » (⚙ ou écran de fin), même nation ou une autre ; pendant une
+  partie en cours, confirmation « Nouvelle partie : vous perdrez tout » (nation et date de la partie, « une partie
+  abandonnée ne compte pas au palmarès ; jetons, atouts et palmarès gardés ») ; partie terminée : pas de confirmation (déjà
+  comptée). Le choix de la nation et la confirmation arrêtent le temps. Longueurs proposées : « 15 ans » / « Courte · 7 ans »
+  (fin le 31 décembre 2033) au lieu de 80 / 40 tours.
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. Conquête du monde **sans exiger l'île mystérieuse** (le cahier dit : 5 capitales ou dernière nation ; l'île neutre peut
+   rester sans maître). En pratique la dernière nation tient toujours les 5 capitales : `last-nation` est un filet de sécurité.
+2. Valeur des troupes calculée par les rations (`foodConsumption × 20 ÷ 100`), donc exactement les mêmes piles que la
+   nourriture ; arrondi à l'or inférieur.
+3. Accepter la paix : la date de fin est le jour affiché quand le joueur répond (lendemain du jour de l'offre).
+4. À la fin, le détail des points de toutes les nations est montré (comme les caractères) ; pendant la partie, seulement
+   soi et ses alliés.
+5. Le classement de la fenêtre de paix est celui du jour même (c'est lui qui désignera le vainqueur), l'écran 🏆 montre la
+   photo des 10 jours.
+
+**Tests** : `tests/v17-8.test.js` (14 tests : formule exacte contre un calcul à la main, plafond 109 / 51, nation éliminée ;
+ordre et éliminées ; photo des 10 jours et jours de famine ; conquête au jour même et temps arrêté ; dernière nation,
+défaite, aucune offre sans joueur ; dernier jour en partie normale et courte ; offre à 90 jours, refus, relance à 180 jours,
+acceptation ; alliance rompue, combat, nations éliminées ; sauvegarde 13 de l'offre ; palmarès et titres en jours ; écran 🏆
+public / détail ; écran de fin sans « tour » ; branchements ; partie IA de 2 ans déterministe). **Aucun test existant modifié.**
+`tests/helpers/sources.js` : `ranking`, `end`, `ranking-ui`.
+
+**Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v178.mjs`, 844 × 390 et 390 × 844, vrais gestes, états préparés par
+injection) : 🏆 depuis la carte (5 nations, détail pour soi seul, le temps tourne : jour 1 → 4) ; paix générale injectée →
+fenêtre « Toutes les nations sont en paix », temps figé 4 s, **Continuer** → « la question reviendra le 3 juillet 2027 »,
+le temps repart ; relance → **Terminer** → écran « 9 JANVIER 2027 · PAIX GÉNÉRALE », titres « Paix d'Arken » ; Nouvelle
+partie depuis l'écran de fin sans confirmation, autre nation ; jour 5 477 → fin « 31 DÉCEMBRE 2041 · FIN DE LA PARTIE » ;
+⚙ → Nouvelle partie → « Nouvelle partie : vous perdrez tout » ; cinq capitales → « CONQUÊTE DU MONDE · Victoire ! » ;
+Palmarès (« 3 en 15 ans », record en jours, meilleur score, titres). 0 erreur JS, aucun bouton hors écran ni recouvert, aucun
+« tour » visible. Non vérifié : vrai téléphone, une paix générale ou une fin de 15 ans arrivées naturellement (états injectés).

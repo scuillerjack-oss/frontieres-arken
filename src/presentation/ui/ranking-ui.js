@@ -3,12 +3,12 @@
 // Textes : presentation/ranking-view.js (pur). Règles : domain/realtime/ranking.js et end.js.
 
 import {
-  answerPeaceOffer, formatDate, nextRankingDay, peaceOfferPending, rankingSnapshot
+  answerPeaceOffer, formatDate, nextRankingDay, peaceOfferPending, rankingSnapshot, realtimeRanking
 } from '../../domain/game-engine.js';
 import { gameDaysOf } from '../../domain/realtime/clock.js';
 import { pairTreaty } from '../../domain/engine/shared.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
-import { peaceOfferHtml, rankingHtml } from '../ranking-view.js';
+import { peaceOfferHtml, peaceRankingHtml, rankingHtml } from '../ranking-view.js';
 import { $, toast } from './base.js';
 import { save, state } from './session.js';
 import { showEndScreen } from './turn-flow.js';
@@ -33,7 +33,10 @@ export function openRanking() {
 export function offerPeaceIfDue() {
   const d = $('#peaceDialog');
   if (!d || d.open || !state || !peaceOfferPending(state)) return false;
-  $('#peaceBody').innerHTML = peaceOfferHtml(rankingSnapshot(state), { me: me(), nations: map.nations });
+  // Classement du jour même (pas la photo des 10 jours) : c'est celui qui désignera le vainqueur si le joueur accepte.
+  const now = { day: state.day, rows: realtimeRanking(state) };
+  $('#peaceBody').innerHTML = peaceOfferHtml(now, { me: me(), nations: map.nations });
+  $('#peaceRanking').innerHTML = peaceRankingHtml(now, { me: me(), nations: map.nations });
   d.showModal();
   return true;
 }

@@ -55,14 +55,18 @@ ${r.eliminated ? '' : open ? detailHtml(r) : '<p class="rank-secret">Détail con
   return `<p class="rank-when">${esc(when)}</p><ol class="rank-list">${rows}</ol><p class="rank-rule">${esc(RANKING_RULE)} Égalité : provinces, puis capitales. Une nation éliminée a 0 point.</p>\
 <p class="rank-rule">${gameDays ? `Au ${formatDate(gameDays)}, le premier du classement gagne la partie` : 'À la fin du temps, le premier du classement gagne la partie'} (sauf conquête du monde avant : les cinq capitales, ou la dernière nation debout).</p>`;
 }
-/** Fenêtre de paix générale (§9.1, fin n° 4) : le classement actuel et ce que donnerait « Terminer ». */
+/** Fenêtre de paix générale (§9.1, fin n° 4) : la question et ce que donnerait « Terminer » (avant les boutons). */
 export function peaceOfferHtml(snapshot, { me, nations, peaceDays = R.end.peaceDays }) {
   const nat = id => nations.find(n => n.id === id)?.short || id, rows = snapshot?.rows || [], mine = rows.find(r => r.nationId === me), first = rows[0];
   const verdict = !mine ? '' : mine.rank === 1 ? `Vous êtes en tête avec ${pointsText(mine.score)} : terminer maintenant, c’est la victoire.`
     : `Vous êtes ${rankText(mine.rank)} avec ${pointsText(mine.score)} ; ${esc(nat(first.nationId))} est en tête avec ${pointsText(first.score)} et gagnerait la partie.`;
-  return `<p>Toutes les nations sont en paix : alliées deux à deux, sans combat depuis ${peaceDays} jours.</p><p><b>Terminer la partie maintenant, au classement actuel ?</b></p>\
-<p class="peace-verdict">${verdict}</p><ol class="rank-list compact">${rows.filter(r => !r.eliminated).map(r => `<li class="rank-row${r.nationId === me ? ' me' : ''}"><div class="rank-line"><span class="rank-pos">${r.rank}</span><b class="rank-name">${esc(nat(r.nationId))}</b><span class="rank-score">${pointsText(r.score)}</span></div></li>`).join('')}</ol>\
-<p class="rank-rule">Continuer : la partie reprend, et la question reviendra dans ${R.end.reofferDays} jours si la paix dure.</p>`;
+  return `<p>Alliées deux à deux, sans combat depuis ${peaceDays} jours. <b>Terminer la partie maintenant, au classement actuel ?</b></p>\
+<p class="peace-verdict">${verdict}</p><p class="rank-rule">Continuer : la partie reprend, et la question reviendra dans ${R.end.reofferDays} jours si la paix dure.</p>`;
+}
+/** Classement actuel sous les boutons de la fenêtre de paix. */
+export function peaceRankingHtml(snapshot, { me, nations }) {
+  const nat = id => nations.find(n => n.id === id)?.short || id;
+  return `<ol class="rank-list compact">${(snapshot?.rows || []).filter(r => !r.eliminated).map(r => `<li class="rank-row${r.nationId === me ? ' me' : ''}"><div class="rank-line"><span class="rank-pos">${r.rank}</span><b class="rank-name">${esc(nat(r.nationId))}</b><span class="rank-score">${pointsText(r.score)}</span></div></li>`).join('')}</ol>`;
 }
 /** Raison de la fin, en clair (écran de fin du temps réel). */
 export function realtimeEndWhy(go, { me, name }) {
@@ -78,7 +82,8 @@ export function realtimeEndWhy(go, { me, name }) {
 export const realtimeEndKicker = go => `${formatDate(go.day).toUpperCase()} · ${({ capitals: 'CONQUÊTE DU MONDE', 'last-nation': 'CONQUÊTE DU MONDE', 'player-eliminated': 'NATION ÉLIMINÉE', peace: 'PAIX GÉNÉRALE' })[go.reason] || 'FIN DE LA PARTIE'}`;
 /** Bloc « durée » de l'écran de fin : dates, durée en jeu, temps réellement joué. */
 export function endDurationHtml(go, playMs) {
-  return `<p class="end-duration">Du ${formatDate(1)} au ${formatDate(go.day)} : <b>${elapsedText(go.day)}</b> de jeu (${num(go.day)} jours)${Number(playMs) > 0 ? ` · ${playTimeText(playMs)} passées à jouer` : ''}.</p>`;
+  const span = elapsedText(go.day);
+  return `<p class="end-duration">Du ${formatDate(1)} au ${formatDate(go.day)} : <b>${span}</b> de jeu${/jours?$/.test(span) && !/an|mois/.test(span) ? '' : ` (${num(go.day)} jours)`}${Number(playMs) > 0 ? ` · temps réellement joué : ${playTimeText(playMs)}` : ''}.</p>`;
 }
 /** Classement final (à la fin, tout est révélé : détail de chaque nation). */
 export function finalRankingHtml(go, { me, nations }) {

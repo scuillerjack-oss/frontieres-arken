@@ -80,7 +80,8 @@ function showRealtimeEnd(go,record,{me,mine,won,title}){
   const place=go.reason==='player-eliminated'?'':won?`Votre nation termine première avec ${mine.score} points.`:`Votre nation termine ${rankText(mine?.rank||go.ranking.length)} sur ${go.ranking.length} avec ${mine?.score||0} points ; ${nation(go.winnerId).short} gagne avec ${go.ranking[0].score} points.`;
   $('#endBody').innerHTML=`<p class="end-why">${realtimeEndWhy(go,{me,name})} ${place} ${levelSummary()}</p>${endDurationHtml(go,state.rt?.playMs)}\
 ${endTitlesHtml(record.titles)}${finalRankingHtml(go,{me,nations:map.nations})}${revealedCharactersHtml(story?.nations)}${endStoryHtml(story,{when:periodLabel,realtime:true,rule:`Classement à points : ${RANKING_RULE}`})}`;
-  $('#endDialog').scrollTop=0;$('#endDialog').showModal();return true;
+  // Remise en haut APRÈS l'ouverture (une fenêtre fermée ne garde pas un scrollTop posé avant) : sinon l'écran rouvert part d'en bas.
+  $('#endDialog').showModal();$('#endDialog').scrollTop=0;const sec=$('#endDialog section');if(sec)sec.scrollTop=0;return true;
 }
 /** V16.4 : le déroulé en direct s'applique-t-il à cette partie ? (jamais en tutoriel ni pendant le mini tuto) */
 export const liveOn=()=>Boolean(state)&&state.mode!=='realtime'&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});
