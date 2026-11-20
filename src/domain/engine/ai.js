@@ -357,8 +357,16 @@ function aiPlan(state, map, nationId) {
     const farmAt = owned.filter(p => buildingCount(state, p.id, 'farm') < C.farmsPerProvince && buildingCount(state, p.id, 'farm') === (state.provinces[p.id].buildings.farm || 0)).sort((a, b) => buildingCount(state, a.id, 'farm') - buildingCount(state, b.id, 'farm') || a.id.localeCompare(b.id))[0];
     const farmCost = farmAt ? RULES.realtime.food.farmCosts[buildingCount(state, farmAt.id, 'farm')] : Infinity;
     if (farmAt && treasury() >= farmCost + C.reserve + 20) { if (queueConstruction(state, { nationId, provinceId: farmAt.id, type: 'farm' }).ok) reputation(state, nationId).builds++; }
+    // Puis une usine dans chaque province (revenus), et le port de chaque province qui peut en avoir un.
+    for (const type of ['factory', 'port']) {
+      const at = owned.find(p => !hasOrQueued(state, p.id, type) && (type !== 'port' || state.provinces[p.id].portSite) && !isMysteryIsland(p.id));
+      if (at && treasury() >= RULES.buildings[type].cost + C.reserve + 30) { if (queueConstruction(state, { nationId, provinceId: at.id, type }).ok) { reputation(state, nationId).builds++; break; } }
+    }
   }
-  const recruit = !saving && canRecruit;
+  // V17.5b (temps réel) : en paix et sans tension, le Bâtisseur préfère bâtir — il ne recrute qu'une fenêtre sur deux environ.
+  const calmBuilder = isRealtime(state) && nature === 'batisseur' && !awake && !aliveNations(state).some(n => n !== nationId && (pairWar(state, nationId, n) || getTension(state, nationId, n) >= 50))
+    && chance(state, 'builder-recruit', nationId, state.turn) < PERS().batisseur.skipRecruit;
+  const recruit = !saving && canRecruit && !calmBuilder;
     if (recruit && treasury() >= RULES.units.infantry.cost) queueRecruitment(state, { nationId, provinceId: source.id, type: factory && state.turn % 3 === 0 ? 'armor' : 'infantry' });
   if (arch === 'conquerant' && recruit && factory && treasury() >= RULES.units.armor.cost + 40) queueRecruitment(state, { nationId, provinceId: source.id, type: 'armor' });
   // V15.3 : le trésor accumulé du Bâtisseur réveillé part en blindés ; en Difficile, toutes les IA dépensent mieux leur trésor.

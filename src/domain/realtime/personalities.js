@@ -1,5 +1,5 @@
 // V17.5b — Personnalités plus vivantes et moins prévisibles (demande de Jack, 19-20/11/2026). Module pur, déterministe :
-// tout aléa vient de la graine de la partie (chance de leaders.js), jamais de Math.random. Ne sert qu'en temps réel.
+// tout aléa vient de la graine de la partie (chance de leaders.js), jamais du hasard du navigateur. Ne sert qu'en temps réel.
 //
 //  - Tempérament : chaque dirigeant tire, à la graine, de petites variations de ses seuils (marges d'attaque, délais,
 //    rapports de force) : ±RULES.realtime.ai.personality.jitter. Deux parties ne se ressemblent pas.

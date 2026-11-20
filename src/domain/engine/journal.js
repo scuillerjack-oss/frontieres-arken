@@ -11,6 +11,7 @@ import { formatDate } from '../realtime/clock.js';
 
 export function eventKnownToPlayer(state, map, event) {
   const player = state.playerNationId;
+  if (event.type === 'lighthouse') return event.nationId === player; // V17.5b : le phare ne prévient que qui tient l'île
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
@@ -18,7 +19,6 @@ export function eventKnownToPlayer(state, map, event) {
   // V16.0 (Jack : « si jamais il y a une alliance entre deux pays quelconques, l'ensemble des nations sont au courant ») :
   // toute alliance conclue est publique.
   if (event.type === 'diplomatic-action' && event.action === 'alliance' && event.accepted === true) return true;
-  if (event.type === 'lighthouse') return event.nationId === player; // V17.5b : le phare ne prévient que qui tient l'île
   if (event.type === 'production-suspended') return false; // V17.5b : chantier suspendu, avis privé (le propriétaire est traité plus haut)
   if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
