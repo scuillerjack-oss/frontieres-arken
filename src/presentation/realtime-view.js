@@ -11,6 +11,7 @@ import { LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
 import { formatDate, formatShortDate } from '../domain/realtime/clock.js';
 import { visionSharers } from '../domain/vision.js';
 import { convoySeaPath, pointAlong } from './map-orders-view.js';
+import { foodEventText } from './food-view.js';
 
 const R = RULES.realtime;
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -198,6 +199,17 @@ export function eventBanners(events, me, names) {
     }
   }
   return out;
+}
+/**
+ * Famine qui dure (V17.4 : des désertions chaque jour) : un seul bandeau au début (famine-start, eventBanners), puis au plus
+ * un rappel tous les 30 jours, pour ne pas masquer les bandeaux de conquête. `lastDay` = jour du dernier bandeau de famine.
+ */
+export const FAMINE_REMINDER_DAYS = 30;
+export function famineReminder(events, me, lastDay) {
+  const e = (events || []).filter(x => x.type === 'famine-desertion' && x.nationId === me).at(-1);
+  if (!e || (Number.isFinite(lastDay) && num(e.day) - lastDay < FAMINE_REMINDER_DAYS)) return null;
+  return { key: `famine-reminder:${e.day}`, kind: 'famine', tone: 'bad', icon: '🌾', day: num(e.day),
+    text: `Famine toujours en cours : ${foodEventText(e).replace(/^🌾 Famine : /, '')}`, action: { type: 'food' } };
 }
 /** Bandeaux « fenêtre mer » (convoi perdu, débarquement repoussé…) : un par fenêtre seaFatePopups. */
 export const seaBanners = (popups, day) => (popups || []).map((c, i) => ({ key: `sea:${day}:${i}:${c.title}`, kind: 'sea', tone: 'bad', icon: '⚓', text: c.title, action: { type: 'sea', popup: c } }));

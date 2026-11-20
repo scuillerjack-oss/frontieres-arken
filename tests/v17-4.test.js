@@ -352,7 +352,8 @@ test('V17.4 : textes — vivres au dixième, « +N / jour », ligne 🌾 de la f
   assert.equal(farmCardText(5).cost, null);
   // Interface : barre du haut, fiche et écran Construction branchés.
   const app = readSource('app.js');
-  assert.ok(app.includes('drawFoodHud()') && app.includes('showFoodNews(events)'));
+  // V17.3 : les messages de nourriture sont devenus des bandeaux (famineReminder : un au début, puis au plus un tous les 30 jours).
+  assert.ok(app.includes('drawFoodHud()') && app.includes('famineReminder(events, me, famineDay)'));
   assert.ok(app.includes("state.mode==='realtime'?['farm']:[]"), 'Ferme dans l’écran Construction en temps réel seulement');
-  assert.ok(app.includes('provinceFoodLine(state,selected)'), 'ligne 🌾 dans la fiche');
+  assert.ok(app.includes('provinceFoodLine(state,id)') && app.includes('${mine?foodChip:\'\'}'), 'ligne 🌾 dans la fiche (emplacement sheetSlots.food de la V17.3)');
 });

@@ -211,5 +211,5 @@ class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}"
 Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
     state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);
     $('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Chantier lancé : il démarre tout de suite':'Ordre de construction ajouté à l’inter-tour');tuto('build');});});
-  tutorial('build','Financer une construction',`Payé tout de suite, livré après sa durée. Banque : +${RULES.bankIncome} or par tour, usine : +${RULES.factoryIncome}.`);
+  tutorial('build','Financer une construction',rtOn()?`Payé tout de suite, livré après sa durée. Banque : ${monthlyIncomeText(RULES.bankIncome)}, usine : ${monthlyIncomeText(RULES.factoryIncome)}, ferme : +10 vivres par jour.`:`Payé tout de suite, livré après sa durée. Banque : +${RULES.bankIncome} or par tour, usine : +${RULES.factoryIncome}.`);
 }

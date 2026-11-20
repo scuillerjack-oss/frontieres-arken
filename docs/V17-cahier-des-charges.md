@@ -1082,3 +1082,14 @@ les bulles d'aide (tutoriel V14, refait en V17.9) se posent encore par-dessus la
 5. Le revenu « +8/MOIS » de la barre du haut est le revenu de base (bonus d'atout ou de nation non comptés).
 6. Non vérifié : sur un vrai téléphone (APK), une partie longue dans le navigateur, une vraie conquête ou un vrai ballon
    étranger pendant le test (bandeaux vérifiés par les tests et par une armée / une proposition injectées).
+
+**Intégration avec la V17.4 (20/11/2026, après rebase sur `v17`)** : la nourriture est branchée dans les emplacements de la
+V17.3 : case « 🌾 VIVRES 1 002,5 · +2,5/j » = `#foodStat` de la barre du haut (posée dans `index.html`, cachée hors temps réel,
+remplie par `ui/food-ui.js`, la toucher explique l'état) ; ligne 🌾 de la fiche par `sheetSlots.food` ; carte Ferme dans
+l'écran Construction (avec les durées en jours de la V17.3). Les messages de nourriture de la V17.4 (un toast à chaque désertion
+quotidienne) sont remplacés par de **vrais bandeaux** : alerte « famine à venir », un bandeau au début de la famine, puis au plus
+**un rappel tous les 30 jours** (`famineReminder`), « Les vivres sont revenus » ; toucher le bandeau explique l'état des vivres.
+Barre du haut (remarque de la relecture V17.4) : le revenu passe sous le trésor (« 136 / +8/mois ») et la ligne « ARKEN · v… »
+peut passer sur deux lignes au lieu d'être coupée : le numéro de version est toujours lisible en entier (vérifié en 844 × 390 et
+390 × 844). Tests : `tests/v17-3.test.js` (+1 test famine / branchements), `tests/v17-4.test.js` (2 assertions adaptées aux
+bandeaux et à `sheetSlots.food`).

@@ -21,12 +21,13 @@ import {
   createDayClock, createSaveGate, dueDays, isClockRunning, setClockPaused, setClockSpeed, syncClockHolds, wantSave
 } from '../realtime-clock.js';
 import {
-  compositionText, dateText, eventBanners, incomingBanners, monthlyIncomeText, proposalBanners, seaBanners,
+  compositionText, dateText, eventBanners, famineReminder, incomingBanners, monthlyIncomeText, proposalBanners, seaBanners,
   tickerText, tokenSheet, visibleBanners
 } from '../realtime-view.js';
 import { $, nation, province, toast } from './base.js';
 import { openBalloon } from './balloon-ui.js';
 import { showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
+import { drawFoodHud, explainFood } from './food-ui.js';
 import { currentTokens, setUnitOpener } from './map-units-layer.js';
 import { focusProvince, render } from './map-view.js';
 import { actionModal, selectProvince, showProvinceSheet } from './province-sheet.js';
@@ -35,6 +36,7 @@ import { renderJournal, showEndScreen } from './turn-flow.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
 const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'];
+let famineDay = null; // jour du dernier bandeau de famine (début ou rappel), pour au plus un rappel tous les 30 jours
 let clock = null, clockGame = null, timer = 0, gate = null, alerts = [], seen = new Set(), lastDock = '', lastTicker = '', lastAlerts = '';
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
 const names = { nation: id => nation(id).short, province: id => province(id).name };
@@ -87,6 +89,12 @@ function collectBanners(events) {
   const me = state.playerNationId;
   const fresh = [...eventBanners(events, me, names), ...seaBanners(seaFatePopups(events, me, names), state.day).map(b => ({ ...b, action: { type: 'sea', events } })),
     ...incomingBanners(state, currentTokens(), me, names, seen), ...proposalBanners(proposalsToAnswer(state, me), names, seen)];
+  const start = (events || []).filter(e => e.type === 'famine-start' && e.nationId === me).at(-1);
+  if (start) famineDay = Number(start.day) || state.day;
+  if ((events || []).some(e => e.type === 'famine-end' && e.nationId === me)) famineDay = null;
+  if (famineDay === null && (events || []).some(e => e.type === 'famine-desertion' && e.nationId === me)) famineDay = state.day; // famine déjà en cours (partie reprise)
+  const reminder = famineReminder(events, me, famineDay);
+  if (reminder) { famineDay = reminder.day; fresh.push(reminder); }
   pushBanners(fresh);
 }
 /** Fenêtre de décision d'un bandeau (le temps continue de tourner). */
@@ -98,6 +106,7 @@ function openAlert(a) {
   else if (act.type === 'sea') showSeaPopups(act.events);
   else if (act.type === 'balloon') openBalloon(act.balloonId);
   else if (act.type === 'proposal') { const list = proposalsToAnswer(state, state.playerNationId).filter(p => p.from === act.from); if (list.length) showProposalPopups(list).then(() => saveFor('order')); else toast('Cette proposition n’est plus valable'); }
+  else if (act.type === 'food') explainFood();
   else if (act.type === 'unit') { const t = currentTokens().find(x => x.kind === act.kind && x.id === act.id); if (t) { focusProvince(t.toId); openUnit(t); } else toast('Ces troupes sont arrivées'); }
   else renderJournal(false);
 }
@@ -156,10 +165,11 @@ function drawTicker() {
   $('#liveTitle').textContent = ''; $('#liveTime').textContent = ''; $('#liveKind').hidden = true;
   $('#liveNews').textContent = `${t.icon} ${t.text}`;
 }
-/** Barre du haut : plus de « TOUR » (la date est en bas à droite) ; trésor avec le revenu par mois (§3.1). */
+/** Barre du haut : plus de « TOUR » (la date est en bas à droite) ; trésor avec le revenu par mois sous le montant (§3.1). */
 function drawHud() {
-  const label = $('#goldLabel'), rate = `TRÉSOR · ${monthlyIncomeText(incomeFor(state, state.playerNationId)).replace(' or / mois', '/MOIS')}`;
-  if (label && label.textContent !== rate) label.textContent = rate;
+  const el = $('#goldRate'), rate = monthlyIncomeText(incomeFor(state, state.playerNationId)).replace(' or / mois', '/mois');
+  if (el && (el.textContent !== rate || el.hidden)) { el.textContent = rate; el.hidden = false; el.closest('.hud-stat')?.setAttribute('aria-label', `Trésor : revenu ${rate.replace('/mois', ' or par mois')}`); }
+  drawFoodHud(); // V17.4 : réserve de vivres et « +N/j » dans l'emplacement #foodStat
 }
 function refresh() {
   render();
@@ -170,7 +180,8 @@ function refresh() {
 function leaveRealtime() {
   document.body.classList.remove('rt-on', 'live-on');
   for (const id of ['#rtDock', '#rtAlerts']) { const el = $(id); if (el) el.hidden = true; }
-  const label = $('#goldLabel'); if (label && label.textContent !== 'TRÉSOR') label.textContent = 'TRÉSOR';
+  const rate = $('#goldRate'); if (rate && !rate.hidden) rate.hidden = true;
+  drawFoodHud(); // cache la case des vivres hors temps réel
 }
 const outOfGame = () => OUT_OF_GAME.some(sel => $(sel)?.open);
 
@@ -181,7 +192,7 @@ export function syncRealtime() {
   document.body.classList.add('rt-on', 'live-on');
   if (!clock || clockGame !== state) {
     clock = createDayClock({ now: t, paused: true }); setClockSpeed(clock, savedSpeed(), t); clockGame = state;
-    gate = createSaveGate({ day: state.day, now: t }); alerts = []; seen = new Set(); lastAlerts = '';
+    gate = createSaveGate({ day: state.day, now: t }); alerts = []; seen = new Set(); lastAlerts = ''; famineDay = state.nations[state.playerNationId]?.food?.famine ? state.day : null;
     refresh(); collectBanners([]);
   }
   if (state.gameOver) { drawDock(); drawTicker(); return; }

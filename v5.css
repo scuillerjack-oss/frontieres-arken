@@ -640,3 +640,5 @@ body.rt-on #tutorialBubble:not(.top){bottom:190px}
 .hud-stat[hidden]{display:none!important}
 .rt-unit-actions button,.rt-unit-actions .primary{margin-top:0}
 body.rt-on .live-settings{display:none}
+.gold-stat i{display:block;font-style:normal;font-size:.6rem;font-weight:700;color:#e9d39a;font-variant-numeric:tabular-nums}
+.gold-stat i[hidden]{display:none}

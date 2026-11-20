@@ -5,7 +5,7 @@
    Gabarit : carte sur toute la hauteur à gauche ; colonne à droite = barre d'infos en haut, boutons du bas en bas ;
    fiche de province en panneau latéral (à droite de la carte) ; fenêtres limitées à la hauteur de l'écran. */
 @media (orientation:landscape) and (max-height:560px){
-:root{--sr:env(safe-area-inset-right,0px);--side:calc(66px + env(safe-area-inset-right,0px));--hud-w:min(318px,calc(100vw - 2 * var(--side) - 260px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+:root{--sr:env(safe-area-inset-right,0px);--side:calc(66px + env(safe-area-inset-right,0px));--hud-w:min(340px,calc(100vw - 2 * var(--side) - 260px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
 
 /* --- V17.6 : carte en PLEIN ÉCRAN (façon AM 3), tout le reste est posé par-dessus aux bords ---
    En haut à gauche : barre d'infos (accueil, tour, trésor, armée). En haut au centre : bandeau du tour en direct.
@@ -19,6 +19,10 @@
 .hud .brand{flex:1 1 0;margin:0;min-width:0;overflow:hidden;padding:2px 4px;display:flex;flex-direction:column;justify-content:center}
 .hud .brand b,.hud .brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud .brand b{font-size:.7rem}.hud .brand small{font-size:.52rem;letter-spacing:.04em}
+/* V17.3 (relecture V17.4) : le numéro de version reste lisible en entier (il sert à vérifier la mise à jour de la bêta) :
+   la ligne « ARKEN · v… » passe sur deux lignes plutôt que d'être coupée, la version n'est jamais tronquée. */
+.hud .brand small{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15}
+#hud-version{white-space:nowrap}
 .hud .hud-stat{flex:0 0 auto;min-width:56px;min-height:40px;padding:2px 5px;border-radius:12px}
 .hud .hud-stat small{font-size:.54rem;letter-spacing:.04em}
 .hud .hud-stat b{font-size:1.05rem}

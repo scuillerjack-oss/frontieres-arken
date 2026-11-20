@@ -13,7 +13,7 @@ import {
   SAVE_EVERY_DAYS, createDayClock, createSaveGate, daysPerSecond, dueDays, setClockPaused, setClockSpeed, syncClockHolds, wantSave
 } from '../src/presentation/realtime-clock.js';
 import {
-  BANNER_MS, balloonHopFraction, compositionText, convoyTokens, dateText, daysLeftText, durationText, eventBanners, headingAt,
+  BANNER_MS, FAMINE_REMINDER_DAYS, balloonHopFraction, famineReminder, compositionText, convoyTokens, dateText, daysLeftText, durationText, eventBanners, headingAt,
   incomingBanners, marchTokens, monthlyIncomeText, pointsAhead, productionDays, proposalBanners, realtimeText, routeFraction,
   seaDays, tickerText, tokenPoint, tokenSheet, tokenTag, unitTokens, visibleBanners
 } from '../src/presentation/realtime-view.js';
@@ -171,6 +171,24 @@ test('V17.3 : bandeaux d’alerte — attaque en approche, conquête, capitale, 
   assert.deepEqual(visibleBanners(list, 3500).map(b => b.key), ['b', 'd']);
   assert.deepEqual(visibleBanners(list, BANNER_MS + 1500).map(b => b.key), ['d']);
 });
+test('V17.3 + V17.4 : famine — un bandeau au début, puis au plus un rappel tous les 30 jours (pas un par désertion)', () => {
+  const me = 'valmorne', des = day => ({ type: 'famine-desertion', nationId: me, day, deserted: { infantry: 2 } });
+  assert.equal(FAMINE_REMINDER_DAYS, 30);
+  const start = eventBanners([{ type: 'famine-start', nationId: me, day: 100 }, des(100)], me, names);
+  assert.deepEqual(start.map(b => b.kind), ['famine'], 'la désertion du jour ne fait pas de bandeau');
+  assert.equal(famineReminder([des(101)], me, 100), null);
+  assert.equal(famineReminder([des(129)], me, 100), null);
+  const r = famineReminder([des(130)], me, 100);
+  assert.equal(r.kind, 'famine'); assert.equal(r.day, 130); assert.match(r.text, /Famine toujours en cours : 2 fantassins ont déserté/);
+  assert.equal(famineReminder([{ ...des(200), nationId: 'aurel' }], me, 100), null, 'rien pour les autres nations');
+  const ui = readSource('app.js');
+  assert.doesNotMatch(ui, /showFoodNews/, 'plus de message à chaque désertion');
+  assert.match(ui, /famineReminder\(events, me, famineDay\)/);
+  assert.match(ui, /drawFoodHud\(\)/);
+  assert.match(read('index.html'), /<button id="foodStat" type="button" class="hud-stat food-stat" hidden><small>🌾 VIVRES<\/small><b id="foodReserve">/);
+  assert.match(ui, /export const sheetSlots=\{food:id=>\{const line=provinceFoodLine\(state,id\)/, 'ligne 🌾 dans l’emplacement de la fiche');
+  assert.match(ui, /x\.type==='farm'\?`\$\{x\.cost\?\?'—'\} or · \$\{farmCardText\(x\.count\)\.days\} jours/, 'carte Ferme dans Construction');
+});
 test('V17.3 : message d’événement — pause, armées en approche, dernier fait du journal, troupes en route', () => {
   const s = game();
   assert.match(tickerText(s, 'valmorne', { paused: true }).text, /En pause — touchez ▶/);
@@ -239,7 +257,6 @@ test('V17.3 : interface — ▶ ⏸ ⏩ et date en bas à droite, cadenas Premiu
   assert.match(ui, /if\(!rt\)save\(\)/, 'plus de sauvegarde à chaque rendu en temps réel');
   assert.match(ui, /wantSave\(gate, reason, state\.day, now\(\)\)/);
   assert.match(ui, /saveFor\('hidden'\)/); assert.match(ui, /saveFor\('pause'\)/); assert.match(ui, /saveFor\('order'\)/); assert.match(ui, /saveFor\('day'\)/);
-  assert.match(ui, /export const sheetSlots=\{food:\(\)=>''\}/, 'emplacement prévu pour la nourriture dans la fiche (V17.4)');
   const css = read('v5.css');
   assert.match(css, /body\.rt-on #nextTurn,body\.rt-on \.hud-stat:has\(#turn\)\{display:none\}/, 'ni « Fin du tour » ni « TOUR » en temps réel');
   assert.match(css, /body\.rt-on #livePause/);
