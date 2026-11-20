@@ -141,7 +141,7 @@ export function dailyFood(state) {
   const day = state.day;
   for (const id of Object.keys(state.nations).sort()) {
     const n = state.nations[id];
-    if (n.eliminated) continue;
+    if (n.eliminated) { if (n.food?.famine) n.food.famine = false; continue; } // une nation éliminée n'a plus de famine
     const f = foodOf(state, id), production = foodProduction(state, id), consumption = foodConsumption(state, id), granary = granaryOf(state, id, production);
     const raw = f.reserve + production - consumption;
     f.full = raw > granary && production > consumption;

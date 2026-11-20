@@ -56,7 +56,7 @@ export function playGame(seed, { short = false, nation = NATIONS[0] } = {}) {
       else if (e.type === 'famine-desertion') famine[e.nationId].deserted += Object.values(e.deserted).reduce((a, b) => a + b, 0);
     }
     for (const q of s.productionQueue) if (!seen.has(q)) { seen.add(q); if (spent[q.nationId]) { spent[q.nationId].all += q.cost || 0; if (q.type === 'farm') spent[q.nationId].farm += q.cost || 0; } }
-    for (const id of NATIONS) { const f = famine[id]; if (s.nations[id].food?.famine) { f.days++; f.run++; f.longest = Math.max(f.longest, f.run); } else f.run = 0; }
+    for (const id of NATIONS) { const f = famine[id]; if (!s.nations[id].eliminated && s.nations[id].food?.famine) { f.days++; f.run++; f.longest = Math.max(f.longest, f.run); } else f.run = 0; }
   }
   const gold = armyGoldByNation(s);
   const alive = NATIONS.filter(id => !s.nations[id].eliminated);
