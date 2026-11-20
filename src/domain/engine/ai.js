@@ -277,7 +277,7 @@ function aiPlan(state, map, nationId) {
   const threshold = ARCH_MARGIN[arch] + level.marginAdd;
   // V17.5 : en temps réel, le quota d'attaques terrestres vaut pour une fenêtre de RULES.realtime.ai.pace.attack jours
   // (Facile : une seule attaque par 30 jours), pas pour chacune des 3 décisions d'une période.
-  let launched = attacksInPace(state, nationId);
+  let launched = attacksInPace(state, nationId, level.oneAttack ? RULES.realtime.diplomacy.easyAttackEveryDays : RULES.realtime.ai.pace.attack);
   const quota = attackQuota(state, ARCH_ATTACKS[arch] || 1);
   for (const x of attacks) {
     // V15.1 : pour le Conquérant et le Traître, achever une nation ou prendre une capitale ne compte pas dans le quota du tour.

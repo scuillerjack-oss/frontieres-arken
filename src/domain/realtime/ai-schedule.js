@@ -89,12 +89,15 @@ export function paceReady(state, nationId, kind) {
   return !Number.isFinite(last) || state.day - last >= A().pace[kind];
 }
 export function notePace(state, nationId, kind) { if (isRealtime(state)) paceOf(state, nationId)[kind] = state.day; }
-/** Attaques terrestres lancées dans la fenêtre en cours (0 au tour par tour). */
-export function attacksInPace(state, nationId) {
+/**
+ * Attaques terrestres lancées dans la fenêtre en cours (0 au tour par tour). `days` : la fenêtre (RULES.realtime.ai.pace.attack ;
+ * en Facile, RULES.realtime.diplomacy.easyAttackEveryDays : une attaque par 30 jours, cahier §2.2).
+ */
+export function attacksInPace(state, nationId, days = A().pace.attack) {
   if (!isRealtime(state)) return 0;
-  const p = paceOf(state, nationId);
-  p.attacks = p.attacks.filter(d => state.day - d < A().pace.attack);
-  return p.attacks.length;
+  const p = paceOf(state, nationId), keep = Math.max(A().pace.attack, R.diplomacy.easyAttackEveryDays);
+  p.attacks = p.attacks.filter(d => state.day - d < keep);
+  return p.attacks.filter(d => state.day - d < days).length;
 }
 export function noteAttack(state, nationId) { if (isRealtime(state)) paceOf(state, nationId).attacks.push(state.day); }
 /** Quota d'attaques terrestres de la fenêtre (ARCH_ATTACKS × attacksPerPace, arrondi, au moins 1). */
