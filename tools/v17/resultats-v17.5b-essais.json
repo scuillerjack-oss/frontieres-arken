@@ -1,0 +1,416 @@
+{
+ "base-30j": {
+  "reglages": {},
+  "parties": 100,
+  "prefixe": "v175b",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 472.8,
+  "conquetesParPartie": 18.7,
+  "conquetesParQuart": [
+   5.8,
+   3.2,
+   5.6,
+   4.1
+  ],
+  "nationsElimineesParPartie": 0.67,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3129,
+   "p90": 3942,
+   "max": 5791
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 30.5,
+  "debarquementsParPartie": 13.4,
+  "rencontresEnCheminParPartie": 0.01,
+  "assautsParPartie": 48.8,
+  "renfortsEnBatailleParPartie": 0.06,
+  "replisParPartie": 9.5,
+  "batailleFinieAuAssaut": [
+   9.8,
+   6.6,
+   5.8
+  ],
+  "bombardementsParPartie": 4.9,
+  "interceptionsParPartie": 1.72,
+  "marchesParPartie": 91.4,
+  "convoisParPartie": 40.5,
+  "msParJour": {
+   "mediane": 0.22,
+   "p99": 9.2,
+   "max": 360.7
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.89,
+   "p90": 3.02,
+   "max": 360.7
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 11,
+    "p90": 15,
+    "max": 26
+   },
+   "fermesParProvince": {
+    "mediane": 2.13,
+    "p90": 3.5,
+    "max": 5
+   },
+   "partOrFermes": {
+    "mediane": 6.7,
+    "p90": 10.8
+   },
+   "nationsAvecFamine": "21 sur 500",
+   "tauxFamine": 4.2,
+   "joursDeFamine": {
+    "mediane": 51,
+    "p90": 109,
+    "max": 316
+   },
+   "plusLongueFamine": 316,
+   "deserteursParNationAffamee": 301.2
+  },
+  "ballonsConstruitsParPartie": 33.88,
+  "ballonsAbattusParPartie": 32.86,
+  "prisesDeLIleParPartie": 1.25,
+  "partiesAvecIlePrise": 61,
+  "retraitesVolontairesParPartie": 8.16,
+  "rappelsParPartie": 4.33,
+  "renfortsDefensifsParPartie": 9.11,
+  "recruesDUrgenceParPartie": 0,
+  "delaiReponsesIAJours": {
+   "min": 2,
+   "mediane": 4,
+   "max": 8,
+   "nombre": 8958
+  },
+  "plusDAttaquesTerrestresEn30Jours": 4,
+  "fins": {
+   "turn-limit": 100
+  },
+  "partiesAvecEliminationAvant2Ans": 2,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 0,
+  "jourDeFin": {
+   "min": 5479,
+   "mediane": 5479,
+   "max": 5479
+  },
+  "vainqueurParCaractere": {
+   "heros": 31,
+   "conquerant": 22,
+   "traitre": 16,
+   "batisseur": 31
+  },
+  "vainqueurParNation": {
+   "valmorne": 11,
+   "roc-epine": 25,
+   "noireflamme": 31,
+   "oroel": 16,
+   "aurel": 17
+  },
+  "victoiresAvantLaFin": [],
+  "parCaractere": {
+   "heros": {
+    "nations": 126,
+    "assautsLances": 5.1,
+    "parTerre": 3.5,
+    "parMer": 1.6,
+    "premierAssautJour": 276,
+    "conquetes": 2.9,
+    "provincesPerdues": 2,
+    "provincesFinales": 4.8,
+    "trahisons": 0.03,
+    "partiesAvecTrahison": 4,
+    "ciblesDesTrahisons": {
+     "traitre": 2,
+     "conquerant": 2
+    },
+    "ciblesDifferentesParPartie": 1,
+    "alliances": 2.83,
+    "alliancesContreLeConquerant": 1.39,
+    "batimentsFinaux": 22.1,
+    "batimentsParProvince": 4.75,
+    "eliminees": 3,
+    "victoires": 31
+   },
+   "conquerant": {
+    "nations": 124,
+    "assautsLances": 11.5,
+    "parTerre": 7.5,
+    "parMer": 4,
+    "premierAssautJour": 92,
+    "conquetes": 4.4,
+    "provincesPerdues": 5,
+    "provincesFinales": 3.4,
+    "trahisons": 0.01,
+    "partiesAvecTrahison": 1,
+    "ciblesDesTrahisons": {
+     "traitre": 1
+    },
+    "ciblesDifferentesParPartie": 1,
+    "alliances": 0.69,
+    "alliancesContreLeConquerant": 0,
+    "batimentsFinaux": 9.4,
+    "batimentsParProvince": 2.35,
+    "eliminees": 25,
+    "victoires": 22
+   },
+   "traitre": {
+    "nations": 117,
+    "assautsLances": 10.3,
+    "parTerre": 6,
+    "parMer": 4.3,
+    "premierAssautJour": 332,
+    "conquetes": 4.6,
+    "provincesPerdues": 5.5,
+    "provincesFinales": 3.1,
+    "trahisons": 2.26,
+    "partiesAvecTrahison": 99,
+    "ciblesDesTrahisons": {
+     "batisseur": 54,
+     "conquerant": 64,
+     "heros": 90,
+     "traitre": 56
+    },
+    "ciblesDifferentesParPartie": 1.65,
+    "alliances": 2.66,
+    "alliancesContreLeConquerant": 0.85,
+    "batimentsFinaux": 10.9,
+    "batimentsParProvince": 2.63,
+    "eliminees": 36,
+    "victoires": 16
+   },
+   "batisseur": {
+    "nations": 133,
+    "assautsLances": 7.2,
+    "parTerre": 4.6,
+    "parMer": 2.5,
+    "premierAssautJour": 1092,
+    "conquetes": 3.2,
+    "provincesPerdues": 2.2,
+    "provincesFinales": 5,
+    "trahisons": 0,
+    "partiesAvecTrahison": 0,
+    "ciblesDesTrahisons": {},
+    "ciblesDifferentesParPartie": 0,
+    "alliances": 1.5,
+    "alliancesContreLeConquerant": 0.53,
+    "batimentsFinaux": 21.7,
+    "batimentsParProvince": 4.45,
+    "eliminees": 3,
+    "victoires": 31
+   }
+  }
+ },
+ "voisin-20j": {
+  "reglages": {
+   "durations": {
+    "land": 20,
+    "cavalryLand": 13,
+    "landPerSeaTurn": 20,
+    "interceptDaysLeft": 20
+   }
+  },
+  "parties": 100,
+  "prefixe": "v175b",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 473.4,
+  "conquetesParPartie": 23.3,
+  "conquetesParQuart": [
+   7.7,
+   3.8,
+   7.1,
+   4.7
+  ],
+  "nationsElimineesParPartie": 0.86,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3214,
+   "p90": 4090,
+   "max": 5774
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 35.8,
+  "debarquementsParPartie": 14.3,
+  "rencontresEnCheminParPartie": 0.01,
+  "assautsParPartie": 59.2,
+  "renfortsEnBatailleParPartie": 0.16,
+  "replisParPartie": 9.3,
+  "batailleFinieAuAssaut": [
+   12,
+   8.6,
+   7.4
+  ],
+  "bombardementsParPartie": 1.31,
+  "interceptionsParPartie": 1.76,
+  "marchesParPartie": 97.5,
+  "convoisParPartie": 45,
+  "msParJour": {
+   "mediane": 0.21,
+   "p99": 9.06,
+   "max": 611.2
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.91,
+   "p90": 3.03,
+   "max": 611.2
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 10,
+    "p90": 16,
+    "max": 26
+   },
+   "fermesParProvince": {
+    "mediane": 2,
+    "p90": 3.4,
+    "max": 5
+   },
+   "partOrFermes": {
+    "mediane": 6.3,
+    "p90": 10.8
+   },
+   "nationsAvecFamine": "17 sur 500",
+   "tauxFamine": 3.4,
+   "joursDeFamine": {
+    "mediane": 53,
+    "p90": 100,
+    "max": 293
+   },
+   "plusLongueFamine": 293,
+   "deserteursParNationAffamee": 243.9
+  },
+  "ballonsConstruitsParPartie": 35.01,
+  "ballonsAbattusParPartie": 33.95,
+  "prisesDeLIleParPartie": 1.3,
+  "partiesAvecIlePrise": 57,
+  "retraitesVolontairesParPartie": 8,
+  "rappelsParPartie": 4.95,
+  "renfortsDefensifsParPartie": 10.04,
+  "recruesDUrgenceParPartie": 0,
+  "delaiReponsesIAJours": {
+   "min": 2,
+   "mediane": 4,
+   "max": 8,
+   "nombre": 9233
+  },
+  "plusDAttaquesTerrestresEn30Jours": 6,
+  "fins": {
+   "turn-limit": 100
+  },
+  "partiesAvecEliminationAvant2Ans": 1,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 0,
+  "jourDeFin": {
+   "min": 5479,
+   "mediane": 5479,
+   "max": 5479
+  },
+  "vainqueurParCaractere": {
+   "heros": 32,
+   "conquerant": 11,
+   "traitre": 22,
+   "batisseur": 35
+  },
+  "vainqueurParNation": {
+   "valmorne": 10,
+   "roc-epine": 20,
+   "noireflamme": 29,
+   "oroel": 17,
+   "aurel": 24
+  },
+  "victoiresAvantLaFin": [],
+  "parCaractere": {
+   "heros": {
+    "nations": 126,
+    "assautsLances": 5.5,
+    "parTerre": 3.5,
+    "parMer": 2,
+    "premierAssautJour": 258,
+    "conquetes": 3.9,
+    "provincesPerdues": 2.7,
+    "provincesFinales": 5.2,
+    "trahisons": 0.02,
+    "partiesAvecTrahison": 2,
+    "ciblesDesTrahisons": {
+     "traitre": 2
+    },
+    "ciblesDifferentesParPartie": 1,
+    "alliances": 2.78,
+    "alliancesContreLeConquerant": 1.35,
+    "batimentsFinaux": 23.4,
+    "batimentsParProvince": 4.55,
+    "eliminees": 4,
+    "victoires": 32
+   },
+   "conquerant": {
+    "nations": 124,
+    "assautsLances": 13.1,
+    "parTerre": 8.8,
+    "parMer": 4.3,
+    "premierAssautJour": 84,
+    "conquetes": 5.6,
+    "provincesPerdues": 6.9,
+    "provincesFinales": 2.6,
+    "trahisons": 0.02,
+    "partiesAvecTrahison": 2,
+    "ciblesDesTrahisons": {
+     "traitre": 2
+    },
+    "ciblesDifferentesParPartie": 1,
+    "alliances": 0.6,
+    "alliancesContreLeConquerant": 0,
+    "batimentsFinaux": 9.1,
+    "batimentsParProvince": 2.51,
+    "eliminees": 42,
+    "victoires": 11
+   },
+   "traitre": {
+    "nations": 117,
+    "assautsLances": 10.4,
+    "parTerre": 6.1,
+    "parMer": 4.2,
+    "premierAssautJour": 276,
+    "conquetes": 5.5,
+    "provincesPerdues": 6.3,
+    "provincesFinales": 3.2,
+    "trahisons": 2.3,
+    "partiesAvecTrahison": 97,
+    "ciblesDesTrahisons": {
+     "batisseur": 68,
+     "conquerant": 60,
+     "heros": 90,
+     "traitre": 51
+    },
+    "ciblesDifferentesParPartie": 1.73,
+    "alliances": 2.5,
+    "alliancesContreLeConquerant": 0.81,
+    "batimentsFinaux": 10.3,
+    "batimentsParProvince": 2.41,
+    "eliminees": 33,
+    "victoires": 22
+   },
+   "batisseur": {
+    "nations": 133,
+    "assautsLances": 6.4,
+    "parTerre": 4.2,
+    "parMer": 2.2,
+    "premierAssautJour": 980,
+    "conquetes": 3.8,
+    "provincesPerdues": 2.5,
+    "provincesFinales": 5.2,
+    "trahisons": 0.01,
+    "partiesAvecTrahison": 1,
+    "ciblesDesTrahisons": {
+     "traitre": 1
+    },
+    "ciblesDifferentesParPartie": 1,
+    "alliances": 1.51,
+    "alliancesContreLeConquerant": 0.56,
+    "batimentsFinaux": 22.8,
+    "batimentsParProvince": 4.36,
+    "eliminees": 7,
+    "victoires": 35
+   }
+  }
+ }
+}

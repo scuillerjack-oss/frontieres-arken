@@ -84,10 +84,10 @@ const paceOf = (state, nationId) => {
   return p;
 };
 /** L'action `kind` (recruit, ship, landing) est-elle permise aujourd'hui ? Toujours au tour par tour. */
-export function paceReady(state, nationId, kind) {
+export function paceReady(state, nationId, kind, days = A().pace[kind]) {
   if (!isRealtime(state)) return true;
   const last = paceOf(state, nationId)[kind];
-  return !Number.isFinite(last) || state.day - last >= A().pace[kind];
+  return !Number.isFinite(last) || state.day - last >= days;
 }
 export function notePace(state, nationId, kind) { if (isRealtime(state)) paceOf(state, nationId)[kind] = state.day; }
 /**

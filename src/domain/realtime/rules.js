@@ -78,7 +78,16 @@ export const REALTIME_RULES = freezeDeep({
     balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
     recallMargin: .6,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
-    emergencyRecruit: true   // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
+    emergencyRecruit: true,  // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
+    // V17.5b (Jack : personnalités plus vivantes, jamais la même partie) : realtime/personalities.js, engine/ai.js.
+    // jitter : variation (±) des seuils de chaque dirigeant, tirée à la graine de la partie. Périodes = 30 jours.
+    personality: {
+      jitter: .12,
+      conquerant: { margin: .9, warMargin: .78, attacks: 3, extraLots: 1, recruitPace: 20, landingPace: 20, landingWarFloor: 1, startPeriods: [1, 3], truceBreakPeriods: [4, 8], preyPeriods: [3, 8], secondPrey: 1.1 },
+      heros: { menaceVictims: 2, menaceMemory: 12, coalitionChance: .6, strikeMenaceStrength: .5 },
+      traitre: { opportunityChance: .3, opportunityRatio: .8, courtChance: .35, courtFromPeriod: [5, 10], busyRatio: .85, calmRatio: .6, maxAllies: 2, restPeriods: [36, 66] },
+      batisseur: { allyChance: .35, maxAllies: 2, fortMax: 2, farmsPerProvince: 2, reserve: 20 }
+    }
   },
   // §7 Rythmes du monde
   world: { coalitionEveryDays: 10, eliminationEveryDays: 10, tensionEveryDays: 30, balloonReportEveryDays: 30 },
