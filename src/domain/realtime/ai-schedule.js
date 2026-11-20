@@ -222,8 +222,8 @@ export function aiDefend(state, map, nationId) {
       const avail = availableForces(state, q);
       for (const share of A().reinforceShares) {
         let units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((avail[k] || 0) * share)]));
-        if (state.day + landTravelDays(units) - 1 > deadline) units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, k === 'cavalry' ? avail.cavalry || 0 : 0]));
-        if (!LAND_UNIT_TYPES.some(k => units[k]) || state.day + landTravelDays(units) - 1 > deadline) break;
+        if (state.day + landTravelDays(units, map, q, d.id) - 1 > deadline) units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, k === 'cavalry' ? avail.cavalry || 0 : 0]));
+        if (!LAND_UNIT_TYPES.some(k => units[k]) || state.day + landTravelDays(units, map, q, d.id) - 1 > deadline) break;
         // La province qui donne garde de quoi tenir (menace des voisins et des armées en route vers elle).
         const rest = splitForce(provinceForce(state.provinces[q]), units).rest, danger = landThreatForce(map, state, nationId, q);
         if (danger && !holds(rest, danger, state.provinces[q].buildings?.fort || 0, fortBreach(state, q))) continue;

@@ -8,6 +8,10 @@ import { isMysteryIsland } from '../mystery-island.js';
 
 /** V16.2 : refus clair sur l'île mystérieuse (rien ne s'y construit ni ne s'y recrute ; seule la super banque existe). */
 export const MYSTERY_BUILD_REFUSAL = 'Île mystérieuse : on n’y construit rien et on n’y recrute personne (seule la super banque existe). Pour la garder, envoyez-y des troupes.';
+/** V17.5b (Jack) : une province où une bataille est en cours ne construit rien et ne recrute personne. */
+export const underAttack = (state, provinceId) => (state.battles || []).some(b => b.provinceId === provinceId);
+export const UNDER_ATTACK_BUILD_REFUSAL = 'Province attaquée : impossible de construire pendant la bataille (les chantiers en cours reprendront après)';
+export const UNDER_ATTACK_RECRUIT_REFUSAL = 'Province attaquée (assiégée) : impossible de recruter pendant la bataille';
 
 function reservedAt(state, fromId, nationId = null) {
   return (state.orders || []).filter(o => (o.kind === 'move' || o.kind === 'bombard') && o.fromId === fromId && o.status === 'pending' && (!nationId || o.nationId === nationId)).reduce((out, o) => {
@@ -62,6 +66,8 @@ export function queueConstruction(state, { nationId, provinceId, type }) {
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
   if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Construction indisponible' };
+  // V17.5b (Jack) : pas de chantier (forteresse comprise) dans une province attaquée.
+  if (underAttack(state, provinceId)) return { ok: false, error: UNDER_ATTACK_BUILD_REFUSAL };
   // V17.4 : la ferme n'existe qu'en temps réel (la nourriture n'existe pas au tour par tour).
   if (r.realtimeOnly && state.mode !== 'realtime') return { ok: false, error: FARM_REALTIME_ONLY };
   if (type === 'port' && !p.portSite) return { ok: false, error: 'Cette province ne peut pas accueillir de port' };
@@ -84,7 +90,7 @@ export function queueRecruitment(state, { nationId, provinceId, type, lots = 1 }
   if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Unité inconnue' };
   // V17.5 (décidé par le chef de projet) : pas de recrutement dans une province assiégée (bataille en cours).
-  if ((state.battles || []).some(b => b.provinceId === provinceId)) return { ok: false, error: 'Province assiégée : impossible de recruter pendant la bataille' };
+  if (underAttack(state, provinceId)) return { ok: false, error: UNDER_ATTACK_RECRUIT_REFUSAL };
   // V13 : un navire de guerre exige un port CONSTRUIT et une usine dans la même province (le point de port ne suffit pas).
   if (r.requiresPort && r.requiresFactory && (!p.buildings.port || !p.buildings.factory)) return { ok: false,
     error: `Navire de guerre : il faut un port construit et une usine dans cette province (manque : ${[!p.buildings.port && 'port', !p.buildings.factory && 'usine'].filter(Boolean).join(' et ')})` };
