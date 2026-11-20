@@ -225,7 +225,10 @@ function aiPlan(state, map, nationId) {
   }
   aiDiplomacy(state, map, nationId, arch, targets, helpTargets);
   if (arch === 'traitre') traitorPrepare(state, nationId);
-  const treasury = () => spendableTreasury(state, nationId), level = levelOf(state);
+  // V17.5 : en temps réel, marge d'attaque corrigée par RULES.realtime.ai.marginAdd (la bataille en 3 assauts, les renforts
+  // et les réactions de l'IA favorisent la défense : réglage d'équilibre, pas une règle nouvelle).
+  const base0 = levelOf(state), level = isRealtime(state) ? { ...base0, marginAdd: (base0.marginAdd || 0) + RULES.realtime.ai.marginAdd } : base0;
+  const treasury = () => spendableTreasury(state, nationId);
   // V17.4 : en temps réel, la ferme passe avant tout achat (cahier §4.5 ; refonte de l'IA en V17.5).
   // Faute d'or pour la ferme nécessaire, elle épargne : ni recrutement ni banque à cette décision.
   const farm = aiFarmOrders(state, nationId), hungry = Boolean(farm && farm.needed && !farm.ok);
