@@ -1129,3 +1129,95 @@ sans fenêtre ouverte, lignes ASSAUT 1/3, 2/3, 3/3 dans le Journal, 0 erreur JS,
 `npm test` : 805 tests, tous verts. Playwright (`v173.mjs`) en 844 × 390, 390 × 844, 667 × 375 et 360 × 740 : une minute de jeu,
 ordre, icône qui avance, rappel, pause, bandeaux sans pause, bataille jusqu'au 3e assaut, Échanges / ballon / Diplomatie sans
 « tour », ⏩ cadenas, reprise en pause : 0 erreur JS, rien de caché ni coupé.
+
+### V17.5 — IA et diplomatie en temps réel (20/11/2026)
+**Fait** (branche `mission/V17.5`, version inchangée : montée par le chef de projet à la fusion ; présentation non touchée) :
+- **`src/domain/realtime/ai-schedule.js`** (nouveau, pur, déterministe) :
+  - calendrier : `decisionCalendar`, `nextDecisionDay` (la nation n° i décide quand (jour + 2 i) % 10 = 0 : 3 décisions par
+    période, une nation au plus par jour) ;
+  - **réponses en 1 à 10 jours** : une proposition d'alliance ou de trêve (payée comprise) et une demande d'aide adressées à
+    une IA passent au statut `awaiting` (`answerDay` = prochaine décision de l'IA, `askedDay`), puis `releaseAnswers` les
+    relâche ce jour-là, juste avant que l'IA ne décide. L'or d'une trêve reste réservé pendant l'attente ; une seconde
+    demande au même pays est refusée tant que la première attend. Mesuré : 1 à 8 jours, 4 en médiane (8 819 réponses) ;
+  - **rythme des règles « par tour »** (`paceReady` / `notePace`, `attacksInPace`, `attackQuota`) : recruter, acheter des
+    navires, lancer un débarquement : au plus une fois par fenêtre de `RULES.realtime.ai.pace` (30 jours) ; quota d'attaques
+    terrestres (ARCH_ATTACKS × `attacksPerPace`) par 30 jours ; **Facile : une attaque terrestre par 30 jours**
+    (`easyAttackEveryDays`). Tour par tour : aucune fenêtre (identique) ;
+  - **vision sans triche des armées en marche** (`visibleMarchesFor`, `marchEstimate`) : même règle que le §8 (départ ou
+    arrivée visible ; composition seulement si le départ est visible, sinon estimation prudente de `vision.js`) ;
+  - **réactions à la décision** (`aiReact`, avant le plan) : retraite d'une bataille que `battleForecast` dit perdue (sauf
+    renfort à soi qui arrive avant le dernier assaut) ; **rappel** d'une attaque en route qui échouerait face à la garnison
+    vue (ou estimée, ou mémorisée) + renforts ennemis visibles en route (marge `recallMargin`) ; **renfort** d'une province
+    menacée par une armée visible qu'elle ne tiendrait pas (part d'une province voisine qui garde de quoi tenir, arrivée
+    avant le dernier assaut ; sinon un lot de fantassins sur place s'il est livré à temps).
+- `engine/ai-naval.js` : `landThreatForce` compte les armées hostiles visibles qui marchent sur la province (l'IA ne dégarnit
+  plus une province menacée) ; achat de navires et débarquements rythmés. `engine/ai.js` : `aiAttackSlice` ajoute à la
+  défense les renforts visibles en route vers la cible (elle ne lance pas une attaque perdue d'avance) ; quota et recrutements
+  rythmés ; ballon avant les recrutements ; marge `RULES.realtime.ai.marginAdd` en temps réel. `leaders.js` : `strengthOf`
+  compte les armées en marche et les troupes à l'assaut.
+- **Fermes** : règle V17.4 gardée et toujours AVANT tout achat (ferme, puis ballon, puis recrutements) ; sans or pour la
+  ferme nécessaire, l'IA épargne.
+- **Ballons** (`engine/balloons.js`) : `aiBalloonBuild` (réserve `RULES.realtime.ai.balloonReserve` = 20 or, appelée avant
+  les recrutements : l'IA atteint enfin le prix) ; **vols en jours** : l'envoi part le jour même (`sendBalloonsNow`), un saut
+  = 60 jours (`advanceBalloonsDay`, champ `legDays` ; `legTurns` tenu à jour pour l'affichage), annonce le lendemain de la
+  livraison, rapport privé tous les 30 jours (`balloonPeriodReports`). Un ancien envoi « programmé » (sauvegarde V17.1-V17.4)
+  part à la fin de période suivante. Tour par tour : `resolveBalloonFlights` identique (découpé en fonctions).
+- **Diplomatie** : `proposalAlive` — une proposition d'IA au joueur porte son jour (`day`) et vaut **180 jours exactement**
+  (tour par tour : 6 tours). **Paroles** (`talk.js` `aiTalk({ only, initiatives })`, `day.js` `aiTalkOfDay`) : à la décision
+  de l'IA — réponses aux messages reçus depuis sa décision précédente (1 à 10 jours, `rt.talkInbox`), réactions aux
+  événements depuis sa dernière prise de parole, au plus une initiative par 30 jours et par nation (décalées), plafond de
+  3 messages IA par période inchangé. Dérive de la tension, guerres d'hostilité, engagements d'aide : fin de période (30 j) ;
+  coalition : tous les 10 jours ; Traître et mémoires : en périodes (`state.turn`), donc déjà en jours ×30.
+- **Île mystérieuse** : rien à changer dans `ai-island.js` (décision tous les 10 jours) ; elle reste convoitée et prise
+  (0,88 prise par partie, 56 parties sur 100).
+- `tools/v17/partie-jours.mjs` : ballons construits / abattus, prises de l'île, retraites volontaires, rappels, renforts,
+  recrues d'urgence, délai des réponses, attaques terrestres par 30 jours (résultats : `tools/v17/resultats-v17.5.json`).
+
+**Mesures — 100 parties IA de 15 ans** (`node tools/v17/partie-jours.mjs 100 v17j`), comparées au §13.3 :
+
+| Mesure | §13.3 (pas de 30 j) | Avant V17.5 (V17.2 + V17.4) | **V17.5** | Écart / §13.3 |
+|---|---|---|---|---|
+| Conquêtes par partie | 33,8 | 24,3 | **20,8** (6,6 / 4 / 5,8 / 4,3 par quart) | **−38 %** |
+| Nations éliminées | 0,72 | 0,72 | **0,85** | +18 % |
+| Plus grande armée finale (médiane / p90 / max) | 3 635 / 4 253 / 5 150 | 3 464 / 4 406 / 6 514 | **3 326 / 3 973 / 5 218** | −9 % / −7 % / +1 % |
+| Batailles (débarquements) | — | 33,2 (12,3) | 34 (13,1) | |
+| Retraites volontaires / rappels / renforts défensifs / recrues d'urgence | — | 0 / 0 / 0 / 0 | 8,6 / 5,5 / 10,7 / 3,4 | |
+| Ballons construits / abattus | 0 en temps réel | 0 | **33,2 / 32,2** (≈ 6 par nation) | |
+| Famine | 2,4 % | — | 4 % (20 nations sur 500), 29 j en médiane, au pire 344 j | |
+| Coût d'un jour, au calme (10 parties) | — | — | **0,29 ms** médiane, p99 6,6 ms, pire 48 ms ; jour de décision 1,1 ms | |
+
+**Écart > 25 % sur les conquêtes : rééquilibré dans `RULES.realtime`, sans l'atteindre.** Essais (30 parties chacun) :
+réglages V17.5 de base 18,7 ; quota d'attaques ×2 : 18,6 ; rythme de 10 jours (comme avant) : 19 ; sans réactions : 22,9 ;
+sans réactions ni rythme : 22,5 (V17.4 sur les mêmes graines : 24,8) ; `marginAdd` −0,1 : 21,1 ; −0,15 et rappel 0,6 : 21,3 ;
+−0,25 : 21,2 ; débarquements tous les 15 jours : 18,3. Retenu : `marginAdd` −0,1, `recallMargin` 0,6 (20,8 sur 100 parties).
+Lecture : ce n'est ni l'or ni le quota qui freinent, c'est la **défense** du temps réel — 3 assauts (renforts et recrues livrés
+pendant la bataille) et une IA qui voit venir l'attaque et renforce (≈ 4 conquêtes de moins à elle seule). Une marge plus
+basse lance plus d'attaques mais elles sont repoussées. Les armées, elles, sont dans la cible (−9 %) et ne gonflent plus.
+**Décision pour Jack** (bêta / V17.9) : accepter une carte qui bouge moins (≈ 21 prises en 15 ans), ou rendre l'attaque plus
+forte (par exemple 2 assauts, ou recrues livrées seulement après la bataille), ce qui change une règle du cahier.
+Autres remarques : la « guerre des ballons » (Conquérant et Traître abattent tout ballon au-dessus de chez eux, l'IA le
+reconstruit) coûte ≈ 30 or tous les 2 à 3 ans par nation ; la famine monte un peu (4 %) avec les recrues d'urgence.
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. Les règles « par tour » de l'IA ne sont pas réécrites en jours une à une : elles s'appliquent au plus une fois par fenêtre
+   de 30 jours (recrutement, navires, débarquement, quota d'attaques) ; les tirages par période (`chance(…, state.turn)`) sont
+   déjà les mêmes aux 3 décisions d'une période (pas 3 fois la probabilité).
+2. Réponses AI → IA aussi différées (une IA qui propose à une autre attend sa décision). Déclaration de guerre, rupture,
+   tribut : immédiats. Le joueur répond aux propositions quand il veut (180 jours).
+3. Recrues d'urgence hors rythme (province menacée seulement).
+4. **À brancher par l'interface (V17.3 / V17.9)** : un ordre `status: 'awaiting'` (avec `answerDay`) = « en attente de
+   réponse » ; l'écran Diplomatie ne teste encore que `pending` (bouton actif, puis message « déjà prévue ») ; ballon : lire
+   `legDays` / `RULES.realtime.durations.balloonHop` plutôt que `legTurns`.
+5. Pire jour mesuré pendant la grande série (419 ms) : pendant que `npm test` tournait ; au calme 48 ms au pire.
+
+**Tests** : `tests/v17-5.test.js` (17 tests : règles ; calendrier ; réponse à une proposition en 1 à 10 jours selon le jour de
+la demande et rien avant ; demande d'aide et trêve payée en attente, or réservé ; proposition valable 180 jours exactement ;
+ferme avant recrutement et épargne ; recrutements au plus une fois par 30 jours ; retraite quand le pronostic perd, pas quand
+il gagne, et au vrai jour de décision ; troupes en marche / à l'assaut dans la force ; renfort d'une province menacée par une
+armée visible, rien sans armée ; rappel si les renforts ennemis sont visibles, rien s'ils sont invisibles ; estimation
+prudente d'une armée dont le départ est invisible ; pas d'attaque vers une province renforcée ; ballon commandé avec 50 or et
+reconstruit ; vol de 60 jours parti le jour même ; Facile : une attaque par 30 jours sur 4 ans ; réponse aux messages à la
+décision ; déterminisme sans `Math.random`). **Test modifié** : `tests/v15-2.test.js` (quota d'attaques : le code passe par
+`attackQuota`, même règle). `tests/helpers/sources.js` et `sw.js` : `realtime/ai-schedule.js`. `npm test` : 804 tests, tous
+verts ; empreintes du tour par tour identiques.
+**Non vérifié** : Chrome mobile simulé (aucun changement d'écran dans cette version) ; vrai téléphone.
