@@ -349,7 +349,7 @@ test('V17.1 : écran provisoire — horloge ▶ / ⏸, date affichée, ordres pa
   assert.match(ui, /advanceDay\(state, map\)/);
   assert.match(ui, /formatDate\(state\.day\)/);
   assert.match(ui, /createDayClock\(\{ now: t, paused: true \}\)/, 'une partie chargée ou nouvelle commence en pause');
-  assert.match(ui, /'▶ Jouer' : '⏸ Pause'/);
+  assert.match(ui, /\$\('#rtPlay'\)\?\.addEventListener\('click', \(\) => setRealtimeSpeed\('play'\)\)/); // V17.3 : ▶ ⏸ ⏩ en bas à droite (remplace « ▶ Jouer / ⏸ Pause » du bandeau)
   assert.match(ui, /recallMarch\(state/); assert.match(ui, /recallConvoy\(state/);
   assert.match(ui, /if\(state\.mode==='realtime'\)return; \/\/ V17\.1 : pas de fin du tour en temps réel/);
   assert.match(ui, /turnBasedTest\(\)\?createGameState:createRealtimeGame/);

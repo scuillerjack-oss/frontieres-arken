@@ -639,3 +639,4 @@ body.rt-on #tutorialBubble:not(.top){bottom:172px}
 .rt-journal-btn{margin-top:6px}
 .hud-stat[hidden]{display:none!important}
 .rt-unit-actions button,.rt-unit-actions .primary{margin-top:0}
+body.rt-on .live-settings{display:none}
