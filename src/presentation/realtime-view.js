@@ -9,6 +9,7 @@
 
 import { LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
 import { formatDate, formatShortDate } from '../domain/realtime/clock.js';
+import { landTravelDays } from '../domain/realtime/marches.js';
 import { provinceIntel, visionSharers } from '../domain/vision.js';
 import { convoySeaPath, pointAlong } from './map-orders-view.js';
 import { foodEventText } from './food-view.js';
@@ -39,6 +40,8 @@ export function productionDays(kind, type, turns = 1) {
 }
 /** Durée d'un trajet par mer en jours : la carte la donne « en tours » (2 = 60 j, 4 = 120 j). */
 export const seaDays = turns => Math.max(1, num(turns)) * R.durations.landPerSeaTurn;
+/** V17.5b : texte de la durée d'une marche entre deux provinces voisines (selon la distance ; cavalerie seule plus rapide). */
+export const landMarchText = (map, fromId, toId) => `${landTravelDays({ infantry: 1 }, map, fromId, toId)} jours de marche (${landTravelDays({ cavalry: 1 }, map, fromId, toId)} en cavalerie seule)`;
 /** Revenu affiché par mois (§3.1) : le revenu « par tour » vaut 60 jours, donc deux mois. « +8 or / mois », « +2,5 or / mois ». */
 export function monthlyIncomeText(perTurn) {
   const v = Math.round(num(perTurn) / 2 * 10) / 10;
@@ -192,7 +195,8 @@ export function tokenSheet(token, day, names) {
 /**
  * Bandeaux tirés des événements d'un ou plusieurs jours. Chaque bandeau : { key, kind, tone, icon, text, action } ;
  * `action` dit à l'interface quelle fenêtre ouvrir quand on touche le bandeau.
- * kinds : conquest (prise / perte), capital, battle (assaut n/3, V17.2), sea, balloon, famine, final.
+ * kinds : conquest (prise / perte), capital, battle (assaut n/3, V17.2 ; chantier suspendu, V17.5b), sea, balloon, famine, final,
+ * island (phare de l'île mystérieuse, V17.5b).
  */
 export function eventBanners(events, me, names) {
   const out = [];
@@ -215,6 +219,13 @@ export function eventBanners(events, me, names) {
     } else if (e.type === 'balloon-spotted' && e.nationId === me) {
       out.push({ key: `balloon:${e.balloonId}:${e.over}:${e.turn}`, kind: 'balloon', tone: 'warn', icon: '🎈',
         text: `Ballon ${names.nation(e.owner)} au-dessus de chez vous · Détruire ou laisser passer ?`, action: { type: 'balloon', balloonId: e.balloonId } });
+    } else if (e.type === 'lighthouse' && e.nationId === me) {
+      // V17.5b : phare de l'île mystérieuse (propriétaire et co-propriétaire seulement).
+      out.push({ key: `lighthouse:${e.convoyId}`, kind: 'island', tone: 'warn', icon: '🗼',
+        text: `Flotte de ${names.nation(e.target)} en route vers l’île, arrivée le ${Number.isFinite(e.arriveDay) ? shortDateText(e.arriveDay) : '?'}`, action: { type: 'province', provinceId: e.provinceId } });
+    } else if (e.type === 'production-suspended' && e.nationId === me) {
+      out.push({ key: `suspended:${e.provinceId}:${e.productionType}:${e.day ?? e.turn}`, kind: 'battle', tone: 'warn', icon: '🚧',
+        text: `${names.province(e.provinceId)} est attaquée : chantier suspendu jusqu’à la fin de la bataille`, action: { type: 'province', provinceId: e.provinceId } });
     } else if (e.type === 'food-alert' && e.nationId === me) {
       out.push({ key: `food:${e.day ?? e.turn}`, kind: 'famine', tone: 'warn', icon: '🌾',
         text: `Famine à venir : vivres pour ${Math.max(0, num(e.daysLeft))} jour${num(e.daysLeft) > 1 ? 's' : ''}`, action: { type: 'food' } });

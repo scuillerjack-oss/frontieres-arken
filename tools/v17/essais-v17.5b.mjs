@@ -57,9 +57,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const names = list ? list.split(',') : Object.keys(ESSAIS);
   const outFile = join(ROOT, 'tools', 'v17', `resultats-v17.5b-essais${short ? '-courtes' : ''}.json`);
   const results = existsSync(outFile) ? JSON.parse(readFileSync(outFile, 'utf8')) : {};
+  const dirs = Object.fromEntries(names.map(n => [n, prepare(n, ESSAIS[n])])); // copies faites d'abord : le code peut changer pendant les essais
   const queue = [...names];
   const worker = async () => { for (let n = queue.shift(); n; n = queue.shift()) {
-    const t0 = Date.now(), r = await play(n, prepare(n, ESSAIS[n]), Number(parties), prefixe, short);
+    const t0 = Date.now(), r = await play(n, dirs[n], Number(parties), prefixe, short);
     results[n] = { reglages: ESSAIS[n], ...r };
     writeFileSync(outFile, JSON.stringify(results, null, 1));
     console.log(`${n} : ${r.conquetesParPartie} conquêtes, ${r.nationsElimineesParPartie} éliminées, armée ${r.plusGrandeArmeeFinaleOr.mediane}, famine ${r.nourriture.tauxFamine} %, chaîne<2 ans ${r.partiesAvecEliminationsEnChaineAvant2Ans}, ${Math.round((Date.now() - t0) / 1000)} s`);

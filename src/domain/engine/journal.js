@@ -18,6 +18,7 @@ export function eventKnownToPlayer(state, map, event) {
   // V16.0 (Jack : « si jamais il y a une alliance entre deux pays quelconques, l'ensemble des nations sont au courant ») :
   // toute alliance conclue est publique.
   if (event.type === 'diplomatic-action' && event.action === 'alliance' && event.accepted === true) return true;
+  if (event.type === 'lighthouse') return event.nationId === player; // V17.5b : le phare ne prévient que qui tient l'île
   if (event.type === 'production-suspended') return false; // V17.5b : chantier suspendu, avis privé (le propriétaire est traité plus haut)
   if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
@@ -225,6 +226,7 @@ export function journalEntry(event, map, playerNationId = null) {
         text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,
         event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
     case 'production-held': return { priority:2, type:'production', category:'neutral', text:`${where} est assiégée : recrues (${(RULES.units[event.productionType]?.label || 'troupes').toLowerCase()}) livrées à la fin de la bataille (remboursés si la province tombe).` };
+    case 'lighthouse': return { priority:3, type:'PHARE', category:'warning', text:`🗼 Flotte de ${nationName(map,event.target)} en route vers l’île mystérieuse, arrivée le ${Number.isFinite(event.arriveDay) ? formatDate(event.arriveDay) : 'bientôt'}.` };
     case 'production-suspended': return { priority:2, type:'production', category:'neutral', text:`${where} est attaquée : chantier (${({ bank:'banque', factory:'usine', fort:'forteresse', port:'port', farm:'ferme', balloon:'ballon d’observation' })[event.productionType] || 'bâtiment'}) suspendu jusqu’à la fin de la bataille.` };
     case 'production-lost': if (event.reason === 'max') return { priority:2, type:'production', category:'neutral', text:`Ballon d’observation non livré à ${where} : vous avez déjà le maximum de ballons. ${safeNum(event.refund)} or remboursés.` };
       return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({
@@ -323,7 +325,7 @@ function aggregateEntries(entries) {
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
   const priority = new Set(['difficulty-gold','bombardment','assault','battle-reinforced','battle-retreat','bombard-ordered','bombard-stopped','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
-    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-held','production-suspended','production-lost','retreat-lost','interception','convoy-arrived',
+    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-held','production-suspended','lighthouse','production-lost','retreat-lost','interception','convoy-arrived',
     'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot','mystery-coowner-lost']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;

@@ -1,5 +1,7 @@
 // V16.2 — L'île mystérieuse : textes de l'interface (fiche, aide, carte). Fonctions pures, sans DOM : testables sous Node.
-import { RULES } from '../domain/constants.js';
+import { LAND_UNIT_TYPES, RULES } from '../domain/constants.js';
+import { formatDate } from '../domain/realtime/clock.js';
+import { lighthouseFleets } from '../domain/vision.js';
 import { MYSTERY_ISLAND_ID, MYSTERY_ISLAND_NAME, islandBankShare } from '../domain/mystery-island.js';
 import { seaRoutesFrom } from '../domain/engine/sea-routes.js';
 import { allied } from '../domain/leaders.js';
@@ -31,6 +33,9 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
     `🏝 ${MYSTERY_ISLAND_NAME} : ${status}. Garnison toujours visible par tous`,
     bank, route,
     co ? `🤝 Co-propriétaire : ${name(co)} (base commune, super banque partagée ; s’il rompt l’alliance avec ${name(owner)}, il perd sa part)` : '',
+    // V17.5b : phare — qui tient l'île voit les flottes qui s'y dirigent (de qui, arrivée ; composition selon la vision).
+    ...(mine || coMine ? lighthouseFleets(state, map, playerId).map(f => `🗼 Flotte de ${name(f.nationId)} en route vers l’île${Number.isFinite(f.arriveDay) ? `, arrivée le ${formatDate(f.arriveDay)}` : ''}${f.known ? ` (${LAND_UNIT_TYPES.reduce((n, k) => n + (f.units[k] || 0), 0)} soldats, ${f.warships} navire${f.warships > 1 ? 's' : ''})` : ' (composition inconnue)'}`) : []),
+    mine || coMine ? '🗼 Phare : vous voyez toute flotte qui fait route vers l’île' : '',
     `🚫 On n’y construit rien et on n’y recrute personne : pour la garder, il faut y laisser des troupes`,
     !owner ? `⚔ Garnison neutre : elle ne recrute jamais et ne bouge jamais. Deux alliés qui débarquent le même tour la prennent ensemble` : '',
     owner && !mine && !coMine && !allied(state, playerId, owner) ? '⚔ Toute attaque contre l’île est publique : toutes les nations voient les pertes et ce qu’il reste sur l’île' : ''

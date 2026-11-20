@@ -23,7 +23,7 @@ import { goldBonus } from '../boosts.js';
 import { RULES } from '../constants.js';
 import { hostilityWars, driftTension, observeLeaders } from '../leaders.js';
 import { settleStationed as settlePassage } from '../passage.js';
-import { settleMysteryIsland } from '../mystery-island.js';
+import { MYSTERY_ISLAND_ID, islandCoOwner, islandOwner, settleMysteryIsland } from '../mystery-island.js';
 import { recordStory } from '../story.js';
 import { aiTalk, pruneTalkPending } from '../talk.js';
 import { planAIOrders } from '../engine/ai.js';
@@ -87,7 +87,9 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
   // V17.2 : « Bombarder » devient un ordre permanent, qui tire tous les 10 jours (bombardTick).
   registerBombardOrders(state, locked);
   const bombarded = resolveBombardments(state, map, [], fought);
+  const sailing = new Set((state.transports || []).map(t => t.id));
   departMoves(state, map, locked);
+  lighthouseAlerts(state, sailing);
   settleStationed(state, map);
   resolveDiplomacy(state, locked, random, map);
   startProjects(state, locked);
@@ -102,6 +104,18 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
   state.orders = (state.orders || []).filter(o => !done.has(o.id));
   stampDay(state, eventStart);
   return locked;
+}
+/**
+ * V17.5b : phare de l'île mystérieuse — une flotte d'une autre nation qui part vers l'île est signalée (avis privé) à son
+ * propriétaire et à son co-propriétaire : « 🗼 Flotte de X en route vers l'île, arrivée le … » (journal, bandeau).
+ */
+function lighthouseAlerts(state, before) {
+  const holders = [islandOwner(state), islandCoOwner(state)].filter(Boolean);
+  if (!holders.length) return;
+  for (const t of state.transports || []) {
+    if (before.has(t.id) || t.toId !== MYSTERY_ISLAND_ID || t.returning) continue;
+    for (const h of new Set(holders)) if (h !== t.nationId) state.events.push({ turn: state.turn, type: 'lighthouse', nationId: h, target: t.nationId, convoyId: t.id, provinceId: MYSTERY_ISLAND_ID, fromId: t.fromId, arriveDay: t.arriveDay });
+  }
 }
 /** Revenus du jour : un « tour » de revenus en 60 jours, report exact (le trésor reste un entier, rien ne se perd). */
 function dailyIncome(state) {

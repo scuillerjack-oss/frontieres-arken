@@ -26,7 +26,7 @@ import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
 import { miniTuto, placeTutorial, tuto, tutorial } from './tutorials.js';
-import { durationText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
+import { durationText, landMarchText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
 
 // V17.3 : en temps réel, les ordres partent tout de suite et les durées se lisent en jours, les revenus par mois.
 const rtOn=()=>state?.mode==='realtime';
@@ -129,7 +129,7 @@ function openForceSelection(fromId,toId){
   const truceText=()=>{const t=truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short);return t&&rtOn()?realtimeText(t):t;},truceNote=attack&&truceText()?`<p class="sea-warn truce-warn">${truceText()}</p>`:'';
   const fortNote=attack&&fortAttackWarning(state,toId)?`<p class="sea-warn fort-warn">${fortAttackWarning(state,toId)}</p>`:'';
   actionModal(attack?(bySea?'Préparer un débarquement':'Préparer une attaque'):passage?'Passage chez un allié':'Préparer un déplacement',
-    `${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}`:rtOn()?' · 30 jours de marche (20 en cavalerie seule)':''}`,
+    `${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}`:rtOn()?` · ${landMarchText(map,fromId,toId)}`:''}`,
     `${passageNote}${truceNote}${fortNote}${seaNote}<p>${rtOn()?'Choisis les forces : elles partent tout de suite et apparaissent sur la carte.':'Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.'}</p><div class="force-presets"><button data-preset="50">50 %</button>\
 <button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}${rtOn()?'':`<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b>\
 </div>`}<p id="forceSummary"></p><button id="confirmMove" class="primary">${rtOn()?'Envoyer maintenant':'Ajouter cet ordre'}</button>`);
