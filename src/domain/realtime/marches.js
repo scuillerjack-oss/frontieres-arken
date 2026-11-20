@@ -9,7 +9,7 @@ import { COMBAT_TYPES, legacyForce, mergeForce, normalizeForce, resolveCombat, t
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
 import { addToProvince, lossCount, takeOrderForces, unitCount } from '../engine/battles.js';
-import { besieged, fireFactorFor, joinBattle } from './battles.js';
+import { besieged, joinBattle } from './battles.js';
 import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
 import { pairTreaty, pairWar } from '../engine/shared.js';

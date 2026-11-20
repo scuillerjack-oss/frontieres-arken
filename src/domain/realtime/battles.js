@@ -25,6 +25,7 @@ import { fortBreach } from '../engine/bombard.js';
 import { dockEscort, stampConvoy, turnBack } from '../engine/convoys.js';
 import { pairWar } from '../engine/shared.js';
 import { createMarch } from './marches.js';
+import { fireFactorFor } from './food.js';
 
 const B = RULES.realtime.battle;
 const isEmpty = f => COMBAT_TYPES.every(k => !f.units[k]);
@@ -32,11 +33,8 @@ const addCounts = (a = {}, b = {}) => { const out = { ...a }; for (const k of CO
 const entryForce = e => legacyForce(e);
 const writeEntry = (e, force) => Object.assign(e, toLegacy(force));
 
-/**
- * Facteur de tir d'une nation dans une bataille (1 = normal). V17.4 (famine) le branche ici : 0,7 pour une nation affamée
- * (RULES.realtime.food.famineFireFactor). Rien d'autre à changer : il est transmis à resolveBattle par camp.
- */
-export const fireFactorFor = (state, nationId) => 1; // eslint-disable-line no-unused-vars
+/** Facteur de tir d'une nation (famine de la V17.4 : 0,7), appelé pour chaque camp à chaque assaut. */
+export { fireFactorFor };
 
 /** Bataille en cours dans une province (ou null). */
 export const battleAt = (state, provinceId) => (state.battles || []).find(b => b.provinceId === provinceId) || null;

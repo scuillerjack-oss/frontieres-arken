@@ -20,6 +20,8 @@ const ME = 'valmorne';
 function game({ seed = 'v172' } = {}) {
   const s = E.createRealtimeGame({ map, playerNationId: ME, seed });
   for (const id of NATIONS) if (id !== ME) s.controllers[id] = 'human';
+  // Pas de famine (V17.4) dans ces scénarios aux armées gonflées : réserve de vivres énorme.
+  for (const id of NATIONS) s.nations[id].food = { reserve: 1e12 };
   return s;
 }
 const war = (s, a, b) => s.diplomacy.wars.push({ participants: [a, b], active: true, started: s.turn });
@@ -364,4 +366,23 @@ test('V17.2 : attaquer sans guerre déclarée la déclare (V10) et la bataille a
   assert.equal(evs(s, ev, 'assault').length, 1);
   assert.ok(evs(s, ev, 'battle-retreat').some(e => e.reason === 'peace')); assert.equal(s.battles.length, 0);
   assert.ok(s.marches.some(x => x.returning && x.nationId === ME));
+});
+
+test('V17.2 × V17.4 : les troupes à l\'assaut mangent comme en marche ; une nation affamée tire à 70 % pendant les assauts', () => {
+  const s = siege({ def: 300, atk: 300, fort: 3 });
+  const m = send(s, 'p02', 'p04', { infantry: 300 });
+  untilDay(s, m.arriveDay - 1);
+  E.advanceDay(s, map);
+  assert.equal(s.battles.length, 1);
+  const e = s.battles[0].attackers[0], without = structuredClone(s); without.battles = [];
+  const ration = ['infantry', 'cavalry', 'armor', 'artillery'].reduce((n, k) => n + (e.units[k] || 0) * E.rationOf(k), 0) + (e.warships || 0) * E.rationOf('warship');
+  assert.ok(ration > 0); assert.equal(E.foodConsumption(s, ME) - E.foodConsumption(without, ME), ration, 'les troupes à l\'assaut mangent');
+  // Même 2e assaut, nourri puis affamé (copie) : l'affamé inflige moins de dégâts.
+  const hungry = structuredClone(s); hungry.nations[ME].food.famine = true; hungry.nations[ME].food.reserve = 0;
+  assert.equal(E.fireFactorFor(hungry, ME), R.food.famineFireFactor);
+  const a = s.events.length, b = hungry.events.length;
+  untilDay(s, s.day + 3); untilDay(hungry, hungry.day + 3);
+  const fed = s.events.slice(a).find(e => e.type === 'assault'), starved = hungry.events.slice(b).find(e => e.type === 'assault');
+  assert.equal(fed.assault, 2); assert.equal(starved.assault, 2);
+  assert.ok(starved.defenderHpLost < fed.defenderHpLost, `${starved.defenderHpLost} < ${fed.defenderHpLost}`);
 });
