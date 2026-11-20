@@ -23,7 +23,7 @@ export {
   foreignBalloonsOver, islandNeighbors, islandProvinces, pendingBalloonOrders, queueBalloonBuild, queueBalloonSend,
   queueBalloonShoot, visibleBalloons
 } from './engine/balloons.js';
-export { bombardPreview, bombardStatus, bombardTargets, fortBreach, queueBombard } from './engine/bombard.js';
+export { bombardPreview, bombardStatus, bombardTargets, cancelBombardOrder, fortBreach, queueBombard } from './engine/bombard.js';
 export { SHIP_FIELD_REPAIR, SHIP_REPAIR_TURNS, shipRepairInfo, shipRepairTurnsFor } from './engine/recovery.js';
 export { NAVAL_IDLE_CAP, NAVAL_STRIKE_MARGIN } from './engine/ai-naval.js';
 export { STATION_MIN_TURNS } from './engine/ai-help.js';
@@ -47,3 +47,4 @@ export {
   aiFarmOrders, dailyFood, desertion, farmCost, farmLevel, fireFactorFor, foodConsumption, foodOf, foodProduction, foodStatus,
   granaryOf, provinceFoodHundredths, rationOf
 } from './realtime/food.js';
+export { battleAt, battleForecast, battleSummary, battlesOf, besieged, retreatFromBattle } from './realtime/battles.js';

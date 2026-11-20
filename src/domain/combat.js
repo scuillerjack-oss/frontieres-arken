@@ -85,17 +85,19 @@ export function combatValue(force, { naval = false } = {}) {
  * Feu d'une pile pendant UNE passe (avant répartition entre cibles, multiplicateurs et forteresse adverse).
  * mode 'naval' : seuls les navires tirent ; 'landing' : troupes à RULES.combat.landingPenalty.
  * warshipFactor (V12, atout « marine » du joueur) : multiplie les dégâts des navires de guerre de ce camp.
+ * fireFactor (V17.2, famine branchée en V17.4) : multiplie les dégâts de TOUTES les unités de ce camp (1 par défaut).
  * C'est EXACTEMENT la valeur utilisée par resolveBattle.
  */
-function typeFire(force, k, mode = 'land', warshipFactor = 1) {
+function typeFire(force, k, mode = 'land', warshipFactor = 1, fireFactor = 1) {
   if ((mode === 'naval' && isLand(k)) || !stat(k).damage) return 0;
   let dmg = poolOf(force, k) / stat(k).hp * stat(k).damage;
   if (k === 'warship') dmg *= warshipFactor;
+  if (fireFactor !== 1) dmg *= fireFactor; // V17.2 : famine (V17.4) — toutes les unités du camp tirent à fireFactor
   if (mode === 'landing' && isLand(k)) dmg *= C().landingPenalty;
   return dmg;
 }
 /** Feu total d'une force pendant une passe (un « assaut »), mêmes règles que resolveBattle. */
-export const firePower = (force, { mode = 'land', warshipFactor = 1 } = {}) => { const f = normalizeForce(force); return COMBAT_TYPES.reduce((n, k) => n + typeFire(f, k, mode, warshipFactor), 0); };
+export const firePower = (force, { mode = 'land', warshipFactor = 1, fireFactor = 1 } = {}) => { const f = normalizeForce(force); return COMBAT_TYPES.reduce((n, k) => n + typeFire(f, k, mode, warshipFactor, factorOf(fireFactor)), 0); };
 /**
  * V13 — PV lisibles : le « régiment » d'une province = toutes ses unités (navires à quai compris, ils défendent).
  *   hp     = PV restants (blessures déduites) = totalHp ;
@@ -118,6 +120,8 @@ export const regimentText = stats => stats ? `Régiment : ${stats.hp} PV · ${st
  * @param {object} p.defender   force qui tient la province (garnison + navires à quai) ou flotte interceptée
  * @param {Array<{id:string, force:object, mode?:'land'|'landing'}>} p.attackers
  *        mode 'landing' : assaut depuis la mer, troupes à RULES.combat.landingPenalty (navires en appui à 100 %).
+ *        fireFactor (V17.2) : multiplie le feu de toutes les unités de cet attaquant (famine : 0,7 ; 1 par défaut).
+ * @param {number} [p.defenderFireFactor=1] (V17.2) même facteur pour le défenseur.
  * @param {number} [p.fortLevel=0]  forteresse (0 à 3) : divise les dégâts reçus par le DÉFENSEUR seulement.
  * @param {boolean} [p.naval=false] bataille en mer : seuls les navires tirent, aucune forteresse,
  *        les troupes embarquées sont une cargaison (dégâts reçus × convoyVulnerability), pas de prise.
@@ -231,10 +235,11 @@ export function resolveCombat({ attacker, defender, fortLevel = 0, mode = 'land'
   };
 }
 
-/** Guérison d'une force au repos : RULES.combat.healRate des PV max de chaque pile, sans dépasser les blessures. */
-export function healForce(force) {
+/** Guérison d'une force au repos : RULES.combat.healRate des PV max de chaque pile, sans dépasser les blessures.
+ *  V17.2 : `rate` = part des PV max rendue (temps réel : 10 % par 30 jours, versés tous les 10 jours). */
+export function healForce(force, rate = C().healRate) {
   const f = normalizeForce(force);
-  for (const k of COMBAT_TYPES) if (f.wounds[k]) f.wounds[k] = Math.max(0, f.wounds[k] - Math.ceil(C().healRate * f.units[k] * stat(k).hp));
+  for (const k of COMBAT_TYPES) if (f.wounds[k]) f.wounds[k] = Math.max(0, f.wounds[k] - Math.ceil(rate * f.units[k] * stat(k).hp));
   return f;
 }
 

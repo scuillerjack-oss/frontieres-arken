@@ -55,6 +55,7 @@ const ASSETS=[
   './src/domain/realtime/day.js',
   './src/domain/realtime/food.js',
   './src/domain/realtime/marches.js',
+  './src/domain/realtime/battles.js',
   './src/domain/realtime/rules.js',
   './src/domain/game-engine.js',
   './src/domain/leaders.js',

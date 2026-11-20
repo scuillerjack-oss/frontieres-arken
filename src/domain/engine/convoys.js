@@ -120,7 +120,7 @@ function navalEncounters(state) {
  * Escorte arrivée dans une province SANS port construit : les navires ne peuvent pas y mouiller ; ils repartent
  * aussitôt en convoi vers leur port de départ (même route, même durée). Avec un port construit, ils restent.
  */
-function dockEscort(state, map, provinceId, nationId, homeId, lane, turns) {
+export function dockEscort(state, map, provinceId, nationId, homeId, lane, turns) {
   const p = state.provinces[provinceId];
   if (!p || p.ownerId !== nationId || p.buildings?.port || !(p.warships > 0)) return;
   if (state.provinces[homeId]?.ownerId !== nationId) return; // port de départ perdu : les navires restent à l'ancre
@@ -134,7 +134,7 @@ function dockEscort(state, map, provinceId, nationId, homeId, lane, turns) {
 const hasLandTroops = force => LAND_UNIT_TYPES.some(k => force.units[k] > 0);
 /** Demi-tour : le convoi (ou les survivants d'un débarquement repoussé) rentre à son port de départ par la même
  *  route, avec la même durée. Port de départ perdu : les unités sont perdues en mer. */
-function turnBack(state, t, force = legacyForce(t), reason = 'no-troops', map = null) {
+export function turnBack(state, t, force = legacyForce(t), reason = 'no-troops', map = null) {
   if (state.provinces[t.fromId]?.ownerId !== t.nationId && !hasPassage(state, t.nationId, state.provinces[t.fromId]?.ownerId)) {
     // V14.0 : parti de chez un ancien allié (alliance rompue pendant la traversée) : le convoi n'est plus perdu.
     if (t.allyPort && map) { rescueConvoy(state, map, t, force, t.toId, t.fromId); return; }
@@ -185,8 +185,10 @@ function rescueConvoy(state, map, t, force, atId, departureId) {
   addStationed(state, t.nationId, departureId, force); // rapatriées juste après (settleStationed)
   state.events.push({ turn: state.turn, type: 'convoy-rerouted', nationId: t.nationId, target: t.allyPort, fromId: atId, toId: departureId, provinceId: departureId, amount, landed: true });
 }
-/** Avancée des convois (1 étape par tour), rencontres en mer, puis arrivées : renfort, retour (allié) ou débarquement. */
-export function resolveTransports(state, map, fought) {
+/** Avancée des convois (1 étape par tour), rencontres en mer, puis arrivées : renfort, retour (allié) ou débarquement.
+ *  V17.2 : `onLanding(toId, groups)` (temps réel) reçoit les débarquements au lieu du combat immédiat : ils ouvrent ou
+ *  rejoignent une bataille en 3 assauts (src/domain/realtime/battles.js), qui fait rentrer les convois repoussés. */
+export function resolveTransports(state, map, fought, { onLanding = null } = {}) {
   for (const t of state.transports) t.stage = (Number(t.stage) || 0) + 1;
   navalEncounters(state);
   const arriving = state.transports.filter(t => t.stage >= t.turns).sort((a, b) => String(a.id).localeCompare(String(b.id)));
@@ -241,6 +243,7 @@ export function resolveTransports(state, map, fought) {
       groups.set(t.nationId, g);
     }
     if (!groups.size) continue;
+    if (onLanding) { onLanding(toId, [...groups.values()]); continue; }
     // Débarquement repoussé : les survivants rembarquent et rentrent par la même route (pas de repli instantané).
     for (const r of fight(state, toId, [...groups.values()], fought, { naval: true })) turnBack(state, groups.get(r.nationId).convoys[0], r.force, 'repelled', map);
     const winner = groups.get(target.ownerId);
