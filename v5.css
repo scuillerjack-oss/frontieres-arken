@@ -574,3 +574,8 @@ body.live-on #turnAnim{padding-top:calc(env(safe-area-inset-top) + 140px)}
 .edge-fade{pointer-events:none}
 /* V17.6 : portrait, fiche de province ouverte (elle couvre le bas de la carte) : « Voir toute la carte » remonte sous le zoom. */
 @media not all and (orientation:landscape) and (max-height:560px){body:has(#provinceSheet:not([hidden])) .whole-map-btn{top:128px;bottom:auto;left:auto;right:10px}}
+
+/* V17.4 : vivres dans la barre du haut (temps réel) */
+.food-stat{cursor:pointer}.food-stat b{font-size:1.1rem}.food-stat i{font-style:normal;font-size:.6rem;font-weight:700;color:#9fd38a;font-variant-numeric:tabular-nums}
+.food-stat[data-tone=alert]{border-color:#d9963f}.food-stat[data-tone=alert] i{color:#f0b060}.food-stat[data-tone=famine]{border-color:#e45c56;background:#2a1212}.food-stat[data-tone=famine] b,.food-stat[data-tone=famine] i{color:#ff8c80}.food-stat[data-tone=full] i{color:#c8c0a0}
+.info-chip.food-chip{border-color:#6f8f4c}

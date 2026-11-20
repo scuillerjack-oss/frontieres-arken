@@ -11,6 +11,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { createDayClock, dueDays, isClockRunning, setClockPaused, syncClockHolds } from '../realtime-clock.js';
 import { $, E, nation, province, toast } from './base.js';
 import { showCapitalPopups, showProposalPopups, showSeaPopups } from './event-popups.js';
+import { drawFoodHud, showFoodNews } from './food-ui.js';
 import { render } from './map-view.js';
 import { actionModal, showProvinceSheet } from './province-sheet.js';
 import { save, selected, state } from './session.js';
@@ -97,6 +98,7 @@ function drawHud() {
   const label = turn?.closest('.hud-stat')?.querySelector('small');
   if (label && label.textContent !== 'DATE') label.textContent = 'DATE';
   const next = $('#nextTurn'); next.hidden = true; next.style.display = 'none'; // la feuille de style du paysage l'affiche malgré [hidden]
+  drawFoodHud(); // V17.4 : réserve de vivres et « +N / jour »
 }
 function refresh() {
   render();
@@ -108,7 +110,7 @@ const chain = task => { popups = popups.then(task).catch(() => {}); };
 export function syncRealtime() {
   if (!onScreen()) {
     if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; }
-    if (!realtimeOn()) { const turn = $('#turn'); if (turn?.dataset.rtDay) { delete turn.dataset.rtDay; turn.style.fontSize = ''; const l = turn.closest('.hud-stat')?.querySelector('small'); if (l) l.textContent = 'TOUR'; const next = $('#nextTurn'); next.hidden = false; next.style.display = ''; } }
+    if (!realtimeOn()) { drawFoodHud(); const turn = $('#turn'); if (turn?.dataset.rtDay) { delete turn.dataset.rtDay; turn.style.fontSize = ''; const l = turn.closest('.hud-stat')?.querySelector('small'); if (l) l.textContent = 'TOUR'; const next = $('#nextTurn'); next.hidden = false; next.style.display = ''; } }
     return;
   }
   const t = now();
@@ -127,6 +129,7 @@ export function syncRealtime() {
   if (state.gameOver) { save(); setClockPaused(clock, true, t); showEndScreen(); return; }
   const news = events.find(e => e.type === 'conquest' && (e.defender === state.playerNationId || e.newOwnerId === state.playerNationId));
   if (news && news.provinceId !== lastNews) { lastNews = news.provinceId; toast(news.newOwnerId === state.playerNationId ? `${province(news.provinceId).name} est à vous !` : `${province(news.provinceId).name} est tombée`); }
+  showFoodNews(events); // V17.4
   chain(() => showCapitalPopups(events));
   chain(() => showSeaPopups(events));
   if (events.some(e => e.type === 'talk' || e.type === 'diplomatic-action' || e.type === 'ceasefire-offer')) chain(() => showProposalPopups());

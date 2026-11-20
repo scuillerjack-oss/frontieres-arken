@@ -198,6 +198,9 @@ export function buildingUnavailableReason({ type, label, rule = {}, count = 0, b
   if (type === 'fort' && Array.isArray(rule.costs) && count >= rule.costs.length) return `${label} : niveau maximal atteint (${rule.costs.length} sur ${rule.costs.length}, en comptant les niveaux en construction)`;
   // V13.3 : un seul niveau de forteresse à la fois.
   if (type === 'fort' && built !== null && count > built) return `${label} : niveau ${built + 1} en construction, attendez qu’il soit terminé`;
+  // V17.4 : la ferme, 5 niveaux, un à la fois.
+  if (type === 'farm' && Array.isArray(rule.costs) && count >= rule.costs.length) return `${label} : niveau maximal atteint (${rule.costs.length} sur ${rule.costs.length}, en comptant le niveau en construction)`;
+  if (type === 'farm' && built !== null && count > built) return `${label} : un niveau est déjà en construction, attendez qu’il soit terminé`;
   if (Number.isFinite(rule.max) && count >= rule.max) return `${label} : ${rule.max} maximum par province (déjà construite ou en construction)`;
   if (cost > spendable) return `${label} : trésor insuffisant (il manque ${cost - spendable} or)`;
   return '';

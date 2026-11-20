@@ -29,6 +29,8 @@ const ASSETS=[
   './src/presentation/map-am3-view.js',
   './src/presentation/ui/live-ui.js',
   './src/presentation/ui/realtime-ui.js',
+  './src/presentation/ui/food-ui.js',
+  './src/presentation/food-view.js',
   './src/presentation/realtime-clock.js',
   './src/domain/engine/ai-help.js',
   './src/domain/engine/ai-naval.js',
