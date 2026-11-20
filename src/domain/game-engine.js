@@ -42,3 +42,8 @@ export {
 } from './realtime/clock.js';
 export { landTravelDays, recallConvoy, recallMarch } from './realtime/marches.js';
 export { createRealtimeGame } from './realtime/create.js';
+export { FARM_IN_PROGRESS, FARM_REALTIME_ONLY } from './engine/orders.js';
+export {
+  aiFarmOrders, dailyFood, desertion, farmCost, farmLevel, fireFactorFor, foodConsumption, foodOf, foodProduction, foodStatus,
+  granaryOf, provinceFoodHundredths, rationOf
+} from './realtime/food.js';

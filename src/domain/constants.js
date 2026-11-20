@@ -13,7 +13,8 @@ export const NATION_IDS = Object.freeze(['arken', 'valdor', 'kael', 'sol', 'nery
 // V13 : le ballon d'observation est supprimé (remplacé par la vision : src/domain/vision.js, docs/V13-vision.md).
 export const LAND_UNIT_TYPES = Object.freeze(['infantry', 'cavalry', 'armor', 'artillery']);
 export const NAVAL_UNIT_TYPES = Object.freeze(['warship']);
-export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port']);
+// V17.4 : la ferme (temps réel seulement, 5 niveaux, docs/V17-cahier-des-charges.md §4.1).
+export const BUILDING_TYPES = Object.freeze(['bank', 'factory', 'fort', 'port', 'farm']);
 // Troupes de départ (create-game-state.js) : la capitale, et chacune des 3 autres provinces d'une nation.
 // V16.2 : la garnison de l'île mystérieuse en dérive (mystery-island.js).
 export const START_UNITS = Object.freeze({
@@ -25,7 +26,9 @@ export const RULES = Object.freeze({
   baseIncome: 4, bankIncome: 5, // V16.0 : banque +5 (avant +3)
   factoryIncome: 3, portIncome: 2,
   // V10 : `max` = plafond par province, file de construction comprise (une banque, une usine, un port, fort niveau 3).
-  buildings: { bank:{cost:30,turns:3,max:1}, factory:{cost:40,turns:3,max:1}, fort:{costs:[20,35,50],turns:2,max:3}, port:{cost:40,turns:3,max:1} },
+  buildings: { bank:{cost:30,turns:3,max:1}, factory:{cost:40,turns:3,max:1}, fort:{costs:[20,35,50],turns:2,max:3}, port:{cost:40,turns:3,max:1},
+    // V17.4 : ferme à niveaux (temps réel seulement), lue dans RULES.realtime.food : 20 / 25 / 30 / 35 / 40 or, 60 jours le niveau.
+    farm:{costs:[...REALTIME_RULES.food.farmCosts],turns:REALTIME_RULES.food.farmDays/REALTIME_RULES.daysPerPeriod,max:REALTIME_RULES.food.farmMax,realtimeOnly:true} },
   units: {
     infantry:{label:'Infanterie',amount:20,cost:20,turns:1,power:1},
     cavalry:{label:'Cavalerie',amount:5,cost:20,turns:1,power:3},

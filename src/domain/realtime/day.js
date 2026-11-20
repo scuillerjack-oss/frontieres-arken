@@ -9,7 +9,7 @@
 //     interception à J−30, débarquements ;
 //  4) (assauts du jour : V17.2) ;
 //  5) chantiers et recrutements livrés ;
-//  6) revenus du jour (report exact en 1/60 : goldCarry) ;
+//  6) revenus du jour (report exact en 1/60 : goldCarry) ; 6 bis) nourriture (V17.4, food.js) ;
 //  7) tous les 10 jours : coalition ; tous les 30 jours (fin de période) : guérison, forteresses qui se referment, ballons,
 //     paroles des IA et dérive de la tension, récapitulatif des revenus, histoire de la partie, journal ;
 //  8) fin de partie (vérifiée chaque jour), alertes de fin ;
@@ -39,6 +39,7 @@ import { healProvinces, updateEliminations } from '../engine/recovery.js';
 import { legalDestinations } from '../engine/sea-routes.js';
 import { checkGameOver, publishTalkOrders, seededRandom } from '../engine/turn.js';
 import { aiNationOfDay, endAlertDays, isPeriodEnd, isRealtime, nextAiDays, periodOfDay } from './clock.js';
+import { dailyFood } from './food.js';
 import { departMoves, marchArrivals, marchEncounters } from './marches.js';
 
 const R = RULES.realtime;
@@ -158,6 +159,8 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   progressProjects(state);
   // 6) Revenus.
   dailyIncome(state);
+  // 6 bis) Nourriture (V17.4) : réserve, alerte, famine et désertion.
+  dailyFood(state);
   // Éliminations : chaque jour (une élimination du joueur est une fin de partie, vérifiée chaque jour, §9.1).
   updateEliminations(state);
   settleStationed(state, map);

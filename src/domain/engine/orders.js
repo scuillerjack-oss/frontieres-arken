@@ -44,7 +44,8 @@ const BUILDING_CAP_ERRORS = {
   bank: 'Une seule banque par province (déjà construite ou en construction)',
   factory: 'Une seule usine par province (déjà construite ou en construction)',
   fort: 'Forteresse déjà au niveau 3 (maximum), en comptant les niveaux en construction',
-  port: 'Un port existe ou est déjà en construction'
+  port: 'Un port existe ou est déjà en construction',
+  farm: 'Ferme déjà au niveau 5 (maximum), en comptant le niveau en construction'
 };
 /** Nombre d'exemplaires d'un bâtiment dans une province : construits + en file + commandés ce tour. */
 export function buildingCount(state, provinceId, type) {
@@ -53,19 +54,25 @@ export function buildingCount(state, provinceId, type) {
   const pending = (state.orders || []).filter(o => o.kind === 'construction' && o.provinceId === provinceId && o.type === type && o.status === 'pending').length;
   return (p?.buildings?.[type] || 0) + active + pending;
 }
+export const FARM_IN_PROGRESS = 'Ferme : un niveau est déjà en construction, attendez qu’il soit terminé';
+export const FARM_REALTIME_ONLY = 'Ferme : seulement dans une partie en temps réel';
 export const FORT_IN_PROGRESS = 'Forteresse : un niveau est déjà en construction, attendez qu’il soit terminé';
 export function queueConstruction(state, { nationId, provinceId, type }) {
   const p = state.provinces[provinceId], r = RULES.buildings[type];
   if (!p || p.ownerId !== nationId) return { ok: false, error: 'Province non contrôlée' };
   if (isMysteryIsland(provinceId)) return { ok: false, error: MYSTERY_BUILD_REFUSAL };
   if (!r) return { ok: false, error: 'Construction indisponible' };
+  // V17.4 : la ferme n'existe qu'en temps réel (la nourriture n'existe pas au tour par tour).
+  if (r.realtimeOnly && state.mode !== 'realtime') return { ok: false, error: FARM_REALTIME_ONLY };
   if (type === 'port' && !p.portSite) return { ok: false, error: 'Cette province ne peut pas accueillir de port' };
   const count = buildingCount(state, provinceId, type);
   // V10 : plafonds par province, file de construction comprise (RULES.buildings[type].max).
   if (count >= (r.max ?? Infinity)) return { ok: false, error: BUILDING_CAP_ERRORS[type] || 'Maximum atteint dans cette province' };
   // V13.3 (Jack) : la forteresse se construit un niveau à la fois — le niveau 2 ne se lance qu'une fois le 1 terminé.
   if (type === 'fort' && count > (p.buildings.fort || 0)) return { ok: false, error: FORT_IN_PROGRESS };
-  const cost = type === 'fort' ? r.costs[count] : r.cost;
+  // V17.4 : la ferme aussi (« Ferme : un niveau est déjà en construction »).
+  if (type === 'farm' && count > (p.buildings.farm || 0)) return { ok: false, error: FARM_IN_PROGRESS };
+  const cost = Array.isArray(r.costs) ? r.costs[count] : r.cost;
   if (spendableTreasury(state,nationId) < cost) return { ok: false, error: 'Trésor insuffisant ou réservé à un cessez-le-feu' };
   state.nations[nationId].treasury -= cost;
   return { ...queuedOrder(state, { kind: 'construction', nationId, provinceId, type, cost, duration: r.turns }), cost };

@@ -12,6 +12,7 @@ import { addToProvince, fight, lossCount, takeOrderForces, unitCount } from '../
 import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
 import { pairTreaty, pairWar } from '../engine/shared.js';
+import { fireFactorFor } from './food.js';
 
 const D = RULES.realtime.durations;
 const hasUnits = f => COMBAT_TYPES.some(k => f.units[k] > 0);
@@ -84,7 +85,7 @@ export function marchEncounters(state, day = state.day) {
     (a.met ||= []).push(b.id); (b.met ||= []).push(a.id);
     const [first, second] = [a, b].sort((x, y) => x.fromId.localeCompare(y.fromId));
     ensureWar(state, first.nationId, second.nationId);
-    const r = resolveCombat({ attacker: marchForce(first), defender: marchForce(second), mode: 'land' });
+    const r = resolveCombat({ attacker: marchForce(first), defender: marchForce(second), mode: 'land', fireFactor: fireFactorFor(state, first.nationId), defenderFireFactor: fireFactorFor(state, second.nationId) });
     Object.assign(first, toLegacy(r.attacker)); Object.assign(second, toLegacy(r.defender));
     state.events.push({ turn: state.turn, type: 'field-battle', attacker: first.nationId, defender: second.nationId, provinceId: first.toId, fromId: first.fromId,
       originIds: [first.fromId, second.fromId], attackerLosses: lossCount(r.attackerLossesByType), defenderLosses: lossCount(r.defenderLossesByType),
