@@ -1,5 +1,5 @@
 // V17.7 — Compteur de MINUTES DE JEU pour les pubs du temps réel (docs/V17-cahier-des-charges.md §10). Module PUR : aucun
-// DOM, aucune minuterie, aucun stockage, aucun Math.random : l'heure et l'état du jeu sont toujours fournis.
+// DOM, aucune minuterie, aucun stockage, aucun hasard : l'heure et l'état du jeu sont toujours fournis.
 //
 // Minutes de jeu = temps réel pendant lequel l'horloge des jours TOURNE (pauses, menus hors jeu, pub en cours et appli en
 // arrière-plan exclus). En ×2 (Premium), une minute reste une minute.
@@ -66,6 +66,14 @@ export const playMinutes = t => t.playMs / MINUTE_MS;
 export function rewardGold(incomePerTurn) {
   const month = num(incomePerTurn) / 2;
   return Math.max(A.rewardMinGold, Math.ceil(month / A.rewardRoundTo) * A.rewardRoundTo);
+}
+
+/** Verse la récompense 🎁 au trésor du joueur (seulement si la pub a été vue en entier). Renvoie l'or versé (0 sinon). */
+export function applyGiftReward(state, nationId, gold, { rewarded }) {
+  const n = state?.nations?.[nationId];
+  if (!rewarded || !n || n.eliminated || !(gold > 0)) return 0;
+  n.treasury = (Number(n.treasury) || 0) + gold;
+  return gold;
 }
 
 /** L'icône 🎁 est-elle à montrer ? Jamais dans le tutoriel ni partie finie ; disponible aussi pour les Premium (c'est un choix). */

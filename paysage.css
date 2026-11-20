@@ -151,3 +151,11 @@ body:has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 15
 body.rt-on:has(#provinceSheet:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 150px)}
 body.rt-on:has(#provinceSheet:not([hidden])):has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 196px)}
 }
+/* V17.7 — écran Premium couché : les trois avantages côte à côte, l'achat reste visible sans défiler. */
+@media (orientation:landscape) and (max-height:560px){
+#premiumDialog{width:min(94vw,760px)}
+.premium-perks{grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0}
+.premium-perks li{grid-template-columns:1fr;text-align:center;align-content:start;padding:6px}
+#premiumDialog h2{margin:2px 0}
+#premiumDialog .primary{margin-top:6px;padding:7px}
+}

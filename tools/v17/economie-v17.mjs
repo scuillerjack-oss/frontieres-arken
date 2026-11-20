@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// FRONTIÈRES: ARKEN — V17.0 : rentabilité du TEMPS RÉEL (projection, rien n'est encore codé). Déterministe, sans réseau.
+// FRONTIÈRES: ARKEN — V17.0 / V17.7 : rentabilité du TEMPS RÉEL (projection ; règles codées en V17.7, lues dans
+// RULES.realtime.ads / .premium, donc toujours les mêmes que le jeu). Déterministe, sans réseau.
 //   node tools/v17/economie-v17.mjs          (--json : sortie lisible par un programme)
 // Reprend les hypothèses de marché de tools/economie-v14-4.mjs (eCPM, remplissage, consentement, commission, TVA) et
 // remplace le modèle « 1 pub plein écran par partie » par un modèle au TEMPS DE JEU (docs/V17-cahier-des-charges.md §10) :
@@ -11,13 +12,16 @@
 //   - Premium 1,99 € (achat unique : vitesse ×2 + plus de pub imposée) ; Pack débutant 2,99 € = Premium + 3 jetons ;
 //   - rétention : les joueurs non Premium jouent `retention` × leurs minutes (les pubs imposées font fuir une partie d'entre eux).
 import { SCENARIOS as V14, netAchat, TVA, COMMISSION_GOOGLE } from '../economie-v14-4.mjs';
+import { REALTIME_RULES } from '../../src/domain/realtime/rules.js';
+
+const ADS = REALTIME_RULES.ads, PREMIUM = REALTIME_RULES.premium;
 
 export const JOUEURS = 10000;
 export const COUT_FONCTIONNEMENT_MENSUEL = 0;
 export const COTISATIONS_APPROX = 0.22;
-export const PRIX = Object.freeze({ premium: 1.99, pack_debutant: 2.99, jetons_1: 0.49, jetons_5: 1.99, jetons_12: 3.99 });
-export const MINUTES_ENTRE_PUBS_IMPOSEES = 10;
-export const MINUTES_ENTRE_PUBS_RECOMPENSEES = 7.5; // 5 à 10 min
+export const PRIX = Object.freeze({ premium: PREMIUM.priceEur, pack_debutant: PREMIUM.starterPackEur, jetons_1: 0.49, jetons_5: 1.99, jetons_12: 3.99 });
+export const MINUTES_ENTRE_PUBS_IMPOSEES = ADS.forcedEveryMinutes;
+export const MINUTES_ENTRE_PUBS_RECOMPENSEES = (ADS.rewardedMinMinutes + ADS.rewardedMaxMinutes) / 2; // 5 à 10 min : 7,5 en moyenne
 const FACTEUR_SANS_CONSENTEMENT = 0.4, JOURS_AVEC_MISSION_PUB = 0.7, ACHATS_PAR_ACHETEUR_JETONS = 1.3;
 const MIX_JETONS = { jetons_1: 0.2, jetons_5: 0.5, jetons_12: 0.3 };
 
@@ -48,8 +52,12 @@ export function simuler(s, joueurs = JOUEURS) {
 }
 export const joueursPour = (s, cible) => Math.ceil(cible / simuler(s).netParJoueur);
 export function rapport() {
-  const out = { netPremium: +netAchat(PRIX.premium).toFixed(2), scenarios: {}, objectifs: {} };
-  for (const [n, s] of Object.entries(SCENARIOS)) { out.scenarios[n] = simuler(s); out.objectifs[n] = Object.fromEntries([100, 500, 1000].map(c => [c, joueursPour(s, c)])); }
+  const out = { netPremium: +netAchat(PRIX.premium).toFixed(2), netPack: +netAchat(PRIX.pack_debutant).toFixed(2), scenarios: {}, objectifs: {}, seuil: {} };
+  for (const [n, s] of Object.entries(SCENARIOS)) {
+    out.scenarios[n] = simuler(s); out.objectifs[n] = Object.fromEntries([100, 500, 1000].map(c => [c, joueursPour(s, c)]));
+    // Seuil de rentabilité : 0 € de coût de fonctionnement => le premier joueur qui rapporte quoi que ce soit suffit.
+    out.seuil[n] = { joueurs: simuler(s, 1).net > COUT_FONCTIONNEMENT_MENSUEL ? 1 : null, coutMensuel: COUT_FONCTIONNEMENT_MENSUEL };
+  }
   return out;
 }
 const e = x => `${Math.round(x)} €`;

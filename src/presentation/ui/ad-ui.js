@@ -10,12 +10,13 @@
 
 import { battlesOf, incomeFor } from '../../domain/game-engine.js';
 import {
-  adTimerSnapshot, createAdTimer, forcedAdCheck, forcedShown, giftAvailable, giftUsed, restoreAdTimer, rewardGold, tickAdTimer
+  adTimerSnapshot, applyGiftReward, createAdTimer, forcedAdCheck, forcedShown, giftAvailable, giftUsed, restoreAdTimer, rewardGold, tickAdTimer
 } from '../ad-timer.js';
 import { adsRefusedThisSession, showForcedAd, showRewardedAd } from '../ads.js';
 import { isTutorial } from '../tutorial.js';
 import { quietDuring } from './audio.js';
 import { $, toast } from './base.js';
+import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { moveSource, profile, save, state } from './session.js';
 import { miniStep, tutoStep } from './tutorials.js';
@@ -87,7 +88,7 @@ export function openGift() {
     try { r = await quietDuring(() => showRewardedAd({ label: `Publicité récompensée : +${gold} or` })); }
     finally { delete document.body.dataset.adPlaying; busy = false; }
     if (r?.rewarded) {
-      if (game === state && game.nations[me]) { game.nations[me].gold += gold; save(); }
+      if (game === state && applyGiftReward(game, me, gold, { rewarded: true })) { save(); render(); }
       giftUsed(timer, { rewarded: true }); persist();
       toast(`🎁 +${gold} or ajoutés au trésor`);
     } else if (r?.dismissed) {
