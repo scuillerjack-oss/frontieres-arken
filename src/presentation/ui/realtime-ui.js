@@ -16,6 +16,7 @@ import { render } from './map-view.js';
 import { actionModal, showProvinceSheet } from './province-sheet.js';
 import { save, selected, state } from './session.js';
 import { showEndScreen } from './turn-flow.js';
+import { battleNews, bombardRows, drawBattles, wireBombardRows } from './realtime-battles-ui.js'; // V17.2
 
 let clock = null, clockGame = null, timer = 0, lastDrawn = '', popups = Promise.resolve(), lastNews = '';
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
@@ -44,6 +45,7 @@ function drawMarches() {
     layer.append(g);
   }
   svg.append(layer);
+  drawBattles(refresh); // V17.2 : ⚔ « n/3 » sur les provinces en bataille
 }
 /** Fiche d'une armée en marche : composition (les siennes), date d'arrivée, bouton « Rappeler ». */
 function openMarch(id) {
@@ -62,7 +64,8 @@ function openTroops() {
   const row = (kind, x, arrive) => `<div class="unit-row"><span>${kind === 'march' ? '⚔' : '⛵'} ${province(x.fromId).name} → ${province(x.toId).name} · ${unitsOf(x)} unités · arrivée le ${formatDate(arrive)}</span>\
 ${x.returning ? '<b>retour</b>' : `<button data-recall-${kind}="${x.id}">Rappeler</button>`}</div>`;
   actionModal('Troupes en route', formatDate(state.day).toUpperCase(), [...marches.map(m => row('march', m, m.arriveDay)), ...convoys.map(t => row('convoy', t, t.arriveDay ?? state.day + t.turns - t.stage))].join('')
-    || '<p>Aucune troupe en route. Touchez une de vos provinces pour donner un ordre : il part tout de suite.</p>');
+    + bombardRows() || '<p>Aucune troupe en route. Touchez une de vos provinces pour donner un ordre : il part tout de suite.</p>');
+  wireBombardRows(openTroops);
   document.querySelectorAll('[data-recall-march]').forEach(b => b.onclick = () => { const r = recallMarch(state, { nationId: me, marchId: b.dataset.recallMarch }); toast(r.ok ? `Armée rappelée : retour le ${formatDate(r.arriveDay)}` : r.error); refresh(); openTroops(); });
   document.querySelectorAll('[data-recall-convoy]').forEach(b => b.onclick = () => { const r = recallConvoy(state, { nationId: me, convoyId: b.dataset.recallConvoy }); toast(r.ok ? `Convoi rappelé : retour le ${formatDate(r.arriveDay)}` : r.error); refresh(); openTroops(); });
 }
@@ -71,6 +74,8 @@ function newsLine() {
   const last = [...(state.turnJournal || [])][0];
   const mine = (state.marches || []).filter(m => m.nationId === state.playerNationId).length + (state.transports || []).filter(t => t.nationId === state.playerNationId).length;
   const coming = (state.marches || []).filter(m => m.nationId !== state.playerNationId && state.provinces[m.toId]?.ownerId === state.playerNationId).length;
+  const fight = battleNews(); // V17.2
+  if (fight) return fight;
   if (coming) return `⚠ ${coming} armée${coming > 1 ? 's' : ''} ennemie${coming > 1 ? 's' : ''} en route vers vos provinces`;
   if (mine) return `${mine} troupe${mine > 1 ? 's' : ''} en route · touchez ici pour les voir ou les rappeler`;
   return last?.text ? String(last.text).split('\n')[0] : 'Touchez une province pour donner un ordre : il part tout de suite.';
