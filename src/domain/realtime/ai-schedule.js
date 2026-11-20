@@ -25,6 +25,7 @@ import { pairTreaty, pairWar, spendableTreasury } from '../engine/shared.js';
 import { aiNationOfDay, isRealtime, nextAiDays } from './clock.js';
 import { battleAt, battleForecast, retreatFromBattle } from './battles.js';
 import { landTravelDays, recallMarch } from './marches.js';
+import { foodProduction, plannedConsumption } from './food.js';
 
 const R = RULES.realtime;
 const A = () => R.ai;
@@ -231,7 +232,10 @@ export function aiDefend(state, map, nationId) {
       }
       if (sent) break;
     }
-    if (sent || !A().emergencyRecruit || state.day + R.durations.units.infantry - 1 > deadline) continue;
+    // Recrues livrées au plus tard la veille de l'arrivée ennemie (une province assiégée ne livre pas ses recrues).
+    if (sent || !A().emergencyRecruit || state.day + R.durations.units.infantry - 1 > threat.arriveDay - 2) continue;
+    // Pas de recrues d'urgence pour une nation qui ne se nourrit plus (elle garde son or pour la ferme, §4.5).
+    if (foodProduction(state, nationId) < plannedConsumption(state, nationId)) continue;
     if (spendableTreasury(state, nationId) >= RULES.units.infantry.cost && queueRecruitment(state, { nationId, provinceId: d.id, type: 'infantry' }).ok) { n++; stat(state, 'emergencyRecruits'); }
   }
   return n;

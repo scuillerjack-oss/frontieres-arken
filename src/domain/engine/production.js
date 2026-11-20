@@ -42,10 +42,18 @@ export function progressProjects(state) {
     let gained = buildTurnsGained(state, nationId, sites.length);
     for (const q of sites) { if (!gained) break; q.remaining--; q.boosted = (q.boosted || 0) + 1; gained--; }
   }
+  const held = new Set();
   for (const q of state.productionQueue.filter(x => x.remaining <= 0)) {
     const p = state.provinces[q.provinceId];
     // B4 (filet de sécurité) : jamais de livraison à un autre propriétaire que celui qui a payé.
     if (p && p.ownerId !== q.nationId) { refundProduction(state, q, q.provinceId); continue; }
+    // V17.5 (décidé par le chef de projet) : une province assiégée ne livre pas ses recrues pendant la bataille ; elles
+    // attendent la fin de la bataille (province prise : remboursées, règle B4 ci-dessus).
+    if (p && q.kind === 'unit' && (state.battles || []).some(b => b.provinceId === q.provinceId)) {
+      if (!q.held) state.events.push({ turn: state.turn, type: 'production-held', productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1 });
+      q.remaining = 0; q.held = true; held.add(q); continue;
+    }
+    if (q.held) delete q.held;
     if (p && q.kind === 'balloon') { deliverBalloon(state, q); continue; }
     if (p) {
       if (q.kind === 'building') p.buildings[q.type] = Math.min((p.buildings[q.type] || 0) + 1, RULES.buildings[q.type]?.max ?? Infinity);
@@ -59,5 +67,5 @@ export function progressProjects(state) {
       state.events.push({ turn: state.turn, type: 'production-complete', kind: q.kind, productionType: q.type, provinceId: q.provinceId, nationId: q.nationId, amount: q.amount || 1, ...(q.bonus ? { bonus: q.bonus, ...(q.nationBonus ? { nationBonus: true } : {}) } : {}) });
     }
   }
-  state.productionQueue = state.productionQueue.filter(q => q.remaining > 0);
+  state.productionQueue = state.productionQueue.filter(q => q.remaining > 0 || held.has(q));
 }

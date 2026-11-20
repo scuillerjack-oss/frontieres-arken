@@ -360,3 +360,30 @@ test('V17.5 : déterministe, sans Math.random ; tour par tour non touché (pas d
   assert.ok(!/Math\.random|Date\.now|new Date|document\.|window\./.test(src));
   assert.match(readSource('src/domain/realtime/day.js'), /releaseAnswers\(state, day\);[\s\S]*aiReact\(state, map, decider\); planAIOrders\(state, map, \{ only: decider \}\)/);
 });
+
+test('V17.5 (décidé par le chef de projet) : une province assiégée ne livre pas ses recrues pendant la bataille et n\'en commande pas', () => {
+  const s = island({ seed: 'held', ais: [] });
+  s.provinces.p03.units = inf(540); s.provinces.p04.units = inf(400); s.provinces.p04.buildings.fort = 3;
+  s.nations[ME].treasury = 500;
+  const m = sendAs(s, AI, 'p03', 'p04', inf(500));
+  // Recrues commandées pour être livrées pendant la bataille (le jour du 1er assaut).
+  untilDay(s, m.arriveDay - 30);
+  assert.ok(E.queueRecruitment(s, { nationId: ME, provinceId: 'p04', type: 'infantry' }).ok);
+  E.executePendingOrders(s, map);
+  const q = s.productionQueue.find(x => x.nationId === ME && x.provinceId === 'p04');
+  const ev = s.events.length;
+  untilDay(s, m.arriveDay);
+  assert.ok(s.battles.length, 'bataille en cours après le 1er assaut');
+  assert.ok(s.productionQueue.includes(q) && q.held, 'recrues retenues');
+  assert.equal(s.events.slice(ev).filter(e => e.type === 'production-held').length, 1, 'un seul avis');
+  const r = E.queueRecruitment(s, { nationId: ME, provinceId: 'p04', type: 'infantry' });
+  assert.equal(r.ok, false); assert.match(r.error, /assiégée/);
+  const before = s.provinces.p04.units.infantry;
+  untilDay(s, m.arriveDay + 10);
+  assert.ok(!s.battles.length, 'bataille terminée');
+  if (s.provinces.p04.ownerId === ME) {
+    assert.ok(!s.productionQueue.includes(q), 'livrées à la fin de la bataille');
+    assert.ok(s.events.slice(ev).some(e => e.type === 'production-complete' && e.provinceId === 'p04' && e.nationId === ME));
+  } else assert.ok(s.events.slice(ev).some(e => e.type === 'production-lost' && e.provinceId === 'p04'), 'province prise : remboursées');
+  assert.ok(before >= 0);
+});
