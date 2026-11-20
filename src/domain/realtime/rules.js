@@ -67,7 +67,18 @@ export const REALTIME_RULES = freezeDeep({
     easyAttackEveryDays: 30, aiAnswerMaxDays: 10
   },
   // §7 IA : une décision complète tous les 10 jours par nation, décalées de 2 jours ((jour + 2 i) % 10 = 0)
-  ai: { decisionEveryDays: 10, offsetDays: 2, talkEveryDays: 30, slowDayMs: 200 },
+  // V17.5 : l'IA raisonne en jours. Une règle « par tour » du tour par tour s'applique au plus une fois par fenêtre
+  // (`pace`, en jours) au lieu d'une fois par décision (3 décisions par période) : recrutements, navires, débarquements,
+  // attaques terrestres (quota ARCH_ATTACKS × attacksPerPace par fenêtre ; Facile : une seule par fenêtre, cahier §2.2).
+  ai: {
+    decisionEveryDays: 10, offsetDays: 2, talkEveryDays: 30, slowDayMs: 200,
+    pace: { recruit: 30, ship: 30, landing: 30, attack: 30 },
+    attacksPerPace: 1,
+    balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
+    recallMargin: .75,       // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
+    reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
+    emergencyRecruit: true   // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
+  },
   // §7 Rythmes du monde
   world: { coalitionEveryDays: 10, eliminationEveryDays: 10, tensionEveryDays: 30, balloonReportEveryDays: 30 },
   // §2.2 Phases de partie (jours) — repères ; le moteur passe par scaleTurn (périodes)

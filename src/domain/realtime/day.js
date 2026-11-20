@@ -27,11 +27,11 @@ import { settleMysteryIsland } from '../mystery-island.js';
 import { recordStory } from '../story.js';
 import { aiTalk, pruneTalkPending } from '../talk.js';
 import { planAIOrders } from '../engine/ai.js';
-import { resolveBalloonFlights, resolveBalloonShots } from '../engine/balloons.js';
+import { advanceBalloonsDay, balloonPeriodReports, resolveBalloonShots, sendBalloonsNow } from '../engine/balloons.js';
 import { bombardTick, registerBombardOrders, repairForts, resolveBombardments } from '../engine/bombard.js';
 import { updateCoalition } from '../engine/coalition.js';
 import { resolveTransports, stampConvoy } from '../engine/convoys.js';
-import { PROPOSAL_TURNS, hostilityWar, resolveAllianceBreaks, resolveDiplomacy } from '../engine/diplomacy.js';
+import { hostilityWar, proposalAlive, resolveAllianceBreaks, resolveDiplomacy } from '../engine/diplomacy.js';
 import { incomeBreakdown, incomeFor } from '../engine/income.js';
 import { buildPermanentJournal, buildTurnJournal } from '../engine/journal.js';
 import { progressProjects, startProjects } from '../engine/production.js';
@@ -42,6 +42,7 @@ import { aiNationOfDay, endAlertDays, isPeriodEnd, isRealtime, nextAiDays, perio
 import { dailyFood } from './food.js';
 import { departMoves, marchArrivals, marchEncounters } from './marches.js';
 import { joinBattle, resolveBattles } from './battles.js';
+import { aiReact, deferAnswers, releaseAnswers } from './ai-schedule.js';
 
 const R = RULES.realtime;
 const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
@@ -55,6 +56,9 @@ export function realtimeLedger(state) {
   rt.periodTalk = Array.isArray(rt.periodTalk) ? rt.periodTalk : [];             // messages commandés de la période (ids)
   rt.periodOrders = Array.isArray(rt.periodOrders) ? rt.periodOrders : [];       // ordres de la période lus par les ballons
   rt.periodIncome = rt.periodIncome && typeof rt.periodIncome === 'object' ? rt.periodIncome : {};
+  rt.talkInbox = Array.isArray(rt.talkInbox) ? rt.talkInbox : [];                // V17.5 : messages adressés à une IA, en attente de sa décision
+  rt.talkEvents = rt.talkEvents && typeof rt.talkEvents === 'object' ? rt.talkEvents : {}; // V17.5 : nation → index des événements déjà lus pour ses paroles
+  rt.talkDay = rt.talkDay && typeof rt.talkDay === 'object' ? rt.talkDay : {};    // V17.5 : nation → jour de sa dernière initiative possible
   return rt;
 }
 const stampDay = (state, from) => { for (let i = from; i < state.events.length; i++) if (!Number.isFinite(state.events[i].day)) state.events[i].day = state.day; };
@@ -65,16 +69,19 @@ const BALLOON_REPORT_KINDS = new Set(['recruitment', 'move']);
 /**
  * Ordres en attente (joueur et IA) exécutés maintenant, dans l'ordre de l'inter-tour : ballons abattus, ruptures
  * d'alliance, bombardements, départs (marches et convois), diplomatie, chantiers, messages et demandes d'aide.
- * Renvoie les ordres exécutés. Les envois de ballon partent à la fin de la période (le ballon vole en périodes, V17.5).
+ * Renvoie les ordres exécutés. V17.5 : une proposition ou une demande d'aide adressée à une IA attend sa prochaine
+ * décision (1 à 10 jours, ai-schedule.js) ; un envoi de ballon part le jour même (le ballon vole en jours).
  */
 export function executePendingOrders(state, map, { random = () => seededRandom(state) } = {}) {
   if (!isRealtime(state)) return [];
+  deferAnswers(state);
   const pending = (state.orders || []).filter(o => o.status === 'pending');
   if (!pending.length) return [];
   const rt = realtimeLedger(state), eventStart = state.events.length;
   const locked = pending.map(o => ({ ...o, units: o.units ? { ...o.units } : undefined }));
   const fought = new Set();
   resolveBalloonShots(state, map, locked);
+  sendBalloonsNow(state, map, locked);
   resolveAllianceBreaks(state, locked);
   settleStationed(state, map);
   // V17.2 : « Bombarder » devient un ordre permanent, qui tire tous les 10 jours (bombardTick).
@@ -84,13 +91,15 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
   settleStationed(state, map);
   resolveDiplomacy(state, locked, random, map);
   startProjects(state, locked);
-  rt.periodTalk.push(...publishTalkOrders(state, locked).map(m => m.id));
+  const published = publishTalkOrders(state, locked);
+  rt.periodTalk.push(...published.map(m => m.id));
+  // V17.5 : un message adressé à une IA reçoit (peut-être) sa réponse à la prochaine décision de cette IA (1 à 10 jours).
+  rt.talkInbox.push(...published.filter(m => m.to && !m.replyTo && state.controllers?.[m.to] === 'ai').map(m => m.id));
   resolveHelpRequests(state, map, locked, id => legalDestinations(map, state, id));
   rt.periodOrders.push(...locked.filter(o => BALLOON_REPORT_KINDS.has(o.kind)));
   markDays(rt.fought, fought, state.day); markDays(rt.bombarded, bombarded || [], state.day);
   const done = new Set(pending.map(o => o.id));
-  state.orders = (state.orders || []).filter(o => !done.has(o.id) || o.kind === 'balloon-send');
-  for (const o of state.orders) if (o.kind === 'balloon-send') o.status = 'scheduled';
+  state.orders = (state.orders || []).filter(o => !done.has(o.id));
   stampDay(state, eventStart);
   return locked;
 }
@@ -107,23 +116,40 @@ function dailyIncome(state) {
     if (id === state.playerNationId) rt.periodIncome[id] = (rt.periodIncome[id] || 0) + whole;
   }
 }
+/**
+ * V17.5 : paroles de l'IA du jour, à sa décision : réponses aux messages reçus depuis sa décision précédente (1 à 10 jours),
+ * réactions aux événements (trahison, attaque, coalition) depuis sa dernière prise de parole, et au plus une initiative
+ * par RULES.realtime.ai.talkEveryDays jours. Le plafond de messages IA par période reste celui du tour par tour.
+ */
+function aiTalkOfDay(state, map, nationId) {
+  const rt = realtimeLedger(state);
+  const inbox = new Set(rt.talkInbox);
+  const published = (state.talk || []).filter(m => inbox.has(m.id) && m.to === nationId);
+  rt.talkInbox = rt.talkInbox.filter(id => !published.some(m => m.id === id) && (state.talk || []).some(m => m.id === id && !state.nations[m.to]?.eliminated));
+  const from = Math.min(state.events.length, Number.isFinite(rt.talkEvents[nationId]) ? rt.talkEvents[nationId] : rt.periodEventStart);
+  const initiatives = !Number.isFinite(rt.talkDay[nationId]) || state.day - rt.talkDay[nationId] >= R.ai.talkEveryDays;
+  aiTalk(state, map, { published, turnEvents: state.events.slice(from), only: nationId, initiatives });
+  if (initiatives) rt.talkDay[nationId] = state.day;
+  rt.talkEvents[nationId] = state.events.length;
+}
 /** Fin de période (tous les 30 jours) : ce que le tour par tour faisait une fois par tour, hors ordres et combats. */
 function periodEnd(state, map) {
   const rt = realtimeLedger(state), day = state.day;
   repairForts(state, recentSet(rt.bombarded, day, R.daysPerPeriod));
   settleStationed(state, map);
-  const balloonOrders = (state.orders || []).filter(o => o.kind === 'balloon-send');
-  state.orders = (state.orders || []).filter(o => o.kind !== 'balloon-send');
-  resolveBalloonFlights(state, map, [...rt.periodOrders, ...balloonOrders]);
+  // V17.5 : les ballons volent en jours (advanceDay) ; seul le rapport privé reste tous les 30 jours.
+  // Ancienne sauvegarde V17.1-V17.4 : un envoi « programmé » pour la fin de période part maintenant.
+  const scheduled = (state.orders || []).filter(o => o.kind === 'balloon-send' && o.status === 'scheduled');
+  if (scheduled.length) { sendBalloonsNow(state, map, scheduled); state.orders = state.orders.filter(o => !scheduled.includes(o)); }
+  balloonPeriodReports(state, map, rt.periodOrders);
   // Récapitulatif des revenus de la période (sans bandeau) : ce qui est réellement entré au trésor.
   const me = state.playerNationId;
   if (me && state.nations[me] && !state.nations[me].eliminated) state.events.push({ turn: state.turn, type: 'income', nationId: me, amount: rt.periodIncome[me] || 0, days: R.daysPerPeriod, ...incomeBreakdown(state, me) });
-  // Paroles des IA, engagements d'aide, guerres d'hostilité, propositions expirées, dérive de la tension (cahier §2.2 : 30 j).
-  const published = (state.talk || []).filter(m => rt.periodTalk.includes(m.id));
-  aiTalk(state, map, { published, turnEvents: state.events.slice(rt.periodEventStart) });
+  // Engagements d'aide, guerres d'hostilité, propositions expirées (180 jours), dérive de la tension (cahier §2.2 : 30 j).
+  // V17.5 : les paroles des IA passent à leur décision (aiTalkOfDay), plus en fin de période.
   expireHelpPacts(state);
   hostilityWars(state, (a, b, value) => hostilityWar(state, a, b, value));
-  state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => p.turn > state.turn - PROPOSAL_TURNS && !state.nations[p.from]?.eliminated);
+  state.diplomacy.proposals = (state.diplomacy.proposals || []).filter(p => proposalAlive(state, p) && !state.nations[p.from]?.eliminated);
   driftTension(state);
   observeLeaders(state);
   pruneTalkPending(state);
@@ -142,9 +168,11 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   if (!isRealtime(state) || state.gameOver) return state;
   const rt = realtimeLedger(state), day = state.day, eventStart = state.events.length;
   state.turn = periodOfDay(day);
-  // 1) Ordres du jour.
+  // 1) Ordres du jour. V17.5 : réponses dues aujourd'hui, réactions de l'IA du jour (retraite, rappel, renfort), son
+  // plan, ses paroles ; puis tous les ordres en attente partent.
+  releaseAnswers(state, day);
   const decider = aiNationOfDay(state, day);
-  if (decider) planAIOrders(state, map, { only: decider });
+  if (decider) { aiReact(state, map, decider); planAIOrders(state, map, { only: decider }); aiTalkOfDay(state, map, decider); }
   executePendingOrders(state, map, { random });
   state.nextAiDay = nextAiDays(state, day + 1);
   // 2) et 3) Marches : avancée, rencontres, arrivées ; convois : un jour de mer, rencontres, débarquements.
@@ -167,8 +195,9 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
     for (const b of state.battles || []) blocked.add(b.provinceId);
     healProvinces(state, blocked);
   }
-  // 5) Chantiers et recrutements.
+  // 5) Chantiers et recrutements ; V17.5 : un jour de vol pour les ballons.
   progressProjects(state);
+  advanceBalloonsDay(state, map);
   // 6) Revenus.
   dailyIncome(state);
   // 6 bis) Nourriture (V17.4) : réserve, alerte, famine et désertion.
