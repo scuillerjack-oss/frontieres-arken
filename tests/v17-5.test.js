@@ -404,3 +404,16 @@ test('V17.5 : interface — « en attente de réponse » (Diplomatie, aide) et b
   assert.match(ui, /awaitingOrder\(state,state\.playerNationId,target\)/);
   assert.match(ui, /balloonLegFraction\(balloonById\(state, m\.id\), state\.day\)/);
 });
+
+test('V17.5 (relecture) : départ visible mais fortifié → composition inconnue, estimation prudente (comme le joueur)', () => {
+  const s = island({ seed: 'fort', ais: [] });
+  s.provinces.p03.units = inf(50); s.provinces.p02.units = inf(3000); s.provinces.p02.buildings.fort = 1;
+  sendAs(s, ME, 'p02', 'p03', inf(2500));
+  const seen = visibleProvinces(s, map, AI);
+  assert.ok(seen.has('p02'), 'la province de départ est visible');
+  const v = visibleMarchesFor(s, map, AI, seen).find(x => x.march.nationId === ME);
+  assert.equal(v.known, false, 'forteresse : troupes cachées, composition inconnue');
+  assert.ok(marchEstimate(s, v).units.infantry < 2500, 'estimation prudente, pas l\'effectif réel');
+  s.provinces.p02.buildings.fort = 0;
+  assert.equal(visibleMarchesFor(s, map, AI).find(x => x.march.nationId === ME).known, true, 'sans forteresse : connue');
+});

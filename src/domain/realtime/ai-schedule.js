@@ -17,7 +17,7 @@
 import { combatValue, legacyForce, mergeForce, normalizeForce, provinceForce, resolveCombat, scaleForce, splitForce } from '../combat.js';
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { garrisonForce, hasPassage } from '../passage.js';
-import { prudentEstimate, provinceIntel, visibleProvinces, visionSharers } from '../vision.js';
+import { prudentEstimate, provinceIntel, troopsKnownTo, visibleProvinces, visionSharers } from '../vision.js';
 import { fortBreach } from '../engine/bombard.js';
 import { availableForces, queueMoveOrder, queueRecruitment } from '../engine/orders.js';
 import { landThreatForce } from '../engine/ai-naval.js';
@@ -109,14 +109,16 @@ const stat = (state, key) => { state.ai ||= {}; state.ai.rtStats ||= {}; state.a
 // --- Armées en marche visibles -------------------------------------------------------------------------------------
 /**
  * Armées en marche que `nationId` voit (mêmes règles que le joueur, §8) : les siennes et celles de ses alliés, et toute
- * marche dont il voit la province de départ ou d'arrivée. `known` : composition connue (départ visible, ou soi / allié).
+ * marche dont il voit la province de départ ou d'arrivée. `known` : composition connue (troupes du départ connues :
+ * visible et pas derrière une forteresse ennemie, ou soi / allié — comme `compositionKnown` de l'interface).
  */
 export function visibleMarchesFor(state, map, nationId, seen = visibleProvinces(state, map, nationId)) {
   const sharers = visionSharers(state, nationId), out = [];
   for (const m of state.marches || []) {
     const friendly = sharers.has(m.nationId);
     if (!friendly && !seen.has(m.fromId) && !seen.has(m.toId)) continue;
-    out.push({ march: m, known: friendly || seen.has(m.fromId) });
+    // Même règle que le joueur : composition connue si les troupes de la province de départ le sont (forteresse : non).
+    out.push({ march: m, known: friendly || troopsKnownTo(state, map, nationId, m.fromId, seen) });
   }
   return out;
 }
