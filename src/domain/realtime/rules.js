@@ -74,9 +74,9 @@ export const REALTIME_RULES = freezeDeep({
     decisionEveryDays: 10, offsetDays: 2, talkEveryDays: 30, slowDayMs: 200,
     pace: { recruit: 30, ship: 30, landing: 30, attack: 30 },
     attacksPerPace: 1,
-    marginAdd: 0,            // correction de la marge d'attaque de l'IA en temps réel (équilibre, mesuré : §15 V17.5)
+    marginAdd: -.1,          // correction de la marge d'attaque de l'IA en temps réel (équilibre, mesuré : §15 V17.5)
     balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
-    recallMargin: .75,       // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
+    recallMargin: .6,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
     emergencyRecruit: true   // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
   },
