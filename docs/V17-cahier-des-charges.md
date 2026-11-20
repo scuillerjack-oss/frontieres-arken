@@ -1525,7 +1525,7 @@ ordre et éliminées ; photo des 10 jours et jours de famine ; conquête au jour
 défaite, aucune offre sans joueur ; dernier jour en partie normale et courte ; offre à 90 jours, refus, relance à 180 jours,
 acceptation ; alliance rompue, combat, nations éliminées ; sauvegarde 13 de l'offre ; palmarès et titres en jours ; écran 🏆
 public / détail ; écran de fin sans « tour » ; branchements ; partie IA de 2 ans déterministe). **Aucun test existant modifié.**
-`tests/helpers/sources.js` : `ranking`, `end`, `ranking-ui`.
+`tests/helpers/sources.js` : `ranking`, `end`, `ranking-ui`. `npm test` après rebase sur `v17` (V17.5b comprise) : 875 tests, tous verts ; Playwright refait après le rebase, même résultat.
 
 **Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v178.mjs`, 844 × 390 et 390 × 844, vrais gestes, états préparés par
 injection) : 🏆 depuis la carte (5 nations, détail pour soi seul, le temps tourne : jour 1 → 4) ; paix générale injectée →
