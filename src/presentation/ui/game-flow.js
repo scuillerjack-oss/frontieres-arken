@@ -7,6 +7,9 @@ import { recordGameStarted } from '../../domain/profile.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { createGameState } from '../../state/create-game-state.js';
 import { createRealtimeGame } from '../../domain/realtime/create.js';
+import { formatDate } from '../../domain/realtime/clock.js';
+import { recordFinishedGame } from '../../domain/palmares.js';
+import { realtimeLengthLabel, realtimeLengthText } from '../ranking-view.js';
 import { syncMusic } from './audio.js';
 import { markNewGame } from './ad-ui.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../guide-input.js';
@@ -48,9 +51,18 @@ function confirmSaveReplacement(){
     dialog.showModal();
   });
 }
+/** V17.8 : texte de la confirmation « Nouvelle partie » (cahier V17 §9.3) : tout sera perdu, sauf le profil. */
+function replaceSaveText(){
+  const g=state&&!state.gameOver?state:null;
+  $('#replaceSaveTitle').textContent='Nouvelle partie : vous perdrez tout';
+  $('#replaceSaveMessage').textContent=`${g?`La partie en cours (${nation(g.playerNationId).name}${g.mode==='realtime'?`, ${formatDate(g.day)}`:''})`:'La partie sauvegardée sur cet appareil'} sera effacée : nation, provinces, armées, trésor. Une partie abandonnée ne compte pas au palmarès. Vos jetons, vos atouts et votre palmarès sont gardés. Vous pourrez reprendre la même nation ou une autre.`;
+}
 export function beginNewGame(){
   const hasStoredSave=Boolean(localStorage.getItem(SAVE_KEY));
+  // V17.8 : une partie terminée est déjà comptée au palmarès (rien à perdre) : pas de confirmation.
+  if(state?.gameOver){if(recordFinishedGame(profile,state).counted)saveMyProfile();openNationChoice();return;}
   if(!hasStoredSave){openNationChoice();return;}
+  replaceSaveText();
   confirmSaveReplacement().then(confirmed=>{
     if(resolveNewGameRequest({hasStoredSave,confirmed})==='choose-nation')openNationChoice();
   });
@@ -63,8 +75,10 @@ function openNationChoice(){
   document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{level=b.dataset.level;showLevel();});showLevel();
   // V15.4 : longueur de la partie (80 tours présélectionné), même présentation que le niveau.
   let gameLength=DEFAULT_GAME_LENGTH;
-  $('#lengthChoices').innerHTML=GAME_LENGTHS.map(n=>`<button type="button" class="level-choice" data-length="${n}" aria-pressed="${n===gameLength}">${gameLengthLabel(n)}</button>`).join('');
-  const showLength=()=>{document.querySelectorAll('[data-length]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.length)===gameLength)));$('#lengthText').textContent=gameLengthText(gameLength);};
+  // V17.8 : en temps réel, les longueurs se lisent en années (15 ans / courte 7 ans), plus en tours.
+  const rtLength=!turnBasedTest(),lengthLabel=n=>rtLength?realtimeLengthLabel(n!==DEFAULT_GAME_LENGTH):gameLengthLabel(n),lengthText=n=>rtLength?realtimeLengthText(n!==DEFAULT_GAME_LENGTH):gameLengthText(n);
+  $('#lengthChoices').innerHTML=GAME_LENGTHS.map(n=>`<button type="button" class="level-choice" data-length="${n}" aria-pressed="${n===gameLength}">${lengthLabel(n)}</button>`).join('');
+  const showLength=()=>{document.querySelectorAll('[data-length]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.length)===gameLength)));$('#lengthText').textContent=lengthText(gameLength);};
   document.querySelectorAll('[data-length]').forEach(b=>b.onclick=()=>{gameLength=Number(b.dataset.length);showLength();});showLength();
   $('#nationChoices').innerHTML=map.nations.map(n=>{const bonus=nationBonusInfo(n.id);return `<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><span class="nation-choice"><b>${n.name}</b>\
 <small data-nation-bonus>${bonus.title} : ${bonus.text}</small></span></button>`;}).join('');

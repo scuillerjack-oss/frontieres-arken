@@ -61,7 +61,7 @@ export function combatBetweenAlive(state, events = []) {
 /** Une offre de paix générale attend la réponse du joueur ? */
 export const peaceOfferPending = state => isRealtime(state) && !state.gameOver && Number.isFinite(state.endOffer?.offerDay);
 /** Jours de paix générale déjà comptés (0 si la condition ne tient pas). */
-export const peaceDays = state => Number.isFinite(state.endOffer?.peaceSince) ? Math.max(0, state.day - state.endOffer.peaceSince + 1) : 0;
+export const peaceDays = state => Number.isFinite(state.endOffer?.peaceSince) ? Math.max(0, state.day - state.endOffer.peaceSince) : 0; // jours déjà joués
 
 /** Termine la partie (une seule fois) : classement à points du jour, vainqueur, événement « game-over ». */
 export function endRealtimeGame(state, reason, winnerId = null) {
@@ -112,7 +112,7 @@ export function answerPeaceOffer(state, accept) {
   if (!peaceOfferPending(state)) return { ok: false, error: 'Aucune offre de paix en attente' };
   const o = endOfferOf(state);
   if (accept) { endRealtimeGame(state, 'peace'); return { ok: true, ended: true }; }
+  o.nextOfferDay = o.offerDay + E().reofferDays; // tous les 180 jours, comptés depuis l'offre
   o.offerDay = null;
-  o.nextOfferDay = state.day + E().reofferDays;
   return { ok: true, ended: false, nextOfferDay: o.nextOfferDay };
 }
