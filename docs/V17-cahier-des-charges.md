@@ -1242,3 +1242,67 @@ décision ; déterminisme sans `Math.random`). **Test modifié** : `tests/v15-2.
 `attackQuota`, même règle). `tests/helpers/sources.js` et `sw.js` : `realtime/ai-schedule.js`. `npm test` : 825 tests (après rebase sur la V17.3), tous verts ; empreintes du tour par tour identiques. Test modifié aussi :
 `tests/v17-4.test.js` (partie IA de 4 ans : on compte les fermes CONSTRUITES, une ferme prise avec sa capitale compte).
 **Non vérifié** : vrai téléphone.
+
+### V17.7 — Monétisation (20/11/2026)
+**Fait** (branche `mission/V17.7`, `version` non montée ; **rien de payant activé** : bêta = emplacements de pub de test et
+achats de test gratuits, `play-config.js` inchangé) :
+- **Compteur de minutes de jeu** `src/presentation/ad-timer.js` (pur, testé) : seul compte le temps réel pendant lequel
+  l'horloge des jours tourne (pause, menus hors jeu, pub en cours, arrière-plan exclus ; ×2 = une minute reste une minute ;
+  au plus 5 s par battement : un téléphone gelé ne fait pas gagner de minutes). Gardé sur le téléphone
+  (`frontieres-arken-pub`), jamais dans la partie. Délais tirés à graine (hachage, pas de hasard).
+- **Pub récompensée 🎁** : petite icône `#giftBtn` « 🎁 +10 » sur le **bord gauche de la carte**, sous le bouton Atouts
+  (jamais au milieu), qui apparaît **5 à 10 min de jeu** après la précédente et **reste tant qu'on ne l'a pas touchée**.
+  La toucher : courte confirmation (« Plus tard » la garde), puis la pub ; **le temps est arrêté pendant la pub** ; vue en
+  entier = **un mois de revenus** (revenu par tour ÷ 2, arrondi au multiple de 5 supérieur, **10 or minimum**) versé au
+  trésor ; puis nouveau délai de 5 à 10 min. **Demande de Jack : l'icône ne disparaît pas tant qu'elle n'a pas été
+  regardée** : « Plus tard », pub fermée avant la fin (pas de bonus, refus : plus de pub imposée jusqu'au prochain
+  lancement) ou pub indisponible → l'icône reste, sans nouveau délai. Seule une pub vue en entier relance le délai. Jamais dans le tutoriel ; proposée aussi aux Premium.
+- **Pub imposée** (`showForcedAd`, décision `forcedAdCheck`) : au plus **une toutes les 10 min de jeu**, seulement à un
+  **moment calme** : ⏸, ouverture d'un menu hors jeu (Réglages, Aide, Atouts, Palmarès — jamais l'écran Premium ni la fin),
+  retour à l'accueil, retour dans le jeu (partie reprise, appli revenue au premier plan). **Jamais** pendant une action
+  (destination à choisir, fenêtre de décision ou d'ordre ouverte, bataille du joueur en cours), **jamais** en tutoriel ou
+  mini-tuto (ni en quittant le tutoriel vers l'accueil), **jamais** pour un Premium, **jamais** après un refus, jamais au
+  début d'une nouvelle partie. Une 🎁 regardée en entier remet le compteur à zéro. Temps arrêté pendant la pub.
+- **Pub de début de partie supprimée** (aussi au tour par tour de test).
+- **Premium 1,99 €, achat unique** (produit `premium`, non consommable ; `profile.premium`) : **⏩ ×2 débloqué** + **plus
+  aucune pub imposée**. **Pack débutant 2,99 €** = Premium + 3 jetons. **Anciens acheteurs du Pack → Premium** (au chargement
+  du profil). Déjà Premium : ni Premium ni Pack proposés ; un achat **payé** retrouvé à la restauration est toujours crédité.
+  Règle d'or gardée : un achat ne donne que des jetons et le Premium (`ALLOWED_GRANTS = ['tokens', 'premium']`).
+- **Écran Premium** (`premium-view.js` pur + `ui/premium-ui.js`, ouvert par ⏩ sans Premium) : trois avantages, prix,
+  « Achat de test (gratuit) » + badge « BÊTA · AUCUN PAIEMENT » (build Play : « Acheter · prix Google »), option Pack ;
+  une fois acheté : « ✔ Premium actif » et « Passer en ×2 ». Couché : avantages côte à côte, tout visible sans défiler.
+  Boutique des Atouts : lignes Premium et Pack.
+- `tools/v17/economie-v17.mjs` lit maintenant les règles du jeu (cadence, prix) et donne le seuil ; `docs/RENTABILITE-ARKEN.md`
+  (section V17.7 : 3 scénarios 184 / 856 / 4 074 € nets pour 10 000 joueurs, seuil = 1 joueur, 0 € de coût) ;
+  `docs/SORTIE-ARKEN.md` et la fiche Play anglaise : produit `premium` à créer dans la Play Console avant la sortie.
+- **Bug trouvé et corrigé** : en temps réel, revenir à l'accueil (bouton FRONTIÈRES) perdait jusqu'à 9 jours de jeu
+  (la partie n'est écrite que tous les 10 jours) : `showWelcome` écrit maintenant la partie avant de quitter.
+- Réglage de test caché `?pub-test=60` (1 s réelle = 1 min de jeu), comme `?tour-par-tour`.
+
+**Tests** : `tests/v17-7.test.js` (10 tests : minutes de jeu et pauses, 🎁 5-10 min / reste / délai, récompense 1 mois min 10,
+au plus une pub imposée par 10 min et seulement à un moment calme, jamais en tutoriel / Premium / pendant une action / après
+un refus, remise à zéro par la 🎁, `showForcedAd`, compteur relu sans perte, Premium / Pack / anciens Packs / restauration,
+écran Premium, branchements), `tests/economie-v17.test.js` (4 tests). **Tests modifiés** (pub de début de partie supprimée,
+produit `premium`) : `v14-4-play` (2), `v15-4`, `v16-4` (2), `v17-3` (⏩ → `openPremium`). `npm test` : 844 tests, tous verts (après rebase sur la V17.5).
+
+**Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v177.mjs` et `v177b.mjs`, 844 × 390 et 390 × 844, vrais gestes,
+`?pub-test=60`) : nouvelle partie sans pub ; ⏸ à 1 min → pas de pub (trop tôt) ; 🎁 apparue après 5 à 9 min de jeu, en haut à
+gauche sous Atouts ; confirmation, pub de test « +10 or », jours figés pendant la pub, trésor 121 → 131, icône partie ;
+⏸ juste après → pas de pub (compteur remis à zéro) ; 11 min plus tard ⏸ → pub imposée (jours figés) ; Réglages juste après →
+pas de pub ; ⏸ pendant le choix d'une destination → pas de pub (« action ») ; Atouts après 10 min → pub par-dessus le menu ;
+retour à l'accueil → pub, « Continuer » juste après → pas de pub, rechargement après 10 min → pub « retour dans le jeu » ;
+⏩ → écran Premium (temps arrêté), achat de test → « Premium actif », ⏩ sans cadenas, 5 jours en 5 s ; ⏸ et Réglages en
+Premium → jamais de pub ; 🎁 toujours proposée au Premium. 0 erreur JS, aucun bouton hors écran ni recouvert.
+**Avis honnête** : l'icône 🎁 est discrète et se lit bien (montant doré), elle ne cache rien d'important ; l'écran Premium
+est clair. Limites : la pub imposée tombe parfois juste à la reprise de l'appli (c'est la règle « retour dans le jeu ») ;
+un Premium voit encore la 🎁 (voulu : c'est un choix) ; les textes de l'écran Atouts parlent encore en « tours » (V17.9).
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. Graine du tirage 5-10 min : propre au téléphone (créée au premier lancement, gardée avec le compteur), pas dans le profil
+   (le profil n'a pas de graine ; même effet : délais déterministes et non rejouables).
+2. Fiche de province ouverte : pas considérée comme une action (consulter n'est pas agir) ; la fenêtre d'ordre l'est.
+3. Retour au menu et retour dans le jeu sont aussi des moments calmes (liste du §10.2) ; ouvrir l'écran Premium ne l'est jamais.
+4. Pub 🎁 fermée avant la fin ou « Plus tard » : l'icône reste (demande de Jack, 20/11/2026) ; seule une pub vue en entier relance le délai.
+5. Non vérifié : vraie pub AdMob et vrai achat Google Play (rien n'est activé : ce sera le test interne de la V17.10, avec
+   le produit `premium` à créer dans la Play Console) ; refus d'une pub 🎁 seulement par les tests (l'emplacement de test
+   se ferme seul).

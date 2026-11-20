@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
-  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui', 'map-units-layer'];
+  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui', 'map-units-layer', 'ad-ui', 'premium-ui'];
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
 // V17.1 : moteur du temps réel (src/domain/realtime/), lu avec le moteur (mêmes règles de pureté).

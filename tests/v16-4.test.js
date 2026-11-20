@@ -160,9 +160,9 @@ test('interface : horloge branchée, journal remplacé par les annonces, fenêtr
   assert.match(app, /installLive\(\)/); assert.match(app, /renderLiveSettings\(\);\$\('#settingsDialog'\)\.showModal\(\)/);
   const html = readFileSync(join(root, 'index.html'), 'utf8');
   for (const id of ['liveBar', 'livePause', 'liveProgress', 'flowChoices', 'speedChoices']) assert.ok(html.includes(`id="${id}"`), id);
-  // La pub de début de partie reste AVANT l'écran de jeu (l'horloge ne tourne que sur l'écran de jeu).
+  // V17.7 : plus de pub de début de partie (cahier V17 §10.2).
   const start = flatSource('src/presentation/ui/game-flow.js');
-  assert.ok(start.indexOf('showGameStartAd') < start.indexOf('showGame();'));
+  assert.equal(start.indexOf('showGameStartAd'), -1);
   assert.match(live, /!\$\('#gameScreen'\)\.hidden/);
   const sw = readFileSync(join(root, 'sw.js'), 'utf8');
   for (const f of ['live-clock.js', 'live-news.js', 'ui/live-ui.js']) assert.ok(sw.includes(`/src/presentation/${f}'`), f);
@@ -172,6 +172,9 @@ test('V16.4 (relecture) : l’horloge s’arrête pendant la pub de début de pa
   const { readSource } = await import('./helpers/sources.js');
   const live = readSource('src/presentation/ui/live-ui.js'), flow = readSource('src/presentation/ui/game-flow.js'), turn = readSource('src/presentation/ui/turn-flow.js');
   assert.match(live, /ad: document\.body\.dataset\.adPlaying === '1'/);
-  assert.match(flow, /dataset\.adPlaying='1'[\s\S]*showGameStartAd[\s\S]*finally\{delete document\.body\.dataset\.adPlaying;\}/);
+  // V17.7 : la pub de début de partie a disparu ; les pubs du temps réel arrêtent l'horloge de la même façon (ad-ui.js).
+  assert.doesNotMatch(flow, /showGameStartAd/);
+  const ads = readSource('src/presentation/ui/ad-ui.js');
+  assert.match(ads, /document\.body\.dataset\.adPlaying = '1'[\s\S]*showForcedAd[\s\S]*finally \{ delete document\.body\.dataset\.adPlaying;/);
   assert.match(turn, /if\(live&&selected&&!\$\('#provinceSheet'\)\.hidden\)showProvinceSheet\(\)/);
 });

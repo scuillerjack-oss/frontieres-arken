@@ -1,6 +1,7 @@
 // Interface — V17.3 : partie en TEMPS RÉEL, interface définitive façon AM 3 (cahier V17 §1, §6, §8, §11, §12 « V17.3 »).
-// - En bas à droite : la date (« 12 mars 2027 ») et ▶ Play / ⏸ Pause / ⏩ ×2 (cadenas sans Premium → écran « Premium
-//   bientôt », la vraie offre est la V17.7). Toucher la date : les troupes en route, avec « Rappeler ».
+// - En bas à droite : la date (« 12 mars 2027 ») et ▶ Play / ⏸ Pause / ⏩ ×2 (cadenas sans Premium → écran Premium,
+//   V17.7 : ui/premium-ui.js). Toucher la date : les troupes en route, avec « Rappeler ».
+// - V17.7 : pubs (ui/ad-ui.js) : icône 🎁 et pub imposée aux moments calmes (⏸, menu hors jeu, retour dans le jeu).
 // - En haut au centre : le message d'événement (dernier fait connu ; le toucher ouvre le Journal).
 // - Dessous : les alertes en bandeaux (attaque en approche, conquête, proposition, ballon, famine à venir). Elles
 //   n'arrêtent JAMAIS le temps (décision de Jack, §1.1) : la fenêtre de décision s'ouvre en touchant le bandeau, ou plus tard
@@ -33,17 +34,22 @@ import { battleNews, bombardRows, openBattle, setBattleRefresh, wireBombardRows 
 import { focusProvince, render } from './map-view.js';
 import { actionModal, selectProvince, showProvinceSheet } from './province-sheet.js';
 import { profile, save, selected, state } from './session.js';
+import { calmMoment, isNewGame, syncAds } from './ad-ui.js';
+import { openPremium, setPremiumFastHandler } from './premium-ui.js';
 import { renderJournal, showEndScreen } from './turn-flow.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
 const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'];
+// V17.7 : menus hors jeu dont l'ouverture est un « moment calme » pour la pub imposée (jamais l'écran Premium ni la fin).
+const CALM_MENUS = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog'];
+let menuWasOpen = false;
 let famineDay = null; // jour du dernier bandeau de famine (début ou rappel), pour au plus un rappel tous les 30 jours
 let clock = null, clockGame = null, timer = 0, gate = null, alerts = [], seen = new Set(), lastDock = '', lastTicker = '', lastAlerts = '';
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
 const names = { nation: id => nation(id).short, province: id => province(id).name };
 export const realtimeOn = () => Boolean(state) && state.mode === 'realtime';
 const onScreen = () => realtimeOn() && !$('#gameScreen').hidden;
-export const isPremium = () => profile?.premium === true; // V17.7 : l'achat Premium posera ce drapeau dans le profil
+export const isPremium = () => profile?.premium === true; // V17.7 : achat Premium ou Pack débutant (profile.js)
 const savedSpeed = () => { try { return isPremium() && localStorage.getItem(SPEED_KEY) === '2' ? 2 : 1; } catch { return 1; } };
 
 // --- Sauvegarde espacée ------------------------------------------------------------------------------------------
@@ -197,16 +203,22 @@ const outOfGame = () => OUT_OF_GAME.some(sel => $(sel)?.open);
 
 /** Un battement (250 ms) : ordres du joueur partis, jours dus joués, bandeaux, sauvegarde espacée. */
 export function syncRealtime() {
-  if (!onScreen()) { if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; } if (!realtimeOn() || $('#gameScreen').hidden) leaveRealtime(); return; }
+  if (!onScreen()) { syncAds({ now: now(), onScreen: false, running: false }); menuWasOpen = false; if (clock && state?.mode !== 'realtime') { clock = null; clockGame = null; } if (!realtimeOn() || $('#gameScreen').hidden) leaveRealtime(); return; }
   const t = now();
   document.body.classList.add('rt-on', 'live-on');
   if (!clock || clockGame !== state) {
     clock = createDayClock({ now: t, paused: true }); setClockSpeed(clock, savedSpeed(), t); clockGame = state;
     gate = createSaveGate({ day: state.day, now: t }); alerts = []; seen = new Set(); lastAlerts = ''; famineDay = state.nations[state.playerNationId]?.food?.famine ? state.day : null;
     refresh(); collectBanners([]);
+    if (!isNewGame(state)) calmMoment('return'); // V17.7 : partie reprise = retour dans le jeu (moment calme), jamais une nouvelle partie
   }
-  if (state.gameOver) { drawDock(); drawTicker(); return; }
+  if (state.gameOver) { syncAds({ now: t, onScreen: true, running: false }); drawDock(); drawTicker(); return; }
   syncClockHolds(clock, { hidden: document.visibilityState === 'hidden', ad: document.body.dataset.adPlaying === '1', menu: outOfGame() }, t);
+  // V17.7 : minutes de jeu (horloge qui tourne), icône 🎁 ; ouverture d'un menu hors jeu = moment calme.
+  syncAds({ now: t, onScreen: true, running: isClockRunning(clock) });
+  const menuOpen = CALM_MENUS.some(sel => $(sel)?.open);
+  if (menuOpen && !menuWasOpen) calmMoment('menu');
+  menuWasOpen = menuOpen;
   let changed = false;
   if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; saveFor('order'); }
   const days = dueDays(clock, t), eventStart = state.events.length;
@@ -222,12 +234,15 @@ export function setRealtimeSpeed(mode) {
   if (!clock || !realtimeOn()) return false;
   const t = now();
   if (mode === 'toggle') mode = clock.paused ? 'play' : 'pause';
-  if (mode === 'fast' && !isPremium()) { $('#premiumDialog')?.showModal(); return true; }
+  if (mode === 'fast' && !isPremium()) { openPremium({ from: 'fast' }); return true; } // V17.7 : vraie offre (achat de test en bêta)
+  const pausing = mode === 'pause' && !clock.paused;
   if (mode === 'pause') { setClockPaused(clock, true, t); saveFor('pause'); }
   else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (isPremium()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
   lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
+  if (pausing) calmMoment('pause'); // V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)
   return true;
 }
+setPremiumFastHandler(() => setRealtimeSpeed('fast'));
 export const toggleRealtimePause = () => setRealtimeSpeed('toggle');
 export function installRealtime() {
   // Page cachée : arrêt du temps et sauvegarde ; au retour, la partie reste en pause (cahier §1.4).
@@ -235,6 +250,7 @@ export function installRealtime() {
     if (!realtimeOn() || !clock) return;
     if (document.visibilityState === 'hidden') { setClockPaused(clock, true, now()); saveFor('hidden'); }
     syncRealtime();
+    if (document.visibilityState === 'visible' && onScreen()) calmMoment('return'); // V17.7 : retour dans le jeu
   });
   addEventListener('pagehide', () => { if (realtimeOn()) saveFor('hidden'); });
   $('#liveBar')?.addEventListener('click', event => { if (!realtimeOn() || event.target.closest('#livePause')) return; renderJournal(false); });

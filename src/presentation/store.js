@@ -2,7 +2,7 @@
 //
 // PWA et APK DE BÊTA : AUCUN paiement (BILLING_ENABLED=false, lu dans play-config.js, que seul le build Google Play
 // réécrit). Le bouton « Achat de test (gratuit) » simule un achat confirmé. Règle d'or : aucun produit ne donne d'or
-// ni de troupes (PRODUCTS[].grants : seulement `tokens` et `adsRemoved`).
+// ni de troupes (PRODUCTS[].grants : seulement `tokens` et `premium` — V17.7 : vitesse ×2 + plus de pub imposée).
 //
 // BUILD GOOGLE PLAY (AAB) : BILLING_ENABLED=true, play.js enregistre l'implémentation Play Billing (native-play.js) :
 //   buy(productId)           -> { ok:true, orderId, token } | { ok:false, pending:true } | { ok:false, cancelled:true } | { ok:false, error }
@@ -15,8 +15,9 @@
 // suivant (restorePurchases). applyPurchase est idempotent sur orderId : jamais de double crédit. Un achat « en attente »
 // (paiement différé) ne crédite RIEN tant que Google ne l'a pas confirmé.
 //
-// Identifiants produits (Play Console > Monétiser > Produits intégrés) : pack_debutant (non consommable),
-// jetons_1, jetons_5, jetons_12 (consommables). Prix conseillés : 2,99 / 0,49 / 1,99 / 3,99 €.
+// Identifiants produits (Play Console > Monétiser > Produits intégrés) : premium et pack_debutant (non consommables),
+// jetons_1, jetons_5, jetons_12 (consommables). Prix conseillés : 1,99 / 2,99 / 0,49 / 1,99 / 3,99 €.
+// V17.7 : `premium` est À CRÉER dans la Play Console avant la sortie (rien n'est activé : bêta = achats de test).
 import { PRODUCTS, applyPurchase, canPurchase } from '../domain/profile.js';
 import { PLAY_CONFIG } from './play-config.js';
 
@@ -52,7 +53,7 @@ let testSequence = 0;
 /**
  * Achète un produit. Bêta : achat de TEST, gratuit, simulé. Build Play : paiement Google Play.
  * `save` (facultatif) : appelé APRÈS le crédit ; l'achat n'est finalisé chez Google que si elle ne renvoie pas false.
- * Renvoie le résultat de applyPurchase ({ ok, tokens, adsRemoved, test }) ou { ok:false, error, pending?, cancelled? }.
+ * Renvoie le résultat de applyPurchase ({ ok, tokens, premium, adsRemoved, test }) ou { ok:false, error, pending?, cancelled? }.
  */
 export async function purchase(profile, productId, { date = null, save = null, enabled = BILLING_ENABLED, native = nativeBilling } = {}) {
   const check = canPurchase(profile, productId);

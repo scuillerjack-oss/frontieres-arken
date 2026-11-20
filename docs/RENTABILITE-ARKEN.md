@@ -1,4 +1,4 @@
-# Fiche de rentabilité — FRONTIÈRES: ARKEN (V14.4)
+# Fiche de rentabilité — FRONTIÈRES: ARKEN (V14.4, mise à jour V17.7 : voir la dernière section)
 
 Règle du studio : « aucun jeu à perte ». Cette fiche se met à jour avant chaque publication.
 Tous les chiffres sont des **ordres de grandeur prudents**, pas des promesses. Les vrais chiffres viendront d'AdMob et de la Play Console après la sortie.
@@ -135,4 +135,43 @@ récompensées touchées 8 / 15 / 25 % ; Premium 0,5 / 1,5 / 3 % des joueurs, Pa
 perdre 15 / 10 / 5 % du temps de jeu des joueurs sans Premium. Seuil de rentabilité : toujours **1 joueur**.
 Prudence : le scénario haut suppose des joueurs très assidus (à lire comme un plafond) ; le vrai risque est que les pubs
 imposées fassent fuir les joueurs (principal reproche fait au jeu de référence). À remplacer par les chiffres d'AdMob dès
-le test fermé. Cette fiche sera reprise par la V17.7 quand la monétisation sera codée.
+le test fermé. Reprise par la V17.7 ci-dessous (monétisation codée).
+
+## V17.7 — monétisation du temps réel codée (20/11/2026)
+
+Ce qui est maintenant dans le jeu (en bêta : **emplacements de test et achats de test gratuits, rien de payant n'est activé**) :
+- **Pub récompensée 🎁** : petite icône sur le bord gauche de la carte, 5 à 10 min de jeu après la précédente (minutes où le
+  temps tourne, pauses exclues), qui reste tant qu'on ne l'a pas regardée en entier ; vue en entier = **un mois de revenus (10 or
+  minimum)**. Disponible aussi pour les Premium.
+- **Pub imposée** : au plus **une toutes les 10 min de jeu**, et seulement à un moment calme (⏸, ouverture d'un menu hors
+  jeu, retour à l'accueil, retour dans le jeu) ; jamais pendant une action, jamais dans le tutoriel, jamais pour un Premium,
+  jamais après un refus (jusqu'au prochain lancement). Regarder une 🎁 remet ce compteur à zéro.
+- **La pub de début de partie est supprimée.**
+- **Premium 1,99 €** (achat unique, produit `premium` à créer dans la Play Console) : vitesse ×2 + plus aucune pub imposée.
+  **Pack débutant 2,99 €** = Premium + 3 jetons ; les anciens acheteurs du Pack deviennent Premium automatiquement.
+
+Calcul relancé (`node tools/v17/economie-v17.mjs`, qui lit maintenant les règles du jeu : cadence des pubs et prix) :
+
+| Pour 10 000 joueurs actifs / mois | Prudent (bas) | Central | Optimiste (haut) |
+|---|---|---|---|
+| Pubs imposées (moment calme) | 12 € | 173 € | 1 201 € |
+| Pubs récompensées (🎁 + missions) | 17 € | 240 € | 1 985 € |
+| Premium + Pack (net) | 113 € | 317 € | 635 € |
+| Jetons (net) | 42 € | 127 € | 253 € |
+| **Total net par mois** | **184 €** | **856 €** | **4 074 €** |
+| Environ après cotisations (~22 %) | ~144 € | ~668 € | ~3 177 € |
+| Joueurs pour 1 000 € nets | ~54 000 | ~11 700 | ~2 500 |
+| Coût de fonctionnement | 0 € | 0 € | 0 € |
+
+Net par achat (après TVA 20 % et commission Google 15 %) : Premium 1,99 € → ~1,41 € ; Pack 2,99 € → ~2,12 €.
+
+**Seuil de rentabilité : 1 joueur** (0 € de coût de fonctionnement : pas de serveur, pas d'abonnement, rien de payant activé).
+
+Lecture honnête :
+1. Les chiffres sont les mêmes que la projection V17.0 : les règles codées sont exactement celles qui avaient été simulées.
+2. Le scénario haut suppose des joueurs très assidus (14 jours × 30 min par mois) : c'est un plafond, pas une prévision.
+3. Le vrai risque reste la **rétention** : si la pub imposée fait fuir les joueurs, tout baisse. D'où le moment calme, le
+   compteur remis à zéro par les 🎁 et le Premium bon marché. À vérifier avec les chiffres réels d'AdMob et de la Play
+   Console dès le test fermé.
+4. Le bonus de la 🎁 (+1 mois de revenus, ~+13 % d'or si on les prend toutes) aide sans faire gagner : on n'achète jamais
+   d'or ni de troupes.

@@ -38,7 +38,7 @@ export function openBoosts(){
   document.querySelectorAll('[data-boost]').forEach(b=>b.onclick=()=>{const r=upgradeBoost(profile,b.dataset.boost);if(!r.ok)return toast(r.error);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast(`${BOOST_INFO[b.dataset.boost].label} : +${r.level} %`);});
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=async()=>{b.disabled=true;const r=await purchase(profile,b.dataset.buy,{date:todayLocal(),save:saveMyProfile});
     if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();
-    toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
+    toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.premium?' · Premium actif (×2, plus de pub imposée)':''}`);});
   $('[data-watch-ad]')?.addEventListener('click',async e=>{if(tutoStep!==null)return toast('Les publicités sont désactivées pendant le tutoriel');const btn=e.currentTarget;if(btn.disabled)return;
     btn.disabled=true;const r=await quietDuring(()=>showRewardedAd());if(!r.rewarded){btn.disabled=false;
     return toast(r.dismissed?'Publicité fermée : aucune récompense, et plus aucune publicité ne te sera imposée':'Publicité indisponible pour le moment');

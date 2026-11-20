@@ -4,10 +4,11 @@
 // src/presentation/profile-storage.js.
 //
 // Contenu : jetons, niveaux d'atouts, missions du jour (progression cumulée sur toutes les parties du jour),
-// Pack débutant (sans pub + 3 jetons), historique des achats (simulés en bêta).
+// Premium (V17.7 : vitesse ×2 + plus de pub imposée), Pack débutant (Premium + 3 jetons), historique des achats
+// (simulés en bêta).
 //
-// RÈGLE D'OR : aucun achat ne donne d'or ni de troupes. Un achat ne peut donner que des JETONS et la suppression
-// des publicités ; les jetons ne servent qu'aux atouts (pourcentages plafonnés à +10 %).
+// RÈGLE D'OR : aucun achat ne donne d'or ni de troupes. Un achat ne peut donner que des JETONS et le PREMIUM (confort :
+// vitesse ×2, plus de pub imposée) ; les jetons ne servent qu'aux atouts (pourcentages plafonnés à +10 %).
 import { BOOST_KEYS, BOOST_MAX_LEVEL, BOOST_COST_TOKENS, sanitizeLevels } from './boosts.js';
 import { emptyPalmares, sanitizePalmares } from './palmares.js';
 
@@ -24,14 +25,21 @@ export const HINT_GAMES = 2;
 /** Profil existant (créé avant la V14.4, sans compteur) : il a déjà joué → plus d'explications. */
 export const LEGACY_GAMES_STARTED = HINT_GAMES + 1;
 
-/** Catalogue des achats intégrés. `grants` ne peut contenir QUE `tokens` et `adsRemoved` (règle d'or, testé). */
+/**
+ * Catalogue des achats intégrés. `grants` ne peut contenir QUE `tokens` et `premium` (règle d'or, testé).
+ * V17.7 : `premium` (1,99 €, non consommable) = vitesse ×2 + plus de pub imposée ; le Pack débutant (2,99 €) = Premium
+ * + 3 jetons ; les anciens acheteurs du Pack (« sans pub ») deviennent Premium (sanitizeProfile).
+ */
 export const PRODUCTS = Object.freeze([
-  Object.freeze({ id: 'pack_debutant', label: 'Pack débutant', description: 'Plus aucune publicité + 3 jetons', oneTime: true, grants: Object.freeze({ tokens: STARTER_PACK_TOKENS, adsRemoved: true }) }),
+  Object.freeze({ id: 'premium', label: 'Premium', description: 'Vitesse ×2 + plus aucune pub imposée', oneTime: true, grants: Object.freeze({ premium: true }) }),
+  Object.freeze({ id: 'pack_debutant', label: 'Pack débutant', description: 'Premium (vitesse ×2, plus aucune pub imposée) + 3 jetons', oneTime: true, grants: Object.freeze({ tokens: STARTER_PACK_TOKENS, premium: true }) }),
   Object.freeze({ id: 'jetons_1', label: '1 jeton', description: 'Un niveau d’atout', oneTime: false, grants: Object.freeze({ tokens: 1 }) }),
   Object.freeze({ id: 'jetons_5', label: 'Lot de 5 jetons', description: 'Cinq niveaux d’atouts', oneTime: false, grants: Object.freeze({ tokens: 5 }) }),
   Object.freeze({ id: 'jetons_12', label: 'Lot de 12 jetons', description: 'Douze niveaux d’atouts', oneTime: false, grants: Object.freeze({ tokens: 12 }) })
 ]);
-export const ALLOWED_GRANTS = Object.freeze(['tokens', 'adsRemoved']);
+export const ALLOWED_GRANTS = Object.freeze(['tokens', 'premium']);
+/** V17.7 : produits qui donnent le Premium. */
+export const PREMIUM_PRODUCTS = Object.freeze(PRODUCTS.filter(p => p.grants.premium).map(p => p.id));
 
 export const BOOST_INFO = Object.freeze({
   gold:    { label: 'Or', icon: '◉', text: 'Gains d’or de chaque tour' },
@@ -94,7 +102,7 @@ const freshDaily = date => ({ date: isDate(date) ? date : null, progress: emptyP
 
 export function createProfile() {
   return {
-    version: PROFILE_VERSION, tokens: 0, boosts: sanitizeLevels({}), adsRemoved: false, starterPack: false,
+    version: PROFILE_VERSION, tokens: 0, boosts: sanitizeLevels({}), adsRemoved: false, starterPack: false, premium: false,
     purchases: [], daily: freshDaily(null), rewardedDates: [], earned: { missions: 0, purchases: 0, bonus: 0 }, bonusAds: 0,
     gamesStarted: 0, // V14.4 : vraies parties lancées (le tutoriel ne compte pas)
     palmares: emptyPalmares() // V15.4 : parties finies et titres, jamais dans la sauvegarde de partie
@@ -110,6 +118,8 @@ export function sanitizeProfile(raw) {
     .map(p => ({ orderId: String(p.orderId || ''), productId: p.productId, date: isDate(p.date) ? p.date : null, test: p.test !== false }))
     .slice(-200);
   const starterPack = Boolean(raw.starterPack) || purchases.some(p => p.productId === 'pack_debutant');
+  // V17.7 : Premium = achat Premium ou Pack débutant (anciens acheteurs du Pack « sans pub » compris).
+  const premium = raw.premium === true || Boolean(raw.adsRemoved) || starterPack || purchases.some(p => PREMIUM_PRODUCTS.includes(p.productId));
   const daily = raw.daily && typeof raw.daily === 'object' ? {
     date: isDate(raw.daily.date) ? raw.daily.date : null,
     progress: Object.fromEntries(METRICS.map(k => [k, int(raw.daily.progress?.[k])])),
@@ -119,8 +129,9 @@ export function sanitizeProfile(raw) {
     version: PROFILE_VERSION,
     tokens: Math.min(int(raw.tokens), 100000),
     boosts: sanitizeLevels(raw.boosts),
-    adsRemoved: Boolean(raw.adsRemoved) || starterPack,
+    adsRemoved: premium, // « plus de pub imposée » : même sens que Premium depuis la V17.7 (gardé pour les anciens profils)
     starterPack,
+    premium,
     purchases,
     daily,
     rewardedDates: (Array.isArray(raw.rewardedDates) ? raw.rewardedDates : []).filter(isDate).slice(-90),
@@ -276,6 +287,8 @@ export function canPurchase(profile, productId) {
   const product = productById(productId);
   if (!product) return { ok: false, error: 'Produit inconnu' };
   if (product.oneTime && profile.purchases.some(p => p.productId === productId)) return { ok: false, error: 'Déjà acheté' };
+  // V17.7 : déjà Premium => ni Premium ni Pack (le Pack ne donnerait plus que 3 jetons, plus cher qu'un lot).
+  if (product.grants.premium && profile.premium) return { ok: false, error: 'Déjà acheté', alreadyPremium: true };
   return { ok: true, product };
 }
 /**
@@ -283,14 +296,18 @@ export function canPurchase(profile, productId) {
  * Ne donne que des jetons et/ou la suppression des pubs. Idempotent sur `orderId` (restauration Google Play).
  */
 export function applyPurchase(profile, { productId, orderId, date = null, test = true }) {
-  const check = canPurchase(profile, productId);
   if (orderId && profile.purchases.some(p => p.orderId === String(orderId))) return { ok: true, duplicate: true, tokens: 0 };
-  if (!check.ok) return check;
-  const { grants } = check.product;
+  const product = productById(productId);
+  if (!product) return { ok: false, error: 'Produit inconnu' };
+  // Un achat PAYÉ est toujours crédité, même si le joueur est déjà Premium (restauration : Pack payé ailleurs) ;
+  // seul un même produit unique déjà enregistré est refusé.
+  if (product.oneTime && profile.purchases.some(p => p.productId === productId)) return { ok: false, error: 'Déjà acheté' };
+  const { grants } = product;
   profile.purchases.push({ orderId: String(orderId || `${productId}-${profile.purchases.length + 1}`), productId, date: isDate(date) ? date : null, test: Boolean(test) });
   const tokens = int(grants.tokens);
   profile.tokens += tokens;
   profile.earned.purchases += tokens;
-  if (grants.adsRemoved) { profile.adsRemoved = true; profile.starterPack = true; }
-  return { ok: true, tokens, adsRemoved: Boolean(grants.adsRemoved) };
+  if (grants.premium) { profile.premium = true; profile.adsRemoved = true; }
+  if (productId === 'pack_debutant') profile.starterPack = true;
+  return { ok: true, tokens, premium: Boolean(grants.premium), adsRemoved: Boolean(grants.premium) };
 }
