@@ -9,7 +9,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import {
   BALLOON_RULE_TEXT, BALLOON_SHOOT_TEXT, BALLOON_SHOOT_TEXT_RT, balloonDepartDays, balloonMarkers, balloonOf, balloonRouteText, balloonStatusText, islandCenter
 } from '../balloon-view.js';
-import { balloonHopFraction } from '../realtime-view.js';
+import { balloonLegFraction } from '../realtime-view.js';
 import { isTutorial } from '../tutorial.js';
 import { $, E, nation, province, toast } from './base.js';
 import { eventPopup } from './event-popups.js';
@@ -29,7 +29,7 @@ export function balloonLayer() {
     // V17.3 : en temps réel, un ballon en vol avance jour par jour vers l'île suivante de son trajet.
     if (state.mode === 'realtime' && m.to) {
       const next = balloonPath(map, m.over, m.to)?.[0], a = islandCenter(map, m.over), b = next && islandCenter(map, next);
-      if (a && b) { const f = balloonHopFraction(balloonById(state, m.id)?.legTurns, state.day); m.x = Math.round(m.x + (b.x - a.x) * f); m.y = Math.round(m.y + (b.y - a.y) * f); }
+      if (a && b) { const f = balloonLegFraction(balloonById(state, m.id), state.day); m.x = Math.round(m.x + (b.x - a.x) * f); m.y = Math.round(m.y + (b.y - a.y) * f); }
     }
     const shoot = !m.own && pendingFor('balloon-shoot', m.id), send = m.own && pendingFor('balloon-send', m.id);
     const g = E('g', { class: `balloon${m.own ? ' own' : ' foreign'}${shoot ? ' targeted' : ''}`, 'data-balloon': m.id, role: 'button', tabindex: '0',

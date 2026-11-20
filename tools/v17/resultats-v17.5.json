@@ -173,5 +173,183 @@
    "p90": 2.75,
    "max": 48
   }
+ },
+ "apres_regle_de_siege": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 372.3,
+  "conquetesParPartie": 20.9,
+  "conquetesParQuart": [
+   7.1,
+   3.6,
+   5.9,
+   4.3
+  ],
+  "nationsElimineesParPartie": 0.73,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3215,
+   "p90": 3967,
+   "max": 5195
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 33.6,
+  "debarquementsParPartie": 13.5,
+  "rencontresEnCheminParPartie": 0.01,
+  "assautsParPartie": 54.8,
+  "renfortsEnBatailleParPartie": 0.05,
+  "replisParPartie": 9.8,
+  "batailleFinieAuAssaut": [
+   11.1,
+   7.4,
+   6.9
+  ],
+  "bombardementsParPartie": 2.28,
+  "interceptionsParPartie": 1.95,
+  "marchesParPartie": 106.8,
+  "convoisParPartie": 41,
+  "msParJour": {
+   "mediane": 0.24,
+   "p99": 4.48,
+   "max": 112.9
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 1,
+   "p90": 2.16,
+   "max": 112.9
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 11,
+    "p90": 16,
+    "max": 22
+   },
+   "fermesParProvince": {
+    "mediane": 2,
+    "p90": 3.5,
+    "max": 5
+   },
+   "partOrFermes": {
+    "mediane": 6.4,
+    "p90": 11.1
+   },
+   "nationsAvecFamine": "16 sur 500",
+   "tauxFamine": 3.2,
+   "joursDeFamine": {
+    "mediane": 23,
+    "p90": 65,
+    "max": 80
+   },
+   "plusLongueFamine": 80,
+   "deserteursParNationAffamee": 158.5
+  },
+  "ballonsConstruitsParPartie": 32.95,
+  "ballonsAbattusParPartie": 31.73,
+  "prisesDeLIleParPartie": 0.93,
+  "partiesAvecIlePrise": 58,
+  "retraitesVolontairesParPartie": 8.29,
+  "rappelsParPartie": 5.73,
+  "renfortsDefensifsParPartie": 11.2,
+  "recruesDUrgenceParPartie": 0,
+  "delaiReponsesIAJours": {
+   "min": 2,
+   "mediane": 4,
+   "max": 8,
+   "nombre": 8956
+  },
+  "plusDAttaquesTerrestresEn30Jours": 6,
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "essai_marginAdd_moins_0_2_30_parties": {
+  "parties": 30,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 104.4,
+  "conquetesParPartie": 21,
+  "conquetesParQuart": [
+   7.5,
+   3.5,
+   5.8,
+   4.1
+  ],
+  "nationsElimineesParPartie": 0.63,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3137,
+   "p90": 4405,
+   "max": 4568
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 34.2,
+  "debarquementsParPartie": 15,
+  "rencontresEnCheminParPartie": 0.03,
+  "assautsParPartie": 56.3,
+  "renfortsEnBatailleParPartie": 0.1,
+  "replisParPartie": 11,
+  "batailleFinieAuAssaut": [
+   10.2,
+   7.2,
+   7.4
+  ],
+  "bombardementsParPartie": 7.2,
+  "interceptionsParPartie": 2.03,
+  "marchesParPartie": 108.1,
+  "convoisParPartie": 43.4,
+  "msParJour": {
+   "mediane": 0.22,
+   "p99": 4.1,
+   "max": 39.7
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.95,
+   "p90": 2.02,
+   "max": 39.7
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 11,
+    "p90": 15,
+    "max": 19
+   },
+   "fermesParProvince": {
+    "mediane": 2,
+    "p90": 3.5,
+    "max": 5
+   },
+   "partOrFermes": {
+    "mediane": 6.7,
+    "p90": 10.8
+   },
+   "nationsAvecFamine": "4 sur 150",
+   "tauxFamine": 2.7,
+   "joursDeFamine": {
+    "mediane": 55,
+    "p90": 75,
+    "max": 83
+   },
+   "plusLongueFamine": 83,
+   "deserteursParNationAffamee": 252
+  },
+  "ballonsConstruitsParPartie": 33.03,
+  "ballonsAbattusParPartie": 32.17,
+  "prisesDeLIleParPartie": 1.13,
+  "partiesAvecIlePrise": 20,
+  "retraitesVolontairesParPartie": 9.27,
+  "rappelsParPartie": 5.3,
+  "renfortsDefensifsParPartie": 9.87,
+  "recruesDUrgenceParPartie": 0,
+  "delaiReponsesIAJours": {
+   "min": 2,
+   "mediane": 6,
+   "max": 8,
+   "nombre": 2583
+  },
+  "plusDAttaquesTerrestresEn30Jours": 5,
+  "fins": {
+   "turn-limit": 30
+  }
  }
 }

@@ -1198,6 +1198,27 @@ forte (par exemple 2 assauts, ou recrues livrées seulement après la bataille),
 Autres remarques : la « guerre des ballons » (Conquérant et Traître abattent tout ballon au-dessus de chez eux, l'IA le
 reconstruit) coûte ≈ 30 or tous les 2 à 3 ans par nation ; la famine monte un peu (4 %) avec les recrues d'urgence.
 
+**Siège : pas de recrues livrées pendant la bataille** — *décidé par le chef de projet (délégation de Jack), à valider en bêta
+par Jack*. On garde les 3 assauts et les renforts qui arrivent par la route. Règle la plus simple retenue : un recrutement
+(toute unité, navires compris) qui doit être livré dans une province où une bataille est en cours **attend la fin de la
+bataille** (il reste dans la file, `held`, un seul avis « production-held » au journal) ; si la province tombe, il est
+**remboursé** comme toute production perdue (règle B4 existante). On ne peut pas lancer de recrutement dans une province
+assiégée : « Province assiégée : impossible de recruter pendant la bataille ». Les chantiers (bâtiments) continuent.
+L'IA ne commande ses recrues d'urgence que si elles sont livrées la veille de l'arrivée ennemie, et seulement si elle se
+nourrit (sinon elle garde son or pour la ferme).
+Mesure après la règle (100 parties) : **20,9 conquêtes** (7,1 / 3,6 / 5,9 / 4,3), 0,73 nation éliminée, plus grande armée
+3 215 / 3 967 / 5 195 or, famine 3,2 %, 0,24 ms par jour (p99 4,5 ms). Marge de l'IA encore baissée (`marginAdd` −0,2,
+30 parties) : 21. **L'écart reste à −38 % du §13.3 : arrêté là, chiffres remis au chef de projet** (réglage gardé :
+`marginAdd` −0,1, `recallMargin` 0,6).
+
+**Interface (après rebase sur la V17.3)** : écran Diplomatie — un ordre `awaiting` désactive les actions envers ce pays et
+affiche « ⏳ En attente de réponse — au plus tard le 9 janvier 2027 » (jour de décision de l'IA + 1) ; même ligne dans la
+demande d'aide ; le ballon avance en jours (`balloonLegFraction` : `legDays` ÷ 60, ancien calcul pour une vieille
+sauvegarde). Fonctions pures dans `src/presentation/realtime-view.js` (`awaitingOrder`, `awaitingText`, `balloonLegFraction`).
+Vérifié dans Chrome mobile simulé (Playwright 844 × 390, `/home/claude/pw/v175.mjs`, dist servi sur le port 8805) :
+alliance proposée à Roc-Épine par les vrais boutons le 1er janvier → « en attente, au plus tard le 9 janvier 2027 »,
+boutons grisés ; réponse (acceptée) le jour 8 ; ballon qui avance sur la carte de jour en jour ; 0 erreur JS.
+
 **Écarts et choix (tranchés par l'équipe)** :
 1. Les règles « par tour » de l'IA ne sont pas réécrites en jours une à une : elles s'appliquent au plus une fois par fenêtre
    de 30 jours (recrutement, navires, débarquement, quota d'attaques) ; les tirages par période (`chance(…, state.turn)`) sont
@@ -1218,6 +1239,6 @@ armée visible, rien sans armée ; rappel si les renforts ennemis sont visibles,
 prudente d'une armée dont le départ est invisible ; pas d'attaque vers une province renforcée ; ballon commandé avec 50 or et
 reconstruit ; vol de 60 jours parti le jour même ; Facile : une attaque par 30 jours sur 4 ans ; réponse aux messages à la
 décision ; déterminisme sans `Math.random`). **Test modifié** : `tests/v15-2.test.js` (quota d'attaques : le code passe par
-`attackQuota`, même règle). `tests/helpers/sources.js` et `sw.js` : `realtime/ai-schedule.js`. `npm test` : 804 tests, tous
-verts ; empreintes du tour par tour identiques.
-**Non vérifié** : Chrome mobile simulé (aucun changement d'écran dans cette version) ; vrai téléphone.
+`attackQuota`, même règle). `tests/helpers/sources.js` et `sw.js` : `realtime/ai-schedule.js`. `npm test` : 825 tests (après rebase sur la V17.3), tous verts ; empreintes du tour par tour identiques. Test modifié aussi :
+`tests/v17-4.test.js` (partie IA de 4 ans : on compte les fermes CONSTRUITES, une ferme prise avec sa capitale compte).
+**Non vérifié** : vrai téléphone.

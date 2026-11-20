@@ -9,6 +9,7 @@ import {
 } from '../ceasefire-view.js';
 import { ceasefireOffers } from '../map-orders-view.js';
 import { diplomacyActions, relationWithPlayer } from '../overview-view.js';
+import { awaitingOrder, awaitingText } from '../realtime-view.js';
 import { PASSAGE_TEXT } from '../passage-fort-view.js';
 import { truceWarning } from '../truce-warning.js';
 import { $, nation, province, toast as toast0 } from './base.js';
@@ -78,10 +79,10 @@ export function openDiplomacy(target=null){
   if(!target){actionModal('Diplomatie','CHOISISSEZ UN PAYS',
     `<div class="action-list">${map.nations.filter(n=>n.id!==state.playerNationId).map(n=>`<button class="nation" data-country="${n.id}" style="--nation:${n.color}"><i></i>${n.name}</button>`).join('')}</div>`);
     document.querySelectorAll('[data-country]').forEach(b=>b.onclick=()=>{const id=b.dataset.country;$('#actionDialog').close();openDiplomacy(id)});return;}
-  const actions=diplomacyActions(state,target),pending=state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
+  const actions=diplomacyActions(state,target),waiting=awaitingOrder(state,state.playerNationId,target),pending=Boolean(waiting)||state.orders.some(o=>o.kind==='diplomacy'&&o.target===target&&o.nationId===state.playerNationId&&o.status==='pending');
   actionModal(nation(target).name,`RELATION : ${relationWithPlayer(state,target)==='war'?'GUERRE':relationWithPlayer(state,target)==='alliance'?'ALLIANCE':relationWithPlayer(state,
     target).toUpperCase()}`,
-    `${nationPanel(target)}<p>${pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span>\
+    `${nationPanel(target)}<p${waiting?' class="awaiting-answer"':''}>${waiting?`⏳ ${awaitingText(waiting)}`:pending?'Une action envers ce pays attend déjà la résolution.':''}</p><div class="action-list">${actions.map(a=>`<div class="action-card"><span>\
 <b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>${relationWithPlayer(state,
     target)==='alliance'?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes peuvent traverser ses provinces, y stationner et les défendre (et lui chez vous).</p>`:''}${relationWithPlayer(state,
     target)==='alliance'?`<button id="askHelp" class="help-launch">🤝 Demander de l’aide à ${nation(target).short}</button>`:''}`);
@@ -93,11 +94,11 @@ export function openDiplomacy(target=null){
 // --- V13 : demandes d'aide à un allié (« Défends-moi », « Attaque X avec moi ») ------------------------------------
 function helpText(o){const x=o.target?nation(o.target).short:null;return o.help==='island'?'prendre l’île mystérieuse avec vous':o.help==='attack'?`attaquer ${x} avec vous`:x?`vous défendre contre ${x}`:o.provinceId?`défendre ${province(o.provinceId).name}`:'vous défendre contre quiconque vous attaque';}
 function openHelpRequest(ally){
-  const c=helpChoices(state,map,ally),pacts=helpPactsFor(state,ally),pending=state.orders.find(o=>o.kind==='help'&&o.status==='pending'&&o.nationId===state.playerNationId&&o.to===ally);
+  const c=helpChoices(state,map,ally),pacts=helpPactsFor(state,ally),pending=state.orders.find(o=>o.kind==='help'&&o.status==='pending'&&o.nationId===state.playerNationId&&o.to===ally),waitingHelp=awaitingOrder(state,state.playerNationId,ally,'help');
   const pactLine=p=>`<div class="help-pact">✔ ${nation(ally).short} s’est engagé à ${helpText({help:p.kind,target:p.against,provinceId:p.provinceId})} · ${helpPactStatus(p)}</div>`;
   actionModal(`Aide de ${nation(ally).short}`,'ALLIÉ · DEMANDE GRATUITE',
     `${nationPanel(ally)}<p class="help-intro">Votre allié répond à la fin du tour, <b>selon son caractère</b>. Une aide acceptée dure ${HELP_TURNS} tours <b>une fois ses troupes arrivées</b> (le trajet s’ajoute : le journal donne l’arrivée estimée).</p>
-   ${pacts.map(pactLine).join('')}${pending?`<div class="talk-planned">✉ Demande prête : ${escapeHtml(helpText(pending))} — réponse à la fin du tour</div>`:''}
+   ${pacts.map(pactLine).join('')}${pending?`<div class="talk-planned">✉ Demande prête : ${escapeHtml(helpText(pending))} — réponse à la fin du tour</div>`:''}${waitingHelp?`<div class="talk-planned awaiting-answer">⏳ ${escapeHtml(helpText(waitingHelp))} — ${awaitingText(waitingHelp)}</div>`:''}
    <h3 class="help-h">🛡 Défends-moi</h3><div class="help-grid"><button data-help="defend" data-target="">Contre quiconque m’attaque</button>${c.defendAgainst.map(n=>`<button data-help="defend" \
 data-target="${n.id}" style="--nation:${n.color}">Contre ${n.name}${n.atWar?' ⚔':''}</button>`).join('')}</div>
    <small class="help-sub">Ou sur une province menacée :</small><div class="help-grid">${c.provinces.map(p=>`<button data-help="defend" data-province="${p.id}">${p.name}</button>`).join('')}</div>

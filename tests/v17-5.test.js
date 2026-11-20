@@ -387,3 +387,20 @@ test('V17.5 (décidé par le chef de projet) : une province assiégée ne livre 
   } else assert.ok(s.events.slice(ev).some(e => e.type === 'production-lost' && e.provinceId === 'p04'), 'province prise : remboursées');
   assert.ok(before >= 0);
 });
+
+test('V17.5 : interface — « en attente de réponse » (Diplomatie, aide) et ballon qui avance en jours', async () => {
+  const V = await import('../src/presentation/realtime-view.js');
+  const s = game({ seed: 'ui' });
+  const r = E.queueDiplomaticOrder(s, { nationId: ME, target: AI, action: 'alliance' });
+  E.executePendingOrders(s, map);
+  const o = V.awaitingOrder(s, ME, AI);
+  assert.equal(o?.id, r.orderId);
+  assert.match(V.awaitingText(o), /^En attente de réponse — au plus tard le \d+ janvier 2027$/);
+  assert.equal(V.awaitingOrder(s, ME, 'aurel'), null);
+  assert.equal(V.balloonLegFraction({ legDays: 30 }, 99), .5);
+  assert.equal(V.balloonLegFraction({ legDays: 90 }, 1), 1);
+  assert.equal(V.balloonLegFraction({ legTurns: 1 }, 1), V.balloonHopFraction(1, 1), 'ancienne sauvegarde : par périodes');
+  const ui = readSource('app.js');
+  assert.match(ui, /awaitingOrder\(state,state\.playerNationId,target\)/);
+  assert.match(ui, /balloonLegFraction\(balloonById\(state, m\.id\), state\.day\)/);
+});
