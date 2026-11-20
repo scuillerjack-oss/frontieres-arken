@@ -350,3 +350,18 @@ test('V17.2 : partie IA de 2 ans — batailles en assauts, aucune bataille éter
   assert.ok(evs(s, ev, 'assault').length > 0);
   for (const a of evs(s, ev, 'assault')) assert.ok(a.assault >= 1 && a.assault <= 3);
 });
+
+test('V17.2 : attaquer sans guerre déclarée la déclare (V10) et la bataille a lieu ; paix signée pendant la bataille : l\'attaquant rentre', () => {
+  const s = siege({ def: 300, atk: 300, fort: 3 });
+  s.diplomacy.wars = []; // pas en guerre au départ
+  const m = send(s, 'p02', 'p04', { infantry: 300 }), ev = s.events.length;
+  untilDay(s, m.arriveDay);
+  assert.equal(evs(s, ev, 'assault').length, 1, 'le premier assaut a lieu');
+  assert.ok(s.diplomacy.wars.some(w => w.participants.includes(ME) && w.participants.includes('aurel')), 'guerre automatique');
+  // Trêve signée entre l'assaut 1 et l'assaut 2 : pas d'assaut 2, retour par la route.
+  s.diplomacy.wars = []; s.diplomacy.treaties.push({ type: 'ceasefire', parties: [ME, 'aurel'], active: true, started: s.turn });
+  untilDay(s, s.day + 6);
+  assert.equal(evs(s, ev, 'assault').length, 1);
+  assert.ok(evs(s, ev, 'battle-retreat').some(e => e.reason === 'peace')); assert.equal(s.battles.length, 0);
+  assert.ok(s.marches.some(x => x.returning && x.nationId === ME));
+});

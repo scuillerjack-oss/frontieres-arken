@@ -39,9 +39,9 @@ export function openBattle(id, refresh = () => {}) {
   const s = battleSummary(state, b), me = state.playerNationId, attacking = b.attackers.some(e => e.nationId === me), defending = b.defenderId === me;
   const rows = s.attackers.map(a => `<span>⚔ ${name(a.nationId)}${a.mode === 'landing' ? ' (débarquement)' : ''} : ${a.nationId === me || defending ? `${a.units} unités · ${a.hp} PV` : 'à l’assaut'}</span>`).join('');
   actionModal(`Bataille de ${province(b.provinceId).name}`, `ASSAUT ${s.assaultsDone}/${s.assaults} · ${formatShortDate(state.day)}`,
-    `<div class="order-detail" id="rtBattleSheet"><span><b>Assaut ${s.assaultsDone}/${s.assaults}</b> joué · ${s.assaultsDone < s.assaults ? `assaut ${s.nextAssault}/${s.assaults} le ${formatDate(s.nextAssaultDay)}` : 'dernier assaut joué'}</span>
+    `<div class="order-detail" id="rtBattleSheet"><span><b>Assaut ${s.assaultsDone}/${s.assaults}</b> joué · ${s.assaultsDone < s.assaults ? `assaut ${s.nextAssault}/${s.assaults} le ${formatDate(s.nextAssaultDate)}` : 'dernier assaut joué'}</span>
 <span>🛡 ${name(b.defenderId)} défend${defending || attacking ? ` : ${s.defenderHp} PV` : ''}</span>${rows}
-<span>Début : ${formatDate(b.startDay)} · 3 assauts au plus, tous les 3 jours. Les renforts qui arrivent rejoignent le prochain assaut.</span>
+<span>Début : ${formatDate(s.startDate)} · 3 assauts au plus, tous les 3 jours. Les renforts qui arrivent rejoignent le prochain assaut.</span>
 ${defending ? '<span>Vos troupes de cette province sont bloquées tant que la bataille dure.</span>' : ''}</div>${attacking ? '<button id="rtRetreat" class="primary">Retraite</button>' : ''}`);
   const r = $('#rtRetreat');
   if (r) r.onclick = () => { const x = retreatFromBattle(state, map, { nationId: me, battleId: b.id }); $('#actionDialog').close(); toast(x.ok ? `Retraite : retour le ${formatDate(x.arriveDay)}` : x.error); refresh(); };
@@ -52,7 +52,7 @@ export function battleNews() {
   const b = [...(state.battles || [])].filter(x => x.defenderId === me || x.attackers.some(e => e.nationId === me)).sort((x, y) => x.nextAssaultDay - y.nextAssaultDay)[0];
   if (!b) return '';
   const s = battleSummary(state, b);
-  return `⚔ Bataille de ${province(b.provinceId).name} : assaut ${s.assaultsDone}/${s.assaults}${s.assaultsDone < s.assaults ? ` · prochain le ${formatShortDate(s.nextAssaultDay)}` : ''} · touchez ⚔`;
+  return `⚔ Bataille de ${province(b.provinceId).name} : assaut ${s.assaultsDone}/${s.assaults}${s.assaultsDone < s.assaults ? ` · prochain le ${formatShortDate(s.nextAssaultDate)}` : ''} · touchez ⚔`;
 }
 /** Lignes « bombardement permanent » de la liste des troupes (avec « Arrêter »). */
 export function bombardRows() {

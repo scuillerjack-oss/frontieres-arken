@@ -222,7 +222,9 @@ export function resolveBattles(state, map, fought, day = state.day) {
       continue;
     }
     if (b.defenderId) for (const e of [...b.attackers]) {
-      if (pairWar(state, e.nationId, b.defenderId) || isEmpty(entryForce(e))) continue;
+      // Un arrivant (fresh) déclare la guerre en attaquant (règle V10, comme au tour par tour) ; seul un attaquant qui a déjà
+      // combattu et n'est plus en guerre (paix, trêve signée pendant la bataille) s'en va.
+      if (e.fresh !== false || pairWar(state, e.nationId, b.defenderId) || isEmpty(entryForce(e))) continue;
       b.attackers = b.attackers.filter(x => x !== e);
       leave(state, map, b, e, entryForce(e), { startDay: day + 1, reason: 'peace' });
     }
@@ -264,12 +266,16 @@ export function battleForecast(state, battleId) {
     fortBonus: fortBonusFactor(state, target.ownerId), fortBreach: fortBreach(state, b.provinceId), passes: left });
   return { assaultsLeft: left, captured: r.captured, winnerId: r.winnerId, attackerHp: r.attackers.reduce((n, a) => n + totalHp(a.force), 0), defenderHp: totalHp(r.defender) };
 }
-/** Résumé lisible d'une bataille pour l'interface : assaut n / 3, prochain assaut, camps, PV. */
+/**
+ * Résumé lisible d'une bataille pour l'interface : assaut n / 3, prochain assaut, camps, PV.
+ * Dates affichées (`startDate`, `nextAssaultDate`) : comme pour les marches (« sur place le jour arriveDay »), un assaut joué
+ * pendant le traitement du jour D se voit à la date D + 1 ; `startDay` / `nextAssaultDay` restent les jours du moteur.
+ */
 export function battleSummary(state, b) {
   const target = state.provinces[b.provinceId];
   const defenderHp = totalHp(guestsAt(state, b.provinceId).reduce((f, e) => mergeForce(f, legacyForce(e)), provinceForce(target)));
   return { id: b.id, provinceId: b.provinceId, defenderId: b.defenderId, assaultsDone: b.assaults, assaults: B.assaults, nextAssault: Math.min(B.assaults, b.assaults + 1),
-    nextAssaultDay: b.nextAssaultDay, startDay: b.startDay, attackers: b.attackers.map(e => ({ nationId: e.nationId, mode: e.mode, units: unitCount(entryForce(e)), hp: totalHp(entryForce(e)) })),
+    nextAssaultDay: b.nextAssaultDay, startDay: b.startDay, nextAssaultDate: b.nextAssaultDay + 1, startDate: b.startDay + 1, attackers: b.attackers.map(e => ({ nationId: e.nationId, mode: e.mode, units: unitCount(entryForce(e)), hp: totalHp(entryForce(e)) })),
     defenderHp, island: isMysteryIsland(b.provinceId) };
 }
 /** Toutes les unités d'une nation engagées en attaque dans une bataille (comptées dans son armée, et pour l'élimination). */

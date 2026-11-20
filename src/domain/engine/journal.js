@@ -198,7 +198,7 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'assault': {
       const atk = [...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map, id)).join(' et ');
       const mine = playerNationId !== null && [...(event.attackers || []), event.defender].includes(playerNationId);
-      const next = event.captured ? ` ${nationName(map, event.newOwnerId)} prend la province.` : event.over ? ' La bataille est terminée.' : ` Prochain assaut le ${formatDate(event.nextAssaultDay)}.`;
+      const next = event.captured ? ` ${nationName(map, event.newOwnerId)} prend la province.` : event.over ? ' La bataille est terminée.' : ` Prochain assaut le ${formatDate(event.nextAssaultDay + 1)}.`;
       return { priority: event.defender === playerNationId && playerNationId !== null ? 4 : 3, type: `⚔ ASSAUT ${safeNum(event.assault)}/${safeNum(event.assaults)}`, category: mine ? (event.defender === playerNationId ? 'under-attack' : 'combat') : 'foreign-conflict', public: true,
         text: `⚔ Bataille de ${where}, assaut ${safeNum(event.assault)}/${safeNum(event.assaults)} : ${atk} contre ${nationName(map, event.defender)}${mine ? ` (PV perdus : assaillants ${safeNum(event.attackerHpLost)}, défenseurs ${safeNum(event.defenderHpLost)})` : ''}.${next}` };
     }
