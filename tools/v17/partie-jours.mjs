@@ -134,6 +134,11 @@ export function run(parties, prefixe, { short = false } = {}) {
   const games = [];
   const t0 = performance.now();
   for (let g = 0; g < parties; g++) games.push(playGame(`${prefixe}-${g}`, { short, nation: NATIONS[g % 5] }));
+  return summarize(games, { parties, prefixe, short, seconds: (performance.now() - t0) / 1000 });
+}
+/** V17.5b : résumé d'une série de parties (aussi pour des parties jouées en plusieurs processus). */
+export function summarize(games, { parties = games.length, prefixe = '', short = false, seconds = 0 } = {}) {
+  const t0 = performance.now() - seconds * 1000;
   const all = k => games.map(x => x[k]), dayMs = games.flatMap(x => x.dayMs), aiMs = games.flatMap(x => x.aiMs);
   return {
     parties, prefixe, courte: short, jours: games[0]?.endDay, dureeTotaleS: round((performance.now() - t0) / 1000),
@@ -173,8 +178,19 @@ export function run(parties, prefixe, { short = false } = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
-  const args = process.argv.slice(2), plain = args.filter(a => !a.startsWith('--'));
-  const [parties = 20, prefixe = 'v17j'] = plain;
-  console.log(JSON.stringify(run(Number(parties), prefixe, { short: args.includes('--courte') }), null, 1));
+  // V17.5b : `--brut debut:fin` = joue les parties n° debut à fin − 1 et écrit leurs résultats bruts (mesures-v17.5b.mjs).
+  const raw = process.argv.find(a => a.startsWith('--brut='));
+  if (raw) {
+    Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
+    const [from, to] = raw.slice(7).split(':').map(Number), plain0 = process.argv.slice(2).filter(a => !a.startsWith('--'));
+    const out = [];
+    for (let g = from; g < to; g++) { const x = playGame(`${plain0[1] || 'v17j'}-${g}`, { short: process.argv.includes('--courte'), nation: NATIONS[g % 5] }); delete x.dayMs; delete x.aiMs; out.push(x); }
+    const file = process.argv.find(a => a.startsWith('--sortie='))?.slice(9);
+    if (file) (await import('node:fs')).writeFileSync(file, JSON.stringify(out)); else process.stdout.write(JSON.stringify(out));
+  } else {
+    Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
+    const args = process.argv.slice(2), plain = args.filter(a => !a.startsWith('--'));
+    const [parties = 20, prefixe = 'v17j'] = plain;
+    console.log(JSON.stringify(run(Number(parties), prefixe, { short: args.includes('--courte') }), null, 1));
+  }
 }

@@ -102,7 +102,8 @@ test('l’IA elle-même : un membre n’envoie aucune offre d’alliance à la c
 test('quota d’attaques : hors quota réservé au Conquérant et au Traître, comme le dit le cahier', () => {
   // V17.5 : le quota vient de attackQuota (identique au tour par tour ; en temps réel, par fenêtre de 30 jours).
   const src = readSource('src/domain/engine/ai.js');
-  assert.match(src, /const quota = attackQuota\(state, ARCH_ATTACKS\[arch\] \|\| 1\)/);
+  // V17.5b : en temps réel, quota propre au Conquérant (RULES.realtime.ai.personality.conquerant.attacks).
+  assert.match(src, /const quota = attackQuota\(state, isRealtime\(state\) && nature === 'conquerant' \? PERS\(\)\.conquerant\.attacks : ARCH_ATTACKS\[arch\] \|\| 1\)/);
   assert.match(src, /launched >= quota && !\(\(arch === 'conquerant' \|\| arch === 'traitre'\) && ambitionOf/);
 });
 

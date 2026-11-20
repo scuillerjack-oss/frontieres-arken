@@ -28,7 +28,8 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
   const bank = `🏦 Super banque : +${MI.bankIncome} or par tour à son propriétaire (+${MI.bankIncome / 2} chacun avec un co-propriétaire)${share ? ` · vous touchez +${share} or par tour` : ''}`;
   const routes = seaRoutesFrom(map, MYSTERY_ISLAND_ID).map(r => r.via);
   const myPorts = routes.filter(id => state.provinces[id]?.ownerId === playerId).map(provinceName);
-  const route = `⛵ Routes : ${MI.routeTurns} tours vers chacune des 5 nations (contre 2 entre deux nations) ; depuis l’île, débarquement chez n’importe quelle nation${myPorts.length ? `. Vous embarquez pour l’île depuis ${myPorts.join(', ')}` : ''}`;
+  const D = RULES.realtime.durations, rt = state.mode === 'realtime'; // V17.5b : en jours en temps réel
+  const route = `⛵ Routes : ${rt ? `${MI.routeTurns * D.landPerSeaTurn} jours` : `${MI.routeTurns} tours`} vers chacune des 5 nations (contre ${rt ? `${RULES.naval.minTurns * D.landPerSeaTurn} jours` : '2'} entre deux nations) ; depuis l’île, débarquement chez n’importe quelle nation${myPorts.length ? `. Vous embarquez pour l’île depuis ${myPorts.join(', ')}` : ''}`;
   const chips = [
     `🏝 ${MYSTERY_ISLAND_NAME} : ${status}. Garnison toujours visible par tous`,
     bank, route,

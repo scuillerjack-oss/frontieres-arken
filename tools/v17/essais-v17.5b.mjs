@@ -14,6 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const slower = { buildings: { fort: 90 }, units: { armor: 80, artillery: 80, warship: 120 } }; // forteresse +50 %, blindés / artillerie / navires +33 %
 const trip = (land, cav, perSea) => ({ land, cavalryLand: cav, landPerSeaTurn: perSea, interceptDaysLeft: perSea });
 const rythme15 = { recruit: 30, ship: 30, landing: 15, attack: 15 };
+const combo = { traitre: { restPeriods: [12, 30] }, batisseur: { allyChance: .2 } };
 const dist = { landDistance: { reference: 245, min: .75, max: 1.5 } }; // « plus c'est loin, plus c'est long » (distance des repères)
 export const ESSAIS = {
   'base-30j': {},
@@ -30,6 +31,19 @@ export const ESSAIS = {
   'voisin-20j-rythme15': { durations: trip(20, 13, 20), ai: { pace: rythme15 } },
   'voisin-20j-rythme15-lent': { durations: { ...trip(20, 13, 20), ...slower }, ai: { pace: rythme15 } },
   'voisin-15j-rythme15-marge': { durations: trip(15, 10, 15), ai: { pace: rythme15, marginAdd: -.2 } },
+  // Diagnostic (30 parties) : quelle part des nouvelles personnalités freine les conquêtes ?
+  'diag-20j': { durations: trip(20, 13, 20) },
+  'diag-20j-sans-alliances-batisseur': { durations: trip(20, 13, 20), ai: { personality: { batisseur: { allyChance: 0 } } } },
+  'diag-20j-sans-coalition-heros': { durations: trip(20, 13, 20), ai: { personality: { heros: { coalitionChance: 0 } } } },
+  'diag-20j-traitre-sans-repos': { durations: trip(20, 13, 20), ai: { personality: { traitre: { restPeriods: [0, 0] } } } },
+  'diag-20j-estimation-1': { durations: trip(20, 13, 20), vision: { growthAtEnd: 1 } },
+  'diag-20j-estimation-0.5': { durations: trip(20, 13, 20), vision: { growthAtEnd: .5 } },
+  'diag-20j-sans-variations': { durations: trip(20, 13, 20), ai: { personality: { jitter: 0 } } },
+  // Combinaisons retenues après le diagnostic : Traître qui se repose moins (12 à 30 périodes), Bâtisseur un peu moins
+  // allié (0,2), estimation prudente d'une garnison invisible moins gonflée en fin de partie (× 2 ou × 1,5 au lieu de × 3,37).
+  'combo-20j-est1': { durations: trip(20, 13, 20), vision: { growthAtEnd: 1 }, ai: { personality: combo } },
+  'combo-15j-est1': { durations: trip(15, 10, 15), vision: { growthAtEnd: 1 }, ai: { personality: combo } },
+  'combo-20j-est05': { durations: trip(20, 13, 20), vision: { growthAtEnd: .5 }, ai: { personality: combo } },
   // Pour information (changerait une règle du cahier, décision de Jack) : 2 assauts au lieu de 3.
   'voisin-15j-2assauts': { durations: trip(15, 10, 15), battle: { assaults: 2, maxDays: 3 } }
 };
