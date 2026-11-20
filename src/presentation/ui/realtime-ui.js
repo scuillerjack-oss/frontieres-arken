@@ -34,7 +34,7 @@ import { battleNews, bombardRows, openBattle, setBattleRefresh, wireBombardRows 
 import { focusProvince, render } from './map-view.js';
 import { actionModal, selectProvince, showProvinceSheet } from './province-sheet.js';
 import { profile, save, selected, state } from './session.js';
-import { calmMoment, syncAds } from './ad-ui.js';
+import { calmMoment, isNewGame, syncAds } from './ad-ui.js';
 import { openPremium, setPremiumFastHandler } from './premium-ui.js';
 import { renderJournal, showEndScreen } from './turn-flow.js';
 
@@ -210,7 +210,7 @@ export function syncRealtime() {
     clock = createDayClock({ now: t, paused: true }); setClockSpeed(clock, savedSpeed(), t); clockGame = state;
     gate = createSaveGate({ day: state.day, now: t }); alerts = []; seen = new Set(); lastAlerts = ''; famineDay = state.nations[state.playerNationId]?.food?.famine ? state.day : null;
     refresh(); collectBanners([]);
-    if (state.day > 1) calmMoment('return'); // V17.7 : partie reprise = retour dans le jeu (moment calme)
+    if (!isNewGame(state)) calmMoment('return'); // V17.7 : partie reprise = retour dans le jeu (moment calme), jamais une nouvelle partie
   }
   if (state.gameOver) { syncAds({ now: t, onScreen: true, running: false }); drawDock(); drawTicker(); return; }
   syncClockHolds(clock, { hidden: document.visibilityState === 'hidden', ad: document.body.dataset.adPlaying === '1', menu: outOfGame() }, t);

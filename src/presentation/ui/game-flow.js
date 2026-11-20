@@ -8,6 +8,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { createGameState } from '../../state/create-game-state.js';
 import { createRealtimeGame } from '../../domain/realtime/create.js';
 import { syncMusic } from './audio.js';
+import { markNewGame } from './ad-ui.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../guide-input.js';
 import { shouldStartMiniTuto } from '../passage-fort-view.js';
 import { setActiveScreen } from '../screen-flow.js';
@@ -27,6 +28,7 @@ import {
 } from './tutorials.js';
 
 export function showWelcome(){
+  if(state&&!$('#gameScreen').hidden)save(); // V17.7 : en temps réel, la partie n'est écrite que tous les 10 jours : rien de perdu en revenant à l'accueil
   setActiveScreen(document,'welcome');const raw=load(),saved=hydrateState(raw);$('#continueGame').hidden=!saved;showSaveNotice(raw);$('#tutorialBubble').hidden=true;setMiniStep(null);stopTuto();
     $('#miniTuto').hidden=true;setState(null);syncMusic();updateTutoEntry();history.replaceState({arkenScreen:'home'},'',location.href);
 }
@@ -66,7 +68,7 @@ function openNationChoice(){
   document.querySelectorAll('[data-length]').forEach(b=>b.onclick=()=>{gameLength=Number(b.dataset.length);showLength();});showLength();
   $('#nationChoices').innerHTML=map.nations.map(n=>{const bonus=nationBonusInfo(n.id);return `<button class="nation" data-nation="${n.id}" style="--nation:${n.color}"><i></i><span class="nation-choice"><b>${n.name}</b>\
 <small data-nation-bonus>${bonus.title} : ${bonus.text}</small></span></button>`;}).join('');
-  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts((turnBasedTest()?createGameState:createRealtimeGame)({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength}))); /* V17.1 : temps réel (tour par tour : réglage de test ?tour-par-tour) */$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
+  document.querySelectorAll('[data-nation]').forEach(b=>b.onclick=async()=>{stopTuto();setState(applyBoosts((turnBasedTest()?createGameState:createRealtimeGame)({map,playerNationId:b.dataset.nation,seed:'arken-'+Date.now().toString(36),difficulty:level,gameLength}))); /* V17.1 : temps réel (tour par tour : réglage de test ?tour-par-tour) */markNewGame(state);$('#nationDialog').close();save();recordGameStarted(profile);saveMyProfile();
     // V17.7 : plus de publicité au début de la partie (cahier V17 §10.2) : la pub imposée ne passe qu'à un moment calme (ui/ad-ui.js).
     setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();if(aiGoldPct(state))toast(`Niveau Difficile : les IA reçoivent +${aiGoldPct(state)} % d’or ${state.mode==='realtime'?'sur leurs revenus':'à chaque tour'}.`);showGame();
       await showIntro();if(shouldStartMiniTuto()){startMiniTuto();return;

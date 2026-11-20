@@ -231,6 +231,9 @@ test('V17.7 branchements : 🎁 sur le bord de la carte, pubs aux moments calmes
   assert.match(ui, /battlesOf\(state, state\.playerNationId\)\.length/);
   assert.match(ui, /document\.body\.dataset\.adPlaying = '1'[\s\S]*showRewardedAd[\s\S]*finally \{ delete document\.body\.dataset\.adPlaying;/);
   assert.match(ui, /applyGiftReward\(game, me, gold, \{ rewarded: true \}\)/);
+  assert.match(rt, /if \(!isNewGame\(state\)\) calmMoment\('return'\)/, 'jamais de pub au début d’une nouvelle partie');
+  assert.match(flow, /markNewGame\(state\);\$\('#nationDialog'\)\.close\(\);save\(\);/);
+  assert.match(flow, /export function showWelcome\(\)\{\n  if\(state&&!\$\('#gameScreen'\)\.hidden\)save\(\);/, 'retour à l’accueil : la partie est écrite (bug trouvé en V17.7)');
   assert.match(read('app.js'), /installAds\(\)/);
   const sw = read('sw.js');
   for (const f of ['ad-timer.js', 'premium-view.js', 'ui/ad-ui.js', 'ui/premium-ui.js']) assert.ok(sw.includes(`'./src/presentation/${f}'`), f);

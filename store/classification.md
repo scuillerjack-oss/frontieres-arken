@@ -18,7 +18,7 @@ Play Console > Contenu de l'application > Classification du contenu > Démarrer 
 | Discrimination | Non |
 | Les utilisateurs peuvent-ils communiquer ou partager du contenu entre eux ? | Non (les « discussions » sont avec des dirigeants fictifs pilotés par le jeu) |
 | Partage de la position avec d'autres utilisateurs | Non |
-| Achats numériques dans l'application | **Oui** (Pack débutant, paquets de jetons) |
+| Achats numériques dans l'application | **Oui** (Premium, Pack débutant, paquets de jetons) |
 | Le jeu contient-il des publicités ? | **Oui** |
 | Contenu généré par les utilisateurs | Non |
 | Navigateur web / accès internet non restreint | Non |

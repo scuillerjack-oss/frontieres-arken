@@ -35,6 +35,10 @@ function ensure(now) {
 }
 function persist() { try { if (timer) localStorage.setItem(KEY, JSON.stringify(adTimerSnapshot(timer))); } catch {} }
 
+// Parties lancées pendant ce lancement (jamais de pub « retour dans le jeu » au début d'une nouvelle partie).
+const freshGames = new WeakSet();
+export const markNewGame = game => { if (game) freshGames.add(game); };
+export const isNewGame = game => freshGames.has(game);
 export const inTutorialNow = () => isTutorial(state) || tutoStep !== null || miniStep !== null;
 /** Le joueur est-il en train d'agir ? Destination à choisir, fenêtre de décision ou d'ordre ouverte, bataille à lui en cours. */
 export function playerActing() {
