@@ -19,7 +19,7 @@ import { $, toast } from './base.js';
 import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
 import { moveSource, profile, save, state } from './session.js';
-import { miniStep, tutoStep } from './tutorials.js';
+import { tutoStep } from './tutorials.js';
 
 const KEY = 'frontieres-arken-pub';
 const ACTION_DIALOGS = ['#actionDialog', '#eventDialog', '#nationDialog', '#replaceSaveDialog', '#endDialog', '#premiumDialog', '#peaceDialog']; // V17.8 : paix générale
@@ -39,7 +39,7 @@ function persist() { try { if (timer) localStorage.setItem(KEY, JSON.stringify(a
 const freshGames = new WeakSet();
 export const markNewGame = game => { if (game) freshGames.add(game); };
 export const isNewGame = game => freshGames.has(game);
-export const inTutorialNow = () => isTutorial(state) || tutoStep !== null || miniStep !== null;
+export const inTutorialNow = () => isTutorial(state) || tutoStep !== null;
 /** Le joueur est-il en train d'agir ? Destination à choisir, fenêtre de décision ou d'ordre ouverte, bataille à lui en cours. */
 export function playerActing() {
   if (moveSource) return true;

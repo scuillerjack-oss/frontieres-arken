@@ -4,7 +4,7 @@
 import { setPlayerBonuses } from '../../domain/boosts.js';
 import { eventKnownToPlayer, journalEntry } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
-import { decodeRealtimeSave, decodeSave, encodeSave } from '../../persistence/save-codec.js';
+import { decodeRealtimeSave, encodeSave } from '../../persistence/save-codec.js';
 import { SAVE_KEY } from '../guide-input.js';
 import { loadProfile, saveProfile } from '../profile-storage.js';
 import { loadLiveSettings, saveLiveSettings } from '../live-clock.js';
@@ -22,15 +22,12 @@ export const setLiveSettings = value => { liveSettings = { ...liveSettings, ...v
 export const applyBoosts = game => game && !isTutorial(game) ? setPlayerBonuses(game, profile.boosts) : game; // V14.3 : pas d'atouts dans le tutoriel (chiffres de base)
 // V14.3 : la partie de tutoriel a SA clé (frontieres-arken-tutoriel-save) ; la vraie partie garde SAVE_KEY, jamais écrasée.
 export const save = () => { if (state) localStorage.setItem(saveKeyFor(state), encodeSave(state)); };
-/** V17.1 : réglage de test caché (jusqu'à la V17.3) — `?tour-par-tour` dans l'adresse : nouvelles parties au tour par tour. */
-export const turnBasedTest = () => { try { return new URLSearchParams(globalThis.location?.search || '').has('tour-par-tour'); } catch { return false; } };
 /** V17.1 : message quand la partie enregistrée a été jouée au tour par tour (elle n'est pas effacée, mais ne se reprend pas). */
 export let refusedSave = null;
 export const load = () => {
   refusedSave = null;
   try {
     const raw=localStorage.getItem(SAVE_KEY); if (!raw) return null;
-    if (turnBasedTest()) return decodeSave(raw);
     const r = decodeRealtimeSave(raw);
     if (r.refused) refusedSave = r.message;
     return r.state;

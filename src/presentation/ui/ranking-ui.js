@@ -11,6 +11,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { peaceOfferHtml, peaceRankingHtml, rankingHtml } from '../ranking-view.js';
 import { $, toast } from './base.js';
 import { save, state } from './session.js';
+import { tuto } from './tutorials.js';
 import { showEndScreen } from './turn-flow.js';
 
 let shownDay = null;
@@ -28,6 +29,7 @@ export function openRanking() {
   if (!state || state.mode !== 'realtime') return;
   drawRanking();
   $('#rankDialog').showModal();
+  tuto('ranking'); // V17.9 : tutoriel
 }
 /** Fenêtre de paix générale (s'ouvre d'elle-même quand l'offre arrive ; le temps s'arrête tant qu'elle est ouverte). */
 export function offerPeaceIfDue() {

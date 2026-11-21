@@ -13,7 +13,7 @@ export const NEUTRAL_COLOR = '#a39d92';
 
 /** Ligne de l'aide (« ? »). */
 export const MYSTERY_HELP = Object.freeze({ id: 'mystery', title: 'Île mystérieuse',
-  text: `Au centre, neutre au départ : garnison de ${MI.garrisonFactor} armées de nation, toujours visible. Super banque : +${MI.bankIncome} or par tour. Routes de ${MI.routeTurns} tours vers chaque nation. Rien ne s’y construit : gardez-y des troupes. Deux alliés qui débarquent ensemble la partagent. Attaques publiques.` });
+  text: `Au centre, neutre au départ : garnison de ${MI.garrisonFactor} armées de nation, toujours visible. Super banque : +${RULES.realtime.income.perMonth.islandBank} or / mois. ${MI.routeTurns * RULES.realtime.durations.landPerSeaTurn} jours de mer depuis chaque nation. Rien ne s’y construit. Deux alliés qui débarquent ensemble la partagent. Son phare 🗼 montre les flottes qui s’en approchent.` });
 
 /**
  * Ce que la fiche de l'île montre au joueur `playerId`. `name(id)` = nom court d'une nation, `provinceName(id)` = nom d'une province.

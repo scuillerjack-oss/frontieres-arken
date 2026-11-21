@@ -27,7 +27,7 @@ import { render } from './map-view.js';
 import { actionModal, showProvinceSheet } from './province-sheet.js';
 import { liveSettings, profile, saveMyProfile, selected, state } from './session.js';
 import { createTurnGate, liveApplies } from '../live-clock.js';
-import { miniStep, miniTuto, tutoStep, tutorial, tutorialShown } from './tutorials.js';
+import { tutoStep, tutorial, tutorialShown } from './tutorials.js';
 import { playTurnAnimation } from './turn-anim.js';
 import { bindRealtimeJournal, realtimeJournalHtml } from './realtime-ui.js';
 import { realtimeText } from '../realtime-view.js';
@@ -84,7 +84,7 @@ ${endTitlesHtml(record.titles)}${finalRankingHtml(go,{me,nations:map.nations})}$
   $('#endDialog').showModal();$('#endDialog').scrollTop=0;const sec=$('#endDialog section');if(sec)sec.scrollTop=0;return true;
 }
 /** V16.4 : le déroulé en direct s'applique-t-il à cette partie ? (jamais en tutoriel ni pendant le mini tuto) */
-export const liveOn=()=>Boolean(state)&&state.mode!=='realtime'&&liveApplies(liveSettings,{tutorial:isTutorial(state),miniTuto:miniStep!==null||tutoStep!==null});
+export const liveOn=()=>Boolean(state)&&state.mode!=='realtime'&&liveApplies(liveSettings,{tutorial:isTutorial(state)||tutoStep!==null});
 /** V16.4 : une seule résolution à la fois (fin d'horloge, « Passer », « Verrouiller et résoudre »). */
 export const turnGate=createTurnGate();
 /** Ordres en attente du joueur, une ligne chacun (récapitulatif de fin de tour et rappel du bandeau en direct). */
@@ -116,11 +116,11 @@ export async function playTurn({live=false}={}){
   try{
   // V13 : après la résolution — prise de capitale (fenêtre dédiée), journal, puis une fenêtre Oui / Non par proposition reçue.
   const game=state,same=()=>state===game; const eventStart=state.events.length; nextTurn(state,map);tutorialShown.clear();
-    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();if(live&&selected&&!$('#provinceSheet').hidden)showProvinceSheet(); /* V16.4 : fiche ouverte pendant la résolution : chiffres remis à jour */playSfx('turn');miniTuto('end-turn');const events=state.events.slice(eventStart);
+    state.tutorial.turn=state.turn;state.tutorial.shown=[];render();if(live&&selected&&!$('#provinceSheet').hidden)showProvinceSheet(); /* V16.4 : fiche ouverte pendant la résolution : chiffres remis à jour */playSfx('turn');const events=state.events.slice(eventStart);
     if(!isTutorial(state))trackMissions(events); // V14.3 : le tutoriel ne compte pas pour les missions
     // V14.3 : si le joueur quitte (tutoriel → accueil) pendant ces fenêtres, la suite s'arrête : jamais sur une autre partie.
     // V15.2 : animation entre les tours, jamais dans un tutoriel (ses bulles suivent les gestes du joueur).
-    if(!isTutorial(state)&&miniStep===null&&tutoStep===null){await playTurnAnimation(events);if(!same())return;}
+    if(!isTutorial(state)&&tutoStep===null){await playTurnAnimation(events);if(!same())return;}
     await showCapitalPopups(events);if(!same())return;
     await showSeaPopups(events);if(!same())return;
     if(state.gameOver){playSfx(endSound(state.gameOver,state.playerNationId));showEndScreen();return;}

@@ -15,7 +15,7 @@ import { compactForces, relationWithPlayer } from '../overview-view.js';
 import { PASSAGE_TEXT, fortAttackWarning, fortBuildText, fortInfo, passageChip } from '../passage-fort-view.js';
 import { recruitBonusLabels, recruitDetailHtml, shipRepairChip } from '../recruit-repair-view.js';
 import { truceWarning } from '../truce-warning.js';
-import { moveEvent } from '../tutorial.js';
+import { moveEvents } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
 import { MYSTERY_ISLAND_ID, islandSheetView } from '../mystery-island-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
@@ -25,7 +25,7 @@ import { openDiplomacy } from './diplomacy-screen.js';
 import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
-import { miniTuto, placeTutorial, tuto, tutorial } from './tutorials.js';
+import { placeTutorial, tuto, tutorial } from './tutorials.js';
 import { durationText, landMarchText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
 
 // V17.3 : en temps réel, les ordres partent tout de suite et les durées se lisent en jours, les revenus par mois.
@@ -38,7 +38,7 @@ export const sheetSlots={food:id=>{const line=provinceFoodLine(state,id);return 
 
 export function selectProvince(id){
   if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
-  setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);if(state.provinces[id]?.ownerId===state.playerNationId)miniTuto('own-province');
+  setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);
   tutorial('province-sheet','Inspecter une province','Propriétaire, bâtiments, troupes connues et actions possibles : tout est sur cette fiche.');
 }
 export function showProvinceSheet(){
@@ -150,7 +150,7 @@ function openForceSelection(fromId,toId){
 <span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>\
 Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceText()}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});
       if(!result.ok)return toast(result.error);$('#actionDialog').close();setSelected(null);render();toast(rtOn()?'Ordre donné : les troupes partent':'Ordre ajouté à la planification');
-      tuto(moveEvent({routeType:route?.type,attack,toId,units,warships}));miniTuto('move');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
+      for(const ev of moveEvents({routeType:route?.type,fromId,toId}))tuto(ev); /* V17.9 : tutoriel */tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
   };
   tutorial(attack?'attack':'move-confirm',attack?'Préparer une attaque':'Préparer un déplacement',`Envoyez 50 %, 100 % ou choisissez unité par unité. ${rtOn()?'Le combat a lieu à leur arrivée.':'Le combat a lieu à la fin du tour.'}`);
   if(route?.type==='sea')tutorial('maritime','Transport maritime',TUTORIAL_GUIDE.find(x=>x.id==='maritime').text);
@@ -185,7 +185,7 @@ function openRecruit(){
       })()}<span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
       state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,
       provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Recrutement lancé : les troupes arrivent après leur formation':'Ordre de recrutement ajouté à l’inter-tour');
-      miniTuto('recruit');});
+      tuto('recruit');});
   };
   tutorial('recruit','Recruter par lots','Chaque + ajoute un lot : 20 fantassins ou 5 cavaliers. Le prix total s’affiche en bas. Touchez le nom d’une troupe pour voir ses PV et ses dégâts.');
 }
@@ -209,6 +209,6 @@ class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}"
     `<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${dur(item.turns,productionDays('building',type,item.turns))})</span><span>\
 Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
     state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);
-    $('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Chantier lancé : il démarre tout de suite':'Ordre de construction ajouté à l’inter-tour');tuto('build');});});
+    $('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Chantier lancé : il démarre tout de suite':'Ordre de construction ajouté à l’inter-tour');tuto(`build:${type}`);});});
   tutorial('build','Financer une construction',rtOn()?`Payé tout de suite, livré après sa durée. Banque : ${monthlyIncomeText(RULES.bankIncome)}, usine : ${monthlyIncomeText(RULES.factoryIncome)}, ferme : +10 vivres par jour.`:`Payé tout de suite, livré après sa durée. Banque : +${RULES.bankIncome} or par tour, usine : +${RULES.factoryIncome}.`);
 }

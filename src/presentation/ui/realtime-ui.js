@@ -38,6 +38,8 @@ import { calmMoment, isNewGame, syncAds } from './ad-ui.js';
 import { openPremium, setPremiumFastHandler } from './premium-ui.js';
 import { renderJournal, showEndScreen } from './turn-flow.js';
 import { syncRanking } from './ranking-ui.js';
+import { TUTO_SPEED, isTutorial, tutorialAllowsPlay } from '../tutorial.js';
+import { tuto, tutoStep } from './tutorials.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
 // V17.8 : la fenêtre de paix générale (décision de fin) et le choix d'une nouvelle partie arrêtent aussi le temps.
@@ -66,13 +68,14 @@ function saveFor(reason) {
 function recall(kind, id) {
   const r = kind === 'convoy' ? recallConvoy(state, { nationId: state.playerNationId, convoyId: id }) : recallMarch(state, { nationId: state.playerNationId, marchId: id });
   toast(r.ok ? `${kind === 'convoy' ? 'Convoi rappelé' : 'Armée rappelée'} : retour le ${formatDate(r.arriveDay)}` : r.error);
-  if (r.ok) saveFor('order');
+  if (r.ok) { saveFor('order'); tuto('recall'); } // V17.9 : tutoriel
   refresh();
   return r;
 }
 /** Fiche d'une icône de la carte : qui, d'où vers où, arrivée prévue, composition (selon la vision), « Rappeler ». */
 export function openUnit(token) {
   const s = tokenSheet(token, state.day, names);
+  tuto('unit-open'); // V17.9 : tutoriel
   actionModal(s.title, s.kicker.toUpperCase(), `<div class="order-detail unit-sheet"><b>${s.route}</b><span>📅 ${s.arrival}</span><span>${token.known ? '👁' : '❔'} ${s.composition}</span></div>\
 <div class="confirm-actions rt-unit-actions"><button class="cancel" id="rtUnitSee">Voir l’arrivée</button>${token.recallable ? '<button class="primary" id="rtRecall">Rappeler</button>' : ''}</div>\
 ${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-tour sur place : le retour dure le temps déjà parcouru.</p>' : ''}`);
@@ -163,11 +166,11 @@ function drawDock() {
   if (!dock) return;
   dock.hidden = false;
   const paused = clock.paused, running = isClockRunning(clock), fast = clock.speed === 2;
-  const key = JSON.stringify([state.day, paused, running, fast, isPremium()]);
+  const key = JSON.stringify([state.day, paused, running, fast, isPremium(), inTutorial()]);
   if (key === lastDock) return;
   lastDock = key;
   $('#rtDateText').textContent = dateText(state.day);
-  $('#rtSpeedTag').textContent = paused ? 'EN PAUSE' : !running ? 'ARRÊTÉ' : fast ? '×2' : '×1';
+  $('#rtSpeedTag').textContent = paused ? 'EN PAUSE' : !running ? 'ARRÊTÉ' : inTutorial() ? 'TUTORIEL · 1 J/S' : fast ? '×2' : '×1';
   dock.classList.toggle('paused', paused); dock.classList.toggle('fast', fast && !paused);
   $('#rtPlay').setAttribute('aria-pressed', String(!paused && !fast)); $('#rtPause').setAttribute('aria-pressed', String(paused));
   $('#rtFast').setAttribute('aria-pressed', String(!paused && fast)); $('#rtFast').classList.toggle('locked', !isPremium());
@@ -237,18 +240,34 @@ export function syncRealtime() {
   saveFor('day');
   drawHud(); drawDock(); drawTicker(); drawAlerts();
 }
-/** ▶ / ⏸ / ⏩. `mode` : 'play', 'pause', 'fast' ou 'toggle' (ancien bouton du bandeau, tour par tour). */
+/** V17.9 : le tutoriel est-il en cours ? (le temps y va à 1 jour par seconde, jamais d'offre Premium) */
+const inTutorial = () => tutoStep !== null && isTutorial(state);
+/** ▶ / ⏸ / ⏩. `mode` : 'play', 'pause', 'fast' ou 'toggle'. */
 export function setRealtimeSpeed(mode) {
   if (!clock || !realtimeOn()) return false;
   const t = now();
   if (mode === 'toggle') mode = clock.paused ? 'play' : 'pause';
+  if (inTutorial() && mode !== 'pause') {
+    // Tutoriel : ⏩ n'ouvre jamais l'offre Premium ; ▶ seulement aux étapes qui le demandent (sinon le temps reste en pause).
+    tuto(mode === 'fast' ? 'fast' : 'play');
+    if (!tutorialAllowsPlay(tutoStep)) return true;
+    setClockSpeed(clock, TUTO_SPEED, t); setClockPaused(clock, false, t);
+    lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
+    return true;
+  }
   if (mode === 'fast' && !isPremium()) { openPremium({ from: 'fast' }); return true; } // V17.7 : vraie offre (achat de test en bêta)
   const pausing = mode === 'pause' && !clock.paused;
   if (mode === 'pause') { setClockPaused(clock, true, t); saveFor('pause'); }
   else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (isPremium()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
   lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
-  if (pausing) calmMoment('pause'); // V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)
+  if (mode === 'pause') tuto('pause'); // V17.9 : tutoriel
+  if (pausing && !inTutorial()) calmMoment('pause'); // V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)
   return true;
+}
+/** V17.9 : le tutoriel arrête le temps pendant ses explications (ce n'est pas un « moment calme » : jamais de pub). */
+export function pauseRealtime() {
+  if (!clock || !realtimeOn()) return;
+  setClockPaused(clock, true, now()); lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
 }
 setPremiumFastHandler(() => setRealtimeSpeed('fast'));
 export const toggleRealtimePause = () => setRealtimeSpeed('toggle');
