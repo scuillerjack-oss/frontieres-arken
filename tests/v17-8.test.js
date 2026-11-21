@@ -288,3 +288,18 @@ test('V17.8 : partie IA de 2 ans déterministe, classement cohérent chaque 10 j
   const r = a.rt.ranking.rows;
   for (let i = 1; i < r.length; i++) if (!r[i].eliminated && !r[i - 1].eliminated) assert.ok(r[i - 1].score >= r[i].score);
 });
+test('V17.8 (relecture) : offre de paix en attente = le joueur agit → jamais de pub imposée par-dessus, même à la reprise ; la boucle de jours s’arrête sur l’offre', async () => {
+  const ad = flatSource('src/presentation/ui/ad-ui.js'), rt = flatSource('src/presentation/ui/realtime-ui.js');
+  assert.match(ad, /const ACTION_DIALOGS = \[[^\]]*'#peaceDialog'\]/);
+  // playerActing : vrai dès que l'offre est en attente (avant même que la fenêtre ne soit rouverte au retour dans le jeu).
+  assert.match(ad, /export function playerActing\(\) \{[^}]*if \(peaceOfferPending\(state\)\) return true;/);
+  assert.match(rt, /for \(let i = 0; i < days && !state\.gameOver && !peaceOfferPending\(state\); i\+\+\) advanceDay\(state, map\);/);
+  // La règle de pub refuse un moment calme « retour » quand le joueur agit.
+  const { createAdTimer, forcedAdCheck } = await import('../src/presentation/ad-timer.js');
+  const t = createAdTimer({ seed: 1 }); t.playMs = 3600000; t.lastForcedMs = -3600000;
+  assert.equal(forcedAdCheck(t, { moment: 'return', action: false }).ok, true);
+  assert.equal(forcedAdCheck(t, { moment: 'return', action: true }).ok, false);
+  // Côté moteur : une offre en attente le reste après une sauvegarde (c'est le cas de la reprise).
+  const s = game(); allyAll(s); untilDay(s, 91);
+  assert.equal(E.peaceOfferPending(decodeRealtimeSave(encodeSave(s)).state), true);
+});

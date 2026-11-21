@@ -14,7 +14,7 @@
 
 import { RULES } from '../../domain/constants.js';
 import {
-  advanceDay, executePendingOrders, formatDate, incomeFor, proposalsToAnswer, recallConvoy, recallMarch
+  advanceDay, executePendingOrders, formatDate, incomeFor, peaceOfferPending, proposalsToAnswer, recallConvoy, recallMarch
 } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { seaFatePopups } from '../alliances-view.js';
@@ -228,7 +228,8 @@ export function syncRealtime() {
   let changed = false;
   if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; saveFor('order'); }
   const days = dueDays(clock, t), eventStart = state.events.length;
-  for (let i = 0; i < days && !state.gameOver; i++) advanceDay(state, map);
+  // V17.8 : la boucle s'arrête dès qu'une offre de paix générale arrive (elle doit toujours être montrée, temps arrêté).
+  for (let i = 0; i < days && !state.gameOver && !peaceOfferPending(state); i++) advanceDay(state, map);
   if (days || changed) refresh();
   if (days || changed) collectBanners(state.events.slice(eventStart));
   if (state.gameOver) { save(); setClockPaused(clock, true, t); drawDock(); showEndScreen(); return; }

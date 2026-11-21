@@ -1535,3 +1535,10 @@ partie depuis l'écran de fin sans confirmation, autre nation ; jour 5 477 → f
 ⚙ → Nouvelle partie → « Nouvelle partie : vous perdrez tout » ; cinq capitales → « CONQUÊTE DU MONDE · Victoire ! » ;
 Palmarès (« 3 en 15 ans », record en jours, meilleur score, titres). 0 erreur JS, aucun bouton hors écran ni recouvert, aucun
 « tour » visible. Non vérifié : vrai téléphone, une paix générale ou une fin de 15 ans arrivées naturellement (états injectés).
+
+**Correction après relecture (21/11/2026)** : à la reprise d'une partie avec une offre de paix en attente, la pub imposée
+« retour dans le jeu » passait avant la réouverture de la fenêtre de paix. Désormais une offre en attente compte comme une
+action du joueur (`playerActing` dans `ui/ad-ui.js`, en plus de `#peaceDialog` dans les fenêtres d'action), et la boucle
+des jours de `syncRealtime` s'arrête dès qu'une offre arrive (elle est toujours montrée, temps arrêté). Test ajouté dans
+`tests/v17-8.test.js` (15 tests ; `npm test` : 876 tests, verts). Playwright (`/home/claude/pw/v178-pub.mjs`, `?pub-test=600`,
+844 × 390 et 390 × 844) : reprise avec offre → fenêtre de paix, aucune pub ; témoin sans offre → la pub passe ; 0 erreur JS.
