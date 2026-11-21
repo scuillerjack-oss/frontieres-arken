@@ -33,6 +33,11 @@ export const ESSAIS = {
   'g-garde100': m(tie, { ai: { capitalGuard: 100 } }),
   'g-menace': m(tie, { ai: { threatExceptTarget: true } }),
   'g-garde-menace': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true } }),
+  // Round 3 : base navale tirée entre tous les points de port (chaque partie, une autre pression) ; économie plus généreuse.
+  'g-uniforme': m(tie, { ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
+  'g-uniforme-revenu50': m(tie, { incomeDays: 50, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
+  'g-uniforme-revenu45': m(tie, { incomeDays: 45, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
+  'g-uniforme-marge': m(tie, { ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, marginAdd: -.25 } }),
   'g-garde-menace-marge': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true, marginAdd: -.2 } })
 };
 export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179b')) {
