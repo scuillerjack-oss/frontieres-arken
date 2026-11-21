@@ -43,9 +43,9 @@ export function productionDays(kind, type, turns = 1) {
 export const seaDays = turns => Math.max(1, num(turns)) * R.durations.landPerSeaTurn;
 /** V17.5b : texte de la durée d'une marche entre deux provinces voisines (selon la distance ; cavalerie seule plus rapide). */
 export const landMarchText = (map, fromId, toId) => `${landTravelDays({ infantry: 1 }, map, fromId, toId)} jours de marche (${landTravelDays({ cavalry: 1 }, map, fromId, toId)} en cavalerie seule)`;
-/** Revenu affiché par mois (§3.1) : le revenu « par tour » vaut 60 jours, donc deux mois. « +8 or / mois », « +2,5 or / mois ». */
+/** Revenu affiché par mois (§3.1) : revenu « par tour » × 30 ÷ RULES.realtime.incomeDays (V17.9b : 50 jours, donc × 0,6). « +9,6 or / mois ». */
 export function monthlyIncomeText(perTurn) {
-  const v = Math.round(num(perTurn) / 2 * 10) / 10;
+  const v = Math.round(num(perTurn) * R.daysPerPeriod / R.incomeDays * 10) / 10;
   return `${v >= 0 ? '+' : '−'}${String(Math.abs(v)).replace('.', ',')} or / mois`;
 }
 
@@ -305,7 +305,7 @@ export function realtimeText(text) {
     .replace(/Elle s’applique à la fin du tour/g, 'Elle s’applique tout de suite')
     .replace(/réponse à la fin du tour/g, 'réponse à sa prochaine décision (10 jours au plus)')
     .replace(/(partira|part) à la fin du tour/g, '$1 à la fin du mois de jeu')
-    .replace(/(\d+(?:,\d+)?) or par tour/g, (_, n) => `${String(Number(n.replace(',', '.')) / 2).replace('.', ',')} or par mois`)
+    .replace(/(\d+(?:,\d+)?) or par tour/g, (_, n) => `${String(Math.round(Number(n.replace(',', '.')) * R.daysPerPeriod / R.incomeDays * 10) / 10).replace('.', ',')} or par mois`)
     .replace(/plus de (\d+) tours/g, (_, n) => `plus de ${Number(n) * R.daysPerPeriod} jours`)
     .replace(/\bce tour\b/g, 'ce mois-ci')
     // Reste : un délai « en tours » du moteur est une période de 30 jours.

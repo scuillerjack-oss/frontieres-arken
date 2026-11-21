@@ -73,11 +73,12 @@ test('V17.7 🎁 : apparaît 5 à 10 min de jeu après la précédente (tirage �
   assert.equal(giftAvailable(t), true);
 });
 
-test('V17.7 🎁 : récompense = un mois de revenus (revenu par tour ÷ 2, arrondi au multiple de 5 supérieur), 10 or minimum', () => {
+test('V17.7 🎁 : récompense = un mois de revenus (revenu par tour × 30 ÷ 50, arrondi au multiple de 5 supérieur), 10 or minimum', () => {
   assert.equal(rewardGold(0), 10); assert.equal(rewardGold(-30), 10); assert.equal(rewardGold(undefined), 10);
-  assert.equal(rewardGold(16), 10, '+8 / mois → 10 (minimum)');
-  assert.equal(rewardGold(24), 15, '12 / mois → 15');
-  assert.equal(rewardGold(40), 20); assert.equal(rewardGold(41), 25); assert.equal(rewardGold(100), 50);
+  // V17.9b : un mois = revenu par tour × 30 ÷ 50.
+  assert.equal(rewardGold(16), 10, '+9,6 / mois → 10 (minimum)');
+  assert.equal(rewardGold(24), 15, '14,4 / mois → 15');
+  assert.equal(rewardGold(40), 25); assert.equal(rewardGold(33), 20); assert.equal(rewardGold(100), 60);
   assert.equal(RULES.realtime.ads.rewardMinGold, 10); assert.equal(RULES.realtime.ads.rewardRoundTo, 5);
   // Versée au trésor seulement si la pub est vue en entier.
   const state = { nations: { valmorne: { treasury: 100 }, oroel: { treasury: 50, eliminated: true } } };

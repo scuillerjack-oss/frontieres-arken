@@ -20,6 +20,7 @@ export function applyRealtimeStart(state, map) {
     const base = (capital ? S.capital : S.province) || (capital ? START_UNITS.capital : START_UNITS.province);
     const extra = S.nation?.[p.ownerId]?.[def.id] || {};
     for (const k of LAND_UNIT_TYPES) p.units[k] = Math.max(0, Math.floor((base[k] || 0) + (extra[k] || 0)));
+    for (const k of ['fort', 'farm']) if (extra[k]) p.buildings[k] = Math.max(p.buildings[k] || 0, Math.floor(extra[k]));
   }
   return state;
 }

@@ -45,7 +45,7 @@ test('V17.3 : date « 12 mars 2027 », jours restants, durées en jours, revenus
   assert.equal(productionDays('unit', 'infantry'), 30); assert.equal(productionDays('unit', 'warship'), 90);
   assert.equal(productionDays('building', 'bank'), 90); assert.equal(productionDays('building', 'fort'), 60); assert.equal(productionDays('balloon'), 60);
   assert.equal(seaDays(2), 2 * RULES.realtime.durations.landPerSeaTurn); assert.equal(seaDays(4), 4 * RULES.realtime.durations.landPerSeaTurn); // V17.5b : 40 / 80
-  assert.equal(monthlyIncomeText(16), '+8 or / mois'); assert.equal(monthlyIncomeText(5), '+2,5 or / mois');
+  assert.equal(monthlyIncomeText(16), '+9,6 or / mois'); assert.equal(monthlyIncomeText(5), '+3 or / mois'); // V17.9b : × 30 ÷ 50
   assert.equal(realtimeText('💰 Revenus du tour : +8 or'), '💰 Revenus du mois : +8 or');
   assert.equal(realtimeText('Convoi : 60 tours en mer.'), 'Convoi : 60 jours en mer.');
   assert.equal(realtimeText('il y a 2 tours'), 'il y a environ 60 jours');

@@ -50,6 +50,12 @@ export const ESSAIS = {
   'v-c2': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14] }, heros: { coalitionChance: .4, strikeMenaceStrength: .7 } } } }),
   'v-c3': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 2, recruitPace: 15 }, batisseur: { skipRecruit: .75 } } } }),
   'v-c4': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 3, recruitPace: 10, margin: .85 }, batisseur: { skipRecruit: .85, reserve: 60 } } } }),
+  // Round 8 : sans toucher aux revenus (textes « or / mois » validés partout dans l'interface).
+  'final-a': m(tie, { start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 3, recruitPace: 10, margin: .85 }, batisseur: { skipRecruit: .85, reserve: 60 } } } }),
+  'final-b': m(tie, { start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { marginAdd: -.2, baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 3, recruitPace: 10, margin: .85 }, batisseur: { skipRecruit: .85, reserve: 60 } } } }),
+  // Round 9 : réglages du dépôt (finale) ; variante : Valmorne avec forteresses (niveau 2) au lieu de fantassins (vivres inchangés).
+  'depot': {},
+  'depot-valm-fort2': { start: { nation: { valmorne: { p02: { infantry: 0, fort: 2 }, p03: { infantry: 0, fort: 2 } } } } },
   'g-garde-menace-marge': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true, marginAdd: -.2 } })
 };
 export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179b')) {

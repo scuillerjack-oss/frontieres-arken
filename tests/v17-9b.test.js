@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { RULES, START_UNITS } from '../src/domain/constants.js';
 import * as E from '../src/domain/game-engine.js';
+import { combatValue } from '../src/domain/combat.js';
 import { createGameState } from '../src/state/create-game-state.js';
 import { navalBase } from '../src/domain/engine/ai-naval.js';
 import { playBattery } from '../tools/v17/batterie-v17.9b.mjs';
@@ -64,8 +65,9 @@ test('V17.9b : Valmorne ne vide plus sa capitale (sans port) au redéploiement d
   assert.ok(R.ai.capitalGuard > 0);
   const s = allAi('guard', 'roc-epine');
   E.advanceDays(s, map, 12);
-  const left = s.provinces.p01.units.infantry;
-  assert.ok(left >= R.ai.capitalGuard * .8, `capitale de Valmorne : ${left} fantassins`);
+  const left = combatValue({ units: s.provinces.p01.units }), guard = combatValue({ units: { infantry: R.ai.capitalGuard } });
+  assert.ok(left >= guard * .95, `capitale de Valmorne : ${JSON.stringify(s.provinces.p01.units)}`);
+  assert.ok(s.marches.some(m => m.nationId === 'valmorne' && m.fromId === 'p01'), 'le reste de l\'armée part quand même vers un port');
 });
 
 test('V17.9b : branchements (moteur pur, règles lues dans RULES.realtime)', () => {
