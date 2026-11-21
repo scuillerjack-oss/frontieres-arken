@@ -15,20 +15,30 @@ import { compactForces, relationWithPlayer } from '../overview-view.js';
 import { PASSAGE_TEXT, fortAttackWarning, fortBuildText, fortInfo, passageChip } from '../passage-fort-view.js';
 import { recruitBonusLabels, recruitDetailHtml, shipRepairChip } from '../recruit-repair-view.js';
 import { truceWarning } from '../truce-warning.js';
-import { moveEvent } from '../tutorial.js';
+import { moveEvents } from '../tutorial.js';
 import { provinceTroopView } from '../vision-view.js';
 import { MYSTERY_ISLAND_ID, islandSheetView } from '../mystery-island-view.js';
 import { $, buildingNames, icons, nation, province, toast, unitKeys } from './base.js';
+import { farmCardText, provinceFoodLine } from '../food-view.js';
 import { balloonBuildCard, balloonSheetChips, bindBalloonBuild, bindBalloonChips } from './balloon-ui.js';
 import { openDiplomacy } from './diplomacy-screen.js';
 import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
-import { miniTuto, placeTutorial, tuto, tutorial } from './tutorials.js';
+import { placeTutorial, tuto, tutorial } from './tutorials.js';
+import { durationText, landMarchText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
+
+// V17.3 : en temps réel, les ordres partent tout de suite et les durées se lisent en jours, les revenus par mois.
+const rtOn=()=>state?.mode==='realtime';
+const dur=(turns,days)=>rtOn()?durationText(days):`${turns} tour(s)`;
+const perTurn=n=>rtOn()?monthlyIncomeText(n):`+${n} or/tour`;
+/** V17.3 : emplacements prévus dans la fiche pour les versions suivantes (V17.4 : ligne 🌾 nourriture). Chaque entrée
+ * reçoit l'identifiant de la province et renvoie du HTML (vide par défaut). */
+export const sheetSlots={food:id=>{const line=provinceFoodLine(state,id);return line?`<span class="info-chip food-chip">${line}</span>`:'';}}; // V17.4 : ligne 🌾 (vide sur l'île et au tour par tour)
 
 export function selectProvince(id){
   if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
-  setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);if(state.provinces[id]?.ownerId===state.playerNationId)miniTuto('own-province');
+  setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);
   tutorial('province-sheet','Inspecter une province','Propriétaire, bâtiments, troupes connues et actions possibles : tout est sur cette fiche.');
 }
 export function showProvinceSheet(){
@@ -36,7 +46,7 @@ export function showProvinceSheet(){
   const island=selected===MYSTERY_ISLAND_ID?islandSheetView(state,map,state.playerNationId,id=>nation(id).short,id=>province(id).name):null; // V16.2
   $('#sheetKicker').textContent=island?island.kicker:`${nation(p.ownerId).name} · ${relation==='war'?'guerre':relation==='alliance'?'alliée':relation==='own'?'votre royaume':'neutre'}`;
   $('#sheetTitle').textContent=definition.name;
-  const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'?` ${n}`:''}`).join(' · ')||'Aucune construction';
+  const structures=Object.entries(p.buildings).filter(([,n])=>n).map(([key,n])=>`${icons[key]} ${buildingNames[key]}${key==='fort'||key==='farm'?` ${n}`:''}`).join(' · ')||'Aucune construction';
   // V13 : une seule ligne en chiffres pour le régiment (« Régiment : 344 PV · 52 dégâts par assaut ») ; troupes hors de vue
   // ou retranchées dans une forteresse ennemie : « Régiment : effectif inconnu » (vision : docs/V13-vision.md).
   const troops=provinceTroopView(state,map,selected);
@@ -46,7 +56,7 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   // V13 : point de port (construit ou non) → destinations par mer ; sinon, rien (le refus s'explique au déplacement).
   const naval=mine&&isPortPoint(map,selected)?`<span class="info-chip note">⚓ Point de port : embarquement vers ${legalDestinations(map,state,
     selected).filter(x=>x.type==='sea').map(x=>province(x.id).name).join(', ')}${p.buildings.port||island?'':' (port à construire pour les navires de guerre)'}</span>`:'';
-  const yieldGold=RULES.baseIncome+Object.entries(p.buildings).reduce((n,[k,v])=>n+(v>0?buildingIncome(k):0),0),yieldChip=mine?`<span class="info-chip income">💰 Rapporte +${yieldGold} or/tour</span>`:'';
+  const yieldGold=RULES.baseIncome+Object.entries(p.buildings).reduce((n,[k,v])=>n+(v>0?buildingIncome(k):0),0),yieldChip=mine?`<span class="info-chip income">💰 Rapporte ${perTurn(yieldGold)}</span>`:'',foodChip=safeEngine(()=>sheetSlots.food(selected),'')||'';
   const allyChip=relation==='alliance'?`<span class="info-chip ally-chip">🤝 Votre allié : vous ne pouvez pas l’attaquer</span><span class="info-chip passage-chip">${passageChip(state,state.playerNationId,p.ownerId)}</span>`:'';
   // V13.4 : bonus réel de la forteresse (lu dans le moteur), troupes alliées stationnées ici, mes troupes chez l'allié.
   const fort=fortInfo(state,selected),fortChip=fort.level?`<span class="info-chip fort-chip">${fort.text}${troops.entrenched?' · troupes cachées':''}</span>`:'';
@@ -59,9 +69,9 @@ class="guest-note">🛡 ${troops.guestNote}</small>`:''}</span>`
   const bombardChips=mine?pendingBombardChip(state,selected,id=>province(id).name).map(c=>`<span class="info-chip bombard-chip">${c.text} <button class="chip-cancel" data-cancel-bombard="${c.id}">Annuler</button></span>`).join(''):''; // V14.4
   const balloonChips=mine?balloonSheetChips(selected):''; // V16.1
   // V16.2 : fiche « Île mystérieuse » — garnison (toujours visible), super banque, routes, co-propriétaire ; seulement « Déplacer ».
-  const islandChips=island?island.chips.map(t=>`<span class="info-chip island-chip">${t}</span>`).join(''):'';
+  const islandChips=island?island.chips.map(t=>`<span class="info-chip island-chip">${rtOn()?realtimeText(t):t}</span>`).join(''):''; // V17.3 : jours / mois en temps réel
   $('#sheetInfo').innerHTML=island?`${islandChips}${forcesHtml}${shipChip}${mineChip}${naval}${island.canDiplo&&!mine?nationChips(p.ownerId):''}`
-    :`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
+    :`${allyChip}<span class="info-chip">${structures}</span>${fortChip}${bombardChips}${balloonChips}${yieldChip}${mine?foodChip:''}${forcesHtml}${shipChip}${mineChip}${guestChips}${naval}${mine?'':nationChips(p.ownerId)}`;
   // V13.3 (Jack) : un seul bouton pour parler à un dirigeant — « Échanger publiquement » est dans la Diplomatie.
   const actions=island?[...(island.canMove?[['move',mine?'Déplacer / Débarquer':'Déplacer mes troupes']]:[]),...(island.canDiplo?[['diplo','Diplomatie']]:[])]:mine?[['move','Déplacer / Attaquer'],['recruit','Recruter'],['build','Construire'],...(canBombardFrom(state,map,selected)?[['bombard','💥 Bombarder']]:[])]:mineHere?[['move','Déplacer mes troupes'],['diplo','Diplomatie']]:[['diplo','Diplomatie']];
   $('#sheetActions').innerHTML=actions.map(([id,label])=>`<button data-sheet-action="${id}" class="${id==='diplo'||id==='talk'?'secondary':''}">${label}</button>`).join('');$('#provinceSheet').dataset.province=selected;$('#provinceSheet').hidden=false;placeTutorial();
@@ -83,7 +93,7 @@ class="bombard-ships"><span>Navires de guerre</span><button class="step" data-sh
 navire de plus">+</button></div><p class="bombard-protection"><b>${v.text}</b></p><p class="sea-note">${v.detail}</p><p class="sea-note">${BOMBARD_RULE_TEXT()}</p><button id="confirmBombard" class="primary">💥 Bombarder ${province(toId).name}</button>`);
     document.querySelectorAll('[data-ships]').forEach(b=>b.onclick=()=>{ships=Math.max(1,Math.min(max,ships+Number(b.dataset.ships)));draw();});
     document.querySelectorAll('[data-bombard-target]').forEach(b=>b.onclick=()=>{toId=b.dataset.bombardTarget;draw();});
-    $('#confirmBombard').onclick=()=>{const r=queueBombard(state,map,{nationId:state.playerNationId,fromId,toId,warships:ships});if(!r.ok)return toast(r.error);$('#actionDialog').close();render();showProvinceSheet();toast(`Bombardement de ${province(toId).name} ajouté aux ordres du tour`);};};
+    $('#confirmBombard').onclick=()=>{const r=queueBombard(state,map,{nationId:state.playerNationId,fromId,toId,warships:ships});if(!r.ok)return toast(r.error);$('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?`Bombardement de ${province(toId).name} ordonné`:`Bombardement de ${province(toId).name} ajouté aux ordres du tour`);};};
   $('#provinceSheet').hidden=true;draw();
 }
 function startMove(){setMoveSource(selected);$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;
@@ -102,7 +112,7 @@ export function openPendingOrder(orderId){
   const isAttack=state.provinces[order.toId].ownerId!==state.playerNationId&&!order.passage,isBombard=order.kind==='bombard';
   actionModal(isBombard?'Ordre de bombardement':isAttack?'Ordre d’attaque':'Ordre de déplacement',`${province(order.fromId).name} → ${province(order.toId).name}`,
     `<div class="order-detail"><b>${isBombard?'Bombardement programmé (les navires restent au port)':isAttack?'Attaque programmée':'Déplacement programmé'}</b><span>Forces : ${amount}</span><span>\
-Coût : 0 or</span><span>Ordre non résolu avant Fin du tour.</span></div><div class="confirm-actions"><button class="cancel" data-close-order>Fermer</button><button id="cancelPendingOrder" class="primary">Annuler cet ordre</button></div>`);
+Coût : 0 or</span><span>${rtOn()?'Départ dans un instant.':'Ordre non résolu avant Fin du tour.'}</span></div><div class="confirm-actions"><button class="cancel" data-close-order>Fermer</button><button id="cancelPendingOrder" class="primary">Annuler cet ordre</button></div>`);
   $('[data-close-order]').onclick=()=>$('#actionDialog').close();$('#cancelPendingOrder').onclick=()=>{const result=cancelPendingOrder(state,order.id);if(!result.ok)return toast(result.error);
     $('#actionDialog').close();render();toast('Ordre annulé ; les forces sont de nouveau disponibles.');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);};
 }
@@ -112,18 +122,17 @@ function openForceSelection(fromId,toId){
   setMoveSource(null);$('#moveBanner').hidden=true;
   const row=(key,label)=>`<div class="unit-row"><span>${label}</span><b>${available[key]||0}</b><input data-force="${key}" type="number" min="0" max="${available[key]||0}" value="${forceSelection(available,'50')[key]||0}" ${available[key]?'':'disabled'}></div>`;
   const bySea=route?.type==='sea',rows=[...LAND_UNIT_TYPES.map(k=>row(k,unitKeys[k])),...(bySea?[row('warships','Navires (escorte)')]:[])].join('');
-  const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le point de port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${route.turns} tours</b> en mer (1 étape par \
-tour)${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landingPenalty*100)} %)`:passage?', puis stationnement chez votre allié':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>${attack?(()=>{
+  const seaNote=bySea?`<p class="sea-note">⚓ Par mer depuis le point de port de ${province(fromId).name}, route vers ${province(route.via).name} : <b>${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}</b> en mer${rtOn()?'':' (1 étape par tour)'}${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landingPenalty*100)} %)`:passage?', puis stationnement chez votre allié':', puis renfort'}. Sans navires de guerre, le convoi ne peut pas se défendre s’il est intercepté.</p>${attack?(()=>{
     const v=provinceTroopView(state,map,toId),cap=Object.values(state.nations).some(n=>n.capitalId===toId);
-    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}${toId===MYSTERY_ISLAND_ID?' Île mystérieuse : un allié qui y débarque le même tour la prend avec vous (super banque partagée). L’attaque sera connue de toutes les nations.':''}</p>`;})():''}`:'';
+    return `<p class="sea-warn">${v.known?`👁 En face : ${v.text}.`:'⚠ Garnison inconnue : la province est hors de vue.'}${cap?' C’est une capitale, souvent la mieux gardée.':''}${toId===MYSTERY_ISLAND_ID?` Île mystérieuse : un allié qui y débarque le même ${rtOn()?'jour':'tour'} la prend avec vous (super banque partagée). L’attaque sera connue de toutes les nations.`:''}</p>`;})():''}`:'';
   const passageNote=passage?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes stationneront à ${province(toId).name}${province(toId).name===nation(to.ownerId).short?'':` (${nation(to.ownerId).short})`} et la défendront avec votre allié.</p>`:'';
-  const truceNote=attack&&truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)?`<p class="sea-warn truce-warn">${truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short)}</p>`:'';
+  const truceText=()=>{const t=truceWarning(state,state.playerNationId,to.ownerId,nation(to.ownerId).short);return t&&rtOn()?realtimeText(t):t;},truceNote=attack&&truceText()?`<p class="sea-warn truce-warn">${truceText()}</p>`:'';
   const fortNote=attack&&fortAttackWarning(state,toId)?`<p class="sea-warn fort-warn">${fortAttackWarning(state,toId)}</p>`:'';
   actionModal(attack?(bySea?'Préparer un débarquement':'Préparer une attaque'):passage?'Passage chez un allié':'Préparer un déplacement',
-    `${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${route.turns} tours`:''}`,
-    `${passageNote}${truceNote}${fortNote}${seaNote}<p>Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.</p><div class="force-presets"><button data-preset="50">50 %</button>\
-<button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b>\
-</div><p id="forceSummary"></p><button id="confirmMove" class="primary">Ajouter cet ordre</button>`);
+    `${province(fromId).name} → ${province(toId).name}${bySea?` · par mer · ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}`:rtOn()?` · ${landMarchText(map,fromId,toId)}`:''}`,
+    `${passageNote}${truceNote}${fortNote}${seaNote}<p>${rtOn()?'Choisis les forces : elles partent tout de suite et apparaissent sur la carte.':'Choisis les forces à réserver. Elles ne bougent qu’à l’inter-tour.'}</p><div class="force-presets"><button data-preset="50">50 %</button>\
+<button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}${rtOn()?'':`<div class="total-line"><span>Ordres déjà prévus depuis la province</span><b>${pendingFrom(fromId)}</b>\
+</div>`}<p id="forceSummary"></p><button id="confirmMove" class="primary">${rtOn()?'Envoyer maintenant':'Ajouter cet ordre'}</button>`);
   const updateSummary=()=>{const units=Object.fromEntries(LAND_UNIT_TYPES.map(k=>[k,Math.floor(Number(document.querySelector(`[data-force="${k}"]`)?.value)||0)])),
     ships=Math.floor(Number(document.querySelector('[data-force="warships"]')?.value)||0);
     $('#forceSummary').textContent=`${Object.entries(units).filter(([,n])=>n).map(([k,
@@ -138,13 +147,12 @@ tour)${attack?`, puis débarquement (troupes à ${Math.round(RULES.combat.landin
     if(!quantity)return toast('Sélectionne au moins une unité');
     confirmationModal(attack?'Confirmer l’attaque':passage?'Confirmer le passage':'Confirmer le déplacement',
       `<div class="order-detail"><span>Action : ${attack?'attaquer':passage?`stationner chez ${nation(to.ownerId).short} (allié)`:'déplacer les forces'}</span><span>Origine : ${province(fromId).name}</span>\
-<span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${route.turns} tours</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>\
-Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceWarning(state,
-      state.playerNationId,to.ownerId,nation(to.ownerId).short)}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});
-      if(!result.ok)return toast(result.error);$('#actionDialog').close();setSelected(null);render();toast('Ordre ajouté à la planification');
-      tuto(moveEvent({routeType:route?.type,attack,toId,units,warships}));miniTuto('move');tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
+<span>Province visée : ${province(toId).name}</span>${bySea?`<span>Trajet : par mer, ${rtOn()?`${seaDays(route.turns)} jours`:`${route.turns} tours`}</span>`:''}<span>Quantité : ${description}</span><span>Coût : 0 or</span><span>\
+Trésor après ordre : ${state.nations[state.playerNationId].treasury} or</span>${truceNote?`<span class="sea-warn truce-warn">${truceText()}</span>`:''}</div>`,()=>{const result=queueMoveOrder(state,map,{nationId:state.playerNationId,fromId,toId,units,warships});
+      if(!result.ok)return toast(result.error);$('#actionDialog').close();setSelected(null);render();toast(rtOn()?'Ordre donné : les troupes partent':'Ordre ajouté à la planification');
+      for(const ev of moveEvents({routeType:route?.type,fromId,toId}))tuto(ev); /* V17.9 : tutoriel */tutorial('orders','Ordres en attente',TUTORIAL_GUIDE.find(x=>x.id==='orders').text);});
   };
-  tutorial(attack?'attack':'move-confirm',attack?'Préparer une attaque':'Préparer un déplacement','Envoyez 50 %, 100 % ou choisissez unité par unité. Le combat a lieu à la fin du tour.');
+  tutorial(attack?'attack':'move-confirm',attack?'Préparer une attaque':'Préparer un déplacement',`Envoyez 50 %, 100 % ou choisissez unité par unité. ${rtOn()?'Le combat a lieu à leur arrivée.':'Le combat a lieu à la fin du tour.'}`);
   if(route?.type==='sea')tutorial('maritime','Transport maritime',TUTORIAL_GUIDE.find(x=>x.id==='maritime').text);
 }
 function openRecruit(){
@@ -155,7 +163,7 @@ function openRecruit(){
     `<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,
     state.playerNationId)} or</b></div>${items.map(({key,r,blocked,reason}
     )=>`<div class="action-card recruit-row${blocked?' blocked':''}"><span><button type="button" class="unit-info-btn" data-unit-info="${key}" aria-expanded="false" aria-label="Voir PV et dégâts : ${r.label}">\
-<b>${r.label}</b> <i>ⓘ PV et dégâts</i></button><small>${r.amount} par lot · ${r.cost} or · ${r.turns} tour(s)</small>${blocked?`<small class="prereq">⚠ ${reason}</small>`:''}</span><div class="lot-controls">\
+<b>${r.label}</b> <i>ⓘ PV et dégâts</i></button><small>${r.amount} par lot · ${r.cost} or · ${dur(r.turns,productionDays('unit',key,r.turns))}</small>${blocked?`<small class="prereq">⚠ ${reason}</small>`:''}</span><div class="lot-controls">\
 <button data-lot-minus="${key}" ${blocked?'disabled':''}>−</button><b id="lot-count-${key}">0</b><button data-lot-plus="${key}" ${blocked?'disabled':''}>+</button><small id="lot-amount-${key}">\
 0 unité</small></div><div class="unit-detail-slot" id="unit-detail-${key}" hidden>${recruitDetailHtml(key)}</div></div>`).join('')}<div class="total-line"><span>Coût total</span><b id="recruitCost">\
 0</b></div><p id="recruitWarning"></p><button id="confirmRecruit" class="primary">Vérifier la commande</button>`);
@@ -176,30 +184,31 @@ function openRecruit(){
       return extra>0?`<span class="boost-extra">${recruitBonusLabels(state,state.playerNationId).long} : +${extra} fantassins à la livraison</span>`:'';
       })()}<span>Coût total : ${total} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-total} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
       state.playerNationId)-total} or</span></div>`,()=>{for(const [type,count] of Object.entries(lots))if(count){const result=queueRecruitment(state,{nationId:state.playerNationId,
-      provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast('Ordre de recrutement ajouté à l’inter-tour');
-      miniTuto('recruit');});
+      provinceId:selected,type,lots:count});if(!result.ok)return toast(result.error);}$('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Recrutement lancé : les troupes arrivent après leur formation':'Ordre de recrutement ajouté à l’inter-tour');
+      tuto('recruit');});
   };
   tutorial('recruit','Recruter par lots','Chaque + ajoute un lot : 20 fantassins ou 5 cavaliers. Le prix total s’affiche en bas. Touchez le nom d’une troupe pour voir ses PV et ses dégâts.');
 }
 function openBuild(){
   const p=state.provinces[selected],orders=state.orders.filter(o=>o.kind==='construction'&&o.provinceId===selected&&o.status==='pending'),active=state.productionQueue.filter(o=>o.kind==='building'&&o.provinceId===selected);
-  const types=['bank','factory','fort',...(p.portSite?['port']:[])],items=types.map(type=>{const rule=RULES.buildings[type],
-    count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=type==='fort'?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;
+  // V17.4 : la ferme (temps réel seulement) : 5 niveaux, un à la fois, 20 à 40 or, +10 vivres / jour par niveau.
+  const types=['bank','factory','fort',...(p.portSite?['port']:[]),...(state.mode==='realtime'?['farm']:[])],items=types.map(type=>{const rule=RULES.buildings[type],
+    count=(p.buildings[type]||0)+orders.filter(o=>o.type===type).length+active.filter(o=>o.type===type).length,cost=Array.isArray(rule.costs)?rule.costs[count]:rule.cost;const built=p.buildings[type]||0;
     return{type,rule,cost,turns:rule.turns,count,built,queued:count-built};
     }).map(x=>({...x,reason:buildingUnavailableReason({type:x.type,label:buildingNames[x.type],rule:x.rule,count:x.count,built:x.built,portSite:p.portSite,cost:x.cost??0,
     spendable:spendableTreasury(state,state.playerNationId)})}));
   actionModal('Construction',province(selected).name,
     `<div class="treasury-context"><span>Trésor actuel</span><b>${state.nations[state.playerNationId].treasury} or</b></div><div class="treasury-context"><span>Disponible après réserves</span><b>${spendableTreasury(state,
     state.playerNationId)} or</b></div><p>Les nouvelles constructions sont payées maintenant et livrées après leur durée.</p><div class="action-list">${items.map(x=>`<div class="action-card"><span>\
-<b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.cost??'—'} or · ${x.turns} tour(s)${buildingIncome(x.type)?` · <b class="income-tag">rapporte +${buildingIncome(x.type)} or/tour</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,
-    selected)}</b>`:''}${x.built?` · ${x.type==='fort'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small \
+<b>${icons[x.type]} ${buildingNames[x.type]}</b><small>${x.type==='farm'?`${x.cost??'—'} or · ${farmCardText(x.count).days} jours · <b class="food-tag">${farmCardText(x.count).gain}</b>`:`${x.cost??'—'} or · ${dur(x.turns,productionDays('building',x.type,x.turns))}`}${x.type==='farm'?'':buildingIncome(x.type)?` · <b class="income-tag">rapporte ${perTurn(buildingIncome(x.type))}</b>`:x.type==='fort'?` · <b class="fort-tag">${fortBuildText(state,
+    selected)}</b>`:''}${x.built?` · ${x.type==='fort'||x.type==='farm'?`niveau ${x.built} construit`:`${x.built} déjà construite${x.built>1?'s':''}`}`:''}${x.queued>0?` · ${x.queued} en construction`:''}</small>${x.reason?`<small \
 class="prereq">⚠ ${x.reason}</small>`:''}</span><button data-build="${x.type}" ${x.reason?'disabled':''}>Vérifier</button></div>`).join('')}${balloonBuildCard(selected)}</div>`);
   bindBalloonBuild(selected,showProvinceSheet); // V16.1 : ballon d'observation (usine requise)
   document.querySelectorAll('[data-build]').forEach(button=>button.onclick=()=>{const type=button.dataset.build,item=items.find(x=>x.type===type);if(!item||item.reason)return;
     confirmationModal('Confirmer la construction',
-    `<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${item.turns} tour(s))</span><span>\
+    `<div class="order-detail"><span>Action : construire ${buildingNames[type]}</span><span>Province : ${province(selected).name}</span><span>Quantité : 1 bâtiment (${dur(item.turns,productionDays('building',type,item.turns))})</span><span>\
 Coût : ${item.cost} or</span><span>Trésor après commande : ${state.nations[state.playerNationId].treasury-item.cost} or</span><span>Disponible après réserves et commande : ${spendableTreasury(state,
     state.playerNationId)-item.cost} or</span></div>`,()=>{const result=queueConstruction(state,{nationId:state.playerNationId,provinceId:selected,type});if(!result.ok)return toast(result.error);
-    $('#actionDialog').close();render();showProvinceSheet();toast('Ordre de construction ajouté à l’inter-tour');tuto('build');});});
-  tutorial('build','Financer une construction',`Payé tout de suite, livré après sa durée. Banque : +${RULES.bankIncome} or par tour, usine : +${RULES.factoryIncome}.`);
+    $('#actionDialog').close();render();showProvinceSheet();toast(rtOn()?'Chantier lancé : il démarre tout de suite':'Ordre de construction ajouté à l’inter-tour');tuto(`build:${type}`);});});
+  tutorial('build','Financer une construction',rtOn()?`Payé tout de suite, livré après sa durée. Banque : ${monthlyIncomeText(RULES.bankIncome)}, usine : ${monthlyIncomeText(RULES.factoryIncome)}, ferme : +10 vivres par jour.`:`Payé tout de suite, livré après sa durée. Banque : +${RULES.bankIncome} or par tour, usine : +${RULES.factoryIncome}.`);
 }

@@ -84,10 +84,10 @@ test('V15.4 : les seuils de l’IA suivent la longueur (relance de la guerre, B�
   assert.ok(!ctx(game(), 36).includes('fin'));
   assert.ok(ctx(game(), 75).includes('fin'));
 });
-test('V15.4 : le tutoriel reste en 80 tours, sans longueur propre', () => {
+test('V15.4 : le tutoriel a la longueur normale, sans longueur propre (V17.9 : temps réel, 183 périodes = 15 ans)', () => {
   const t = createTutorialState({ map });
   assert.equal('gameLength' in t, false);
-  assert.equal(gameLengthOf(t), 80);
+  assert.equal(gameLengthOf(t), 183);
 });
 test('V15.4 : deux parties courtes de même graine sont identiques (moteur déterministe)', () => {
   const play = () => { const s = allAI(short({ seed: 'meme' })); for (let i = 0; i < 12; i++) resolveInterturn(s, map); return JSON.stringify(s); };
@@ -117,7 +117,8 @@ test('V15.4 : une longueur illisible ne plante pas et revient à 80 tours', () =
     assert.equal('gameLength' in m, false);
     assert.equal(m.schemaVersion, 11);
   }
-  assert.throws(() => decodeSave(JSON.stringify({ ...game(), schemaVersion: 13 })), /unsupported_save_schema:13/);
+  // V17.1 : le schéma 13 est le temps réel ; le premier schéma inconnu est le 14.
+  assert.throws(() => decodeSave(JSON.stringify({ ...game(), schemaVersion: 14 })), /unsupported_save_schema:14/);
 });
 test('V15.4 : la sauvegarde de partie ne contient ni palmarès ni titre, même après le comptage', () => {
   const p = createProfile(), s = finished({ gameLength: 40 });
@@ -264,7 +265,8 @@ test('V15.4 : interface : choix de la durée à côté du niveau, 80 présélect
 });
 test('V15.4 : pub de début de partie : même appel qu’en 80 tours, sans condition sur la durée', () => {
   const flow = readSource('src/presentation/ui/game-flow.js');
-  assert.match(flow, /showGameStartAd\(\{profile,inTutorial:isTutorial\(state\)\|\|shouldStartMiniTuto\(\)\}\)/);
+  // V17.7 : la pub de début de partie est supprimée (cahier V17 §10.2), quelle que soit la durée.
+  assert.doesNotMatch(flow, /showGameStartAd\(/);
   assert.doesNotMatch(readFileSync(join(root, 'src/presentation/ads.js'), 'utf8'), /gameLength/);
 });
 test('V15.4 : modules purs : ni DOM, ni hasard, ni date ; présents hors ligne ; version 15.4.0', () => {
@@ -275,7 +277,7 @@ test('V15.4 : modules purs : ni DOM, ni hasard, ni date ; présents hors ligne ;
     assert.ok(sw.includes(`'./${f}'`), f);
   }
   assert.ok(sw.includes("'./src/presentation/palmares-view.js'"));
-  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '16.4.1');
+  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '17.10.0');
 });
 test('V15.4 : checkGameOver : ancienne partie à 80 au-delà du tour 40 non finie ; partie courte au tour 40 finie', () => {
   const l = game(); l.turn = 40; assert.equal(checkGameOver(l), null);

@@ -13,7 +13,7 @@ import { queueMoveOrder, queueDiplomaticOrder, setRelation, resolveInterturn, re
 import { resolveBattle, fortReductionPct } from '../src/domain/combat.js';
 import { visibleProvinces } from '../src/domain/vision.js';
 import { setPlayerBonuses } from '../src/domain/boosts.js';
-import { passageChip, fortInfo, fortBuildText, fortAttackWarning, MINI_TUTO_KEY, MINI_TUTO_STEPS, shouldStartMiniTuto, markMiniTutoSeen, resetMiniTuto, miniTutoAdvance } from '../src/presentation/passage-fort-view.js';
+import { passageChip, fortInfo, fortBuildText, fortAttackWarning } from '../src/presentation/passage-fort-view.js';
 import { SAVE_KEY, TUTORIAL_GUIDE } from '../src/presentation/guide-input.js';
 import { playerOrderArrows } from '../src/presentation/map-orders-view.js';
 import { provinceTroopView } from '../src/presentation/vision-view.js';
@@ -157,46 +157,8 @@ test('forteresse : affichée sur la fiche, le menu Construction, l\'attaque, le 
   assert.match(TUTORIAL_GUIDE.find(x => x.id === 'build').text, /−5 \/ −10 \/ −15 %/);
 });
 
-// --- 3. Mini tutoriel ----------------------------------------------------------------------------------------
-test('mini tuto : 5 à 7 étapes courtes qui suivent les vrais gestes (province, recruter, déplacer, diplomatie, fin du tour)', () => {
-  assert.ok(MINI_TUTO_STEPS.length >= 5 && MINI_TUTO_STEPS.length <= 7);
-  for (const st of MINI_TUTO_STEPS) assert.ok(st.text.length <= 160, st.id);
-  assert.deepEqual(MINI_TUTO_STEPS.map(x => x.on), ['own-province', 'recruit', 'move', 'diplomacy', 'end-turn', 'ok']);
-  assert.equal(miniTutoAdvance(0, 'move'), 0, 'un autre geste ne fait pas avancer');
-  let i = 0; for (const ev of ['own-province', 'recruit', 'move', 'diplomacy', 'end-turn']) i = miniTutoAdvance(i, ev);
-  assert.equal(i, 5);
-  assert.equal(miniTutoAdvance(5, 'ok'), null, 'terminé');
-});
+// --- 3. Mini tutoriel : retiré en V17.9 (remplacé par le tutoriel du temps réel, tests/v17-9.test.js).
 
-test('mini tuto : affiché une seule fois (clé séparée), jamais la clé de sauvegarde ; relançable', () => {
-  const store = memoryStorage();
-  store.setItem(SAVE_KEY, '{"partie":1}');
-  assert.equal(shouldStartMiniTuto(store), true, 'première partie');
-  markMiniTutoSeen(store);
-  assert.equal(shouldStartMiniTuto(store), false, 'ne se réaffiche plus');
-  assert.equal(MINI_TUTO_KEY, 'frontieres-arken-mini-tuto');
-  assert.notEqual(MINI_TUTO_KEY, SAVE_KEY);
-  assert.equal(store.getItem(SAVE_KEY), '{"partie":1}', 'sauvegarde intacte');
-  resetMiniTuto(store);
-  assert.equal(shouldStartMiniTuto(store), true, 'relancé depuis les réglages');
-  assert.equal(store.getItem(SAVE_KEY), '{"partie":1}', 'sauvegarde toujours intacte');
-  // Stockage indisponible (navigation privée) : pas de plantage.
-  const broken = { getItem() { throw new Error('x'); }, setItem() { throw new Error('x'); }, removeItem() { throw new Error('x'); } };
-  assert.equal(shouldStartMiniTuto(broken), true);
-  assert.equal(markMiniTutoSeen(broken), false);
-});
-
-test('mini tuto : bouton « Passer », lancement à la première partie seulement, relance dans les Paramètres', () => {
-  const html = read('index.html'), app = readSource('app.js');
-  assert.match(html, /id="miniTutoSkip"[^>]*>Passer</);
-  assert.match(html, /id="replayMiniTuto">Relancer le mini tuto</);
-  assert.match(app, /\$\('#miniTutoSkip'\)\.onclick=endMiniTuto/);
-  assert.match(flatSource('app.js'), /if\(shouldStartMiniTuto\(\)\)\{startMiniTuto\(\);return;\}/);
-  assert.doesNotMatch(app.match(/function continueSavedGame[^\n]*/)[0], /MiniTuto/, 'pas en reprenant une partie');
-  assert.doesNotMatch(read('src/presentation/passage-fort-view.js'), /frontieres-arken-v2-save/);
-});
-
-// --- Corrections après relecture indépendante ------------------------------------------------------------------
 test('relecture : les renforts alliés stationnés chez une nation étrangère visible sont affichés (pas de surprise)', () => {
   const s = freshState({ allHuman: true });
   setRelation(s, { nationId: 'roc-epine', target: 'noireflamme', type: 'alliance' });

@@ -41,7 +41,7 @@ BOOSTS AND DAILY MISSIONS
 
 FREE, NO TRAPS
 The game is free. An ad may appear when you start a new game, never while you are playing and never in the tutorial. An optional ad can also earn you a token for a mission. If you close one early, no further ad is forced on you. You can manage your ad privacy choices in the settings.
-The Starter Pack (one-time purchase) removes the ads shown at the start of a game and gives 3 tokens. Token bundles are also available. You can never buy gold or troops: the game stays about strategy, not about your wallet.
+Premium (one-time purchase) doubles the game speed and removes the occasional ads shown at calm moments; the Starter Pack (one-time purchase) is Premium plus 3 tokens. Token bundles are also available. You can never buy gold or troops: the game stays about strategy, not about your wallet.
 An internet connection is only needed for ads and purchases.
 
 MADE IN FRANCE

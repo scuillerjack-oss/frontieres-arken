@@ -18,7 +18,7 @@ import { RULES, LAND_UNIT_TYPES } from './constants.js';
 import { provinceForce, normalizeForce, combatValue, regimentStats, mergeForce, legacyForce } from './combat.js';
 import { navalBonusFactor } from './boosts.js';
 import { balloonSeenProvinces } from './engine/balloons.js';
-import { MYSTERY_ISLAND_ID } from './mystery-island.js';
+import { MYSTERY_ISLAND_ID, holdsIsland } from './mystery-island.js';
 
 const allied = (state, a, b) => (state.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties?.includes(a) && t.parties?.includes(b));
 const hasLandTroops = p => LAND_UNIT_TYPES.some(k => (p?.units?.[k] || 0) > 0);
@@ -82,7 +82,10 @@ export const troopsKnownTo = (state, map, nationId, provinceId, visible = null) 
 export function prudentEstimate(state, provinceId) {
   const v = RULES.vision, p = state.provinces[provinceId];
   const capital = Object.values(state.nations || {}).some(n => n.capitalId === provinceId);
-  const growth = 1 + v.growthPerTurn * Math.max(0, (Number(state.turn) || 1) - 1);
+  // V17.1 : en temps réel, × (1 + 2,37 × jour ÷ 5 479) — même facteur en fin de partie qu'au tour 80 (cahier V17 §2.2).
+  const growth = state.mode === 'realtime'
+    ? 1 + RULES.realtime.vision.growthAtEnd * Math.max(0, Number(state.day) || 1) / RULES.realtime.vision.referenceDays
+    : 1 + v.growthPerTurn * Math.max(0, (Number(state.turn) || 1) - 1);
   const base = capital ? v.capitalEstimate : v.provinceEstimate;
   const units = Object.fromEntries(Object.entries(base).map(([k, n]) => [k, Math.ceil(n * growth)]));
   if (p?.buildings?.port) units.warship = Math.ceil(v.portWarshipsEstimate * growth);
@@ -105,4 +108,23 @@ export function perceivedStrength(state, map, viewer, target, visible = null) {
   if (viewer === target) return Object.keys(state.provinces).filter(id => state.provinces[id].ownerId === target).reduce((n, id) => n + combatValue(provinceForce(state.provinces[id])), 0);
   const seen = visible || visibleProvinces(state, map, viewer);
   return Object.keys(state.provinces).filter(id => state.provinces[id].ownerId === target).reduce((n, id) => n + combatValue(perceivedForce(state, map, viewer, id, seen)), 0);
+}
+
+/**
+ * V17.5b — Phare de l'île mystérieuse (idée validée par Jack) : le propriétaire et le co-propriétaire de l'île voient
+ * TOUTE flotte (convoi) d'une autre nation en route vers l'île, et seulement celles-là : de qui, d'où, arrivée le jour
+ * `arriveDay`. Composition selon les règles de vision habituelles (troupes de la province de départ connues, ou flotte
+ * alliée), sinon inconnue (`units: null`). [] pour qui ne tient pas l'île. L'IA lit la même liste (aucune triche).
+ */
+export function lighthouseFleets(state, map, nationId, visible = null) {
+  if (!holdsIsland(state, nationId)) return [];
+  const sharers = visionSharers(state, nationId), out = [];
+  for (const t of state.transports || []) {
+    if (t.toId !== MYSTERY_ISLAND_ID || t.returning || t.nationId === nationId) continue;
+    const known = sharers.has(t.nationId) || troopsKnownTo(state, map, nationId, t.fromId, visible || (visible = visibleProvinces(state, map, nationId)));
+    out.push({ convoyId: t.id, nationId: t.nationId, fromId: t.fromId, departDay: t.departDay ?? null, arriveDay: Number.isFinite(t.arriveDay) ? t.arriveDay : null,
+      ally: sharers.has(t.nationId), passage: Boolean(t.passage), known,
+      units: known ? Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, t.units?.[k] || 0])) : null, warships: known ? t.warships || 0 : null });
+  }
+  return out.sort((a, b) => (a.arriveDay ?? 0) - (b.arriveDay ?? 0) || String(a.convoyId).localeCompare(String(b.convoyId)));
 }

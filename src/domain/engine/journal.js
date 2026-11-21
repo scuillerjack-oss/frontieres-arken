@@ -7,16 +7,19 @@ import { ARCHETYPE_LABELS, HOSTILITY_WAR } from '../leaders.js';
 import { visibleProvinces } from '../vision.js';
 import { deName, nationName, provinceDef, safeNum } from './shared.js';
 import { MYSTERY_ISLAND_ID } from '../mystery-island.js';
+import { formatDate } from '../realtime/clock.js';
 
 export function eventKnownToPlayer(state, map, event) {
   const player = state.playerNationId;
+  if (event.type === 'lighthouse') return event.nationId === player; // V17.5b : le phare ne prévient que qui tient l'île
   if ([event.attacker,event.defender,event.nationId,event.target,event.newOwnerId,...(event.originIds||[]),...(event.guests||[])].includes(player)) return true;
   // V10 : tout affrontement (pris ou tenu), pillage de capitale et élimination sont publics ; le détail des pertes
   // n'est donné qu'aux nations impliquées (voir journalEntry).
-  if (['difficulty-gold', 'bombardment', 'conquest', 'battle', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved', 'mystery-coowner-lost'].includes(event.type)) return true;
+  if (['difficulty-gold', 'bombardment', 'conquest', 'battle', 'assault', 'field-battle', 'capital-plunder', 'elimination', 'interception', 'game-over', 'talk', 'betrayal', 'reveal', 'alliance-broken', 'final-turns', 'auto-war', 'hostility-war', 'coalition-formed', 'coalition-joined', 'coalition-left', 'coalition-dissolved', 'mystery-coowner-lost'].includes(event.type)) return true;
   // V16.0 (Jack : « si jamais il y a une alliance entre deux pays quelconques, l'ensemble des nations sont au courant ») :
   // toute alliance conclue est publique.
   if (event.type === 'diplomatic-action' && event.action === 'alliance' && event.accepted === true) return true;
+  if (event.type === 'production-suspended') return false; // V17.5b : chantier suspendu, avis privé (le propriétaire est traité plus haut)
   if (event.type === 'hostility-warning') return false; // V14.2 : avertissement privé (le joueur concerné est traité plus haut)
   // V11 : un franchissement de seuil de tension n'est connu que s'il concerne le joueur (traité plus haut).
   if (event.type === 'tension') return false;
@@ -111,7 +114,7 @@ export function journalEntry(event, map, playerNationId = null) {
       const A = nationName(map, event.attacker), D = nationName(map, event.defender), from = provinceDef(map, event.fromId)?.name || '?';
       const ships = `${safeNum(event.warships)} navire${event.warships > 1 ? 's' : ''}`;
       const harbor = event.harbor ? ` Bataille devant le port : ${safeNum(event.harbor.attackerLost)} navire${event.harbor.attackerLost > 1 ? 's' : ''} perdu${event.harbor.attackerLost > 1 ? 's' : ''} par ${A}, ${safeNum(event.harbor.defenderLost)} par ${D}.` : '';
-      const fort = event.fortLevel > 0 ? ` Forteresse niveau ${event.fortLevel} : protection ${safeNum(event.protectionLeft)} % (−${safeNum(event.fortPct)} % de dégâts reçus au lieu de −${safeNum(event.fortFullPct)} %), pour ce tour ; elle se répare si le bombardement cesse.` : '';
+      const fort = event.fortLevel > 0 ? ` Forteresse niveau ${event.fortLevel} : protection ${safeNum(event.protectionLeft)} % (−${safeNum(event.fortPct)} % de dégâts reçus au lieu de −${safeNum(event.fortFullPct)} %), ${event.everyDays ? `ordre permanent, tir tous les ${safeNum(event.everyDays)} jours` : 'pour ce tour'} ; elle se répare si le bombardement cesse.` : '';
       const garrison = event.warshipsLeft > 0 ? (event.garrisonHp > 0 ? ` Garnison : ${safeNum(event.garrisonHp)} PV perdus (blessés).` : '') : ' La flotte d’attaque est coulée avant d’avoir pu tirer.';
       const mine = event.attacker === playerNationId, theirs = event.defender === playerNationId;
       return { priority: theirs ? 4 : 3, type: theirs ? '⚠ BOMBARDEMENT' : 'BOMBARDEMENT', category: theirs ? 'under-attack' : mine ? 'combat' : 'foreign-conflict', public:true,
@@ -126,6 +129,7 @@ export function journalEntry(event, map, playerNationId = null) {
       return { priority:2, type:'DÉBARQUEMENT', category:'neutral', text:`${event.returning ? 'Retour au port' : 'Convoi arrivé'} à ${where} : ${safeNum(event.amount)} unités débarquées en renfort.` };
     case 'convoy-returning': return { priority:2, type:'MARINE', category:'neutral', text: event.reason === 'repelled'
       ? `Débarquement repoussé à ${where} : ${safeNum(event.amount)} survivants rembarquent et rentrent à ${provinceDef(map,event.toId)?.name || 'leur port'} (${safeNum(event.turns)} tours).`
+      : event.reason === 'retreat' ? `Retraite à ${where} : ${safeNum(event.amount)} survivants rembarquent et rentrent à ${provinceDef(map,event.toId)?.name || 'leur port'}.`
       : event.reason === 'strike' ? `Après l’attaque du port de ${where}, la flotte rentre à ${provinceDef(map,event.toId)?.name || 'son port'} (${safeNum(event.turns)} tours).`
       : event.reason === 'ally' ? `Le convoi rentre à ${provinceDef(map,event.toId)?.name || 'son port'} (${safeNum(event.turns)} tours).`
       : `Plus de troupes à débarquer devant ${where} : les navires font demi-tour vers ${provinceDef(map,event.toId)?.name || 'leur port'}.` };
@@ -191,15 +195,43 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'coalition-dissolved': return { priority:5, type:'COALITION', category:'neutral', public:true,
       text: event.reason === 'eliminated' ? `${nationName(map,event.nationId)} a disparu : la coalition n’a plus d’objet.` : event.reason === 'deserted' ? `Plus personne ne fait front contre ${event.nationId === playerNationId ? 'vous' : nationName(map,event.nationId)} : la coalition est dissoute. Les guerres déjà ouvertes continuent.` : `${event.nationId === playerNationId ? 'Vous ne tenez' : `${nationName(map,event.nationId)} ne tient`} plus que ${safeNum(event.provinces)} provinces : la coalition est dissoute. Les guerres déjà ouvertes continuent.` };
     case 'game-over': return { priority:5, type:'FIN DE PARTIE', category: event.winnerId===playerNationId?'conquest':'foreign-conflict', public:true,
-      text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,
+      text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` :
+        // V17.8 : fins du temps réel (dernière nation debout, paix générale, dernier jour au classement à points).
+        event.reason==='last-nation' ? `${nationName(map,event.winnerId)} est la dernière nation debout : conquête du monde !` :
+        event.reason==='peace' ? `Paix générale : la partie s’arrête au classement actuel. ${nationName(map,event.winnerId)} termine en tête.` :
+        event.reason==='turn-limit' && Number.isFinite(event.day) ? `Le temps est écoulé : ${nationName(map,event.winnerId)} termine en tête du classement à points.` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,
         event.winnerId)} mène le classement.` : `Fin de la partie au tour ${safeNum(event.turn)} : ${nationName(map,event.winnerId)} termine en tête du classement.` };
-    case 'attack-cancelled': if (event.reason === 'passage-lost') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Passage vers ${where} annulé : l’alliance a été rompue. Vos troupes ne bougent pas${event.naval ? ' et le convoi rentre au port' : ''}.` };
+    // V17.2 : batailles en temps réel (3 assauts : J, J+3, J+6).
+    case 'assault': {
+      const atk = [...new Set(event.attackers?.length ? event.attackers : [event.attacker])].map(id => nationName(map, id)).join(' et ');
+      const mine = playerNationId !== null && [...(event.attackers || []), event.defender].includes(playerNationId);
+      const next = event.captured ? ` ${nationName(map, event.newOwnerId)} prend la province.` : event.over ? ' La bataille est terminée.' : ` Prochain assaut le ${formatDate(event.nextAssaultDay + 1)}.`;
+      return { priority: event.defender === playerNationId && playerNationId !== null ? 4 : 3, type: `⚔ ASSAUT ${safeNum(event.assault)}/${safeNum(event.assaults)}`, category: mine ? (event.defender === playerNationId ? 'under-attack' : 'combat') : 'foreign-conflict', public: true,
+        text: `⚔ Bataille de ${where}, assaut ${safeNum(event.assault)}/${safeNum(event.assaults)} : ${atk} contre ${nationName(map, event.defender)}${mine ? ` (PV perdus : assaillants ${safeNum(event.attackerHpLost)}, défenseurs ${safeNum(event.defenderHpLost)})` : ''}.${next}` };
+    }
+    case 'battle-reinforced': return { priority:3, type:'⚔ RENFORTS', category: event.nationId === playerNationId ? 'combat' : event.defender === playerNationId ? 'under-attack' : 'foreign-conflict',
+      text:`Renforts ${deName(nationName(map, event.nationId))} à la bataille de ${where} : ${safeNum(event.amount)} unités rejoignent l’assaut ${safeNum(event.assault)}/${safeNum(event.assaults)}.` };
+    case 'battle-retreat': {
+      const to = provinceDef(map, event.toId)?.name || 'leur base', when = event.arriveDay ? `, arrivée le ${formatDate(event.arriveDay)}` : '';
+      const why = event.reason === 'retreat' ? 'retraite ordonnée' : event.reason === 'peace' ? 'la guerre est finie' : event.reason === 'captured' ? 'la province est prise par un autre' : event.reason === 'owner-changed' ? 'la province a changé de main' : 'assaut repoussé';
+      return { priority:2, type:'⚔ REPLI', category: event.nationId === playerNationId ? 'combat' : 'neutral',
+        text:`Bataille de ${where} (${why}) : ${safeNum(event.amount)} survivants ${deName(nationName(map, event.nationId))} ${event.naval ? 'rembarquent et rentrent' : 'rentrent'} à ${to}${when}.` };
+    }
+    case 'bombard-ordered': return { priority:2, type:'BOMBARDEMENT', category:'combat',
+      text:`Ordre permanent : ${safeNum(event.warships)} navire${event.warships > 1 ? 's' : ''} de ${provinceDef(map, event.fromId)?.name || '?'} bombarderont ${where} tous les ${safeNum(event.everyDays)} jours, jusqu’à la paix, la prise ou l’annulation.` };
+    case 'bombard-stopped': return { priority:2, type:'BOMBARDEMENT', category:'neutral',
+      text:`Bombardement de ${where} arrêté : ${({ cancelled: 'ordre annulé', peace: 'plus en guerre', 'no-ships': 'plus de navires à quai', captured: 'la province est prise', 'no-fort': 'plus de forteresse', 'port-lost': 'port de départ perdu', 'no-route': 'plus de route maritime' })[event.reason] || 'ordre terminé'}.` };
+    case 'attack-cancelled': if (event.reason === 'besieged') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Départ de ${provinceDef(map,event.fromId)?.name || '?'} impossible : la province est assiégée, ses défenseurs ne peuvent pas la quitter tant que la bataille dure.` };
+      if (event.reason === 'passage-lost') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Passage vers ${where} annulé : l’alliance a été rompue. Vos troupes ne bougent pas${event.naval ? ' et le convoi rentre au port' : ''}.` };
       if (event.reason === 'ally-land') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Attaque vers ${where} annulée : pas de guerre entre alliés.` };
       if (event.reason === 'ceasefire') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : un cessez-le-feu a été conclu pendant la traversée. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
       if (event.reason === 'ally') return { priority:2, type:'ORDRE ANNULÉ', category:'neutral', text:`Débarquement à ${where} annulé : la province appartient à un allié. Le convoi rentre à ${provinceDef(map,event.fromId)?.name || 'son port'}.` };
       return { priority:2, type:'ORDRE ANNULÉ', category:'neutral',
         text: event.reason === 'target-changed' ? `Attaque vers ${where} annulée : la province a changé de main avant l’arrivée des troupes, qui rentrent à ${provinceDef(map,
         event.fromId)?.name || 'leur base'}.` : `Attaque vers ${where} annulée : la province de départ ${provinceDef(map,event.fromId)?.name || ''} est tombée avant le départ des troupes.` };
+    case 'production-held': return { priority:2, type:'production', category:'neutral', text:`${where} est assiégée : recrues (${(RULES.units[event.productionType]?.label || 'troupes').toLowerCase()}) livrées à la fin de la bataille (remboursés si la province tombe).` };
+    case 'lighthouse': return { priority:3, type:'PHARE', category:'warning', text:`🗼 Flotte de ${nationName(map,event.target)} en route vers l’île mystérieuse, arrivée le ${Number.isFinite(event.arriveDay) ? formatDate(event.arriveDay) : 'bientôt'}.` };
+    case 'production-suspended': return { priority:2, type:'production', category:'neutral', text:`${where} est attaquée : chantier (${({ bank:'banque', factory:'usine', fort:'forteresse', port:'port', farm:'ferme', balloon:'ballon d’observation' })[event.productionType] || 'bâtiment'}) suspendu jusqu’à la fin de la bataille.` };
     case 'production-lost': if (event.reason === 'max') return { priority:2, type:'production', category:'neutral', text:`Ballon d’observation non livré à ${where} : vous avez déjà le maximum de ballons. ${safeNum(event.refund)} or remboursés.` };
       return { priority:2, type:'production', category:'lost', text:`Production perdue à ${where} (province prise) : ${RULES.units[event.productionType]?.label || ({
       bank:'banque',factory:'usine',fort:'forteresse',port:'port',balloon:'ballon d’observation'})[event.productionType] || 'commande'} annulée, ${safeNum(event.refund)} or remboursés.` };
@@ -296,8 +328,8 @@ function aggregateEntries(entries) {
   return [...merged.values()];
 }
 export function buildTurnJournal(state, map, fromIndex = state.lastJournalEventIndex || 0) {
-  const priority = new Set(['difficulty-gold','bombardment','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
-    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-lost','retreat-lost','interception','convoy-arrived',
+  const priority = new Set(['difficulty-gold','bombardment','assault','battle-reinforced','battle-retreat','bombard-ordered','bombard-stopped','hostility-warning','hostility-war','auto-war','convoy-rerouted','stationed-recalled','stationed-lost','final-turns','income','battle','conquest',
+    'field-battle','diplomacy','diplomatic-action','ceasefire-offer','war-chest','capital-plunder','elimination','attack-cancelled','production-held','production-suspended','lighthouse','production-lost','retreat-lost','interception','convoy-arrived',
     'coalition-formed','coalition-joined','coalition-left','coalition-dissolved','convoy-departed','convoy-returning','game-over','talk','betrayal','reveal','tension','alliance-broken','help-answer','help-broken','help-ended','movement','balloon-report','balloon-moved','balloon-spotted','balloon-shot','mystery-coowner-lost']);
   const entries = aggregateEntries(state.events.slice(fromIndex).filter(e => priority.has(e.type) && (e.type !== 'movement' || e.passage) && eventKnownToPlayer(state,map,e)).map(e => journalEntry(e,map,state.playerNationId)).filter(Boolean)).sort((a,b)=>b.priority-a.priority);
   state.lastJournalEventIndex = state.events.length; state.turnJournal = entries; state.journal = entries;

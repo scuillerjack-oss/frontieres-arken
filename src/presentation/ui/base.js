@@ -4,8 +4,8 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 
 export const $ = selector => document.querySelector(selector), SVG = 'http://www.w3.org/2000/svg';
 export const unitKeys = { infantry:'Infanterie', cavalry:'Cavalerie', armor:'Blindés', artillery:'Artillerie', warship:'Navires' };
-export const buildingNames = { bank:'Banque', factory:'Usine', fort:'Forteresse', port:'Port' };
-export const icons = { bank:'▦', factory:'⚒', fort:'▣', port:'⚓' };
+export const buildingNames = { bank:'Banque', factory:'Usine', fort:'Forteresse', port:'Port', farm:'Ferme' };
+export const icons = { bank:'▦', factory:'⚒', fort:'▣', port:'⚓', farm:'🌾' }; // V17.4 : ferme (temps réel)
 // V16.2 : la garnison neutre de l'île mystérieuse (propriétaire null) a un nom et une couleur.
 const NEUTRAL = Object.freeze({ id:null, short:'Neutre', name:'Garnison neutre', color:'#a39d92' });
 export const nation = id => id === null ? NEUTRAL : map.nations.find(n => n.id === id) || { short:'Nation inconnue', name:'Nation inconnue' };

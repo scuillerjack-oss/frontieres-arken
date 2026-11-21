@@ -86,7 +86,7 @@ test('V10 point 8 : prérequis du navire de guerre affichés en clair', () => {
   assert.equal(unitPrerequisiteText(warship, { factory: 1, port: 1 }), '');
   assert.equal(unitPrerequisiteText(RULES.units.armor, {}), 'Blindés : nécessite une usine dans cette province');
   assert.equal(unitPrerequisiteText(RULES.units.infantry, {}), '');
-  assert.deepEqual(missingUnitPrerequisites(warship, { factory: 1 }, { port: 2 }), ['un port (en construction, 2 tours)']);
+  assert.deepEqual(missingUnitPrerequisites(warship, { factory: 1 }, { port: 60 }), ['un port (en construction, encore 60 jours)']); // V17.9 : file en jours
 });
 
 test('V10 point 8 : raisons en clair pour une construction indisponible', () => {
@@ -140,16 +140,16 @@ test('V10 : nouvelles catégories du journal stylées (pillage, élimination, af
   for (const e of events) assert.notEqual(journalCategoryClass(journalEntry(e, map, 'valmorne').type), 'neutral', e.type);
 });
 
-test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 2 tours, interception, escorte ; V14.2 : 85 %)', () => {
+test('V13.2 : aide « maritime » courte et juste (anneau, point de port, 40 jours (V17.9), interception, escorte ; V14.2 : 85 %)', () => {
   const text = TUTORIAL_GUIDE.find(x => x.id === 'maritime').text;
   assert.match(text, /anneau/);
   assert.match(text, /point de port ⚓ que vous possédez/);
-  assert.match(text, /2 tours/);
+  assert.match(text, /40 jours de mer/); // V17.9 : temps réel
   assert.match(text, /port \+ usine/);
-  assert.match(text, /intercepter/);
+  assert.match(text, /intercepté/);
   assert.match(text, /escorter/);
   assert.match(text, /85 %/);
   // Retour de Jack : plus de pavé illisible.
   for (const x of TUTORIAL_GUIDE) assert.ok(x.text.length <= 280, `${x.id} : ${x.text.length} caractères`);
-  assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /80 tours/.test(x.text)));
+  assert.ok(TUTORIAL_GUIDE.some(x => x.id === 'endgame' && /15 ans \(fin le 31 décembre 2041\)/.test(x.text))); // V17.9 : temps réel
 });

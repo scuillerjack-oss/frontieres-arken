@@ -2,7 +2,7 @@
   "id": "./",
   "name": "FRONTIÈRES: ARKEN",
   "short_name": "ARKEN",
-  "description": "Jeu de stratégie au tour par tour : ordonnez pendant le tour, résolvez à l’inter-tour.",
+  "description": "Jeu de stratégie en temps réel : 5 nations, une carte, le temps avance pour tous à la fois.",
   "lang": "fr",
   "start_url": "./?source=pwa",
   "scope": "./",

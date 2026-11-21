@@ -23,7 +23,7 @@ export {
   foreignBalloonsOver, islandNeighbors, islandProvinces, pendingBalloonOrders, queueBalloonBuild, queueBalloonSend,
   queueBalloonShoot, visibleBalloons
 } from './engine/balloons.js';
-export { bombardPreview, bombardStatus, bombardTargets, fortBreach, queueBombard } from './engine/bombard.js';
+export { bombardPreview, bombardStatus, bombardTargets, cancelBombardOrder, fortBreach, queueBombard } from './engine/bombard.js';
 export { SHIP_FIELD_REPAIR, SHIP_REPAIR_TURNS, shipRepairInfo, shipRepairTurnsFor } from './engine/recovery.js';
 export { NAVAL_IDLE_CAP, NAVAL_STRIKE_MARGIN } from './engine/ai-naval.js';
 export { STATION_MIN_TURNS } from './engine/ai-help.js';
@@ -35,3 +35,19 @@ export {
 export { capitalsVictor, checkGameOver, gameRanking, nextTurn, resolveInterturn } from './engine/turn.js';
 
 
+// V17.1 : temps réel (src/domain/realtime/, docs/V17-cahier-des-charges.md).
+export { advanceDay, advanceDays, executePendingOrders } from './realtime/day.js';
+export {
+  aiNationOfDay, dateOfDay, dayOfDate, endAlertDays, formatDate, formatShortDate, gameDaysOf, gamePeriodsOf, isRealtime, periodOfDay
+} from './realtime/clock.js';
+export { landTravelDays, recallConvoy, recallMarch } from './realtime/marches.js';
+export { createRealtimeGame } from './realtime/create.js';
+// V17.8 : fin de partie et classement à points du temps réel.
+export { famineTotal, nationScore, nextRankingDay, noFamineDays, rankingSnapshot, realtimeRanking, refreshRanking, troopGold } from './realtime/ranking.js';
+export { aliveNations, allAllied, answerPeaceOffer, combatBetweenAlive, dailyEnd, endRealtimeGame, peaceDays, peaceOfferPending } from './realtime/end.js';
+export { FARM_IN_PROGRESS, FARM_REALTIME_ONLY } from './engine/orders.js';
+export {
+  aiFarmOrders, dailyFood, desertion, farmCost, farmLevel, fireFactorFor, foodConsumption, foodOf, foodProduction, foodStatus,
+  granaryOf, provinceFoodHundredths, rationOf
+} from './realtime/food.js';
+export { battleAt, battleForecast, battleSummary, battlesOf, besieged, retreatFromBattle } from './realtime/battles.js';

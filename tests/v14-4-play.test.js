@@ -92,11 +92,11 @@ test('V14.4 pubs Play : refus d\'une pub proposée = aucune pub imposée derriè
 
 test('V14.4 pubs : app.js ne demande une pub qu\'avant une nouvelle partie (hors tutoriel) ou sur clic du joueur dans le menu', () => {
   const app = readSource('app.js');
-  const starts = [...app.matchAll(/showGameStartAd\(/g)];
-  assert.equal(starts.length, 1);
-  assert.match(app, /showGameStartAd\(\{profile,inTutorial:isTutorial\(state\)\|\|shouldStartMiniTuto\(\)\}\)/);
-  // Deux pubs récompensées, toutes deux sur clic du joueur : la mission du jour et la pub bonus (V14.4, validée par Jack).
-  assert.equal([...app.matchAll(/showRewardedAd\(/g)].length, 2);
+  // V17.7 : plus de pub de début de partie (cahier V17 §10.2) ; la pub imposée passe seulement par calmMoment (ad-ui.js).
+  assert.equal([...app.matchAll(/showGameStartAd\(/g)].length, 0);
+  assert.equal([...app.matchAll(/showForcedAd\(/g)].length, 1);
+  // Trois pubs récompensées, toutes sur geste du joueur : la mission du jour, la pub bonus (V14.4) et l'icône 🎁 (V17.7).
+  assert.equal([...app.matchAll(/showRewardedAd\(/g)].length, 3);
   assert.match(app, /data-bonus-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub bonus pendant le tutoriel');
   assert.match(app, /data-watch-ad\]'\)\?\.addEventListener\('click',async e=>\{if\(tutoStep!==null\)/, 'pas de pub récompensée pendant le tutoriel');
   for (const f of ['src/domain/game-engine.js', 'src/presentation/tutorial.js']) assert.doesNotMatch(readSource(f), /ads\.js|showGameStartAd|showRewardedAd/);
@@ -218,8 +218,8 @@ test('V14.4 achats Play : restauration sans double crédit (même commande rendu
 });
 
 test('V14.4 achats : identifiants produits fixés, jamais d\'or ni de troupes, Pack débutant non consommable', () => {
-  assert.deepEqual(PRODUCTS.map(p => p.id), ['pack_debutant', 'jetons_1', 'jetons_5', 'jetons_12']);
-  assert.deepEqual(PRODUCTS.map(p => p.oneTime), [true, false, false, false]);
+  assert.deepEqual(PRODUCTS.map(p => p.id), ['premium', 'pack_debutant', 'jetons_1', 'jetons_5', 'jetons_12']); // V17.7 : + premium
+  assert.deepEqual(PRODUCTS.map(p => p.oneTime), [true, true, false, false, false]);
   for (const p of PRODUCTS) for (const k of Object.keys(p.grants)) assert.ok(ALLOWED_GRANTS.includes(k));
   const sortie = read('docs/SORTIE-ARKEN.md');
   for (const id of ['pack_debutant', 'jetons_1', 'jetons_5', 'jetons_12']) assert.match(sortie, new RegExp('`' + id + '`'));

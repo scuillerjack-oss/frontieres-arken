@@ -15,6 +15,8 @@ import { isPortPoint, seaDestinations } from './sea-routes.js';
 import { pairTreaty, pairWar, provinceDef } from './shared.js';
 import { MYSTERY_ISLAND_ID, isMysteryIsland } from '../mystery-island.js';
 import { garrisonForce } from '../passage.js';
+import { incomingThreat, notePace, paceReady } from '../realtime/ai-schedule.js';
+import { isRealtime } from '../realtime/clock.js';
 
 // --- IA maritime (V9, corrige B11) -------------------------------------------------------------
 // Uniquement avec les mécaniques V6 : ports (une route n'est ouverte que si ses deux ports sont construits),
@@ -31,10 +33,13 @@ const hostileTo = (state, nationId, owner) => owner && owner !== nationId && !pa
 export const landThreat = (map, state, nationId, id) => combatValue(landThreatForce(map, state, nationId, id) || normalizeForce({}));
 /** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat).
  *  V13 : telle que `nationId` la voit (troupes invisibles ou retranchées : estimation prudente). */
-export function landThreatForce(map, state, nationId, id) {
+export function landThreatForce(map, state, nationId, id, except = null) {
   const seen = visibleProvinces(state, map, nationId);
-  const forces = (provinceDef(map, id)?.landConnections || []).filter(n => hostileTo(state, nationId, state.provinces[n]?.ownerId))
+  const forces = (provinceDef(map, id)?.landConnections || []).filter(n => n !== except && hostileTo(state, nationId, state.provinces[n]?.ownerId))
     .map(n => { const f = perceivedForce(state, map, nationId, n, seen); f.units.warship = 0; f.wounds.warship = 0; return f; });
+  // V17.5 : en temps réel, les armées hostiles VISIBLES qui marchent sur la province sont aussi une menace (ai-schedule.js).
+  const coming = state.marches?.length ? incomingThreat(state, map, nationId, id, seen) : null;
+  if (coming) forces.push(coming.force);
   return forces.sort((a, b) => combatValue(b) - combatValue(a))[0] || null;
 }
 // Base navale : point de port possédé, de préférence déjà équipé (construit ou en chantier : choix stable),
@@ -45,8 +50,18 @@ export function navalBase(map, state, owned) {
   const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
   const capital = state.nations[nationId]?.capitalId, home = chance(state, 'base-home', nationId) < (RULES.ai.baseAtCapital[archetypeOf(state, nationId)] || 0), atCapital = p => home && p.id === capital ? 1 : 0;
   // V16.2 : l'île mystérieuse n'est jamais la base navale (on n'y construit ni port ni usine).
-  return owned.filter(p => isPortPoint(map, p.id) && !isMysteryIsland(p.id))
-    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
+  const sorted = owned.filter(p => isPortPoint(map, p.id) && !isMysteryIsland(p.id))
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id));
+  // V17.9b (temps réel) : entre points de port équivalents (côtes visées de défense voisine), choix à la graine de la partie
+  // et non plus par ordre alphabétique — sinon Solmara garde toujours sa base face à Roc-Épine et Noireflamme n'est jamais menacée.
+  const R = RULES.realtime.ai;
+  if (sorted.length > 1 && isRealtime(state) && R.baseTieBreak) {
+    const best = sorted[0], close = p => score(p) === score(best) && seaRouteCount(map, p.id) === seaRouteCount(map, best.id) && atCapital(p) === atCapital(best)
+      && across(p) <= across(best) * (1 + R.baseTieSpread);
+    const ties = sorted.filter(close);
+    if (ties.length > 1) return ties[Math.floor(chance(state, 'base-tie', nationId) * ties.length)];
+  }
+  return sorted[0] || null;
 }
 export function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null, focus = new Set()) {
   const treasury = () => state.nations[nationId].treasury;
@@ -65,7 +80,9 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     const seaUse = owned.filter(p => isPortPoint(map, p.id)).some(p => seaDestinations(map, p.id).some(d => { const o = state.provinces[d.id]?.ownerId; return o && o !== nationId && (pairWar(state, nationId, o) || canAttack(o) || focus.has(o)); }));
     const cap = Math.min(30, seaUse ? (arch === 'batisseur' ? 2 : 4) + Math.floor(state.turn / 8) : NAVAL_IDLE_CAP);
     const lots = treasury() >= 400 ? 2 : 1;
-    if (fleet < cap && treasury() >= RULES.units.warship.cost * lots + (arch === 'conquerant' ? 0 : 20)) queueRecruitment(state, { nationId, provinceId: base.id, type: 'warship', lots });
+    // V17.5 : en temps réel, un achat de navires au plus par fenêtre de RULES.realtime.ai.pace.ship jours.
+    if (fleet < cap && paceReady(state, nationId, 'ship') && treasury() >= RULES.units.warship.cost * lots + (arch === 'conquerant' ? 0 : 20)
+      && queueRecruitment(state, { nationId, provinceId: base.id, type: 'warship', lots }).ok) notePace(state, nationId, 'ship');
   }
   // 3. Ports secondaires quand le trésor le permet (plus de routes ouvertes = plus d'options).
   if (baseState.buildings.port && treasury() >= RULES.buildings.port.cost + 20 && (arch !== 'conquerant' || (baseState.warships || 0) >= 3)) {
@@ -77,7 +94,10 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
   const seaLinks = owned.filter(p => isPortPoint(map, p.id)).flatMap(p => seaDestinations(map, p.id).map(d => ({ from: p, to: d.id, via: d.via, turns: d.turns, owner: state.provinces[d.id].ownerId })));
   // 4. Débarquement escorté : au plus un nouveau par tour, et au plus RULES-libre 2 invasions en mer à la fois.
   const invasionsAtSea = (state.transports || []).filter(t => t.nationId === nationId && !t.returning && state.provinces[t.toId]?.ownerId !== nationId).length;
-  if (invasionsAtSea < 2) {
+  // V17.5 : en temps réel, un nouveau débarquement au plus par fenêtre de RULES.realtime.ai.pace.landing jours.
+  // V17.5b : le Conquérant débarque plus souvent (fenêtre landingPace) et accepte un débarquement plus serré.
+  const bold = isRealtime(state) && arch === 'conquerant', P = RULES.realtime.ai.personality.conquerant;
+  if (invasionsAtSea < 2 && paceReady(state, nationId, 'landing', bold ? P.landingPace : undefined)) {
     const targets = seaLinks.filter(x => x.owner && x.owner !== nationId && (hostileTo(state, nationId, x.owner) || arch === 'traitre' || arch === 'conquerant') && canAttack(x.owner) && !(state.transports || []).some(t => t.nationId === nationId && t.toId === x.to))
       .map(x => ({ ...x, atWar: pairWar(state, nationId, x.owner) }));
     // V13 : les nations visées au titre d'une aide promise à un allié passent en premier.
@@ -91,7 +111,7 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
     const busy = owner => Object.keys(state.nations).some(n => n !== nationId && n !== owner && pairWar(state, owner, n));
     // V15.1 : tard dans la partie, une côte qu'on ne voit pas est sûrement bien plus garnie que l'estimation prudente.
     const seenCoasts = visibleProvinces(state, map, nationId), blind = x => (state.turn >= scaleTurn(state, RULES.ai.lateTurn) && !seenCoasts.has(x.to) && map.provinces.filter(p => state.provinces[p.id].ownerId === x.owner).length > 2 ? RULES.ai.lateBlindFactor : 1);
-    const margin = (x) => blind(x) * ((x.atWar ? Math.max(1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
+    const margin = (x) => blind(x) * ((x.atWar ? Math.max(bold ? P.landingWarFloor : 1.1, threshold - .2) : threshold) + (isCap(x.to) ? (busy(x.owner) ? RULES.ai.capitalBusyMargin : RULES.ai.capitalLandingMargin) : RULES.ai.landingExtraMargin) + .05 * (x.turns - RULES.naval.minTurns));
     let launched = false;
     for (const x of targets) {
       const warships = availableForces(state, x.from.id).warships;
@@ -100,7 +120,7 @@ export function aiNavalOrders(state, map, nationId, owned, base, threshold, canA
       if (!warships && navalThreat(state, nationId, x.from.id, x.via, map) > 0) continue;
       // V10 : simulation de l'interception éventuelle au port d'arrivée, puis du débarquement (mode 'landing').
       const units = aiAttackSlice(state, map, nationId, x.from.id, x.to, margin(x), 'landing', warships, x.via);
-      if (units) { launched = queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }).ok; break; }
+      if (units) { launched = queueMoveOrder(state, map, { nationId, fromId: x.from.id, toId: x.to, units, warships }).ok; if (launched) notePace(state, nationId, 'landing'); break; }
     }
     // V13 : rassemblement. On ne débarque qu'au point de port au bout de la route : quand l'armée (souvent sur la
     // base navale) est sur un autre point de port, elle rejoint par la terre le point de port d'où partira l'invasion,

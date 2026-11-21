@@ -172,12 +172,12 @@ export function trimPolyline(points, startGap = 0, endGap = 0) {
 }
 
 // Recrutement : prérequis manquants en clair, d'après RULES.units (requiresFactory, requiresPort).
-// pending = bâtiments déjà commandés dans la province (ex. { factory: 2 } = usine livrée dans 2 tours).
+// pending = bâtiments déjà commandés dans la province (ex. { factory: 60 } = usine livrée dans 60 jours).
 export function missingUnitPrerequisites(rule, buildings = {}, pending = {}) {
   const missing = [];
   const need = (flag, key, label) => {
     if (!flag || buildings[key]) return;
-    missing.push(pending[key] ? `${label} (en construction, ${pending[key]} tour${pending[key] > 1 ? 's' : ''})` : label);
+    missing.push(pending[key] ? `${label} (en construction, encore ${pending[key]} jour${pending[key] > 1 ? 's' : ''})` : label); // V17.9 : temps réel (file en jours)
   };
   need(rule.requiresFactory, 'factory', 'une usine');
   need(rule.requiresPort, 'port', 'un port');
@@ -198,6 +198,9 @@ export function buildingUnavailableReason({ type, label, rule = {}, count = 0, b
   if (type === 'fort' && Array.isArray(rule.costs) && count >= rule.costs.length) return `${label} : niveau maximal atteint (${rule.costs.length} sur ${rule.costs.length}, en comptant les niveaux en construction)`;
   // V13.3 : un seul niveau de forteresse à la fois.
   if (type === 'fort' && built !== null && count > built) return `${label} : niveau ${built + 1} en construction, attendez qu’il soit terminé`;
+  // V17.4 : la ferme, 5 niveaux, un à la fois.
+  if (type === 'farm' && Array.isArray(rule.costs) && count >= rule.costs.length) return `${label} : niveau maximal atteint (${rule.costs.length} sur ${rule.costs.length}, en comptant le niveau en construction)`;
+  if (type === 'farm' && built !== null && count > built) return `${label} : un niveau est déjà en construction, attendez qu’il soit terminé`;
   if (Number.isFinite(rule.max) && count >= rule.max) return `${label} : ${rule.max} maximum par province (déjà construite ou en construction)`;
   if (cost > spendable) return `${label} : trésor insuffisant (il manque ${cost - spendable} or)`;
   return '';

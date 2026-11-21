@@ -18,6 +18,9 @@ import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { aliveNations } from '../leaders.js';
 import { MYSTERY_ISLAND_ID, isMysteryIsland } from '../mystery-island.js';
 import { garrisonForce } from '../passage.js';
+import { lighthouseFleets, prudentEstimate } from '../vision.js';
+import { isRealtime } from '../realtime/clock.js';
+import { seaDuration } from './convoys.js';
 import { aiAttackSlice, aiMemory, holds } from './ai.js';
 import { landThreatForce, navalThreat } from './ai-naval.js';
 import { recentTruce } from './diplomacy.js';
@@ -91,7 +94,7 @@ export function aiIslandOrders(state, map, nationId, targets, threshold) {
   if (agreed) {
     const theirs = allyForce(agreed);
     if (theirs && takesIsland(state, mergeForce(myForce, theirs), margin) && queueMoveOrder(state, map, { nationId, fromId: from.id, toId: MYSTERY_ISLAND_ID, units: mine, warships }).ok) { mem.islandTry = state.turn; return; }
-  } else if (state.turn - (mem.islandAsk ?? -99) >= ASK_EVERY && !(state.orders || []).some(o => o.kind === 'help' && o.status === 'pending' && o.nationId === nationId)) {
+  } else if (state.turn - (mem.islandAsk ?? -99) >= ASK_EVERY && !(state.orders || []).some(o => o.kind === 'help' && (o.status === 'pending' || o.status === 'awaiting') && o.nationId === nationId)) {
     // Demande « Prends l'île avec moi » à l'allié dont l'armée, ajoutée à la sienne, suffirait.
     const ally = allies.find(a => { const f = allyForce(a); return f && takesIsland(state, mergeForce(myForce, f), margin); });
     if (ally && queueHelpRequest(state, { from: nationId, to: ally, kind: 'island' }).ok) { mem.islandAsk = state.turn; return; }
@@ -109,13 +112,27 @@ export function aiIslandOrders(state, map, nationId, targets, threshold) {
   const r = queueMoveOrder(state, map, { nationId, fromId: donor, toId: from.id, units: moved });
   if (r.ok) state.orders.find(o => o.id === r.orderId).staging = MYSTERY_ISLAND_ID;
 }
+/**
+ * V17.5b : le phare (vision.js lighthouseFleets) signale une flotte hostile en route vers l'île que la garnison ne tiendrait
+ * pas (composition vue, sinon estimation prudente de sa province de départ) : { arriveDay } de la première, sinon null.
+ */
+function lighthouseAlarm(state, map, nationId) {
+  const hostile = lighthouseFleets(state, map, nationId).filter(f => !f.ally && !f.passage && Number.isFinite(f.arriveDay));
+  if (!hostile.length) return null;
+  const force = hostile.reduce((acc, f) => mergeForce(acc, f.known ? normalizeForce({ units: { ...f.units, warship: f.warships } }) : prudentEstimate(state, f.fromId)), normalizeForce({}));
+  if (holds(garrisonForce(state, MYSTERY_ISLAND_ID), scaleForce(force, 1 / .9), 0)) return null; // holds() simule déjà l'attaquant à 90 %
+  return { arriveDay: Math.min(...hostile.map(f => f.arriveDay)) };
+}
 /** Propriétaire de l'île : renforts depuis le point de port relié quand la garnison est trop faible. */
 function reinforceIsland(state, map, nationId) {
-  if (combatValue(garrisonForce(state, MYSTERY_ISLAND_ID)) >= combatValue({ units: { infantry: MI.aiMinGarrison } })) return;
+  const alarm = lighthouseAlarm(state, map, nationId);
+  if (!alarm && combatValue(garrisonForce(state, MYSTERY_ISLAND_ID)) >= combatValue({ units: { infantry: MI.aiMinGarrison } })) return;
   if (pendingTo(state, nationId, MYSTERY_ISLAND_ID) || sailingTo(state, nationId, MYSTERY_ISLAND_ID)) return;
   for (const from of islandLaunchPoints(state, map, nationId)) {
     const warships = escortFor(state, map, nationId, from);
     if (warships === null) continue;
+    // V17.5b : alerte du phare — un renfort qui arriverait après la flotte ennemie ne sert à rien.
+    if (alarm && isRealtime(state) && state.day + seaDuration(state, from.turns) > alarm.arriveDay) continue;
     const units = unitsOf(availableForces(state, from.id), .4);
     if (!anyUnits(units) || combatValue({ units }) < combatValue({ units: { infantry: 40 } }) || !keepsHome(state, map, nationId, from.id, units)) continue;
     if (queueMoveOrder(state, map, { nationId, fromId: from.id, toId: MYSTERY_ISLAND_ID, units, warships }).ok) return;

@@ -96,7 +96,9 @@ test('le cas du dominant : guerre → trêve en exigeant de l\'or → guerre aus
 
 test('IA : un Conquérant attend 10 tours avant de rompre une trêve ; s\'il la rompt plus tôt, c\'est une trahison', () => {
   const src = readSource('src/domain/game-engine.js');
-  assert.match(src, /state\.turn - t\.started >= TRUCE_BETRAYAL_TURNS/, 'le choix de la proie respecte la trêve 10 tours');
+  // V17.5b : en temps réel, le Conquérant rompt une trêve plus tôt (4 à 8 périodes, tiré à la graine : trahison publique) ;
+  // au tour par tour, toujours 10 tours.
+  assert.match(src, /archetypeOf\(state, id\) === 'conquerant' \? between\(.*\) : TRUCE_BETRAYAL_TURNS;\s*return state\.turn - t\.started >= limit;/, 'le choix de la proie respecte la trêve 10 tours');
   // Une IA qui attaque pendant une trêve récente : même règle que le joueur (le moteur ne distingue pas).
   const s = freshState({ allHuman: true });
   s.controllers['roc-epine'] = 'ai';
@@ -123,7 +125,7 @@ test('fenêtre avant de rompre : la déclaration de guerre et l\'attaque le dise
   assert.match(truceWarning(s, 'valmorne', 'roc-epine', 'Roc-Épine'), /signée avec Roc-Épine ce tour-ci/);
   const app = readSource('app.js');
   assert.match(app, /war:`Déclarer la guerre[^`]*\$\{truceWarning\(state,state\.playerNationId,target/, 'Diplomatie → Déclarer la guerre');
-  assert.match(app, /const truceNote=attack&&truceWarning\(/, 'préparation d\'une attaque');
+  assert.match(app, /const truceText=\(\)=>\{const t=truceWarning\(state,state\.playerNationId,to\.ownerId[^\n]*truceNote=attack&&truceText\(\)/, 'préparation d\'une attaque (V17.3 : relu en jours en temps réel)');
   assert.match(app, /Trésor après ordre[^\n]*truceNote\?/, 'confirmation de l\'attaque');
   assert.match(read('sw.js'), /truce-warning\.js/);
 });

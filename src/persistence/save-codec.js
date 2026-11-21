@@ -1,4 +1,4 @@
-import { SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES, saveSchemaOf } from '../domain/constants.js';
+import { REALTIME_SCHEMA_VERSION, SAVE_SCHEMA_VERSION, SHORT_GAME_SCHEMA_VERSION, LAND_UNIT_TYPES, RULES, saveSchemaOf } from '../domain/constants.js';
 import { SHORT_GAME_LENGTH } from '../domain/game-length.js';
 import { storyFromOldSave } from '../domain/story.js';
 import { ensureLeaders, initialTension, ARCHETYPE_TO_LEGACY_TRAIT } from '../domain/leaders.js';
@@ -99,6 +99,8 @@ export function migrateSave(raw) {
 function migrateSchema(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('invalid_save');
   const copy = structuredClone(raw);
+  // V17.1 : schéma 13 = partie en temps réel (champs du temps réel complétés s'ils manquent : sauvegarde abîmée).
+  if (copy.schemaVersion === REALTIME_SCHEMA_VERSION) return completeRealtime(copy);
   // V15.4 : schéma 12 = Partie courte. Une longueur illisible redevient 80 tours (absence de `gameLength`, schéma 11).
   if (copy.schemaVersion === SHORT_GAME_SCHEMA_VERSION) {
     if (copy.gameLength !== SHORT_GAME_LENGTH) { delete copy.gameLength; copy.schemaVersion = SAVE_SCHEMA_VERSION; }
@@ -130,3 +132,33 @@ function migrateSchema(raw) {
 }
 export const encodeSave = state => JSON.stringify({ ...state, schemaVersion: saveSchemaOf(state) });
 export const decodeSave = text => migrateSave(JSON.parse(text));
+
+// --- V17.1 : temps réel (docs/V17-cahier-des-charges.md §11) --------------------------------------------------------
+function completeRealtime(copy) {
+  copy.mode = 'realtime';
+  if (copy.gameLength !== SHORT_GAME_LENGTH) delete copy.gameLength;
+  copy.day = Math.max(1, Math.floor(Number(copy.day) || 1));
+  for (const n of Object.values(copy.nations || {})) n.goldCarry = Math.max(0, Math.floor(Number(n.goldCarry) || 0));
+  copy.marches = Array.isArray(copy.marches) ? copy.marches : [];
+  copy.marchSequence = Math.max(1, Number(copy.marchSequence) || 1);
+  copy.battles = Array.isArray(copy.battles) ? copy.battles : [];
+  copy.bombardOrders = Array.isArray(copy.bombardOrders) ? copy.bombardOrders : [];
+  copy.endOffer = copy.endOffer && typeof copy.endOffer === 'object' ? copy.endOffer : { peaceSince: null, nextOfferDay: null };
+  copy.rt = copy.rt && typeof copy.rt === 'object' ? copy.rt : {};
+  return copy;
+}
+/** Une sauvegarde (objet brut ou décodé) est-elle une partie en temps réel ? */
+export const isRealtimeSave = raw => Boolean(raw && typeof raw === 'object' && (raw.schemaVersion === REALTIME_SCHEMA_VERSION || raw.mode === 'realtime'));
+/** Message affiché quand la partie en cours a été jouée au tour par tour (schéma ≤ 12) : elle ne se reprend pas. */
+export const TURN_BASED_SAVE_REFUSAL = 'Votre partie en cours a été jouée au tour par tour. FRONTIÈRES: ARKEN se joue maintenant en temps réel : elle ne peut pas être reprise.';
+/**
+ * Chargement d'une partie en temps réel : { state } pour le schéma 13 ; { refused: 'turn-based', message } pour une
+ * partie tour par tour (schéma ≤ 12 : pas de migration, la sauvegarde n'est PAS effacée) ; { state: null } si illisible.
+ */
+export function decodeRealtimeSave(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch { return { state: null, error: 'invalid_save' }; }
+  if (!raw || typeof raw !== 'object') return { state: null, error: 'invalid_save' };
+  if (!isRealtimeSave(raw)) return { state: null, refused: 'turn-based', message: TURN_BASED_SAVE_REFUSAL, schemaVersion: raw.schemaVersion };
+  try { return { state: migrateSave({ ...raw, schemaVersion: REALTIME_SCHEMA_VERSION }) }; } catch { return { state: null, error: 'invalid_save' }; }
+}

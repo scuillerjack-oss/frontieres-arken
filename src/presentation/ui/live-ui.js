@@ -5,12 +5,13 @@
 
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import {
-  FLOWS, SPEED_IDS, SPEED_LABELS, clockView, createLiveClock, liveNationOrder, retime, syncHolds, tick, toggleManualPause
+  clockView, createLiveClock, liveNationOrder, retime, syncHolds, tick, toggleManualPause
 } from '../live-clock.js';
 import { NOTHING_KNOWN, nationAnnouncements, newsAt } from '../live-news.js';
 import { $, E, nation, province } from './base.js';
-import { liveSettings, setLiveSettings, state } from './session.js';
+import { liveSettings, state } from './session.js';
 import { turnAnimating } from './turn-anim.js';
+import { toggleRealtimePause } from './realtime-ui.js';
 import { liveOn, pendingOrderLines, playTurn, turnGate } from './turn-flow.js';
 
 const TICK_MS = 250;
@@ -87,6 +88,7 @@ function draw(view) {
 }
 /** Un battement : met l'horloge à l'heure, applique les pauses automatiques, résout à la fin, dessine le bandeau. */
 export function syncLive() {
+  if (state?.mode === 'realtime') { clock = null; clockGame = null; return; } // V17.1 : le temps réel a sa propre horloge (realtime-ui.js)
   const on = running();
   syncNextButton(Boolean(state) && liveOn());
   document.body.classList.toggle('live-on', on);
@@ -104,20 +106,9 @@ export function syncLive() {
 /** ⏸ / ▶ */
 export function toggleLivePause() { if (!clock) return; toggleManualPause(clock, now()); lastHtml = ''; syncLive(); }
 
-/** Réglages ⚙ : « Déroulé » et « Vitesse ». */
-export function renderLiveSettings() {
-  const flowLabel = { direct: 'En direct', classique: 'Classique' };
-  $('#flowChoices').innerHTML = FLOWS.map(id => `<button type="button" class="level-choice" data-flow="${id}" aria-pressed="${liveSettings.flow === id}">${flowLabel[id]}</button>`).join('');
-  $('#speedChoices').innerHTML = SPEED_IDS.map(id => `<button type="button" class="level-choice" data-speed="${id}" aria-pressed="${liveSettings.speed === id}">${SPEED_LABELS[id]}</button>`).join('');
-  $('#flowText').textContent = liveSettings.flow === 'direct'
-    ? 'Le tour avance tout seul, nation par nation ; « Passer » le résout tout de suite. Les règles ne changent pas.'
-    : 'Le tour attend que vous touchiez « Fin du tour » (comme avant).';
-  $('#speedChoices').closest('.live-speed').hidden = liveSettings.flow !== 'direct';
-  document.querySelectorAll('[data-flow]').forEach(b => b.onclick = () => { setLiveSettings({ flow: b.dataset.flow }); renderLiveSettings(); syncLive(); });
-  document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => { setLiveSettings({ speed: b.dataset.speed }); renderLiveSettings(); syncLive(); });
-}
+// V17.9 : réglages ⚙ « Déroulé » et « Vitesse » retirés (le tour par tour n'est plus jouable).
 export function installLive() {
-  $('#livePause').onclick = toggleLivePause;
+  $('#livePause').onclick = () => { if (!toggleRealtimePause()) toggleLivePause(); }; // V17.1 : ▶ / ⏸ du temps réel
   // Pause automatique sans attendre le battement : fenêtre ouverte / fermée, page cachée / revenue.
   new MutationObserver(list => { if (list.some(m => !m.target.closest?.('#liveBar'))) syncLive(); }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] });
   document.addEventListener('visibilitychange', syncLive);

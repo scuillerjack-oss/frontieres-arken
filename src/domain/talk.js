@@ -528,12 +528,14 @@ const lastSpoke = (state, id) => { let last = -99; for (const m of state.talk ||
  *     stratégie de la personnalité), avec un délai minimal de 3 tours hors événement grave.
  * Au plus AI_TALK_PER_TURN messages IA par tour.
  */
-export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
+export function aiTalk(state, map, { published = [], turnEvents = [], only = null, initiatives = true } = {}) {
+  // V17.5 (temps réel) : `only` = la seule IA qui parle (celle qui décide ce jour-là) ; `initiatives` = elle peut aussi
+  // prendre la parole d'elle-même (au plus une fois par 30 jours, realtime/day.js).
   // Les propositions diplomatiques publiées plus tôt dans ce tour comptent dans le quota.
   let budget = AI_TALK_PER_TURN - (state.talk || []).filter(m => m.turn === state.turn && state.controllers?.[m.from] === 'ai').length;
-  const ais = aliveNations(state).filter(id => state.controllers?.[id] === 'ai');
+  const ais = aliveNations(state).filter(id => state.controllers?.[id] === 'ai' && (!only || id === only));
   // V14.4 : `core` = réplique de situation (fond) ; le message publié est composé (ouverture, contexte réel, chute).
-  const say = (from, to, tone, core, replyTo = null) => { if (budget <= 0) return false; budget--;
+  const say = (from, to, tone, core, replyTo = null) => { if (budget <= 0 || (only && from !== only)) return false; budget--;
     publishTalk(state, { from, to, tone, text: composeLine(state, map, { from, to, tone, core: fill(core, map, from, to), keys: ['ai', state.turn, replyTo ?? ''] }), core, replyTo, ai: true }); return true; };
   // 1. Réponses.
   for (const m of published) {
@@ -561,9 +563,9 @@ export function aiTalk(state, map, { published = [], turnEvents = [] } = {}) {
   for (const e of turnEvents) {
     if (e.type === 'coalition-formed') { const voice = (e.members || []).find(m => state.controllers?.[m] === 'ai' && !spoke.has(m)); if (voice) once(voice, e.nationId, 'hostile', line('coalitionCall', voice, e.nationId)); }
     if (e.type === 'coalition-joined' && !spoke.has(e.nationId)) once(e.nationId, e.target, 'hostile', line('coalitionJoin', e.nationId, e.target));
-    if (e.type === 'coalition-dissolved' && e.reason === 'receded') { const voice = ais.find(m => m !== e.nationId && !spoke.has(m)); if (voice) once(voice, e.nationId, 'neutre', line('coalitionEnd', voice, e.nationId)); }
+    if (e.type === 'coalition-dissolved' && e.reason === 'receded') { const voice = aliveNations(state).filter(id => state.controllers?.[id] === 'ai').find(m => m !== e.nationId && !spoke.has(m)); if (voice) once(voice, e.nationId, 'neutre', line('coalitionEnd', voice, e.nationId)); }
   }
-  for (const id of ais) {
+  for (const id of initiatives ? ais : []) {
     if (spoke.has(id) || budget <= 0) continue;
     const arch = archetypeOf(state, id), quiet = state.turn - lastSpoke(state, id) < 3;
     const others = aliveNations(state).filter(n => n !== id);

@@ -4,25 +4,33 @@ import { MYSTERY_HELP } from './mystery-island-view.js';
 
 export const SAVE_KEY = 'frontieres-arken-v2-save';
 // V13.2 : textes raccourcis (Jack : « parfois pas très clairs, parfois trop longs ») — 1 à 3 phrases courtes.
+// V17.9 : réécrits pour le TEMPS RÉEL (plus aucun « tour ») ; chiffres lus dans RULES / RULES.realtime. Ils servent à l'Aide (?)
+// et aux bulles d'explication des 2 premières parties (HINT_GAMES). Aucun conseil de stratégie : on dit ce que font les choses.
+const RT = RULES.realtime, DUR = RT.durations, MONTH = RT.income.perMonth;
+const or = n => `${String(n).replace('.', ',')} or / mois`;
 export const TUTORIAL_GUIDE = Object.freeze([
-  { id:'identity', title:'Votre royaume', text:'Vous dirigez {nation}. Préparez vos ordres pendant le tour : tout se joue quand vous touchez « Fin du tour ».' },
-  { id:'map', title:'Carte et zoom', text:'Touchez une province pour la voir. Zoom : deux doigts ou + / −. Recentrer : ◎.' },
-  { id:'move', title:'Donner un ordre', text:'« Déplacer / Attaquer », puis touchez une province verte. Vos troupes partent à la fin du tour.' },
-  { id:'recruit', title:'Recruter', text:'Chaque + ajoute un lot : 20 fantassins ou 5 cavaliers. Le prix total s’affiche avant de valider.' },
-  { id:'build', title:'Construire', text:`Banque : +${RULES.bankIncome} or par tour. Usine : +${RULES.factoryIncome} or par tour. Port : +2 or et navires de guerre. Forteresse : −${fortReductionPct(1)} / −${fortReductionPct(2)} / −${fortReductionPct(3)} % de dégâts reçus en défense (niveaux 1 à 3).` },
-  { id:'attack', title:'Attaque et guerre', text:'Attaquer une nation, c’est entrer en guerre avec elle. Le combat a lieu à la fin du tour. On n’attaque jamais un allié : alliance = passage libre chez lui, pour l’aider.' },
-  { id:'diplomacy', title:'Diplomatie', text:'En guerre, proposez un cessez-le-feu : payez pour l’obtenir, ou exigez de l’or si vous dominez. S’il refuse, aucun or ne bouge.' },
-  { id:'history', title:'Journaux', text:'Le journal du tour résume l’essentiel. Le bouton Journal garde tout l’historique.' },
-  { id:'orders', title:'Ordres en attente', text:'Flèche verte : déplacement. Flèche rouge : attaque. Touchez une flèche pour revoir ou annuler l’ordre.' },
+  { id:'identity', title:'Votre royaume', text:`Vous dirigez {nation}. Le temps avance tout seul : 1 jour = ${RT.clock.msPerDay / 1000} secondes. ▶ / ⏸ en bas à droite ; en pause, vous pouvez tout faire.` },
+  { id:'map', title:'Carte et zoom', text:'Faites glisser la carte : elle n’a pas de bord, on sort à droite et on revient par la gauche. Zoom : deux doigts ou + / −. Recentrer : ◎. Touchez une province pour voir sa fiche.' },
+  { id:'time', title:'Le temps', text:`La partie commence le 1er janvier 2027, en pause. ▶ : 1 jour toutes les ${RT.clock.msPerDay / 1000} secondes ; ⏩ ×2 avec Premium. Il ne s’arrête qu’en pause, dans les menus (⚙, ?, Atouts, Palmarès) et appli fermée.` },
+  { id:'move', title:'Donner un ordre', text:`« Déplacer / Attaquer », puis une province verte. Les troupes partent tout de suite : ${DUR.land * DUR.landDistance.min} à ${DUR.land * DUR.landDistance.max} jours vers une province voisine selon la distance, moins en cavalerie seule.` },
+  { id:'recruit', title:'Recruter', text:`Chaque + ajoute un lot : ${RULES.units.infantry.amount} fantassins ou ${RULES.units.cavalry.amount} cavaliers en ${DUR.units.infantry} jours ; blindés et artillerie en ${DUR.units.armor} jours (usine). Payé tout de suite.` },
+  { id:'build', title:'Construire', text:`Banque : +${or(MONTH.bank)}. Usine : +${or(MONTH.factory)}. Port : +${or(MONTH.port)} et navires. Ferme : +${RT.food.farmDaily} vivres / jour par niveau. Forteresse : −${fortReductionPct(1)} / −${fortReductionPct(2)} / −${fortReductionPct(3)} % de dégâts reçus en défense (niveaux 1 à 3).` },
+  { id:'food', title:'Vivres et famine', text:`Chaque province produit ${RT.food.provinceDaily} vivres par jour ; les troupes mangent 1 vivre par jour pour ${RT.food.goldPerRation} or de troupes. Réserve à 0 : famine, −${100 - Math.round(RT.food.famineFireFactor * 100)} % de dégâts et ${RT.food.famineDesertPct} % de l’armée déserte chaque jour.` },
+  { id:'attack', title:'Attaque et guerre', text:'Attaquer une nation, c’est entrer en guerre avec elle. On n’attaque jamais un allié : alliance = passage libre chez lui, pour l’aider.' },
+  { id:'battle', title:'Batailles', text:`Une bataille commence à l’arrivée : ${RT.battle.assaults} assauts, un tous les ${RT.battle.assaultEveryDays} jours. Les renforts rejoignent le prochain assaut. « Retraite » sur la fiche ⚔. Sans prise au dernier assaut, l’attaquant se replie.` },
+  { id:'diplomacy', title:'Diplomatie', text:`Une IA répond à une proposition en quelques jours (${RT.diplomacy.aiAnswerMaxDays} au plus). En guerre, proposez un cessez-le-feu : payez pour l’obtenir, ou exigez de l’or si vous dominez. S’il refuse, aucun or ne bouge.` },
+  { id:'history', title:'Alertes et journal', text:'Les bandeaux annoncent les faits importants sans arrêter le temps ; touchez-les pour agir. Le Journal garde les alertes, les propositions à décider et tout l’historique.' },
+  { id:'orders', title:'Troupes en route', text:'Touchez une armée ou un navire sur la carte : arrivée prévue, composition, « Rappeler ». Toucher la date en bas à droite les liste toutes.' },
   { id:'maritime', title:'Routes maritimes',
-    text:`Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : la traversée vers l’île voisine dure 2 tours. Sans navires de guerre (port + usine) pour escorter, l’ennemi \
-peut intercepter le convoi. Débarquer chez l’ennemi : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` }
+    text:`Les 5 îles forment un anneau. Embarquez depuis un point de port ⚓ que vous possédez : environ ${DUR.sea} jours de mer vers l’île voisine. Sans navires de guerre (port + usine) pour escorter, un convoi intercepté ne se défend pas. Débarquement : combat à ${Math.round(RULES.combat.landingPenalty * 100)} %.` }
     ,
-  { id:'endgame', title:'Fin de partie', text:`La partie dure ${RULES.gameLength} tours. Classement : provinces, puis capitales, puis trésor. Tenir les 5 capitales : victoire immédiate.` },
-  { id:'coalition', title:'Coalition', text:`Une nation qui tient ${RULES.coalition.formProvinces} provinces, avec ${RULES.coalition.formLead} d’avance sur la deuxième, déclenche une coalition : selon leur caractère, les dirigeants IA se liguent contre elle, vous compris si c’est vous. Elle prend fin à ${RULES.coalition.dissolveProvinces} provinces ou moins. Mêmes règles pour tous : ni or ni troupes offerts.` },
-  { id:'balloon', title:'Ballon d’observation', text:`Construit dans une province avec usine (${RULES.balloon.cost} or, ${RULES.balloon.turns} tours), un seul à la fois. Touchez 🎈 pour l’envoyer : il suit les routes maritimes, ${RULES.balloon.hopTurns} tours par île, et montre tout de l’île survolée. La nation survolée le voit et peut l’abattre, sans guerre.` },
+  { id:'endgame', title:'Fin de partie', text:`Une partie dure 15 ans (fin le 31 décembre 2041) ; la courte, 7 ans. Tenir les 5 capitales : victoire immédiate. Sinon, le classement 🏆 à points désigne le vainqueur ; toutes les nations en paix : fin proposée.` },
+  { id:'ranking', title:'Classement 🏆', text:`${RT.ranking.province} points par province, +${RT.ranking.capital} par capitale, 1 point par ${RT.ranking.troopGoldPerPoint} or de troupes et de trésor, 1 par ${RT.ranking.noFamineDaysPerPoint} jours sans famine. Mis à jour tous les ${RT.ranking.refreshEveryDays} jours.` },
+  { id:'coalition', title:'Coalition', text:`Une nation qui tient ${RULES.coalition.formProvinces} provinces, avec ${RULES.coalition.formLead} d’avance sur la deuxième, déclenche une coalition : selon leur caractère, les dirigeants IA se liguent contre elle, vous compris si c’est vous. Elle prend fin à ${RULES.coalition.dissolveProvinces} provinces ou moins.` },
+  { id:'balloon', title:'Ballon d’observation', text:`Construit dans une province avec usine (${RULES.balloon.cost} or, ${DUR.balloon} jours), un seul à la fois. Touchez 🎈 pour l’envoyer : ${DUR.balloonHop} jours par île, il montre tout de l’île survolée. La nation survolée le voit et peut l’abattre, sans guerre.` },
   MYSTERY_HELP, // V16.2
-  { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes.' }
+  { id:'intelligence', title:'Renseignement', text:'Vous voyez les troupes près des vôtres et chez vos alliés. Ailleurs : « ? ». Une forteresse ennemie cache ses troupes ; une armée en marche se voit depuis sa province de départ ou d’arrivée.' },
+  { id:'gift', title:'La 🎁', text:`Une 🎁 apparaît parfois à gauche de la carte : une courte pub facultative, contre un mois de revenus (${RT.ads.rewardMinGold} or au moins). Elle reste tant que vous ne l’avez pas regardée.` }
 ]);
 
 export function forceSelection(available, mode = '50') {
@@ -48,8 +56,9 @@ export function provinceBorderPoint(definition, toward) {
   return{x:origin.x+dx*t,y:origin.y+dy*t};
 }
 export function sanitizeJournalEntry(entry) {
+  // V17.3 : « assaut 2/3 » garde sa barre (chiffre/chiffre) ; les autres « / » et « | » restent retirés.
   // V14.2 : les sauts de ligne voulus (rapport de combat) sont gardés ; le reste des blancs est resserré.
-  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/[\/|]+/g, ' ').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+  const text = String(entry?.text ?? '').replace(/\b(undefined|null)\b/gi, '').replace(/(\d)\/(\d)/g, '$1\u2044$2').replace(/[\/|]+/g, ' ').replace(/\u2044/g, '/').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
   return text ? { ...entry, text } : null;
 }
 export function resetActiveSave(storage, key = SAVE_KEY) {

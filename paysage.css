@@ -5,39 +5,53 @@
    Gabarit : carte sur toute la hauteur à gauche ; colonne à droite = barre d'infos en haut, boutons du bas en bas ;
    fiche de province en panneau latéral (à droite de la carte) ; fenêtres limitées à la hauteur de l'écran. */
 @media (orientation:landscape) and (max-height:560px){
-:root{--side:calc(clamp(184px,24vw,236px) + env(safe-area-inset-right,0px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+:root{--sr:env(safe-area-inset-right,0px);--side:calc(66px + env(safe-area-inset-right,0px));--hud-w:min(340px,calc(100vw - 2 * var(--side) - 260px));--sheet-w:min(340px,calc((100vw - var(--side)) * .52));--beside-sheet:min(calc(var(--side) + var(--sheet-w) + 20px),calc(100vw - 230px - 12px - var(--sl)));--sl:env(safe-area-inset-left,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
 
-/* --- Gabarit du jeu : carte à gauche, colonne à droite --- */
-#gameScreen:not([hidden]){position:relative;grid-template-columns:minmax(0,1fr) var(--side);grid-template-rows:auto minmax(0,1fr) auto}
-#gameScreen .map-shell{grid-column:1;grid-row:1/-1;max-width:none}
-#gameScreen .map-frame{inset:max(4px,var(--st)) 4px max(4px,var(--sb)) max(4px,var(--sl))}
-.hud{grid-column:2;grid-row:1/3;max-width:none;min-height:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-content:start;gap:6px;padding:max(8px,var(--st)) max(8px,env(safe-area-inset-right,0px)) 6px 8px;background:linear-gradient(180deg,#0d2b3c,#0a2332);border-bottom:0;border-left:1px solid #4a6578}
-.hud .brand{grid-column:1/-1;margin:0;min-width:0;overflow:hidden}
-.hud .brand b,.hud .brand small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hud .brand b{font-size:.78rem}.hud .brand small{font-size:.58rem;letter-spacing:.08em}
-.hud .hud-stat{grid-column:span 2;min-width:0;min-height:48px;padding:3px 2px}
-.hud .hud-stat small{font-size:.58rem;letter-spacing:.04em}
-.hud .hud-stat b{font-size:1.15rem}
-.hud .icon-btn{grid-column:span 3;width:auto;height:42px}
-nav.bottom-bar{grid-column:2;grid-row:3;max-width:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:6px max(8px,env(safe-area-inset-right,0px)) max(8px,var(--sb)) 8px;background:#0a2332;border-top:0;border-left:1px solid #4a6578}
-nav.bottom-bar button{min-height:50px;min-width:0;flex-direction:column;gap:2px;padding:4px 2px;font-size:.8rem}
-nav.bottom-bar #journalBtn,nav.bottom-bar #talkBtn{gap:2px;padding:4px 2px}
-nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.78rem}
-nav.bottom-bar #journalBtn i,nav.bottom-bar #talkBtn i{font-size:1.15rem}
-nav.bottom-bar #nextTurn{grid-column:1/-1;flex-direction:row;gap:8px;min-height:58px}
-nav.bottom-bar #nextTurn span{font-size:1rem}
-#pendingCount{min-width:26px;height:26px;font-size:.9rem}
+/* --- V17.6 : carte en PLEIN ÉCRAN (façon AM 3), tout le reste est posé par-dessus aux bords ---
+   En haut à gauche : barre d'infos (accueil, tour, trésor, armée). En haut au centre : bandeau du tour en direct.
+   Bande de droite (--side) : ? et ⚙ en haut ; Journal, Échanges, Fin du tour / Passer en bas.
+   À gauche : Atouts, coalition, zoom, « Voir toute la carte ». Fiche de province : panneau latéral à droite. */
+#gameScreen:not([hidden]){position:relative;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+#gameScreen .map-shell{grid-column:1/-1;grid-row:1/-1;max-width:none}
+#gameScreen .map-frame{inset:0;border:0;border-radius:0;box-shadow:none}
+#gameScreen .map-frame #viewport{border-radius:0}
+.hud{position:absolute;z-index:6;top:max(6px,var(--st));left:calc(6px + var(--sl));width:var(--hud-w);max-width:none;height:auto;min-height:0;display:flex;align-items:stretch;gap:4px;padding:4px;border:1px solid #8c744999;border-radius:16px;background:#071722d9;box-shadow:0 3px 12px #0008}
+.hud .brand{flex:1 1 0;margin:0;min-width:0;overflow:hidden;padding:2px 4px;display:flex;flex-direction:column;justify-content:center}
+.hud .brand b,.hud .brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .brand b{font-size:.7rem}.hud .brand small{font-size:.52rem;letter-spacing:.04em}
+/* V17.3 (relecture V17.4) : le numéro de version reste lisible en entier (il sert à vérifier la mise à jour de la bêta) :
+   la ligne « ARKEN · v… » passe sur deux lignes plutôt que d'être coupée, la version n'est jamais tronquée. */
+.hud .brand small{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15}
+#hud-version{white-space:nowrap}
+.hud .hud-stat{flex:0 0 auto;min-width:56px;min-height:40px;padding:2px 5px;border-radius:12px}
+.hud .hud-stat small{font-size:.54rem;letter-spacing:.04em}
+.hud .hud-stat b{font-size:1.05rem}
+.hud .icon-btn{position:fixed;z-index:6;right:calc(8px + var(--sr));width:48px;height:48px;border-radius:50%;background:#071722e6;border:1.5px solid #8c7449;box-shadow:0 3px 10px #0008}
+#helpBtn{top:max(8px,var(--st))}
+#settingsBtn{top:calc(max(8px,var(--st)) + 56px)}
+nav.bottom-bar{position:absolute;z-index:6;right:calc(8px + var(--sr));bottom:max(8px,var(--sb));width:58px;max-width:none;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:0;background:none;border:0}
+nav.bottom-bar button{min-height:52px;min-width:0;flex:0 0 auto;flex-direction:column;gap:1px;padding:4px 2px;border-radius:18px;font-size:.62rem;box-shadow:0 3px 10px #0008}
+nav.bottom-bar #journalBtn,nav.bottom-bar #talkBtn{flex:0 0 auto;gap:1px;padding:4px 2px;background:#071722e6;border:1.5px solid #8c7449}
+nav.bottom-bar #journalBtn span,nav.bottom-bar #talkBtn span{font-size:.6rem;font-weight:700}
+nav.bottom-bar #journalBtn i,nav.bottom-bar #talkBtn i{font-size:1.2rem}
+nav.bottom-bar #nextTurn{flex:0 0 auto;flex-direction:column;gap:0;min-height:64px;border-radius:50% / 44%;position:relative}
+nav.bottom-bar #nextTurn span{font-size:.6rem;line-height:1.05;white-space:normal}
+nav.bottom-bar #nextTurn i{font-size:1.45rem}
+#pendingCount{position:absolute;top:-6px;left:-6px;min-width:22px;height:22px;font-size:.78rem}
+#talkBadge{top:-6px;right:-6px}
 
-/* --- Boutons posés sur la carte : zoom en colonne à gauche (la fiche de province occupe la droite) --- */
-.zoom{top:auto;right:auto;left:8px;bottom:58px;flex-direction:column}
-.zoom button{width:42px;height:42px}
-.whole-map-btn{bottom:8px}
-#moveBanner{top:8px;max-width:calc(100% - 260px);min-width:200px}
-.coalition-chip{top:58px;max-width:calc(100% - 16px - var(--sheet-w))}
+/* --- Boutons posés sur la carte, à gauche --- */
+.boost-map-btn{top:calc(max(6px,var(--st)) + 58px);left:calc(6px + var(--sl));min-height:40px;padding:5px 11px;border-radius:20px}
+.coalition-chip{top:calc(max(6px,var(--st)) + 104px);left:calc(6px + var(--sl));max-width:calc(100% - 24px - var(--side) - var(--sheet-w))}
+.zoom{top:auto;right:auto;left:calc(6px + var(--sl));bottom:calc(54px + var(--sb));flex-direction:column}
+.zoom button{width:42px;height:42px;border-radius:50%;border:1.5px solid #8c7449;background:#071722e6}
+.whole-map-btn{left:calc(6px + var(--sl));bottom:max(6px,var(--sb));border-radius:20px;background:#071722e6}
+#moveBanner{top:calc(max(6px,var(--st)) + 58px);max-width:calc(100% - 260px - var(--side));min-width:200px}
+#toast{bottom:max(10px,var(--sb));max-width:calc(100% - 2 * var(--side) - 40px)}
 
-/* --- Fiche de province : panneau latéral à droite de la carte, sur toute la hauteur --- */
+/* --- Fiche de province : panneau latéral à droite, par-dessus la carte (la bande de boutons reste visible) --- */
 #provinceSheet{top:calc(8px + var(--st));bottom:calc(8px + var(--sb));right:calc(var(--side) + 8px);left:auto;width:var(--sheet-w);max-height:none;overflow:auto;overscroll-behavior:contain}
-body:has(#provinceSheet:not([hidden])) #toast{left:calc((100% - var(--sheet-w) - 16px) / 2);max-width:calc(100% - var(--sheet-w) - 40px)}
+body:has(#provinceSheet:not([hidden])) #toast{left:calc((100% - var(--sheet-w) - var(--side) - 16px) / 2);max-width:calc(100% - var(--sheet-w) - var(--side) - 40px)}
 #sheetActions{flex-wrap:wrap;overflow-x:visible}
 #sheetActions button{flex:1 1 40%;white-space:normal;min-height:46px}
 
@@ -87,18 +101,84 @@ dialog.ad-overlay{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh}
 /* --- Animation entre deux tours et bandeau de mise à jour : au-dessus de la carte, pas de la colonne --- */
 #turnAnim{padding:calc(var(--st) + 14px) calc(var(--side) + 16px) 0 calc(16px + var(--sl))}
 #updateBanner{top:calc(var(--st) + 10px);left:calc(10px + var(--sl));right:calc(var(--side) + 10px)}
-/* --- V16.4 : bandeau du tour en direct en haut de la carte (jamais sur la colonne de droite ni sur la fiche) --- */
-.live-bar{top:max(6px,var(--st));left:calc(6px + var(--sl))}
-body:has(#provinceSheet:not([hidden])) .live-bar{right:calc(var(--sheet-w) + 16px)}
-body.live-on .boost-map-btn{top:calc(76px + var(--st))}
+/* --- V16.4 / V17.6 : bandeau du tour en direct = message d'événement en haut au centre, entre la barre d'infos et la
+   bande de droite (jamais sous la fiche de province) --- */
+.live-bar{top:max(6px,var(--st));left:calc(var(--hud-w) + 14px + var(--sl));right:calc(var(--side) + 8px);min-height:50px;padding:4px 6px 7px 9px}
+/* Fiche ouverte : plus la place entre la barre d'infos et la fiche → le bandeau passe sous la barre d'infos, à gauche de la fiche,
+   et les boutons de gauche descendent d'autant. */
+body:has(#provinceSheet:not([hidden])) .live-bar{top:calc(max(6px,var(--st)) + 58px);left:calc(6px + var(--sl));right:calc(var(--side) + var(--sheet-w) + 16px)}
+body.live-on:has(#provinceSheet:not([hidden])) .boost-map-btn{top:calc(max(6px,var(--st)) + 116px)}
+body.live-on:has(#provinceSheet:not([hidden])) .coalition-chip{top:calc(max(6px,var(--st)) + 162px)}
+body.live-on:has(#provinceSheet:not([hidden])) #moveBanner{top:calc(max(6px,var(--st)) + 116px)}
 body.live-on .zoom{top:auto}
-body.live-on .coalition-chip{top:calc(126px + var(--st))}
-body.live-on #moveBanner{top:calc(76px + var(--st))}
-body.live-on #turnAnim{padding-top:calc(var(--st) + 84px)}
+body.live-on .boost-map-btn{top:calc(max(6px,var(--st)) + 58px)}
+body.live-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
+body.live-on #moveBanner{top:calc(max(6px,var(--st)) + 62px)}
+body.live-on #turnAnim{padding-top:calc(var(--st) + 70px)}
 #settingsDialog .setting-choices.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* --- V17.3 : temps réel — message d'événement en haut au centre (compact), alertes juste dessous, date et ▶ ⏸ ⏩ en bas
+   à droite, contre la bande de boutons. Fiche ouverte : la date passe à gauche de la fiche, les alertes sous les boutons. --- */
+body.rt-on .live-bar{min-height:0}
+body.rt-on .boost-map-btn{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on .coalition-chip{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on #moveBanner{top:calc(max(6px,var(--st)) + 52px)}
+body.rt-on .zoom{top:auto}
+.rt-dock{right:calc(var(--side) + 6px);bottom:max(8px,var(--sb));flex-direction:row;align-items:center;gap:8px;padding:5px 6px 5px 10px}
+.rt-date{align-items:flex-end;min-width:118px;flex:none}
+.rt-date b{font-size:1.05rem}
+.rt-speed button{min-width:46px;min-height:44px}
+.rt-alerts{top:calc(max(6px,var(--st)) + 50px);bottom:auto;left:calc(var(--hud-w) + 14px + var(--sl));right:calc(var(--side) + 8px)}
+body.rt-on #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
+body.rt-on #tutorialBubble:not(.top){right:calc(var(--side) + 300px)}
+/* Fiche ouverte : la place à gauche de la fiche est étroite (667 × 375) → date au-dessus des boutons, jamais coupée. */
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-dock{top:auto;bottom:max(8px,var(--sb));right:calc(var(--side) + var(--sheet-w) + 16px);flex-direction:column;align-items:stretch;gap:4px;padding:5px 6px}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-date{align-items:center;min-width:0}
+body.rt-on:has(#provinceSheet:not([hidden])) .live-bar{top:calc(max(6px,var(--st)) + 58px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .rt-alerts{top:calc(max(6px,var(--st)) + 104px);bottom:auto;left:calc(120px + var(--sl));right:calc(var(--side) + var(--sheet-w) + 16px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .boost-map-btn{top:calc(max(6px,var(--st)) + 104px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .coalition-chip{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])) #toast{bottom:calc(max(8px,var(--sb)) + 64px)}
 }
 /* Très petits téléphones couchés (≤ 340 px de haut) : la colonne se resserre encore. */
 @media (orientation:landscape) and (max-height:340px){
-.hud{gap:4px}.hud .hud-stat{min-height:40px}.hud .hud-stat b{font-size:1rem}.hud .icon-btn{height:36px}
-nav.bottom-bar button{min-height:42px}nav.bottom-bar #nextTurn{min-height:48px}
+.hud .hud-stat{min-height:36px}.hud .hud-stat b{font-size:1rem}.hud .icon-btn{width:42px;height:42px}#settingsBtn{top:calc(max(8px,var(--st)) + 48px)}
+nav.bottom-bar{gap:5px}nav.bottom-bar button{min-height:46px}nav.bottom-bar #nextTurn{min-height:56px}.zoom button{width:38px;height:38px}
+}
+/* V17.7 — icône 🎁 en paysage : bord gauche, sous le bouton Atouts (et sous l'alerte de coalition si elle est là). */
+@media (orientation:landscape) and (max-height:560px){
+.gift-btn{left:calc(6px + var(--sl));top:calc(max(6px,var(--st)) + 104px)}
+body:has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 150px)}
+body.rt-on:has(#provinceSheet:not([hidden])):has(#coalitionBtn:not([hidden])) .gift-btn{top:calc(max(6px,var(--st)) + 196px)}
+}
+/* V17.7 — écran Premium couché : les trois avantages côte à côte, l'achat reste visible sans défiler. */
+@media (orientation:landscape) and (max-height:560px){
+#premiumDialog{width:min(94vw,760px)}
+.premium-perks{grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0}
+.premium-perks li{grid-template-columns:1fr;text-align:center;align-content:start;padding:6px}
+#premiumDialog h2{margin:2px 0}
+#premiumDialog .primary{margin-top:6px;padding:7px}
+/* V17.8 : 🏆 Classement dans la bande de droite, comme Journal et Échanges */
+body.rt-on nav.bottom-bar #rankBtn{flex:0 0 auto;flex-direction:column;gap:1px;padding:4px 2px;background:#071722e6;border:1.5px solid #8c7449}
+body.rt-on nav.bottom-bar #rankBtn span{font-size:.6rem;font-weight:700}
+body.rt-on nav.bottom-bar #rankBtn i{font-size:1.2rem}
+}
+
+/* V17.9 (retouche) : bulle du tutoriel compacte en paysage — au plus ~1/3 de la hauteur : texte et objectif à gauche,
+   « Quitter » / « Passer » empilés à droite, police resserrée. Placée à l'opposé de la cible (tutorials.js). */
+@media (orientation:landscape) and (max-height:560px){
+  #miniTuto.tuto-full{display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:start;max-height:34dvh;padding:7px 10px}
+  #miniTuto.tuto-full > b,#miniTuto.tuto-full > p{grid-column:1}
+  #miniTuto.tuto-full > .mini-tuto-actions{grid-column:2;grid-row:1 / span 3;flex-direction:column;align-self:center;gap:6px}
+  #miniTuto.tuto-full b{font-size:.84rem}
+  #miniTuto.tuto-full p{font-size:.78rem;line-height:1.28;margin:2px 0 4px}
+  #miniTuto.tuto-full #miniTutoGoal{padding:3px 7px;margin-bottom:0}
+  #miniTuto.tuto-full .mini-tuto-actions button{min-height:34px;padding:6px 11px;font-size:.8rem}
+  /* Fiche ouverte ou fenêtre ouverte : la bulle est étroite. L'explication a déjà été lue (chaque étape commence fiche fermée,
+     bulle large) : seuls le titre, l'objectif et les boutons restent, pour ne pas dépasser ~1/3 de la hauteur. */
+  body:has(#provinceSheet:not([hidden])) > #miniTuto.tuto-full #miniTutoText,dialog[open] > #miniTuto.tuto-full #miniTutoText{display:none}
+  body:has(#provinceSheet:not([hidden])) > #miniTuto.tuto-full{max-height:34dvh}
+  /* Dans une fenêtre ouverte (bulle étroite à droite) : de nouveau en colonne. */
+  dialog[open] > #miniTuto.tuto-full{display:block;max-height:34dvh}
+  dialog[open] > #miniTuto.tuto-full > .mini-tuto-actions{flex-direction:row}
 }

@@ -63,6 +63,9 @@ export function strengthOf(state, nationId) {
   for (const p of Object.values(state.provinces || {})) if (p.ownerId === nationId) n += combatValue(provinceForce(p));
   for (const t of state.transports || []) if (t.nationId === nationId) n += combatValue(legacyForce(t));
   for (const e of state.stationed || []) if (e.nationId === nationId) n += combatValue(legacyForce(e)); // V13.4 : troupes chez un allié
+  // V17.5 (temps réel) : armées en marche et troupes engagées à l'assaut d'une bataille.
+  for (const m of state.marches || []) if (m.nationId === nationId) n += combatValue(legacyForce(m));
+  for (const b of state.battles || []) for (const e of b.attackers || []) if (e.nationId === nationId) n += combatValue(legacyForce(e));
   return n;
 }
 
@@ -302,7 +305,11 @@ export function acceptsAlliance(state, target, from) {
     case 'traitre': return true;
     // V14.2 : le Héros est naïf — chaque message amical récent rend l'alliance plus facile (jusqu'à 65 % de tension),
     // et trois amabilités lui font oublier une agression, voire un Traître démasqué.
-    case 'heros': { const c = charmOf(state, target, from); return t < 40 + 5 * c && (!aggressor || c >= 3) && (!fromRevealedTraitor || c >= 3); }
+    case 'heros': {
+      // V17.5b (temps réel) : une victime d'agression récente trouve plus facilement un allié chez le Héros (tension < 55).
+      const c = charmOf(state, target, from), victim = state.mode === 'realtime' && recentAggressions(state, 10).some(a => a.victim === from && a.attacker !== target);
+      return t < (victim ? 55 : 40) + 5 * c && (!aggressor || c >= 3) && (!fromRevealedTraitor || c >= 3);
+    }
     case 'batisseur': return t < 50 && !fromRevealedTraitor;
     case 'conquerant': return t < 25 && strengthOf(state, from) >= strengthOf(state, target);
     default: return true;

@@ -1,0 +1,83 @@
+{
+ "commande": "node tools/v17/partie-jours.mjs 100 v17j [--courte]",
+ "normale": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 189.2,
+  "conquetesParPartie": 28.6,
+  "conquetesParQuart": [
+   8.4,
+   5.9,
+   8.2,
+   6.1
+  ],
+  "nationsElimineesParPartie": 0.7,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3947,
+   "p90": 5085,
+   "max": 7451
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 36,
+  "debarquementsParPartie": 12.7,
+  "rencontresEnCheminParPartie": 0.17,
+  "interceptionsParPartie": 1.47,
+  "marchesParPartie": 108.7,
+  "convoisParPartie": 40.2,
+  "msParJour": {
+   "mediane": 0.07,
+   "p99": 1.91,
+   "max": 61.2
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.55,
+   "p90": 1.25,
+   "max": 61.2
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "courte": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": true,
+  "jours": 2557,
+  "dureeTotaleS": 97.6,
+  "conquetesParPartie": 15.8,
+  "conquetesParQuart": [
+   5,
+   2.9,
+   4.3,
+   3.6
+  ],
+  "nationsElimineesParPartie": 0.15,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2019,
+   "p90": 2263,
+   "max": 2442
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 20.1,
+  "debarquementsParPartie": 7.7,
+  "rencontresEnCheminParPartie": 0.02,
+  "interceptionsParPartie": 0.82,
+  "marchesParPartie": 55.1,
+  "convoisParPartie": 20.1,
+  "msParJour": {
+   "mediane": 0.17,
+   "p99": 1.97,
+   "max": 17.2
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.6,
+   "p90": 1.31,
+   "max": 17.2
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ }
+}

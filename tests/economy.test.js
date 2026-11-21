@@ -9,7 +9,9 @@ test('règles économiques figées', () => {
   assert.equal(RULES.bankIncome, 5); // V16.0 : +5 (avant +3)
   assert.equal(RULES.factoryIncome, 3);
   // V10 : plafonds par province (`max`) ajoutés ; coûts et durées inchangés.
-  assert.deepEqual(RULES.buildings, { bank: { cost: 30, turns: 3, max: 1 }, factory: { cost: 40, turns: 3, max: 1 }, fort: { costs: [20, 35, 50], turns: 2, max: 3 }, port: { cost: 40, turns: 3, max: 1 } });
+  assert.deepEqual(RULES.buildings, { bank: { cost: 30, turns: 3, max: 1 }, factory: { cost: 40, turns: 3, max: 1 }, fort: { costs: [20, 35, 50], turns: 2, max: 3 }, port: { cost: 40, turns: 3, max: 1 },
+    // V17.4 : ferme (temps réel seulement, docs/V17-cahier-des-charges.md §4.1).
+    farm: { costs: [20, 25, 30, 35, 40], turns: 2, max: 5, realtimeOnly: true } });
   assert.equal(RULES.warChestAmount, 30);
 });
 

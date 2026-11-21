@@ -29,7 +29,8 @@ export async function startPlay(){
 }
 // --- V12 : atouts, missions du jour, achats de test, profil ------------------------------------------------------
 export function trackMissions(events){
-  const r=missionDeltas(events,state.playerNationId),res=addMissionProgress(profile,todayLocal(),r);saveMyProfile();
+  const r=missionDeltas(events,state.playerNationId);if(!Object.values(r).some(Boolean))return; // V17.9 : rien à compter (appelée chaque jour en temps réel)
+  const res=addMissionProgress(profile,todayLocal(),r);saveMyProfile();
   if(res.completed.length)setTimeout(()=>toast(`Mission accomplie : ${res.completed.map(m=>m.label).join(' · ')}${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`),400);
 }
 export function openBoosts(){
@@ -38,7 +39,7 @@ export function openBoosts(){
   document.querySelectorAll('[data-boost]').forEach(b=>b.onclick=()=>{const r=upgradeBoost(profile,b.dataset.boost);if(!r.ok)return toast(r.error);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast(`${BOOST_INFO[b.dataset.boost].label} : +${r.level} %`);});
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=async()=>{b.disabled=true;const r=await purchase(profile,b.dataset.buy,{date:todayLocal(),save:saveMyProfile});
     if(!r.ok){b.disabled=false;return toast(r.error);}saveMyProfile();openBoosts();
-    toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.adsRemoved?' · publicités supprimées':''}`);});
+    toast(`${r.test?'Achat de test':'Achat confirmé'} : ${productById(b.dataset.buy).label}${r.tokens?` · +${r.tokens} jeton${r.tokens>1?'s':''}`:''}${r.premium?' · Premium actif (×2, plus de pub imposée)':''}`);});
   $('[data-watch-ad]')?.addEventListener('click',async e=>{if(tutoStep!==null)return toast('Les publicités sont désactivées pendant le tutoriel');const btn=e.currentTarget;if(btn.disabled)return;
     btn.disabled=true;const r=await quietDuring(()=>showRewardedAd());if(!r.rewarded){btn.disabled=false;
     return toast(r.dismissed?'Publicité fermée : aucune récompense, et plus aucune publicité ne te sera imposée':'Publicité indisponible pour le moment');
@@ -61,5 +62,5 @@ function restoreProfileView(){
   $('#boostBody').innerHTML=`<p>Colle ici le texte copié avec « Copier mon profil ». Il remplacera le profil de cet appareil (jetons, atouts, achats). Ta partie en cours n’est pas touchée.</p>\
 <textarea id="restoreText" rows="6" placeholder="ARKEN-PROFIL-1:…"></textarea><div class="confirm-actions"><button class="cancel" id="restoreBack">Retour</button><button class="primary" id="restoreGo">Restaurer</button></div>`;
   $('#restoreBack').onclick=openBoosts;
-  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
+  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);r.profile.purchases=profile.purchases;if(profile.premium){r.profile.premium=true;r.profile.adsRemoved=true;r.profile.starterPack=profile.starterPack;} /* V17.9 : achats et Premium de CE téléphone gardés ; rien du texte collé */setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }

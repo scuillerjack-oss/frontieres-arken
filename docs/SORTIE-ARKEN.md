@@ -26,7 +26,8 @@ Si un écran ne ressemble pas à ce qui est décrit, **fais une capture d'écran
 
 | Identifiant | Type | Contenu | Prix conseillé |
 |---|---|---|---|
-| `pack_debutant` | Produit unique (non consommable) | Plus de pub de début de partie + 3 jetons | 2,99 € |
+| `premium` | Produit unique (non consommable) | V17.7 : vitesse ×2 + plus aucune pub imposée | 1,99 € |
+| `pack_debutant` | Produit unique (non consommable) | V17.7 : Premium + 3 jetons (avant : plus de pub de début de partie + 3 jetons) | 2,99 € |
 | `jetons_1` | Consommable | 1 jeton | 0,49 € |
 | `jetons_5` | Consommable | 5 jetons | 1,99 € |
 | `jetons_12` | Consommable | 12 jetons | 3,99 € |
@@ -61,7 +62,7 @@ Ajoute aussi ton Gmail comme **testeur de licence** (Play Console, Paramètres, 
 
 ### Étape 5. Créer les produits intégrés dans la Play Console
 1. Si ce n'est pas déjà fait, crée ton **profil marchand / profil de paiement** (Play Console, Paramètres, Profil de paiement). Obligatoire pour vendre.
-2. **Monétiser** → **Produits** → **Produits intégrés** → **Créer un produit**, quatre fois, avec les identifiants et prix du tableau de la section 1. Pour `pack_debutant` : produit unique. Pour les trois `jetons_…` : produit consommable (c'est le comportement par défaut d'un « produit géré » acheté plusieurs fois). Donne un nom et une description simples (ex. « Pack débutant — plus de pub de début de partie + 3 jetons »), puis **Activer** chaque produit.
+2. **Monétiser** → **Produits** → **Produits intégrés** → **Créer un produit**, cinq fois (V17.7 : `premium` en plus), avec les identifiants et prix du tableau de la section 1. Pour `premium` et `pack_debutant` : produit unique. Pour les trois `jetons_…` : produit consommable (c'est le comportement par défaut d'un « produit géré » acheté plusieurs fois). Donne un nom et une description simples (ex. « Premium — vitesse ×2 et plus de pub imposée », « Pack débutant — Premium + 3 jetons »), puis **Activer** chaque produit.
 3. Remplis aussi les déclarations de l'appli (Contenu de l'application) en t'aidant de `store/classification.md` et `store/securite-des-donnees.md`, et colle la fiche depuis `store/fiche-play-store.md` (et la traduction anglaise).
 
 ### Étape 6. Transmettre les identifiants à Claude
@@ -98,7 +99,7 @@ Dépôt GitHub (public) : scuillerjack-oss/frontieres-arken. Les secrets de sign
 
 CE QUE LE JEU CONTIENT (pour remplir les déclarations honnêtement)
 - Publicités : OUI, avec Google AdMob. Une publicité interstitielle au début d'une nouvelle partie (jamais pendant la partie, jamais dans le tutoriel, jamais pour qui a acheté le Pack débutant) et une publicité avec récompense, facultative, pour une mission (1 jeton). Si le joueur ferme une pub avant la fin, plus aucune pub ne lui est imposée ensuite. Un formulaire de consentement européen (UMP de Google) s'affiche avant la première pub, et un bouton "Choix de confidentialité des publicités" existe dans les paramètres.
-- Achats intégrés : OUI, via Google Play Billing. Quatre produits, identifiants à recopier EXACTEMENT : pack_debutant (produit unique, non consommable : plus de pub de début de partie + 3 jetons, prix conseillé 2,99 EUR), jetons_1 (consommable, 1 jeton, 0,49 EUR), jetons_5 (consommable, 5 jetons, 1,99 EUR), jetons_12 (consommable, 12 jetons, 3,99 EUR). Les jetons servent à améliorer 5 atouts de +1 % par niveau (jusqu'à +10 %), uniquement pour le joueur. On ne peut jamais acheter d'or ni de troupes. Aucune boîte à butin, aucun jeu d'argent.
+- Achats intégrés : OUI, via Google Play Billing. Cinq produits, identifiants à recopier EXACTEMENT : premium (produit unique, non consommable : vitesse x2 et plus aucune pub imposée, prix conseillé 1,99 EUR), pack_debutant (produit unique, non consommable : Premium + 3 jetons, prix conseillé 2,99 EUR), jetons_1 (consommable, 1 jeton, 0,49 EUR), jetons_5 (consommable, 5 jetons, 1,99 EUR), jetons_12 (consommable, 12 jetons, 3,99 EUR). Les jetons servent à améliorer 5 atouts de +1 % par niveau (jusqu'à +10 %), uniquement pour le joueur. On ne peut jamais acheter d'or ni de troupes. Aucune boîte à butin, aucun jeu d'argent.
 - Pas de compte, pas de connexion, pas de chat entre joueurs, pas de localisation demandée, pas de contenu généré par les utilisateurs. Les parties et le profil restent sur le téléphone.
 - Violence : batailles de guerre stylisées sur une carte, résolues par des chiffres, sans sang ni personnes représentées de façon réaliste.
 - Public visé : 13 ans et plus (ne pas cocher les moins de 13 ans, ne pas entrer dans le programme Familles). Application non destinée aux enfants.

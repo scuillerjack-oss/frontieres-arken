@@ -1,0 +1,134 @@
+{
+ "commande": "node tools/v17/partie-jours.mjs 100 v17j [--courte]",
+ "date": "2026-11-20",
+ "normale": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": false,
+  "jours": 5479,
+  "dureeTotaleS": 416.6,
+  "conquetesParPartie": 26.3,
+  "conquetesParQuart": [
+   7.9,
+   5.2,
+   7.5,
+   5.7
+  ],
+  "nationsElimineesParPartie": 0.8,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 3534,
+   "p90": 4787,
+   "max": 7759
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 33.7,
+  "debarquementsParPartie": 11.6,
+  "rencontresEnCheminParPartie": 0.09,
+  "interceptionsParPartie": 1.3,
+  "marchesParPartie": 101.3,
+  "convoisParPartie": 35.4,
+  "msParJour": {
+   "mediane": 0.18,
+   "p99": 6.51,
+   "max": 787
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.84,
+   "p90": 2.3,
+   "max": 787
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 12,
+    "p90": 17,
+    "max": 33
+   },
+   "fermesParProvince": {
+    "mediane": 2.22,
+    "p90": 3.75,
+    "max": 5
+   },
+   "partOrFermes": {
+    "mediane": 7.2,
+    "p90": 12.2
+   },
+   "nationsAvecFamine": "12 sur 500",
+   "tauxFamine": 2.4,
+   "joursDeFamine": {
+    "mediane": 14,
+    "p90": 28,
+    "max": 34
+   },
+   "plusLongueFamine": 34,
+   "deserteursParNationAffamee": 8.3
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ },
+ "courte": {
+  "parties": 100,
+  "prefixe": "v17j",
+  "courte": true,
+  "jours": 2557,
+  "dureeTotaleS": 172.8,
+  "conquetesParPartie": 14.9,
+  "conquetesParQuart": [
+   4.4,
+   2.9,
+   4,
+   3.5
+  ],
+  "nationsElimineesParPartie": 0.15,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 1770,
+   "p90": 1966,
+   "max": 2757
+  },
+  "victoiresParCapitales": 0,
+  "combatsParPartie": 19.1,
+  "debarquementsParPartie": 7.2,
+  "rencontresEnCheminParPartie": 0.06,
+  "interceptionsParPartie": 0.72,
+  "marchesParPartie": 51,
+  "convoisParPartie": 20.7,
+  "msParJour": {
+   "mediane": 0.31,
+   "p99": 5.37,
+   "max": 149
+  },
+  "msJourAvecDecisionIA": {
+   "mediane": 0.84,
+   "p90": 1.88,
+   "max": 149
+  },
+  "nourriture": {
+   "fermesParNation": {
+    "mediane": 5,
+    "p90": 7,
+    "max": 9
+   },
+   "fermesParProvince": {
+    "mediane": 1,
+    "p90": 1.75,
+    "max": 2.5
+   },
+   "partOrFermes": {
+    "mediane": 7.2,
+    "p90": 10
+   },
+   "nationsAvecFamine": "4 sur 500",
+   "tauxFamine": 0.8,
+   "joursDeFamine": {
+    "mediane": 39,
+    "p90": 57,
+    "max": 67
+   },
+   "plusLongueFamine": 67,
+   "deserteursParNationAffamee": 71
+  },
+  "fins": {
+   "turn-limit": 100
+  }
+ }
+}

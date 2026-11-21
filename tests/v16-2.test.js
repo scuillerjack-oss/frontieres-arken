@@ -482,7 +482,7 @@ test('interface : fiche « Île mystérieuse » (garnison, super banque +10, rou
   assert.equal(w.canMove, true);
   assert.equal(islandMapBadge(j), '🏦+10 🤝');
   assert.equal(TUTORIAL_GUIDE.find(x => x.id === 'mystery'), MYSTERY_HELP);
-  assert.match(MYSTERY_HELP.text, /Super banque : \+10 or par tour/);
+  assert.match(MYSTERY_HELP.text, /Super banque : \+6 or \/ mois/); // V17.9b : 10 or par tour d'économie (50 jours) = 6 or par mois
   const app = readSource('app.js');
   assert.match(app, /islandSheetView\(state,map,state\.playerNationId/);
   assert.match(app, /islandMapBadge\(state\)/);

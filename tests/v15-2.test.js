@@ -100,7 +100,11 @@ test('l’IA elle-même : un membre n’envoie aucune offre d’alliance à la c
   assert.ok(tours > 0, 'le test a bien vu des coalitions');
 });
 test('quota d’attaques : hors quota réservé au Conquérant et au Traître, comme le dit le cahier', () => {
-  assert.match(readSource('src/domain/engine/ai.js'), /launched >= \(ARCH_ATTACKS\[arch\] \|\| 1\) && !\(\(arch === 'conquerant' \|\| arch === 'traitre'\) && ambitionOf/);
+  // V17.5 : le quota vient de attackQuota (identique au tour par tour ; en temps réel, par fenêtre de 30 jours).
+  const src = readSource('src/domain/engine/ai.js');
+  // V17.5b : en temps réel, quota propre au Conquérant (RULES.realtime.ai.personality.conquerant.attacks).
+  assert.match(src, /const quota = attackQuota\(state, isRealtime\(state\) && nature === 'conquerant' \? PERS\(\)\.conquerant\.attacks : ARCH_ATTACKS\[arch\] \|\| 1\)/);
+  assert.match(src, /launched >= quota && !\(\(arch === 'conquerant' \|\| arch === 'traitre'\) && ambitionOf/);
 });
 
 // --- Plan d'animation -----------------------------------------------------------------------------------------------
@@ -151,7 +155,7 @@ test('plan : ne modifie ni les événements ni la partie', () => {
 test('turn-flow : animation attendue avant les fenêtres, jamais en tutoriel ; une seule fin de tour à la fois ; moteur sans animation', () => {
   const flow = readSource('src/presentation/ui/turn-flow.js');
   assert.ok(flow.indexOf('playTurnAnimation(events)') < flow.indexOf('await showCapitalPopups(events)'));
-  assert.match(flow, /!isTutorial\(state\)&&miniStep===null&&tutoStep===null/);
+  assert.match(flow, /!isTutorial\(state\)&&tutoStep===null/); // V17.9 : plus de mini tuto
   assert.match(readSource('app.js'), /\$\('#nextTurn'\)\.onclick=\(\)=>\{if\(!turnAnimating\(\)\)resolveTurn\(\);\}/);
   const anim = readSource('src/presentation/ui/turn-anim.js');
   assert.match(anim, /visibilitychange/); assert.match(anim, /pagehide/);
@@ -164,7 +168,7 @@ test('fichiers : nouveaux modules dans ASSETS, aucun fichier audio', () => {
   const sw = readFileSync(join(root, 'sw.js'), 'utf8');
   for (const f of ['src/presentation/turn-animation.js', 'src/presentation/sound-engine.js', 'src/presentation/ui/turn-anim.js']) assert.ok(sw.includes(`'./${f}'`), f);
   assert.doesNotMatch(sw, /\.(mp3|ogg|wav|m4a)/);
-  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '16.4.1');
+  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '17.10.0');
 });
 
 // --- Moteur de sons, avec un faux Web Audio ---------------------------------------------------------------------------
