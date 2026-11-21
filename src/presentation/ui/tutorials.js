@@ -10,7 +10,7 @@ import {
 import { $, toast } from './base.js';
 import { eventPopup } from './event-popups.js';
 import { showGame, showWelcome } from './game-flow.js';
-import { focusProvince, setScale, setTx, setTy, updateLabelScale } from './map-view.js';
+import { focusProvince, render, setScale, setTx, setTy, updateLabelScale } from './map-view.js';
 import { hydrateState, moveSource, profile, save, setMoveSource, setSelected, setState, state } from './session.js';
 import { pauseRealtime } from './realtime-ui.js';
 
@@ -54,7 +54,7 @@ export function refreshTuto(){
   const prov=(v.targets||[]).map(t=>t.match(/^\[data-id="(p\d\d)"\]$/)?.[1]).filter(Boolean).at(-1);
   if(prov&&tutoFocused!==tutoStep&&!moveSource&&!document.querySelector('dialog[open]')){tutoFocused=tutoStep;
     const probe=el?.closest('svg')?el:document.querySelector(`[data-id="${prov}"] .area`),r=probe?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect(),b=box.hidden?null:box.getBoundingClientRect();
-    const cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0,under=b&&cx>b.left&&cx<b.right&&cy>b.top&&cy<b.bottom;
+    const cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0,hit=r?document.elementFromPoint(cx,cy):null,under=(b&&cx>b.left&&cx<b.right&&cy>b.top&&cy<b.bottom)||Boolean(hit&&probe&&!probe.contains(hit)&&!hit.closest('#map')); // sous la bulle ou sous un bouton (date…)
     if(!r||under||cx<f.left+30||cx>f.right-30||cy<f.top+30||cy>f.bottom-30){focusProvince(prov);updateLabelScale();}}
   // Pendant le choix d'une destination : la destination demandée hors de l'écran → la carte s'y centre (une fois par étape).
   const dest=(v.targets||[]).map(t=>t.match(/destination\[data-id="(p\d\d)"\]/)?.[1]).filter(Boolean)[0];
@@ -79,6 +79,8 @@ function setTutoStep(i){
   if(i>=TUTORIAL_STEPS.length)return finishTutorial();
   document.querySelectorAll('.tuto-done').forEach(x=>x.classList.remove('tuto-done'));tutoStep=i;tutoFocused=null;
   if(tutorialPausesAt(i))pauseRealtime(); // en pause pendant les explications
+  // La fiche de province ouverte n'est gardée que si l'étape la vise (sinon elle rétrécit la bulle et cache la carte).
+  if(!(TUTORIAL_STEPS[i].targets||[]).some(t=>t.includes('#provinceSheet'))&&!$('#provinceSheet').hidden){$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();}
   state.tutorialRun={...(state.tutorialRun||{}),step:i};save();
   if(lastShown!==i){lastShown=i;showTuto();}
 }

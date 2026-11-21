@@ -14,6 +14,7 @@ import { exportProfile, importProfile, createProfile, BOOST_INFO, MISSION_CATALO
 import { aiGoldPct } from '../src/domain/difficulty.js';
 import { ensureWar } from '../src/domain/engine/diplomacy.js';
 import { marchesOf } from '../src/domain/realtime/marches.js';
+import { foodConsumption, foodProduction } from '../src/domain/realtime/food.js';
 import { nationBonusInfo } from '../src/domain/nations.js';
 import { lighthouseFleets } from '../src/domain/vision.js';
 import { buildEndStory } from '../src/domain/story.js';
@@ -144,7 +145,8 @@ test('tutoriel : partie d’entraînement en temps réel, scénario fixe, sauveg
   assert.equal(s.provinces[TUTO_BATTLE.province].ownerId, 'oroel');
   assert.equal(s.provinces.p03.buildings.port, 1); assert.equal(s.provinces.p03.warships, 3);
   assert.equal(s.balloons.length, 1); assert.equal(s.settings.hints, false);
-  assert.ok(s.nations[ME].food.reserve >= 3000 * R.food.hundredths, 'pas de famine pendant l’entraînement');
+  assert.ok(foodProduction(s, ME) >= foodConsumption(s, ME), 'vivres à l’équilibre ou positifs au départ (pas de « −25/j »)');
+  assert.ok(foodProduction(s, ME) - foodConsumption(s, ME) <= 10 * R.food.hundredths, 'légèrement positifs');
   assert.equal(aiGoldPct(s), 0);
   // Une ancienne partie de tutoriel au tour par tour (V14.3) n'est jamais reprise.
   const store = memoryStorage(), old = createGameState({ map, playerNationId: ME, seed: 'x' }); old.tutorialMode = true;

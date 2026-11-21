@@ -1552,7 +1552,7 @@ conquêtes ni de Noireflamme (confié à une autre étape).
 1. **Tutoriel entièrement refait pour le temps réel** (`src/presentation/tutorial.js` pur, `ui/tutorials.js`) — 33 étapes, une
    idée par bulle, un objectif « 👉 » pour chaque geste, jamais de conseil de stratégie (dernière bulle : « Les stratégies, c'est à
    vous de les trouver ! »). Partie d'entraînement **en temps réel**, scénario fixe (graine `tutoriel-v17-9`) joué avec le vrai
-   moteur : Valmorne, 220 or, grande réserve de vivres (pas de famine), Oroël occupe Haut-Bois (90 fantassins, forteresse 1),
+   moteur : Valmorne, 220 or, une ferme à Valmorne, Sylvaren et Branvale (vivres à +4,8 / jour au départ, pas de famine), Oroël occupe Haut-Bois (90 fantassins, forteresse 1),
    Sylvaren 120 fantassins, Branvale port + 3 navires, un ballon prêt ; seul Roc-Épine est une IA (Bâtisseur : il accepte une
    alliance même après une guerre ailleurs), les autres restent passives.
    - Programme : carte et défilement (glisser du doigt), capitale et pastilles ; date, ▶ puis ⏸ (⏩ = Premium, dit dans la
@@ -1632,10 +1632,7 @@ visible, aucune pub ni 🎁 pendant le tutoriel. Seule remarque de l'outil : en 
 montrer les nations (inchangé, voulu).
 **Avis honnête sur les captures** : on comprend à chaque étape quoi toucher (cible surlignée en vert, objectif en vert, carte
 recentrée) et le rythme « explication en pause / on regarde » marche bien ; la bataille en 3 assauts se lit (⚔ 1/3, fiche, bandeaux,
-« Haut-Bois est à vous ! »). Limites : en paysage la bulle prend presque la moitié de la hauteur (elle se place à l'opposé de la
-cible, mais la carte visible est réduite) ; 33 étapes, c'est long (≈ 6 à 8 minutes) — chaque étape reste sautable ; la case vivres
-affiche « −25/j » au départ du tutoriel (les troupes du scénario mangent plus que les 3 provinces ne produisent, la grande réserve
-évite la famine) : vrai mais peut intriguer ; la fiche de bataille couvre la carte et il faut la fermer pour toucher ▶ (la bulle le
+« Haut-Bois est à vous ! »). Limites : 33 étapes, c'est long (≈ 6 à 8 minutes) — chaque étape reste sautable ; la fiche de bataille couvre la carte et il faut la fermer pour toucher ▶ (la bulle le
 dit). Non vérifié : vrai téléphone.
 
 **Écarts et choix (tranchés par l'équipe)** :
@@ -1647,3 +1644,14 @@ dit). Non vérifié : vrai téléphone.
 4. Le moteur tour par tour et les modules d'interface du tour restent dans le dépôt (outils, tests, et interdiction de supprimer
    des fichiers de jeu sans Jack) ; ils ne sont plus accessibles au joueur.
 5. `store/fiche-play-store.md` parle encore du tour par tour (texte de la fiche Play) : à réécrire avec la V17.10.
+
+**Retouches demandées par le chef de projet (21/11/2026)** :
+1. **Bulle compacte en paysage** (`paysage.css`) : texte et objectif à gauche, « Quitter » / « Passer l'étape » empilés à droite,
+   police resserrée : au plus ~1/3 de la hauteur (≈ 110 px sur 390, vérifié à chaque capture par Playwright : alerte au-delà de
+   36 %). Dans une fenêtre ouverte, elle reste en colonne à droite de la fenêtre (elle ne recouvre rien). La fiche de province est
+   fermée en arrivant sur une étape qui ne la vise pas (elle rétrécissait la bulle) ; la carte se recentre aussi quand la cible est
+   sous la bulle ou sous un bouton (date, ▶ ⏸ ⏩). La bulle ne cache jamais la cible du geste (vérifié à chaque capture).
+2. **Vivres positifs au départ du tutoriel** : une ferme (niveau 1) à Valmorne, Sylvaren et Branvale, réserve de départ normale :
+   « +4,8/j » au lieu de « −25/j » (test : production ≥ consommation, écart ≤ 10 / jour) ; l'étape famine l'explique sans la provoquer.
+Playwright refait en 844 × 390 et 390 × 844 : parcours complet, 0 erreur JS, aucun problème signalé (hors défilement voulu de la
+fenêtre « Nouvelle partie » en paysage). `npm test` : 883 tests, verts.

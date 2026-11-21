@@ -36,8 +36,8 @@ export const TUTO_BATTLE = Object.freeze({ province: 'p04', garrison: 90, fort: 
 export const TUTO_MARCH = Object.freeze({ from: 'p01', to: 'p02', watchDays: 4 });
 export const TUTO_SEA = Object.freeze({ from: 'p03', to: 'p14' });
 export const TUTO_TREASURY = 220;
-/** Réserve de vivres du tutoriel (en vivres) : de quoi tenir bien plus longtemps que l'entraînement. */
-export const TUTO_FOOD_RESERVE = 4000;
+/** Provinces du joueur qui ont déjà une ferme (niveau 1) : production ≥ consommation au départ. */
+export const TUTO_FARMS = Object.freeze(['p01', 'p02', 'p03']);
 /** Pendant les étapes « regarder », le temps du tutoriel va à 1 jour par seconde (vraie partie : 2 s, ou 1 s en Premium). */
 export const TUTO_SPEED = 2;
 
@@ -47,7 +47,7 @@ const perMonth = n => `${String(n).replace('.', ',')} or / mois`;
  * Partie d'entraînement en temps réel (1er janvier 2027, en pause) : Valmorne (joueur) ; Roc-Épine dirigé par l'IA
  * (Bâtisseur : il accepte une alliance si la tension reste sous 50 %, même après une guerre ailleurs) ; les trois autres nations restent passives. Réglages : trésor 220 or ;
  * Oroël occupe Haut-Bois (90 fantassins, forteresse 1) ; Sylvaren 120 fantassins ; Branvale : port construit, 3 navires de
- * guerre, 160 fantassins et 10 cavaliers ; un ballon d'observation prêt au-dessus de Valmorne.
+ * guerre, 160 fantassins et 10 cavaliers ; une ferme à Valmorne, Sylvaren et Branvale ; un ballon prêt au-dessus de Valmorne.
  */
 export function createTutorialState({ map }) {
   const s = createRealtimeGame({ map, playerNationId: TUTO_NATION, seed: TUTO_SEED });
@@ -60,8 +60,10 @@ export function createTutorialState({ map }) {
   hb.ownerId = TUTO_RIVAL; hb.units = { infantry: TUTO_BATTLE.garrison, cavalry: 0, armor: 0, artillery: 0 }; hb.buildings.fort = TUTO_BATTLE.fort;
   s.provinces.p02.units.infantry = 120;
   const br = s.provinces.p03; br.buildings.port = 1; br.warships = 3; br.units.infantry = 160; br.units.cavalry = 10;
-  // Grande réserve de vivres : pas de famine pendant l'entraînement (l'étape « famine » l'explique sans la provoquer).
-  foodOf(s, TUTO_NATION).reserve = TUTO_FOOD_RESERVE * R.food.hundredths;
+  // Une ferme (niveau 1) à Valmorne, Sylvaren et Branvale : vivres légèrement positifs au départ (+4,75 / jour), pas de famine
+  // pendant l'entraînement (l'étape « famine » l'explique sans la provoquer). Réserve de départ normale.
+  for (const id of TUTO_FARMS) s.provinces[id].buildings.farm = 1;
+  foodOf(s, TUTO_NATION);
   s.balloons = [{ id: 'b-valmorne-tuto', nationId: TUTO_NATION, over: TUTO_NATION, to: null, legTurns: 0, legDays: 0 }];
   s.events = []; s.chronicle = []; // l'installation du scénario n'apparaît pas au journal
   s.settings.hints = false; // pas de bulles contextuelles par-dessus le tutoriel
@@ -149,7 +151,7 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: 'Tout se passe en même temps pour toutes les nations. ⏸ arrête le temps ; en pause, vous pouvez tout faire : les ordres partent aussitôt.',
     goal: 'Touchez ⏸.' },
   { id: 'or-vivres', theme: 'temps', title: 'Or et vivres', on: 'food', targets: ['#foodStat'],
-    text: `En haut : le trésor et ce qu’il gagne par mois (une province : ${perMonth(R.income.perMonth.province)}). 🌾 Vivres : vos provinces en produisent chaque jour, vos troupes en mangent chaque jour.`,
+    text: `En haut : le trésor et son gain par mois (${perMonth(R.income.perMonth.province)} par province). 🌾 Vivres : produits par vos provinces, mangés par vos troupes, chaque jour.`,
     goal: 'Touchez la case 🌾 VIVRES.' },
   // 3. Construire
   { id: 'banque', theme: 'construire', title: 'Construire une banque', on: 'build:bank', targets: BUILD('p01', 'bank'),
@@ -169,8 +171,8 @@ export const TUTORIAL_STEPS = Object.freeze([
     goal: 'Touchez Branvale.' },
   // 4. Recruter, envoyer une armée, rappel
   { id: 'recruter', theme: 'armee', title: 'Recruter', on: 'recruit', targets: [CONFIRM, ONCE('[data-lot-plus="infantry"]'), '#confirmRecruit', SHEET('p01', 'recruit'), P('p01')],
-    text: `Un lot = ${U.infantry.amount} fantassins pour ${U.infantry.cost} or, prêts en ${D.units.infantry} jours. « ⓘ PV et dégâts » montre la force de chaque troupe.`,
-    goal: 'Valmorne → « Recruter » → + sur Infanterie → « Vérifier la commande » → « Confirmer ».' },
+    text: `Un lot = ${U.infantry.amount} fantassins, ${U.infantry.cost} or, prêts en ${D.units.infantry} jours. « ⓘ » : PV et dégâts de la troupe.`,
+    goal: 'Valmorne → « Recruter » → + (Infanterie) → « Vérifier la commande » → « Confirmer ».' },
   { id: 'envoyer', theme: 'armee', title: 'Envoyer une armée', on: `move:${TUTO_MARCH.from}-${TUTO_MARCH.to}`, targets: MOVE(TUTO_MARCH.from, TUTO_MARCH.to),
     text: 'Les troupes partent tout de suite. Plus la province est loin, plus le trajet est long.',
     goal: 'Valmorne → « Déplacer / Attaquer » → Sylvaren (en vert) → « Envoyer maintenant » → « Confirmer ».' },

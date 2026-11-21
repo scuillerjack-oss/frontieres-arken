@@ -163,3 +163,18 @@ body.rt-on nav.bottom-bar #rankBtn{flex:0 0 auto;flex-direction:column;gap:1px;p
 body.rt-on nav.bottom-bar #rankBtn span{font-size:.6rem;font-weight:700}
 body.rt-on nav.bottom-bar #rankBtn i{font-size:1.2rem}
 }
+
+/* V17.9 (retouche) : bulle du tutoriel compacte en paysage — au plus ~1/3 de la hauteur : texte et objectif à gauche,
+   « Quitter » / « Passer » empilés à droite, police resserrée. Placée à l'opposé de la cible (tutorials.js). */
+@media (orientation:landscape) and (max-height:560px){
+  #miniTuto.tuto-full{display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:start;max-height:34dvh;padding:7px 10px}
+  #miniTuto.tuto-full > b,#miniTuto.tuto-full > p{grid-column:1}
+  #miniTuto.tuto-full > .mini-tuto-actions{grid-column:2;grid-row:1 / span 3;flex-direction:column;align-self:center;gap:6px}
+  #miniTuto.tuto-full b{font-size:.84rem}
+  #miniTuto.tuto-full p{font-size:.78rem;line-height:1.28;margin:2px 0 4px}
+  #miniTuto.tuto-full #miniTutoGoal{padding:3px 7px;margin-bottom:0}
+  #miniTuto.tuto-full .mini-tuto-actions button{min-height:34px;padding:6px 11px;font-size:.8rem}
+  /* Dans une fenêtre ouverte (bulle étroite à droite) : de nouveau en colonne. */
+  dialog[open] > #miniTuto.tuto-full{display:block;max-height:calc(100dvh - 16px - var(--st) - var(--sb))}
+  dialog[open] > #miniTuto.tuto-full > .mini-tuto-actions{flex-direction:row}
+}
