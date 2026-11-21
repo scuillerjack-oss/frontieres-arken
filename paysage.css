@@ -174,7 +174,11 @@ body.rt-on nav.bottom-bar #rankBtn i{font-size:1.2rem}
   #miniTuto.tuto-full p{font-size:.78rem;line-height:1.28;margin:2px 0 4px}
   #miniTuto.tuto-full #miniTutoGoal{padding:3px 7px;margin-bottom:0}
   #miniTuto.tuto-full .mini-tuto-actions button{min-height:34px;padding:6px 11px;font-size:.8rem}
+  /* Fiche ouverte ou fenêtre ouverte : la bulle est étroite. L'explication a déjà été lue (chaque étape commence fiche fermée,
+     bulle large) : seuls le titre, l'objectif et les boutons restent, pour ne pas dépasser ~1/3 de la hauteur. */
+  body:has(#provinceSheet:not([hidden])) > #miniTuto.tuto-full #miniTutoText,dialog[open] > #miniTuto.tuto-full #miniTutoText{display:none}
+  body:has(#provinceSheet:not([hidden])) > #miniTuto.tuto-full{max-height:34dvh}
   /* Dans une fenêtre ouverte (bulle étroite à droite) : de nouveau en colonne. */
-  dialog[open] > #miniTuto.tuto-full{display:block;max-height:calc(100dvh - 16px - var(--st) - var(--sb))}
+  dialog[open] > #miniTuto.tuto-full{display:block;max-height:34dvh}
   dialog[open] > #miniTuto.tuto-full > .mini-tuto-actions{flex-direction:row}
 }

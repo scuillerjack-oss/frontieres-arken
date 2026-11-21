@@ -174,9 +174,10 @@ export function importProfile(text) {
     const json = typeof atob === 'function' ? decodeURIComponent(escape(atob(b64))) : Buffer.from(b64, 'base64').toString('utf8');
     const parsed = JSON.parse(json);
     if (!parsed || typeof parsed !== 'object' || parsed.version !== PROFILE_VERSION) return { ok: false, error: 'Profil illisible ou d’une autre version' };
-    // V17.9 (relecture) : un texte collé ne donne jamais le Premium à lui seul (« premium: true », « adsRemoved », « starterPack »
-    // sont ignorés) : seul un ACHAT enregistré (Premium ou Pack débutant) le rend, et le magasin le revérifie au lancement.
-    return { ok: true, profile: sanitizeProfile({ ...parsed, premium: false, adsRemoved: false, starterPack: false }) };
+    // V17.9 (relecture) : un texte collé ne donne jamais de droits : « premium », « adsRemoved », « starterPack » ET la liste des
+    // achats sont ignorés. Seuls les achats confirmés par le magasin comptent (restauration au lancement, store.js) ; ceux du
+    // téléphone sont gardés par l'interface (boosts-ui.js).
+    return { ok: true, profile: sanitizeProfile({ ...parsed, premium: false, adsRemoved: false, starterPack: false, purchases: [] }) };
   } catch { return { ok: false, error: 'Profil illisible (texte incomplet ?)' }; }
 }
 

@@ -234,6 +234,10 @@ test('tutoriel : rejouable depuis ⚙ et depuis l’accueil, proposé au premier
   assert.match(app, /async function offerTutorial\(\)\{if\(tutorialOffered\(\)\)return;markTutorialOffered\(\);/);
   assert.match(app, /setup\(\)\{[^\n]*offerTutorial\(\);\}/);
   assert.match(app, /createTutorialState\(\{map\}\)/);
+  // Relecture : ⚙ → Jouer le tutoriel pendant une vraie partie : la partie est écrite avant d'être remplacée (aucun jour perdu).
+  const tu = flatSource('src/presentation/ui/tutorials.js');
+  const saveAt = tu.indexOf('if(state&&!isTutorial(state))save();'), replaceAt = tu.indexOf('setState(saved?hydrateState(saved):createTutorialState({map}))');
+  assert.ok(saveAt > 0 && saveAt < replaceAt, 'sauvegarde de la vraie partie avant setState');
   assert.doesNotMatch(app, /MINI_TUTO|startMiniTuto|replayMiniTuto|miniStep/, 'plus de mini tuto');
   assert.doesNotMatch(html, /replayMiniTuto|Relancer le mini tuto/);
   assert.doesNotMatch(read('src/presentation/tutorial.js'), /createGameState|end-turn|Fin du tour/, 'plus rien du tutoriel au tour par tour');
@@ -369,8 +373,10 @@ test('restauration de profil : « premium: true » sans achat n’est pas accept
   const forged = { ...createProfile(), premium: true, adsRemoved: true, starterPack: true, purchases: [] };
   const r = importProfile(exportProfile(forged));
   assert.equal(r.ok, true); assert.equal(r.profile.premium, false); assert.equal(r.profile.adsRemoved, false);
-  // Un vrai achat enregistré (Premium) est gardé.
-  const bought = { ...createProfile(), purchases: [{ productId: 'premium', date: '2026-11-20', test: true }] };
-  assert.equal(importProfile(exportProfile(bought)).profile.premium, true);
-  assert.match(readSource('src/presentation/ui/boosts-ui.js'), /if\(profile\.premium\)\{r\.profile\.premium=true;/);
+  // Une ligne d'achat collée (fausse ou non) ne donne aucun droit : seuls les achats confirmés par le magasin comptent.
+  for (const productId of ['premium', 'pack_debutant']) {
+    const p = importProfile(exportProfile({ ...createProfile(), purchases: [{ productId, date: '2026-11-20', test: true }] })).profile;
+    assert.equal(p.premium, false, productId); assert.equal(p.starterPack, false, productId); assert.deepEqual(p.purchases, []);
+  }
+  assert.match(readSource('src/presentation/ui/boosts-ui.js'), /r\.profile\.purchases=profile\.purchases;if\(profile\.premium\)\{r\.profile\.premium=true;/);
 });

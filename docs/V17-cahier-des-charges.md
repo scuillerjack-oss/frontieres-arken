@@ -1601,8 +1601,9 @@ conquêtes ni de Noireflamme (confié à une autre étape).
      (le début des événements est pris avant l'exécution).
    - §8 : texte accordé au code (composition connue selon `provinceIntel(...).troopsKnown` de la province de départ).
    - `?pub-test` ignoré dans le build Google Play (`PLAY_CONFIG.play`).
-   - Restauration de profil : un texte collé avec `premium: true` (ou `adsRemoved`, `starterPack`) sans achat enregistré ne donne
-     plus le Premium ; un Premium déjà acheté sur le téléphone est gardé.
+   - Restauration de profil : un texte collé ne donne **aucun droit** — `premium`, `adsRemoved`, `starterPack` et la liste des
+     achats qu'il contient sont ignorés (une fausse ligne `purchases:[{productId:'premium'}]` ne donne rien) ; seuls les achats
+     confirmés par le magasin comptent (restauration au lancement) ; les achats et le Premium déjà présents sur le téléphone sont gardés.
    - `#boostDialog` ajouté aux fenêtres d'action : l'écran Atouts (boutique, achats, pub de mission) n'est jamais recouvert par
      une pub imposée ; il ne compte donc plus comme « moment calme » (§10.2 mis à jour).
 
@@ -1655,3 +1656,14 @@ dit). Non vérifié : vrai téléphone.
    « +4,8/j » au lieu de « −25/j » (test : production ≥ consommation, écart ≤ 10 / jour) ; l'étape famine l'explique sans la provoquer.
 Playwright refait en 844 × 390 et 390 × 844 : parcours complet, 0 erreur JS, aucun problème signalé (hors défilement voulu de la
 fenêtre « Nouvelle partie » en paysage). `npm test` : 883 tests, verts.
+
+**Corrections après relecture (21/11/2026)** :
+1. **Bloquant corrigé** : ⚙ → « Jouer le tutoriel » pendant une vraie partie faisait perdre les derniers jours (la partie en mémoire
+   était remplacée sans être écrite). `startTutorial` écrit maintenant la vraie partie avant de la remplacer. Test (`v17-9`) ;
+   Playwright : jour 8 → tutoriel → Quitter → Continuer = jour 8 (844 × 390, 667 × 375, 390 × 844).
+2. Bulle en 667 × 375 : elle montait à 242-322 px sur 375 quand la fiche ou une fenêtre était ouverte (bulle étroite). Chaque étape
+   commence fiche fermée (bulle large, explication complète) ; fiche ou fenêtre ouverte, la bulle ne garde que le titre, l'objectif
+   et les boutons (au plus ~1/3 de la hauteur, vérifié à chaque capture, fenêtres comprises).
+3. Faille Premium : voir le point « Restauration de profil » ci-dessus (achats collés ignorés). Test mis à jour.
+`npm test` : 883 tests, verts. Playwright refait en 844 × 390, 667 × 375 et 390 × 844 : 0 erreur JS, rien de signalé hors le défilement
+voulu des fenêtres « Nouvelle partie » et « Construction ».

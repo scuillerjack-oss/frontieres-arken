@@ -62,5 +62,5 @@ function restoreProfileView(){
   $('#boostBody').innerHTML=`<p>Colle ici le texte copié avec « Copier mon profil ». Il remplacera le profil de cet appareil (jetons, atouts, achats). Ta partie en cours n’est pas touchée.</p>\
 <textarea id="restoreText" rows="6" placeholder="ARKEN-PROFIL-1:…"></textarea><div class="confirm-actions"><button class="cancel" id="restoreBack">Retour</button><button class="primary" id="restoreGo">Restaurer</button></div>`;
   $('#restoreBack').onclick=openBoosts;
-  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);if(profile.premium){r.profile.premium=true;r.profile.adsRemoved=true;} /* V17.9 : un Premium déjà acheté sur ce téléphone reste */setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
+  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);r.profile.purchases=profile.purchases;if(profile.premium){r.profile.premium=true;r.profile.adsRemoved=true;r.profile.starterPack=profile.starterPack;} /* V17.9 : achats et Premium de CE téléphone gardés ; rien du texte collé */setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }

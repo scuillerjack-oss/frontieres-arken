@@ -4,7 +4,7 @@ import { hintsActive } from '../../domain/profile.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { decodeRealtimeSave } from '../../persistence/save-codec.js';
 import {
-  TUTORIAL_STEPS, bubblePlacement, clearTutorial, createTutorialState, firstVisibleTarget, loadTutorial, markTutorialOffered,
+  TUTORIAL_STEPS, bubblePlacement, clearTutorial, createTutorialState, firstVisibleTarget, isTutorial, loadTutorial, markTutorialOffered,
   tutorialAdvance, tutorialHint, tutorialOffered, tutorialPausesAt, tutorialStepView, tutorialWaitDone
 } from '../tutorial.js';
 import { $, toast } from './base.js';
@@ -79,8 +79,8 @@ function setTutoStep(i){
   if(i>=TUTORIAL_STEPS.length)return finishTutorial();
   document.querySelectorAll('.tuto-done').forEach(x=>x.classList.remove('tuto-done'));tutoStep=i;tutoFocused=null;
   if(tutorialPausesAt(i))pauseRealtime(); // en pause pendant les explications
-  // La fiche de province ouverte n'est gardée que si l'étape la vise (sinon elle rétrécit la bulle et cache la carte).
-  if(!(TUTORIAL_STEPS[i].targets||[]).some(t=>t.includes('#provinceSheet'))&&!$('#provinceSheet').hidden){$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();}
+  // Chaque étape commence fiche fermée : la bulle est alors large et montre toute l'explication (la fiche se rouvre en touchant la province).
+  if(!$('#provinceSheet').hidden){$('#provinceSheet').hidden=true;setSelected(null);placeTutorial();render();}
   state.tutorialRun={...(state.tutorialRun||{}),step:i};save();
   if(lastShown!==i){lastShown=i;showTuto();}
 }
@@ -99,6 +99,7 @@ const decodeTuto=text=>decodeRealtimeSave(text).state;
 export async function startTutorial({resume=false}={}){
   markTutorialOffered(undefined,tutorialOfferState()==='termine'?'termine':'propose');
   stopTuto();closeAllDialogs();
+  if(state&&!isTutorial(state))save(); // relecture V17.9 : la vraie partie en cours (⚙ → Jouer le tutoriel) est écrite AVANT d'être remplacée en mémoire
   const saved=resume?loadTutorial(decodeTuto):null;
   setState(saved?hydrateState(saved):createTutorialState({map}));if(!state)setState(createTutorialState({map}));
   setSelected(null);setMoveSource(null);setScale(1);setTx(0);setTy(0);updateLabelScale();$('#moveBanner').hidden=true;$('#provinceSheet').hidden=true;save();showGame();
