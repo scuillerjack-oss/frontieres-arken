@@ -447,5 +447,1087 @@
    "sauvegardesVerifiees": 0,
    "sauvegardesDifferentes": []
   }
+ },
+ "u50-valm": {
+  "reglages": {
+   "ai": {
+    "baseTieBreak": true,
+    "baseTieSpread": 100,
+    "capitalGuard": 100,
+    "threatExceptTarget": true
+   },
+   "incomeDays": 50,
+   "start": {
+    "nation": {
+     "valmorne": {
+      "p02": {
+       "infantry": 40
+      },
+      "p03": {
+       "infantry": 40
+      }
+     }
+    }
+   }
+  },
+  "parties": 100,
+  "erreurs": 0,
+  "premieresErreurs": [],
+  "conquetesParPartie": 14.6,
+  "conquetesParQuart": [
+   5.5,
+   3.9,
+   3.4,
+   1.7
+  ],
+  "conquetesMinMediane": [
+   4,
+   13,
+   39
+  ],
+  "nationsElimineesParPartie": 1.16,
+  "partiesAvecEliminationAvant2Ans": 4,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 1,
+  "eliminationsParNation": {
+   "valmorne": 30,
+   "roc-epine": 25,
+   "oroel": 21,
+   "noireflamme": 22,
+   "aurel": 18
+  },
+  "eliminationsParCaractere": {
+   "null": 78,
+   "heros": 4,
+   "batisseur": 4,
+   "traitre": 15,
+   "conquerant": 15
+  },
+  "jourEliminationMediane": 3210,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2249,
+   "max": 5665
+  },
+  "famine": {
+   "taux": 11.2,
+   "nations": "56 sur 500",
+   "joursMediane": 17,
+   "plusLongue": 79
+  },
+  "ballonsConstruits": 28.6,
+  "ballonsAbattus": 27.4,
+  "ile": {
+   "prisesParPartie": 0.34,
+   "partiesAvecPrise": 20,
+   "premierePriseJourMediane": 3709,
+   "preneurs": {
+    "oroel": 12,
+    "valmorne": 10,
+    "noireflamme": 2,
+    "roc-epine": 4,
+    "aurel": 6
+   },
+   "preneursParCaractere": {
+    "heros": 16,
+    "traitre": 7,
+    "conquerant": 5,
+    "batisseur": 6
+   },
+   "reprisesAUneNation": 14
+  },
+  "fins": {
+   "player-eliminated": 78,
+   "turn-limit": 22
+  },
+  "dureeDesConquetesJours": [],
+  "conquetesDuMondeAvant5Ans": 0,
+  "vainqueurParNation": {
+   "valmorne": 23,
+   "roc-epine": 24,
+   "noireflamme": 17,
+   "oroel": 17,
+   "aurel": 19
+  },
+  "vainqueurParNationPct": {
+   "valmorne": 23,
+   "roc-epine": 24,
+   "noireflamme": 17,
+   "oroel": 17,
+   "aurel": 19
+  },
+  "vainqueurParCaractere": {
+   "batisseur": 35,
+   "traitre": 26,
+   "conquerant": 26,
+   "heros": 13
+  },
+  "vainqueurParCaracterePct": {
+   "batisseur": 35,
+   "traitre": 26,
+   "conquerant": 26,
+   "heros": 13
+  },
+  "tauxDeVictoireParCaractereTenu": {
+   "null": 0,
+   "batisseur": 35,
+   "conquerant": 26,
+   "heros": 13,
+   "traitre": 26
+  },
+  "conquetesParNation": {
+   "valmorne": 2.5,
+   "roc-epine": 2.7,
+   "noireflamme": 3,
+   "oroel": 2.1,
+   "aurel": 4.3
+  },
+  "pertesParNation": {
+   "valmorne": 2.6,
+   "roc-epine": 2.8,
+   "noireflamme": 2.8,
+   "oroel": 2.2,
+   "aurel": 4
+  },
+  "provincesFinalesParNation": {
+   "valmorne": 3.8,
+   "roc-epine": 3.9,
+   "noireflamme": 4.2,
+   "oroel": 3.9,
+   "aurel": 4.4
+  },
+  "debarquementsLancesParNation": {
+   "valmorne": 1.6,
+   "roc-epine": 1.2,
+   "noireflamme": 1.8,
+   "oroel": 1.3,
+   "aurel": 2.9
+  },
+  "debarquementsRecusParNation": {
+   "valmorne": 1.8,
+   "roc-epine": 1.7,
+   "noireflamme": 1.5,
+   "oroel": 1.6,
+   "aurel": 1.9
+  },
+  "matriceDesConquetes": {
+   "noireflamme>aurel": 2.36,
+   "aurel>noireflamme": 2.3,
+   "aurel>roc-epine": 1.73,
+   "roc-epine>valmorne": 1.32,
+   "valmorne>oroel": 1.27,
+   "roc-epine>aurel": 1.2,
+   "oroel>valmorne": 1.16,
+   "valmorne>roc-epine": 0.87,
+   "noireflamme>oroel": 0.54,
+   "oroel>noireflamme": 0.5,
+   "valmorne>aurel": 0.24,
+   "roc-epine>oroel": 0.2,
+   "oroel>aurel": 0.16,
+   "aurel>oroel": 0.15,
+   "oroel>roc-epine": 0.14,
+   "aurel>valmorne": 0.12,
+   "oroel>neutre": 0.1,
+   "noireflamme>roc-epine": 0.06,
+   "valmorne>neutre": 0.04,
+   "valmorne>noireflamme": 0.03,
+   "noireflamme>neutre": 0.02,
+   "aurel>neutre": 0.02,
+   "roc-epine>neutre": 0.02,
+   "noireflamme>valmorne": 0.01
+  },
+  "batailles": 20.8,
+  "debarquements": 8.7,
+  "assauts": 37.1,
+  "rencontresEnChemin": 0.04,
+  "interceptions": 0.62,
+  "trahisonsParPartie": 2.55,
+  "trahisonsParCaractere": {
+   "traitre": 217,
+   "conquerant": 38
+  },
+  "ciblesDesTrahisons": {
+   "batisseur": 112,
+   "heros": 101,
+   "traitre": 14,
+   "conquerant": 28
+  },
+  "alliancesParPartie": 4.12,
+  "victoiresDuJoueur": 0,
+  "vainqueurIAParCaracterePct": {
+   "batisseur": 35,
+   "traitre": 26,
+   "conquerant": 26,
+   "heros": 13
+  },
+  "variete": {
+   "premiereGuerre": {
+    "differents": 6,
+    "plusFrequent": "noireflamme>aurel (19 %)"
+   },
+   "premiereGuerreJourMediane": 109,
+   "premiereGuerreCaracteres": {
+    "differents": 7,
+    "plusFrequent": "conquerant>heros (25 %)"
+   },
+   "premiereAlliance": {
+    "differents": 8,
+    "plusFrequent": "roc-epine+valmorne (20 %)"
+   },
+   "premiereEliminee": {
+    "differents": 5,
+    "plusFrequent": "valmorne (24 %)"
+   },
+   "vainqueur": {
+    "differents": 5,
+    "plusFrequent": "roc-epine (24 %)"
+   },
+   "cibleDePremiereTrahison": {
+    "differents": 13,
+    "plusFrequent": "aurel>roc-epine (12 %)"
+   },
+   "conquetesEcartType": 8,
+   "partiesIdentiques": 0
+  },
+  "joueur": {
+   "rangMoyen": 4.42,
+   "rangs": {
+    "2": 1,
+    "3": 14,
+    "4": 27,
+    "5": 58
+   },
+   "offresDePaix": 0,
+   "refus": 0
+  },
+  "invariants": {
+   "violations": 0,
+   "partiesTouchees": 0,
+   "exemples": [],
+   "joursAvecEcartDeTroupes": 0,
+   "ecartDeTroupesTotal": 0,
+   "sauvegardesVerifiees": 0,
+   "sauvegardesDifferentes": []
+  }
+ },
+ "v-c1": {
+  "reglages": {
+   "ai": {
+    "baseTieBreak": true,
+    "baseTieSpread": 100,
+    "capitalGuard": 100,
+    "threatExceptTarget": true,
+    "personality": {
+     "conquerant": {
+      "secondPrey": 1.6,
+      "truceBreakPeriods": [
+       8,
+       14
+      ]
+     }
+    }
+   },
+   "incomeDays": 50,
+   "start": {
+    "nation": {
+     "valmorne": {
+      "p02": {
+       "infantry": 40
+      },
+      "p03": {
+       "infantry": 40
+      }
+     }
+    }
+   }
+  },
+  "parties": 100,
+  "erreurs": 0,
+  "premieresErreurs": [],
+  "conquetesParPartie": 14.5,
+  "conquetesParQuart": [
+   5.5,
+   4.1,
+   3.1,
+   1.7
+  ],
+  "conquetesMinMediane": [
+   4,
+   13,
+   40
+  ],
+  "nationsElimineesParPartie": 1.08,
+  "partiesAvecEliminationAvant2Ans": 4,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 1,
+  "eliminationsParNation": {
+   "valmorne": 31,
+   "roc-epine": 23,
+   "noireflamme": 18,
+   "aurel": 17,
+   "oroel": 19
+  },
+  "eliminationsParCaractere": {
+   "null": 76,
+   "batisseur": 7,
+   "traitre": 10,
+   "conquerant": 11,
+   "heros": 4
+  },
+  "jourEliminationMediane": 3167,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2270,
+   "max": 5665
+  },
+  "famine": {
+   "taux": 11.2,
+   "nations": "56 sur 500",
+   "joursMediane": 17,
+   "plusLongue": 456
+  },
+  "ballonsConstruits": 28.5,
+  "ballonsAbattus": 27.3,
+  "ile": {
+   "prisesParPartie": 0.33,
+   "partiesAvecPrise": 20,
+   "premierePriseJourMediane": 3729,
+   "preneurs": {
+    "oroel": 9,
+    "roc-epine": 5,
+    "noireflamme": 2,
+    "valmorne": 11,
+    "aurel": 6
+   },
+   "preneursParCaractere": {
+    "conquerant": 7,
+    "heros": 17,
+    "traitre": 5,
+    "batisseur": 4
+   },
+   "reprisesAUneNation": 13
+  },
+  "fins": {
+   "player-eliminated": 76,
+   "turn-limit": 24
+  },
+  "dureeDesConquetesJours": [],
+  "conquetesDuMondeAvant5Ans": 0,
+  "vainqueurParNation": {
+   "valmorne": 21,
+   "roc-epine": 25,
+   "noireflamme": 18,
+   "oroel": 17,
+   "aurel": 19
+  },
+  "vainqueurParNationPct": {
+   "valmorne": 21,
+   "roc-epine": 25,
+   "noireflamme": 18,
+   "oroel": 17,
+   "aurel": 19
+  },
+  "vainqueurParCaractere": {
+   "heros": 11,
+   "batisseur": 36,
+   "traitre": 26,
+   "conquerant": 27
+  },
+  "vainqueurParCaracterePct": {
+   "heros": 11,
+   "batisseur": 36,
+   "traitre": 26,
+   "conquerant": 27
+  },
+  "tauxDeVictoireParCaractereTenu": {
+   "null": 0,
+   "batisseur": 36,
+   "conquerant": 27,
+   "heros": 11,
+   "traitre": 26
+  },
+  "conquetesParNation": {
+   "valmorne": 2.3,
+   "roc-epine": 2.9,
+   "noireflamme": 3,
+   "oroel": 2,
+   "aurel": 4.3
+  },
+  "pertesParNation": {
+   "valmorne": 2.7,
+   "roc-epine": 2.8,
+   "noireflamme": 3,
+   "oroel": 2,
+   "aurel": 3.9
+  },
+  "provincesFinalesParNation": {
+   "valmorne": 3.6,
+   "roc-epine": 4.1,
+   "noireflamme": 4.1,
+   "oroel": 4,
+   "aurel": 4.4
+  },
+  "debarquementsLancesParNation": {
+   "valmorne": 1.6,
+   "roc-epine": 1.2,
+   "noireflamme": 1.8,
+   "oroel": 1.2,
+   "aurel": 2.7
+  },
+  "debarquementsRecusParNation": {
+   "valmorne": 1.8,
+   "roc-epine": 1.5,
+   "noireflamme": 1.5,
+   "oroel": 1.5,
+   "aurel": 2
+  },
+  "matriceDesConquetes": {
+   "noireflamme>aurel": 2.38,
+   "aurel>noireflamme": 2.37,
+   "aurel>roc-epine": 1.71,
+   "roc-epine>valmorne": 1.38,
+   "roc-epine>aurel": 1.2,
+   "valmorne>oroel": 1.17,
+   "oroel>valmorne": 1.12,
+   "valmorne>roc-epine": 0.81,
+   "oroel>noireflamme": 0.52,
+   "noireflamme>oroel": 0.47,
+   "roc-epine>oroel": 0.26,
+   "valmorne>aurel": 0.18,
+   "oroel>roc-epine": 0.15,
+   "oroel>aurel": 0.13,
+   "aurel>oroel": 0.11,
+   "aurel>valmorne": 0.11,
+   "valmorne>noireflamme": 0.08,
+   "noireflamme>roc-epine": 0.08,
+   "oroel>neutre": 0.07,
+   "noireflamme>valmorne": 0.07,
+   "valmorne>neutre": 0.06,
+   "roc-epine>neutre": 0.03,
+   "noireflamme>neutre": 0.02,
+   "aurel>neutre": 0.02
+  },
+  "batailles": 20.6,
+  "debarquements": 8.4,
+  "assauts": 36.3,
+  "rencontresEnChemin": 0.04,
+  "interceptions": 0.52,
+  "trahisonsParPartie": 2.18,
+  "trahisonsParCaractere": {
+   "traitre": 211,
+   "conquerant": 7
+  },
+  "ciblesDesTrahisons": {
+   "batisseur": 101,
+   "heros": 85,
+   "traitre": 2,
+   "conquerant": 30
+  },
+  "alliancesParPartie": 4.12,
+  "victoiresDuJoueur": 0,
+  "vainqueurIAParCaracterePct": {
+   "heros": 11,
+   "batisseur": 36,
+   "traitre": 26,
+   "conquerant": 27
+  },
+  "variete": {
+   "premiereGuerre": {
+    "differents": 7,
+    "plusFrequent": "noireflamme>aurel (19 %)"
+   },
+   "premiereGuerreJourMediane": 109,
+   "premiereGuerreCaracteres": {
+    "differents": 7,
+    "plusFrequent": "conquerant>heros (26 %)"
+   },
+   "premiereAlliance": {
+    "differents": 8,
+    "plusFrequent": "roc-epine+valmorne (20 %)"
+   },
+   "premiereEliminee": {
+    "differents": 5,
+    "plusFrequent": "valmorne (27 %)"
+   },
+   "vainqueur": {
+    "differents": 5,
+    "plusFrequent": "roc-epine (25 %)"
+   },
+   "cibleDePremiereTrahison": {
+    "differents": 13,
+    "plusFrequent": "noireflamme>aurel (12 %)"
+   },
+   "conquetesEcartType": 8.2,
+   "partiesIdentiques": 0
+  },
+  "joueur": {
+   "rangMoyen": 4.5,
+   "rangs": {
+    "2": 2,
+    "3": 10,
+    "4": 24,
+    "5": 64
+   },
+   "offresDePaix": 0,
+   "refus": 0
+  },
+  "invariants": {
+   "violations": 0,
+   "partiesTouchees": 0,
+   "exemples": [],
+   "joursAvecEcartDeTroupes": 0,
+   "ecartDeTroupesTotal": 0,
+   "sauvegardesVerifiees": 0,
+   "sauvegardesDifferentes": []
+  }
+ },
+ "v-c3": {
+  "reglages": {
+   "ai": {
+    "baseTieBreak": true,
+    "baseTieSpread": 100,
+    "capitalGuard": 100,
+    "threatExceptTarget": true,
+    "personality": {
+     "conquerant": {
+      "secondPrey": 1.6,
+      "truceBreakPeriods": [
+       8,
+       14
+      ],
+      "extraLots": 2,
+      "recruitPace": 15
+     },
+     "batisseur": {
+      "skipRecruit": 0.75
+     }
+    }
+   },
+   "incomeDays": 50,
+   "start": {
+    "nation": {
+     "valmorne": {
+      "p02": {
+       "infantry": 40
+      },
+      "p03": {
+       "infantry": 40
+      }
+     }
+    }
+   }
+  },
+  "parties": 100,
+  "erreurs": 0,
+  "premieresErreurs": [],
+  "conquetesParPartie": 15.3,
+  "conquetesParQuart": [
+   5.5,
+   4.6,
+   3.4,
+   1.8
+  ],
+  "conquetesMinMediane": [
+   3,
+   13,
+   40
+  ],
+  "nationsElimineesParPartie": 0.98,
+  "partiesAvecEliminationAvant2Ans": 5,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 0,
+  "eliminationsParNation": {
+   "valmorne": 29,
+   "roc-epine": 21,
+   "noireflamme": 17,
+   "aurel": 14,
+   "oroel": 17
+  },
+  "eliminationsParCaractere": {
+   "null": 67,
+   "batisseur": 4,
+   "traitre": 8,
+   "conquerant": 15,
+   "heros": 4
+  },
+  "jourEliminationMediane": 3011,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2380,
+   "max": 5541
+  },
+  "famine": {
+   "taux": 12,
+   "nations": "60 sur 500",
+   "joursMediane": 17,
+   "plusLongue": 79
+  },
+  "ballonsConstruits": 31.1,
+  "ballonsAbattus": 29.8,
+  "ile": {
+   "prisesParPartie": 0.32,
+   "partiesAvecPrise": 23,
+   "premierePriseJourMediane": 4441,
+   "preneurs": {
+    "noireflamme": 3,
+    "valmorne": 10,
+    "oroel": 8,
+    "aurel": 7,
+    "roc-epine": 4
+   },
+   "preneursParCaractere": {
+    "heros": 20,
+    "conquerant": 6,
+    "batisseur": 4,
+    "traitre": 2
+   },
+   "reprisesAUneNation": 9
+  },
+  "fins": {
+   "player-eliminated": 67,
+   "turn-limit": 33
+  },
+  "dureeDesConquetesJours": [],
+  "conquetesDuMondeAvant5Ans": 0,
+  "vainqueurParNation": {
+   "valmorne": 19,
+   "roc-epine": 27,
+   "noireflamme": 13,
+   "oroel": 15,
+   "aurel": 26
+  },
+  "vainqueurParNationPct": {
+   "valmorne": 19,
+   "roc-epine": 27,
+   "noireflamme": 13,
+   "oroel": 15,
+   "aurel": 26
+  },
+  "vainqueurParCaractere": {
+   "heros": 11,
+   "batisseur": 30,
+   "traitre": 32,
+   "conquerant": 27
+  },
+  "vainqueurParCaracterePct": {
+   "heros": 11,
+   "batisseur": 30,
+   "traitre": 32,
+   "conquerant": 27
+  },
+  "tauxDeVictoireParCaractereTenu": {
+   "null": 0,
+   "batisseur": 30,
+   "conquerant": 27,
+   "heros": 11,
+   "traitre": 32
+  },
+  "conquetesParNation": {
+   "valmorne": 2.6,
+   "roc-epine": 3.1,
+   "noireflamme": 3,
+   "oroel": 1.9,
+   "aurel": 4.7
+  },
+  "pertesParNation": {
+   "valmorne": 3,
+   "roc-epine": 2.9,
+   "noireflamme": 3.2,
+   "oroel": 1.9,
+   "aurel": 4.1
+  },
+  "provincesFinalesParNation": {
+   "valmorne": 3.6,
+   "roc-epine": 4.2,
+   "noireflamme": 3.8,
+   "oroel": 4,
+   "aurel": 4.6
+  },
+  "debarquementsLancesParNation": {
+   "valmorne": 1.7,
+   "roc-epine": 1.1,
+   "noireflamme": 1.8,
+   "oroel": 1.2,
+   "aurel": 2.8
+  },
+  "debarquementsRecusParNation": {
+   "valmorne": 1.8,
+   "roc-epine": 1.6,
+   "noireflamme": 1.5,
+   "oroel": 1.6,
+   "aurel": 1.9
+  },
+  "matriceDesConquetes": {
+   "aurel>noireflamme": 2.52,
+   "noireflamme>aurel": 2.4,
+   "aurel>roc-epine": 1.84,
+   "roc-epine>valmorne": 1.55,
+   "roc-epine>aurel": 1.36,
+   "valmorne>oroel": 1.2,
+   "oroel>valmorne": 1.13,
+   "valmorne>roc-epine": 0.95,
+   "oroel>noireflamme": 0.55,
+   "noireflamme>oroel": 0.47,
+   "valmorne>aurel": 0.26,
+   "aurel>valmorne": 0.21,
+   "roc-epine>oroel": 0.13,
+   "aurel>oroel": 0.1,
+   "valmorne>noireflamme": 0.09,
+   "oroel>aurel": 0.09,
+   "oroel>neutre": 0.08,
+   "oroel>roc-epine": 0.08,
+   "noireflamme>valmorne": 0.06,
+   "valmorne>neutre": 0.06,
+   "noireflamme>neutre": 0.03,
+   "aurel>neutre": 0.03,
+   "noireflamme>roc-epine": 0.03,
+   "roc-epine>neutre": 0.03,
+   "roc-epine>noireflamme": 0.02
+  },
+  "batailles": 22.3,
+  "debarquements": 8.6,
+  "assauts": 39.2,
+  "rencontresEnChemin": 0.06,
+  "interceptions": 0.55,
+  "trahisonsParPartie": 2.27,
+  "trahisonsParCaractere": {
+   "traitre": 222,
+   "conquerant": 5
+  },
+  "ciblesDesTrahisons": {
+   "batisseur": 99,
+   "heros": 93,
+   "traitre": 2,
+   "conquerant": 33
+  },
+  "alliancesParPartie": 4.21,
+  "victoiresDuJoueur": 0,
+  "vainqueurIAParCaracterePct": {
+   "heros": 11,
+   "batisseur": 30,
+   "traitre": 32,
+   "conquerant": 27
+  },
+  "variete": {
+   "premiereGuerre": {
+    "differents": 7,
+    "plusFrequent": "noireflamme>aurel (19 %)"
+   },
+   "premiereGuerreJourMediane": 109,
+   "premiereGuerreCaracteres": {
+    "differents": 7,
+    "plusFrequent": "conquerant>heros (26 %)"
+   },
+   "premiereAlliance": {
+    "differents": 8,
+    "plusFrequent": "roc-epine+valmorne (20 %)"
+   },
+   "premiereEliminee": {
+    "differents": 5,
+    "plusFrequent": "valmorne (28 %)"
+   },
+   "vainqueur": {
+    "differents": 5,
+    "plusFrequent": "roc-epine (27 %)"
+   },
+   "cibleDePremiereTrahison": {
+    "differents": 13,
+    "plusFrequent": "aurel>roc-epine (12 %)"
+   },
+   "conquetesEcartType": 9.4,
+   "partiesIdentiques": 0
+  },
+  "joueur": {
+   "rangMoyen": 4.38,
+   "rangs": {
+    "2": 2,
+    "3": 15,
+    "4": 26,
+    "5": 57
+   },
+   "offresDePaix": 0,
+   "refus": 0
+  },
+  "invariants": {
+   "violations": 0,
+   "partiesTouchees": 0,
+   "exemples": [],
+   "joursAvecEcartDeTroupes": 0,
+   "ecartDeTroupesTotal": 0,
+   "sauvegardesVerifiees": 0,
+   "sauvegardesDifferentes": []
+  }
+ },
+ "v-c4": {
+  "reglages": {
+   "ai": {
+    "baseTieBreak": true,
+    "baseTieSpread": 100,
+    "capitalGuard": 100,
+    "threatExceptTarget": true,
+    "personality": {
+     "conquerant": {
+      "secondPrey": 1.6,
+      "truceBreakPeriods": [
+       8,
+       14
+      ],
+      "extraLots": 3,
+      "recruitPace": 10,
+      "margin": 0.85
+     },
+     "batisseur": {
+      "skipRecruit": 0.85,
+      "reserve": 60
+     }
+    }
+   },
+   "incomeDays": 50,
+   "start": {
+    "nation": {
+     "valmorne": {
+      "p02": {
+       "infantry": 40
+      },
+      "p03": {
+       "infantry": 40
+      }
+     }
+    }
+   }
+  },
+  "parties": 100,
+  "erreurs": 0,
+  "premieresErreurs": [],
+  "conquetesParPartie": 14.8,
+  "conquetesParQuart": [
+   5.3,
+   4.1,
+   3.4,
+   2
+  ],
+  "conquetesMinMediane": [
+   4,
+   13,
+   43
+  ],
+  "nationsElimineesParPartie": 1,
+  "partiesAvecEliminationAvant2Ans": 5,
+  "partiesAvecEliminationsEnChaineAvant2Ans": 0,
+  "eliminationsParNation": {
+   "valmorne": 28,
+   "noireflamme": 19,
+   "roc-epine": 23,
+   "aurel": 13,
+   "oroel": 17
+  },
+  "eliminationsParCaractere": {
+   "null": 64,
+   "batisseur": 1,
+   "traitre": 15,
+   "conquerant": 15,
+   "heros": 5
+  },
+  "jourEliminationMediane": 3173,
+  "plusGrandeArmeeFinaleOr": {
+   "mediane": 2580,
+   "max": 5963
+  },
+  "famine": {
+   "taux": 13.6,
+   "nations": "68 sur 500",
+   "joursMediane": 17,
+   "plusLongue": 59
+  },
+  "ballonsConstruits": 34,
+  "ballonsAbattus": 32.6,
+  "ile": {
+   "prisesParPartie": 0.37,
+   "partiesAvecPrise": 28,
+   "premierePriseJourMediane": 4450,
+   "preneurs": {
+    "valmorne": 9,
+    "roc-epine": 6,
+    "aurel": 11,
+    "noireflamme": 5,
+    "oroel": 6
+   },
+   "preneursParCaractere": {
+    "heros": 23,
+    "conquerant": 3,
+    "batisseur": 6,
+    "traitre": 5
+   },
+   "reprisesAUneNation": 9
+  },
+  "fins": {
+   "player-eliminated": 64,
+   "turn-limit": 36
+  },
+  "dureeDesConquetesJours": [],
+  "conquetesDuMondeAvant5Ans": 0,
+  "vainqueurParNation": {
+   "valmorne": 18,
+   "roc-epine": 27,
+   "noireflamme": 18,
+   "oroel": 12,
+   "aurel": 25
+  },
+  "vainqueurParNationPct": {
+   "valmorne": 18,
+   "roc-epine": 27,
+   "noireflamme": 18,
+   "oroel": 12,
+   "aurel": 25
+  },
+  "vainqueurParCaractere": {
+   "heros": 18,
+   "conquerant": 32,
+   "traitre": 27,
+   "batisseur": 23
+  },
+  "vainqueurParCaracterePct": {
+   "heros": 18,
+   "conquerant": 32,
+   "traitre": 27,
+   "batisseur": 23
+  },
+  "tauxDeVictoireParCaractereTenu": {
+   "null": 0,
+   "batisseur": 23,
+   "conquerant": 32,
+   "heros": 18,
+   "traitre": 27
+  },
+  "conquetesParNation": {
+   "valmorne": 2.3,
+   "roc-epine": 3.1,
+   "noireflamme": 2.9,
+   "oroel": 1.9,
+   "aurel": 4.6
+  },
+  "pertesParNation": {
+   "valmorne": 2.8,
+   "roc-epine": 2.9,
+   "noireflamme": 2.9,
+   "oroel": 2.1,
+   "aurel": 3.9
+  },
+  "provincesFinalesParNation": {
+   "valmorne": 3.5,
+   "roc-epine": 4.2,
+   "noireflamme": 4,
+   "oroel": 3.8,
+   "aurel": 4.8
+  },
+  "debarquementsLancesParNation": {
+   "valmorne": 1.5,
+   "roc-epine": 1.3,
+   "noireflamme": 1.8,
+   "oroel": 1.4,
+   "aurel": 2.9
+  },
+  "debarquementsRecusParNation": {
+   "valmorne": 1.9,
+   "roc-epine": 1.6,
+   "noireflamme": 1.6,
+   "oroel": 1.5,
+   "aurel": 1.9
+  },
+  "matriceDesConquetes": {
+   "aurel>noireflamme": 2.4,
+   "noireflamme>aurel": 2.26,
+   "aurel>roc-epine": 1.88,
+   "roc-epine>valmorne": 1.53,
+   "roc-epine>aurel": 1.29,
+   "valmorne>oroel": 1.16,
+   "oroel>valmorne": 1.12,
+   "valmorne>roc-epine": 0.85,
+   "noireflamme>oroel": 0.56,
+   "oroel>noireflamme": 0.44,
+   "roc-epine>oroel": 0.2,
+   "oroel>aurel": 0.16,
+   "valmorne>aurel": 0.15,
+   "aurel>oroel": 0.14,
+   "oroel>roc-epine": 0.13,
+   "aurel>valmorne": 0.11,
+   "aurel>neutre": 0.08,
+   "valmorne>neutre": 0.07,
+   "noireflamme>roc-epine": 0.05,
+   "oroel>neutre": 0.05,
+   "roc-epine>neutre": 0.04,
+   "roc-epine>noireflamme": 0.04,
+   "noireflamme>neutre": 0.04,
+   "valmorne>noireflamme": 0.03,
+   "noireflamme>valmorne": 0.03
+  },
+  "batailles": 21.5,
+  "debarquements": 8.9,
+  "assauts": 38,
+  "rencontresEnChemin": 0,
+  "interceptions": 0.74,
+  "trahisonsParPartie": 2.33,
+  "trahisonsParCaractere": {
+   "traitre": 223,
+   "heros": 1,
+   "conquerant": 9
+  },
+  "ciblesDesTrahisons": {
+   "batisseur": 106,
+   "heros": 90,
+   "conquerant": 31,
+   "traitre": 6
+  },
+  "alliancesParPartie": 4.13,
+  "victoiresDuJoueur": 0,
+  "vainqueurIAParCaracterePct": {
+   "heros": 18,
+   "conquerant": 32,
+   "traitre": 27,
+   "batisseur": 23
+  },
+  "variete": {
+   "premiereGuerre": {
+    "differents": 7,
+    "plusFrequent": "noireflamme>aurel (19 %)"
+   },
+   "premiereGuerreJourMediane": 109,
+   "premiereGuerreCaracteres": {
+    "differents": 7,
+    "plusFrequent": "conquerant>heros (26 %)"
+   },
+   "premiereAlliance": {
+    "differents": 8,
+    "plusFrequent": "roc-epine+valmorne (20 %)"
+   },
+   "premiereEliminee": {
+    "differents": 5,
+    "plusFrequent": "valmorne (27 %)"
+   },
+   "vainqueur": {
+    "differents": 5,
+    "plusFrequent": "roc-epine (27 %)"
+   },
+   "cibleDePremiereTrahison": {
+    "differents": 13,
+    "plusFrequent": "noireflamme>aurel (13 %)"
+   },
+   "conquetesEcartType": 8.4,
+   "partiesIdentiques": 1
+  },
+  "joueur": {
+   "rangMoyen": 4.39,
+   "rangs": {
+    "2": 1,
+    "3": 16,
+    "4": 26,
+    "5": 57
+   },
+   "offresDePaix": 0,
+   "refus": 0
+  },
+  "invariants": {
+   "violations": 0,
+   "partiesTouchees": 0,
+   "exemples": [],
+   "joursAvecEcartDeTroupes": 0,
+   "ecartDeTroupesTotal": 0,
+   "sauvegardesVerifiees": 0,
+   "sauvegardesDifferentes": []
+  }
  }
 }

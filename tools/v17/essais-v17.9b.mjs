@@ -45,6 +45,11 @@ export const ESSAIS = {
   // Round 5 : Valmorne (seule capitale sans port, deux côtes faibles) : ses deux points de port un peu mieux gardés au départ.
   'u50-valm': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
   'u45-valm': m(tie, { incomeDays: 45, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
+  // Round 6 : le Conquérant garde ses prises (une proie à la fois, trêves rompues moins tôt), Héros un peu moins prompt.
+  'v-c1': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14] } } } }),
+  'v-c2': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14] }, heros: { coalitionChance: .4, strikeMenaceStrength: .7 } } } }),
+  'v-c3': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 2, recruitPace: 15 }, batisseur: { skipRecruit: .75 } } } }),
+  'v-c4': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { secondPrey: 1.6, truceBreakPeriods: [8, 14], extraLots: 3, recruitPace: 10, margin: .85 }, batisseur: { skipRecruit: .85, reserve: 60 } } } }),
   'g-garde-menace-marge': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true, marginAdd: -.2 } })
 };
 export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179b')) {
