@@ -18,7 +18,7 @@ import { render } from './map-view.js';
 import { actionModal as actionModal0, cancelMove, confirmationModal as confirmationModal0 } from './province-sheet.js';
 import { state } from './session.js';
 import { escapeHtml, nationPanel, openTalkCompose, safeEngine } from './talk-screen.js';
-import { miniTuto, tuto, tutorial } from './tutorials.js';
+import { tuto, tutorial } from './tutorials.js';
 import { realtimeText } from '../realtime-view.js';
 
 // V17.3 : en temps réel, les ordres diplomatiques partent tout de suite : les textes écrits pour l'inter-tour sont relus.
@@ -86,7 +86,7 @@ export function openDiplomacy(target=null){
 <b>${a.label}</b>${(!a.enabled||pending)&&a.reason?`<small>${a.reason}</small>`:''}</span><button data-diplo="${a.id}" ${a.enabled&&!pending?'':'disabled'}>Choisir</button></div>`).join('')}</div>${relationWithPlayer(state,
     target)==='alliance'?`<p class="passage-note">🤝 ${PASSAGE_TEXT} : vos troupes peuvent traverser ses provinces, y stationner et les défendre (et lui chez vous).</p>`:''}${relationWithPlayer(state,
     target)==='alliance'?`<button id="askHelp" class="help-launch">🤝 Demander de l’aide à ${nation(target).short}</button>`:''}`);
-  $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));miniTuto('diplomacy');tuto(`diplomacy:${target}`);
+  $('#askHelp')?.addEventListener('click',()=>openHelpRequest(target));tuto(`diplomacy:${target}`);
   document.querySelectorAll('[data-diplo]').forEach(b=>b.onclick=()=>{const id=b.dataset.diplo;if(id==='ultimatum')return chooseCeasefireOffer(target);$('#actionDialog').close();confirmDiplomacy(id,target);});
   $('#nationTalk')?.addEventListener('click',()=>{$('#actionDialog').close();openTalkCompose(target);});
   tutorial('diplomacy','Diplomatie en deux étapes',rtx('Choisissez une action : vous verrez ses conséquences avant de confirmer. Elle s’applique à la fin du tour.'));

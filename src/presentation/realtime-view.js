@@ -13,6 +13,7 @@ import { landTravelDays } from '../domain/realtime/marches.js';
 import { provinceIntel, visionSharers } from '../domain/vision.js';
 import { convoySeaPath, pointAlong } from './map-orders-view.js';
 import { foodEventText } from './food-view.js';
+import { MYSTERY_ISLAND_ID } from '../domain/mystery-island.js';
 
 const R = RULES.realtime;
 const clamp01 = x => Math.max(0, Math.min(1, x));
@@ -258,6 +259,7 @@ export function incomingBanners(state, tokens, me, names, seen = new Set()) {
   const out = [];
   for (const t of tokens) {
     if (t.relation !== 'foreign' || t.returning || state.provinces[t.toId]?.ownerId !== me) continue;
+    if (t.toId === MYSTERY_ISLAND_ID) continue; // V17.9 : une flotte vers l'île = un seul bandeau, celui du phare 🗼
     const key = `incoming:${t.kind}:${t.id}`;
     if (seen.has(key)) continue;
     out.push({ key, kind: 'attack', tone: 'bad', icon: t.kind === 'convoy' ? '⛵' : '⚔',

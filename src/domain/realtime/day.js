@@ -21,7 +21,7 @@
 import { expireHelpPacts, resolveHelpRequests } from '../alliances.js';
 import { goldBonus } from '../boosts.js';
 import { RULES } from '../constants.js';
-import { hostilityWars, driftTension, observeLeaders } from '../leaders.js';
+import { allied, hostilityWars, driftTension, observeLeaders } from '../leaders.js';
 import { settleStationed as settlePassage } from '../passage.js';
 import { MYSTERY_ISLAND_ID, islandCoOwner, islandOwner, settleMysteryIsland } from '../mystery-island.js';
 import { recordStory } from '../story.js';
@@ -88,9 +88,8 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
   // V17.2 : « Bombarder » devient un ordre permanent, qui tire tous les 10 jours (bombardTick).
   registerBombardOrders(state, locked);
   const bombarded = resolveBombardments(state, map, [], fought);
-  const sailing = new Set((state.transports || []).map(t => t.id));
   departMoves(state, map, locked);
-  lighthouseAlerts(state, sailing);
+  lighthouseAlerts(state);
   settleStationed(state, map);
   resolveDiplomacy(state, locked, random, map);
   startProjects(state, locked);
@@ -109,13 +108,18 @@ export function executePendingOrders(state, map, { random = () => seededRandom(s
 /**
  * V17.5b : phare de l'île mystérieuse — une flotte d'une autre nation qui part vers l'île est signalée (avis privé) à son
  * propriétaire et à son co-propriétaire : « 🗼 Flotte de X en route vers l'île, arrivée le … » (journal, bandeau).
+ * V17.9 (relecture) : une seule fois par flotte et par veilleur (registre `rt.lighthouse`), jamais pour la flotte d'un allié,
+ * et aussi pour les flottes DÉJÀ en route quand on prend l'île (appelé aussi après les assauts du jour).
  */
-function lighthouseAlerts(state, before) {
-  const holders = [islandOwner(state), islandCoOwner(state)].filter(Boolean);
-  if (!holders.length) return;
-  for (const t of state.transports || []) {
-    if (before.has(t.id) || t.toId !== MYSTERY_ISLAND_ID || t.returning) continue;
-    for (const h of new Set(holders)) if (h !== t.nationId) state.events.push({ turn: state.turn, type: 'lighthouse', nationId: h, target: t.nationId, convoyId: t.id, provinceId: MYSTERY_ISLAND_ID, fromId: t.fromId, arriveDay: t.arriveDay });
+function lighthouseAlerts(state) {
+  const holders = [...new Set([islandOwner(state), islandCoOwner(state)].filter(Boolean))];
+  const rt = realtimeLedger(state), book = rt.lighthouse && typeof rt.lighthouse === 'object' ? rt.lighthouse : (rt.lighthouse = {});
+  const sailing = (state.transports || []).filter(t => t.toId === MYSTERY_ISLAND_ID && !t.returning), ids = new Set(sailing.map(t => String(t.id)));
+  for (const h of Object.keys(book)) { book[h] = (book[h] || []).filter(id => ids.has(String(id))); if (!book[h].length || !holders.includes(h)) delete book[h]; }
+  for (const h of holders) for (const t of sailing) {
+    if (t.nationId === h || allied(state, h, t.nationId) || (book[h] || []).includes(String(t.id))) continue;
+    (book[h] ||= []).push(String(t.id));
+    state.events.push({ turn: state.turn, type: 'lighthouse', nationId: h, target: t.nationId, convoyId: t.id, provinceId: MYSTERY_ISLAND_ID, fromId: t.fromId, arriveDay: t.arriveDay });
   }
 }
 /** Revenus du jour : un « tour » de revenus en 60 jours, report exact (le trésor reste un entier, rien ne se perd). */
@@ -202,6 +206,7 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   // 4) Assauts du jour (V17.2) : J, J+3, J+6 ; renforts arrivés entre-temps compris.
   resolveBattles(state, map, fought, day);
   settleStationed(state, map);
+  lighthouseAlerts(state); // V17.9 : île prise aujourd'hui → les flottes déjà en route sont signalées
   // 7a) Tous les 10 jours : bombardements permanents, puis guérison (pas dans une province en bataille, ni 10 jours après).
   if (day % R.bombard.everyDays === 0) markDays(rt.bombarded, bombardTick(state, map, fought), day);
   markDays(rt.fought, fought, day);

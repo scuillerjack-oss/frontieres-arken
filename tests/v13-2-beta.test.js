@@ -202,7 +202,7 @@ test('partie en 80 tours, affichée « tour/80 », alerte à 5 tours de la fin',
   assert.ok(s.turnJournal.some(e => /Plus que 5 tours/.test(e.text)), 'visible dans le journal du tour');
   resolveInterturn(s, map);
   assert.equal(s.events.filter(e => e.type === 'final-turns').length, 1);
-  assert.match(TUTORIAL_GUIDE.find(x => x.id === 'endgame').text, /80 tours/);
+  assert.match(TUTORIAL_GUIDE.find(x => x.id === 'endgame').text, /15 ans/); // V17.9 : l'aide parle du temps réel (le tour par tour reste pour les outils)
 });
 
 // --- 6. Alliés ------------------------------------------------------------------------------------------------

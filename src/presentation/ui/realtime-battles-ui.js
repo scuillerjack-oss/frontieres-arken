@@ -7,6 +7,7 @@ import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { $, E, nation, province, toast } from './base.js';
 import { actionModal } from './province-sheet.js';
 import { state } from './session.js';
+import { tuto } from './tutorials.js';
 
 const name = id => id ? nation(id).short : 'Île neutre';
 
@@ -40,6 +41,7 @@ export function battlesLayer() {
 export function openBattle(id, refresh = after) {
   const b = (state.battles || []).find(x => x.id === id);
   if (!b) { toast('La bataille est terminée'); return; }
+  tuto('battle-open'); // V17.9 : tutoriel
   const s = battleSummary(state, b), me = state.playerNationId, attacking = b.attackers.some(e => e.nationId === me), defending = b.defenderId === me;
   const rows = s.attackers.map(a => `<span>⚔ ${name(a.nationId)}${a.mode === 'landing' ? ' (débarquement)' : ''} : ${a.nationId === me || defending ? `${a.units} unités · ${a.hp} PV` : 'à l’assaut'}</span>`).join('');
   actionModal(`Bataille de ${province(b.provinceId).name}`, `ASSAUT ${s.assaultsDone}/${s.assaults} · ${formatShortDate(state.day)}`,

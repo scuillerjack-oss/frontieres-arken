@@ -172,12 +172,12 @@ export function trimPolyline(points, startGap = 0, endGap = 0) {
 }
 
 // Recrutement : prérequis manquants en clair, d'après RULES.units (requiresFactory, requiresPort).
-// pending = bâtiments déjà commandés dans la province (ex. { factory: 2 } = usine livrée dans 2 tours).
+// pending = bâtiments déjà commandés dans la province (ex. { factory: 60 } = usine livrée dans 60 jours).
 export function missingUnitPrerequisites(rule, buildings = {}, pending = {}) {
   const missing = [];
   const need = (flag, key, label) => {
     if (!flag || buildings[key]) return;
-    missing.push(pending[key] ? `${label} (en construction, ${pending[key]} tour${pending[key] > 1 ? 's' : ''})` : label);
+    missing.push(pending[key] ? `${label} (en construction, encore ${pending[key]} jour${pending[key] > 1 ? 's' : ''})` : label); // V17.9 : temps réel (file en jours)
   };
   need(rule.requiresFactory, 'factory', 'une usine');
   need(rule.requiresPort, 'port', 'un port');

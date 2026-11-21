@@ -16,6 +16,7 @@ import { eventPopup } from './event-popups.js';
 import { render } from './map-view.js';
 import { actionModal, confirmationModal } from './province-sheet.js';
 import { state } from './session.js';
+import { tuto } from './tutorials.js';
 
 const me = () => state.playerNationId, short = id => nation(id).short;
 const rt = () => state?.mode === 'realtime'; // V17.3 : textes en jours en temps réel
@@ -56,6 +57,7 @@ export function openBalloon(id) {
 
 // --- Son ballon : choisir la nation de destination ---------------------------------------------------------------
 function openOwnBalloon(b) {
+  tuto('balloon-open'); // V17.9 : tutoriel
   const pending = pendingFor('balloon-send', b.id), dests = balloonDestinations(state, map, b.id);
   actionModal('🎈 Notre ballon d’observation', `AU-DESSUS DE ${short(b.over).toUpperCase()}`,
     `<p class="balloon-status">${balloonStatusText(map, b, short, rtDay())}</p>${pending ? `<p class="balloon-pending">Ordre en attente : envoi vers <b>${short(pending.to)}</b>. \
@@ -66,7 +68,7 @@ ${b.to === d.id ? 'En route' : 'Envoyer'}</button></div>`).join('')}</div>${b.to
   document.querySelectorAll('[data-balloon-to]').forEach(btn => btn.onclick = () => {
     const to = btn.dataset.balloonTo, r = queueBalloonSend(state, map, { nationId: me(), balloonId: b.id, to });
     if (!r.ok) return toast(r.error);
-    $('#actionDialog').close(); render();
+    $('#actionDialog').close(); render(); tuto('balloon-send'); // V17.9 : tutoriel
     toast(rt() ? (r.path.length ? `Ballon envoyé vers ${short(to)} : ${r.turns * 30} jours de vol, départ ${balloonDepartDays(state.day) ? `dans ${balloonDepartDays(state.day)} jours (fin du mois de jeu)` : 'aujourd’hui'}.` : `Le ballon restera au-dessus ${balloonOf(short(to))}.`)
       : r.path.length ? `Ballon envoyé vers ${short(to)} : ${r.turns} tours. Ordre ajouté au tour.` : `Le ballon restera au-dessus ${balloonOf(short(to))}. Ordre ajouté au tour.`);
   });

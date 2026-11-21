@@ -4,6 +4,7 @@
 import { foodHud } from '../food-view.js';
 import { $, toast } from './base.js';
 import { state } from './session.js';
+import { tuto } from './tutorials.js';
 
 let lastKey = '';
 /** V17.3 : la case est posée dans index.html (emplacement prévu, cachée hors temps réel) ; on la remplit et on l'affiche. */
@@ -15,7 +16,7 @@ function foodCell() {
   return cell;
 }
 /** Toucher la case (ou un bandeau de nourriture) : l'état des vivres en une phrase. */
-export function explainFood() { if (state?.mode === 'realtime') toast(foodHud(state, state.playerNationId).note); }
+export function explainFood() { if (state?.mode === 'realtime') { toast(foodHud(state, state.playerNationId).note); tuto('food'); } } // V17.9 : tutoriel
 /** Met à jour (ou cache) la case des vivres. */
 export function drawFoodHud() {
   const cell = foodCell();

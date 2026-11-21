@@ -26,9 +26,20 @@ import { talkOptions, queueTalk } from '../src/domain/talk.js';
 import { queueHelpRequest } from '../src/domain/alliances.js';
 import { joueurPrudent, joueurDominant } from './joueurs-scriptes.mjs';
 
-// Le tutoriel a changé de nom de fichier en V15.0 ; l'outil tourne aussi sur l'ancien code pour pouvoir comparer.
-const tutorialModule = await import('../src/presentation/tutorial.js')
-  .catch(() => import('../src/presentation/v14-3-tutoriel.js'));
+// V17.9 : le tutoriel du jeu est passé en temps réel. L'empreinte « tutoriel » (moteur tour par tour) garde le scénario
+// d'entraînement de la V14.3, recopié ici à l'identique (partie au tour par tour : IA pour Roc-Épine seulement).
+import { setTension } from '../src/domain/leaders.js';
+const tutorialModule = { createTutorialState({ map }) {
+  const s = createGameState({ map, playerNationId: 'valmorne', seed: 'tutoriel-v14-3' });
+  for (const id of Object.keys(s.nations)) s.controllers[id] = id === 'valmorne' ? 'human' : id === 'roc-epine' ? 'ai' : 'human';
+  s.leaders = { 'roc-epine': { archetype: 'heros', revealed: false } };
+  s.ai.traits = { 'roc-epine': 'fidele' };
+  setTension(s, 'valmorne', 'oroel', 60);
+  const br = s.provinces.p03; br.buildings.port = 1; br.warships = 3; br.units.infantry = 160; br.units.cavalry = 10;
+  const no = s.provinces.p14; no.buildings.port = 1; no.warships = 1;
+  s.events = []; s.settings.hints = false; s.tutorialMode = true; s.tutorialRun = { step: 0, startedTurn: 1 };
+  return s;
+} };
 
 const { resolveInterturn, gameRanking, queueRecruitment, queueConstruction, queueMoveOrder, queueDiplomaticOrder, queueBombard,
   legalDestinations, availableForces, proposalsToAnswer, respondToProposal, bombardStatus, spendableTreasury, journalEntry } = engine;

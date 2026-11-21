@@ -157,9 +157,10 @@ test('interface : horloge branchée, journal remplacé par les annonces, fenêtr
   assert.doesNotMatch(live, /Ad\(/, 'jamais de pub pendant le déroulé');
   assert.doesNotMatch(live, /localStorage|encodeSave|save\(\)/, 'rien de l\'horloge dans la sauvegarde');
   const app = readFileSync(join(root, 'app.js'), 'utf8');
-  assert.match(app, /installLive\(\)/); assert.match(app, /renderLiveSettings\(\);\$\('#settingsDialog'\)\.showModal\(\)/);
+  assert.match(app, /installLive\(\)/); assert.doesNotMatch(app, /renderLiveSettings/, 'V17.9 : plus de réglage du déroulé (tour par tour retiré)');
   const html = readFileSync(join(root, 'index.html'), 'utf8');
-  for (const id of ['liveBar', 'livePause', 'liveProgress', 'flowChoices', 'speedChoices']) assert.ok(html.includes(`id="${id}"`), id);
+  for (const id of ['liveBar', 'livePause', 'liveProgress']) assert.ok(html.includes(`id="${id}"`), id);
+  for (const id of ['flowChoices', 'speedChoices']) assert.ok(!html.includes(`id="${id}"`), `V17.9 : ${id} retiré`);
   // V17.7 : plus de pub de début de partie (cahier V17 §10.2).
   const start = flatSource('src/presentation/ui/game-flow.js');
   assert.equal(start.indexOf('showGameStartAd'), -1);
