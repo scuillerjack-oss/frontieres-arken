@@ -48,4 +48,5 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
   return { kicker: `${MYSTERY_ISLAND_NAME} · ${status}`, chips, canMove: mine || coMine, canDiplo: Boolean(owner && !mine) };
 }
 /** Petit texte sous le nom de l'île sur la carte : super banque (et co-propriété). */
-export const islandMapBadge = state => `🏦+${MI.bankIncome}${state.provinces[MYSTERY_ISLAND_ID]?.coOwnerId ? ' 🤝' : ''}`;
+// V17.9 : en temps réel, revenu par mois (+5/mois) au lieu du revenu « par tour » (+10).
+export const islandMapBadge = state => `🏦+${state.mode === 'realtime' ? `${String(MI.bankIncome / 2).replace('.', ',')}/mois` : MI.bankIncome}${state.provinces[MYSTERY_ISLAND_ID]?.coOwnerId ? ' 🤝' : ''}`;

@@ -414,8 +414,10 @@ Règles de vision **V13 + ballon V16.1 inchangées** (qui voit quelle province).
   des troupes, ou île survolée par son ballon) et non cachée par une forteresse (règle V13 ; le ballon voit à travers).
 - **L'île mystérieuse** : toujours sa vraie pastille (garnison visible de tous, V16.2).
 - **Armées en marche** : une marche est visible de toute nation qui voit **sa province de départ ou d'arrivée** (on voit
-  toujours l'armée qui vient chez soi). Composition affichée seulement si la province de départ est visible pour elle
-  (ou si c'est soi / un allié) ; sinon icône avec « ? ».
+  toujours l'armée qui vient chez soi). Composition affichée seulement si les **troupes de la province de départ sont
+  connues** de cette nation selon `provinceIntel(...).troopsKnown` (voisinage par la terre, ballon ; pas derrière une
+  forteresse ennemie), ou si c'est soi / un allié ; jamais à cause de la province d'arrivée ; sinon icône avec « ? »
+  (texte accordé au code en V17.9).
 - **Convois** : visibles de tous en mer (comme aujourd'hui), composition seulement pour soi, ses alliés, ou sous son
   ballon.
 - **Capitales** : drapeau-emblème de la nation (V17.6).
@@ -475,7 +477,7 @@ titres : une partie compte quand elle se termine (fins 1 à 4) ; une partie aban
 
 ### 10.2 Pub imposée
 - **Au plus une toutes les 10 min de jeu** (même compteur de minutes de jeu), et **seulement à un moment calme** : quand
-  le joueur met en pause, ouvre un menu hors jeu (Réglages, Aide, Atouts, Palmarès), revient au menu, ou revient dans le jeu après l'avoir
+  le joueur met en pause, ouvre un menu hors jeu (Réglages, Aide, Palmarès ; V17.9 : plus l'écran Atouts, une boutique), revient au menu, ou revient dans le jeu après l'avoir
   quitté. **Jamais** pendant une action (choix d'une destination, fenêtre de décision, bataille du joueur en cours, ordre
   en train d'être donné), jamais dans le tutoriel, **jamais pour un Premium**.
 - Regarder une pub récompensée **remet ce compteur à zéro** (le joueur qui choisit ses pubs n'en subit pas d'autres).
@@ -1542,3 +1544,106 @@ action du joueur (`playerActing` dans `ui/ad-ui.js`, en plus de `#peaceDialog` d
 des jours de `syncRealtime` s'arrête dès qu'une offre arrive (elle est toujours montrée, temps arrêté). Test ajouté dans
 `tests/v17-8.test.js` (15 tests ; `npm test` : 876 tests, verts). Playwright (`/home/claude/pw/v178-pub.mjs`, `?pub-test=600`,
 844 × 390 et 390 × 844) : reprise avec offre → fenêtre de paix, aucune pub ; témoin sans offre → la pub passe ; 0 erreur JS.
+
+### V17.9 — Tutoriel refait, finitions, retrait du tour par tour (21/11/2026)
+**Fait** (branche `mission/V17.9`, version inchangée : montée par le chef de projet à la fusion). **Pas d'équilibrage** des
+conquêtes ni de Noireflamme (confié à une autre étape).
+
+1. **Tutoriel entièrement refait pour le temps réel** (`src/presentation/tutorial.js` pur, `ui/tutorials.js`) — 33 étapes, une
+   idée par bulle, un objectif « 👉 » pour chaque geste, jamais de conseil de stratégie (dernière bulle : « Les stratégies, c'est à
+   vous de les trouver ! »). Partie d'entraînement **en temps réel**, scénario fixe (graine `tutoriel-v17-9`) joué avec le vrai
+   moteur : Valmorne, 220 or, grande réserve de vivres (pas de famine), Oroël occupe Haut-Bois (90 fantassins, forteresse 1),
+   Sylvaren 120 fantassins, Branvale port + 3 navires, un ballon prêt ; seul Roc-Épine est une IA (Bâtisseur : il accepte une
+   alliance même après une guerre ailleurs), les autres restent passives.
+   - Programme : carte et défilement (glisser du doigt), capitale et pastilles ; date, ▶ puis ⏸ (⏩ = Premium, dit dans la
+     bulle) ; or et vivres (toucher 🌾) ; construire banque, ferme, forteresse, usine ; le port (Branvale) ; recruter (ⓘ PV et
+     dégâts) ; envoyer une armée et **la regarder avancer** ; la rappeler (toucher l'icône → Rappeler) ; attaquer Haut-Bois, envoyer
+     un renfort depuis Sylvaren, ▶ jusqu'au premier assaut, toucher ⚔ (fiche avec **Retraite**), suivre les **3 assauts** (le
+     renfort rejoint le 3e, prise au 3e assaut avec les forces à 50 %) ; fin de bataille (texte selon ce qui s'est passé) ; alertes et
+     Journal ; famine (expliquée sur la case 🌾) ; la mer (convoi Branvale → Nordhème) ; le ballon (🎈 → Envoyer) ; proposer une
+     alliance, **attendre la réponse** (1 à 10 jours), la lire ; l'île mystérieuse et son phare ; le classement 🏆 (vrai écran
+     V17.8) ; la fin de partie (15 ans, 5 capitales ou dernière nation, paix générale proposée) ; la 🎁 (jamais dans le tutoriel).
+   - **Le temps est en pause pendant les explications** : chaque étape l'arrête en arrivant, ▶ n'est accepté qu'aux étapes
+     « regarder » (et à celle qui apprend ▶ / ⏸ ; ailleurs un message le dit). Les étapes « regarder » avancent d'elles-mêmes quand
+     ce qu'on attend est arrivé dans la partie (armée qui a avancé 4 jours, premier assaut, fin de bataille, réponse de l'allié),
+     puis le temps s'arrête. Pendant ces étapes, le temps va à **1 jour par seconde** (« TUTORIEL · 1 J/S » sous la date) pour ne pas
+     faire attendre ; la bulle le dit (vraie partie : 2 s par jour).
+   - Textes, cibles et gestes suivent ce qui s'est vraiment passé (prise ou défense qui tient, armée déjà arrivée, alliance acceptée
+     ou refusée) ; « Passer l'étape › » si on est bloqué ; la carte se centre sur la province (ou la destination) à toucher.
+   - **Rejouable** depuis ⚙ (« 🎓 Jouer le tutoriel ») et depuis l'accueil (« 🎓 Tutoriel » / « Reprendre le tutoriel ») ; **proposé
+     au premier lancement** (une fois, jamais imposé) ; sauvegarde à part (`frontieres-arken-tutoriel-save`, la vraie partie n'est
+     jamais lue ni écrite) ; une ancienne partie de tutoriel au tour par tour n'est pas reprise (`TUTO_VERSION`).
+   - **Aucune pub** (ni imposée, ni 🎁), aucune offre Premium (⏩ montre un message), aucune mission ni atout pendant le tutoriel.
+   - Remplace le tutoriel au tour par tour de la V14.3 et le **mini tuto** de la V13.4 (retirés, « Relancer le mini tuto » aussi).
+   - Les bulles d'explication en jeu (`tutorial(...)`) restent limitées aux **2 premières parties** (règle de Jack d'octobre,
+     `HINT_GAMES`), 2 au plus par mois de jeu, jamais pendant le tutoriel.
+2. **Aide (?) réécrite** (`TUTORIAL_GUIDE`, `MYSTERY_HELP`) : chiffres lus dans `RULES.realtime` (temps, trajets 15 à 30 jours,
+   recrutement en jours, revenus par mois, vivres et famine, batailles en 3 assauts, mer 40 jours, ballon 60 jours par île,
+   classement à points, fin de partie, 🎁, île : +5 or / mois, 80 jours, phare). Aucun « tour ».
+3. **Plus aucun « tour » visible** : accueil (« STRATÉGIE EN TEMPS RÉEL »), titre et manifeste ; recrutement (« 60 jours de
+   recrutement ») ; prérequis (« usine (en construction, encore 45 jours) ») ; navires en convalescence (90 / 120 / 150 jours,
+   5 % par mois) ; aperçu et règle du bombardement (tir tous les 10 jours, plafond par tir, ordre permanent) ; Atouts (« Revenus en
+   or », missions « Jouer 3 / 5 mois de jeu ») ; bonus de nation Aurel ; fiche et badge de l'île (+5 or / mois, +2,5 chacun en
+   co-propriété — l'ancien texte relu donnait +5 chacun). Le récit de fin était déjà daté au mois (V17.8), vérifié par un test.
+   **Missions des Atouts en temps réel** : elles n'avançaient plus du tout depuis la V17.1 (appelées seulement à la fin d'un tour) ;
+   elles comptent maintenant les faits du joueur et les mois de jeu joués (`month-played`), jamais dans le tutoriel.
+4. **Retrait du tour par tour pour le joueur** : plus de réglage « Déroulé du tour » (En direct / Classique) ni de vitesse par
+   nation dans ⚙ ; `?tour-par-tour` retiré (aucun test ni outil ne s'en servait) ; toute nouvelle partie est en temps réel ; une
+   sauvegarde tour par tour est toujours refusée avec le message du §11. **Gardé** : le moteur tour par tour (`resolveInterturn`),
+   utilisé par les outils d'équilibrage et par les tests du moteur (empreintes V16.4.1 identiques) ; les modules d'interface du tour
+   (`live-ui.js`, `turn-anim.js`, `resolveTurn`) restent dans le dépôt mais ne sont plus accessibles (supprimer des fichiers de jeu
+   demande l'accord de Jack).
+5. **Reliquats des relectures** :
+   - Phare : un seul bandeau par flotte (🗼 ; plus de « ⛵ Flotte en route vers l'île » en double), rien pour une flotte alliée
+     (avis, bandeau et fiche de l'île), et alerte aussi pour les flottes **déjà en route** quand on prend l'île (registre
+     `rt.lighthouse`, appelé aussi après les assauts du jour ; une seule fois par flotte et par veilleur).
+   - Les avis des ordres exécutés par l'interface (`executePendingOrders` du battement) passent maintenant par `collectBanners`
+     (le début des événements est pris avant l'exécution).
+   - §8 : texte accordé au code (composition connue selon `provinceIntel(...).troopsKnown` de la province de départ).
+   - `?pub-test` ignoré dans le build Google Play (`PLAY_CONFIG.play`).
+   - Restauration de profil : un texte collé avec `premium: true` (ou `adsRemoved`, `starterPack`) sans achat enregistré ne donne
+     plus le Premium ; un Premium déjà acheté sur le téléphone est gardé.
+   - `#boostDialog` ajouté aux fenêtres d'action : l'écran Atouts (boutique, achats, pub de mission) n'est jamais recouvert par
+     une pub imposée ; il ne compte donc plus comme « moment calme » (§10.2 mis à jour).
+
+**Tests** : `tests/v17-9.test.js` (15 tests : programme et ordre des étapes, longueurs, aucun « tour » ni conseil ; partie
+d'entraînement, sauvegarde à part, sans pub ni 🎁 ; **parcours complet joué avec le vrai moteur** (3 assauts, renfort, prise au 3e,
+alliance acceptée en 1 à 10 jours, 39 jours d'entraînement) ; variantes (attaque à 100 %, armée déjà arrivée, défense qui tient) ;
+pause pendant les explications et ▶ seulement aux étapes « regarder » ; gestes émis par l'interface ; rejouable / proposé /
+mini tuto retiré ; aide en jours ; plus de « tour » (recrutement, réparation, bombardement, Atouts, nations, accueil, manifeste,
+île, prérequis, récit de fin réel, missions) ; retrait du tour par tour ; phare ; bandeaux des ordres ; `?pub-test` ; profil ;
+Atouts).
+**Tests retirés (justifiés)** : `v13-4-beta` — 3 tests du mini tuto (le mini tuto n'existe plus) ; `v14-3-tutoriel` — 5 tests du
+scénario au tour par tour (ordre pédagogique, chiffres des bulles, scénario, parcours, débarquement trop faible), remplacés par ceux
+de `v17-9` ; les 5 autres (sauvegarde à part, proposé une fois, quitter, bulle, version) sont gardés et passés au temps réel.
+**Tests modifiés** : `ui-v10` (prérequis en jours ; aide maritime 40 jours ; fin de partie 15 ans), `v13-2-beta` (fin de partie
+15 ans), `v14-2` (navires en jours), `v14-4-explications`, `v15-2` et `v17-7` (plus de mini tuto ; Atouts hors moments calmes),
+`v15-4` (le tutoriel a la longueur temps réel : 183 périodes), `v16-2` (aide de l'île par mois), `v16-4` (réglages du déroulé
+retirés), `v17-1` (toujours le temps réel). `tools/equilibre.mjs` : l'empreinte « tutoriel » du moteur tour par tour garde le
+scénario de la V14.3, recopié dans l'outil (empreintes V16.4.1 identiques). `npm test` : 883 tests, tous verts.
+
+**Vérifié dans Chrome mobile simulé** (`/home/claude/pw/v179.mjs`, `node scripts/build.js`, port 8808, vrais gestes : toucher à
+l'écran, glisser la carte par événements tactiles) en **844 × 390 et 390 × 844** : offre au premier lancement → tutoriel complet,
+33 étapes, du 1er janvier au 8 février 2027 (▶ : 3 jours en 3 s ; temps arrêté pendant les explications ; armée qui avance puis
+rappelée ; 3 assauts, Haut-Bois pris ; Roc-Épine accepte) → « Terminer » → accueil (sauvegarde du tutoriel effacée, vraie partie
+jamais écrite) → nouvelle partie normale (en pause, ▶ : ×1, aucun tutoriel) → ⚙ « Jouer le tutoriel » → « Quitter » → accueil
+« Reprendre le tutoriel ». **0 erreur JS**, aucun bouton hors écran ni recouvert, la bulle ne cache jamais sa cible, aucun « tour »
+visible, aucune pub ni 🎁 pendant le tutoriel. Seule remarque de l'outil : en paysage, la fenêtre « Nouvelle partie » défile pour
+montrer les nations (inchangé, voulu).
+**Avis honnête sur les captures** : on comprend à chaque étape quoi toucher (cible surlignée en vert, objectif en vert, carte
+recentrée) et le rythme « explication en pause / on regarde » marche bien ; la bataille en 3 assauts se lit (⚔ 1/3, fiche, bandeaux,
+« Haut-Bois est à vous ! »). Limites : en paysage la bulle prend presque la moitié de la hauteur (elle se place à l'opposé de la
+cible, mais la carte visible est réduite) ; 33 étapes, c'est long (≈ 6 à 8 minutes) — chaque étape reste sautable ; la case vivres
+affiche « −25/j » au départ du tutoriel (les troupes du scénario mangent plus que les 3 provinces ne produisent, la grande réserve
+évite la famine) : vrai mais peut intriguer ; la fiche de bataille couvre la carte et il faut la fermer pour toucher ▶ (la bulle le
+dit). Non vérifié : vrai téléphone.
+
+**Écarts et choix (tranchés par l'équipe)** :
+1. Le temps du tutoriel va à 1 jour par seconde pendant les étapes « regarder » (sinon ≈ 2 min d'attente de plus) ; ⏩ reste
+   réservé au Premium dans une vraie partie.
+2. L'allié du tutoriel est un Bâtisseur (un Héros refuse une nation qui vient d'attaquer : la bulle d'alliance aurait menti).
+3. Haut-Bois est occupée par Oroël dans le scénario (bataille sur l'île du joueur, trajets courts) ; le convoi vers Nordhème n'a
+   pas besoin d'arriver avant la fin du tutoriel.
+4. Le moteur tour par tour et les modules d'interface du tour restent dans le dépôt (outils, tests, et interdiction de supprimer
+   des fichiers de jeu sans Jack) ; ils ne sont plus accessibles au joueur.
+5. `store/fiche-play-store.md` parle encore du tour par tour (texte de la fiche Play) : à réécrire avec la V17.10.
