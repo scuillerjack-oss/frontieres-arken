@@ -77,13 +77,14 @@ function checkDay(s, ctx) {
   return bad;
 }
 
-export function playBattery(seed, { short = false, nation = NATIONS[0], player = false, saveChecks = 2, invariants = true } = {}) {
+export function playBattery(seed, { short = false, nation = NATIONS[0], player = false, passive = false, saveChecks = 2, invariants = true } = {}) {
+  if (passive) player = true;
   const s = createRealtimeGame({ map, playerNationId: nation, seed, gameLength: short ? 40 : undefined });
   for (const id of NATIONS) s.controllers[id] = player && id === nation ? 'human' : 'ai';
   const days = gameDaysOf(s), quarter = Math.ceil(days / 4);
   const saveDays = Array.from({ length: saveChecks }, (_, i) => 30 + hash(`${seed}-save-${i}`) % (days - 90));
   const ctx = { battleStart: new Map(), lastGranary: {} };
-  const g = { seed, player: player ? nation : null, conquestsByQuarter: [0, 0, 0, 0], island: [], eliminations: [], betrayals: [], alliances: 0, landingsBy: {}, landingsOn: {},
+  const g = { seed, player: player ? nation : null, passive, conquestsByQuarter: [0, 0, 0, 0], island: [], eliminations: [], betrayals: [], alliances: 0, landingsBy: {}, landingsOn: {},
     conquestsBy: Object.fromEntries(NATIONS.map(id => [id, 0])), lostBy: Object.fromEntries(NATIONS.map(id => [id, 0])), conqMatrix: {},
     violations: [], violationCount: 0, troopDrift: 0, troopDriftDays: 0, saveChecks: 0, saveMismatch: [], error: null, peaceOffers: 0, peaceRefused: 0,
     battles: 0, assaults: 0, fieldBattles: 0, interceptions: 0, landings: 0, balloonsBuilt: 0, balloonsShot: 0, famine: Object.fromEntries(NATIONS.map(id => [id, { days: 0, longest: 0, run: 0, deserted: 0 }])) };
@@ -95,20 +96,20 @@ export function playBattery(seed, { short = false, nation = NATIONS[0], player =
       if (player && peaceOfferPending(s)) {
         g.peaceOffers++;
         const first = realtimeRanking(s)[0]?.nationId;
-        if (first === nation) answerPeaceOffer(s, true); else { answerPeaceOffer(s, false); g.peaceRefused++; }
+        if (first === nation && !passive) answerPeaceOffer(s, true); else { answerPeaceOffer(s, false); g.peaceRefused++; }
         if (s.gameOver) break;
       }
       if (saveDays.includes(day)) {
         const copy = decodeRealtimeSave(encodeSave(s)).state, twin = structuredClone(s);
         if (!copy) g.saveMismatch.push(`j${day} relecture impossible`);
         else {
-          for (let i = 0; i < 30 && !copy.gameOver; i++) advanceDayAs(copy, copy.day);
-          for (let i = 0; i < 30 && !twin.gameOver; i++) advanceDayAs(twin, twin.day);
+          for (let i = 0; i < 30 && !copy.gameOver; i++) advanceDayAs(copy, copy.day, passive);
+          for (let i = 0; i < 30 && !twin.gameOver; i++) advanceDayAs(twin, twin.day, passive);
           g.saveChecks++;
           if (encodeSave(copy) !== encodeSave(twin)) g.saveMismatch.push(`j${day}`);
         }
       }
-      advanceDayAs(s, day);
+      advanceDayAs(s, day, passive);
       // Comptes de la partie
       for (const [id, p] of Object.entries(s.provinces)) if (p.ownerId !== before[id]) {
         g.conquestsByQuarter[Math.min(3, Math.floor((day - 1) / quarter))]++;
@@ -119,6 +120,8 @@ export function playBattery(seed, { short = false, nation = NATIONS[0], player =
       }
       let explained = 0;
       for (const e of s.events.slice(ev)) {
+        if ((e.type === 'battle' || e.type === 'conquest') && e.defender && !g.firstWar) g.firstWar = { day, pair: `${e.attacker}>${e.defender}`, arch: `${archetypeOf(s, e.attacker)}>${archetypeOf(s, e.defender) || 'joueur'}` };
+        if (e.type === 'diplomatic-action' && e.action === 'alliance' && e.accepted === true && !g.firstAlliance) g.firstAlliance = [e.nationId, e.target].sort().join('+');
         if (e.type === 'battle' || e.type === 'conquest') { g.battles++; if (e.naval) { g.landings++; g.landingsBy[e.attacker] = (g.landingsBy[e.attacker] || 0) + 1; g.landingsOn[e.defender || 'neutre'] = (g.landingsOn[e.defender || 'neutre'] || 0) + 1; } }
         else if (e.type === 'assault') g.assaults++;
         else if (e.type === 'field-battle') g.fieldBattles++;
@@ -159,8 +162,8 @@ export function playBattery(seed, { short = false, nation = NATIONS[0], player =
   return g;
 }
 /** Un jour, la nation du joueur simulé décidant comme une IA Normale les jours où elle déciderait. */
-function advanceDayAs(s, day) {
-  const me = s.playerNationId, human = s.controllers[me] === 'human';
+function advanceDayAs(s, day, passive = false) {
+  const me = s.playerNationId, human = s.controllers[me] === 'human' && !passive;
   if (human) { s.controllers[me] = 'ai'; if (aiNationOfDay(s, day) !== me) s.controllers[me] = 'human'; }
   try { advanceDay(s, map); } finally { if (human) s.controllers[me] = 'human'; }
 }
@@ -204,6 +207,16 @@ export function summarizeBattery(games) {
     rencontresEnChemin: round(mean(ok.map(x => x.fieldBattles)), 2), interceptions: round(mean(ok.map(x => x.interceptions)), 2),
     trahisonsParPartie: round(mean(ok.map(x => x.betrayals.length)), 2), trahisonsParCaractere: count(bet, b => b.byArch), ciblesDesTrahisons: count(bet, b => b.targetArch),
     alliancesParPartie: round(mean(ok.map(x => x.alliances)), 2),
+    victoiresDuJoueur: ok[0]?.player ? ok.filter(x => x.winnerId === x.player).length : null,
+    vainqueurIAParCaracterePct: ok[0]?.player ? (() => { const w = ok.filter(x => x.winnerId !== x.player); const c = {}; for (const x of w) c[x.winnerArch] = (c[x.winnerArch] || 0) + 1; return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, round(100 * v / Math.max(1, ok.length))])); })() : null,
+    variete: (() => {
+      const top = (a) => { const c = count(a.filter(Boolean), x => x); const e = Object.entries(c).sort((x, y) => y[1] - x[1]); return { differents: e.length, plusFrequent: e[0] ? `${e[0][0]} (${round(100 * e[0][1] / n)} %)` : null }; };
+      return { premiereGuerre: top(ok.map(x => x.firstWar?.pair)), premiereGuerreJourMediane: median(ok.filter(x => x.firstWar).map(x => x.firstWar.day)), premiereGuerreCaracteres: top(ok.map(x => x.firstWar?.arch)),
+        premiereAlliance: top(ok.map(x => x.firstAlliance)), premiereEliminee: top(ok.map(x => x.eliminations[0]?.id)), vainqueur: top(ok.map(x => x.winnerId)),
+        cibleDePremiereTrahison: top(ok.map(x => x.betrayals[0] ? `${x.betrayals[0].by}>${x.betrayals[0].target}` : null)),
+        conquetesEcartType: round(Math.sqrt(mean(ok.map(x => (x.conquests - mean(ok.map(y => y.conquests))) ** 2))), 1),
+        partiesIdentiques: ok.length - new Set(ok.map(x => JSON.stringify([x.winnerId, x.conquests, x.provinces, x.eliminations]))).size };
+    })(),
     joueur: ok[0]?.player ? { rangMoyen: round(mean(ok.map(x => x.playerRank)), 2), rangs: count(ok, x => x.playerRank), offresDePaix: ok.reduce((a, x) => a + x.peaceOffers, 0), refus: ok.reduce((a, x) => a + x.peaceRefused, 0) } : null,
     invariants: { violations: ok.reduce((a, x) => a + x.violationCount, 0), partiesTouchees: ok.filter(x => x.violationCount).length, exemples: ok.flatMap(x => x.violations.map(v => `${x.seed} ${v}`)).slice(0, 15),
       joursAvecEcartDeTroupes: ok.reduce((a, x) => a + x.troopDriftDays, 0), ecartDeTroupesTotal: ok.reduce((a, x) => a + x.troopDrift, 0),
@@ -214,24 +227,24 @@ export function summarizeBattery(games) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   Math.random = () => { throw new Error('Math.random appelé pendant une simulation'); };
   const args = process.argv.slice(2), plain = args.filter(a => !a.startsWith('--')), opt = k => args.find(a => a.startsWith(`--${k}=`))?.split('=')[1];
-  const short = args.includes('--courte'), player = args.includes('--joueur'), noInv = args.includes('--sans-invariants');
+  const short = args.includes('--courte'), passive = args.includes('--passif'), player = args.includes('--joueur') || passive, noInv = args.includes('--sans-invariants');
   const raw = opt('brut');
   if (raw) {
     const [from, to] = raw.split(':').map(Number), out = [];
-    for (let i = from; i < to; i++) out.push(playBattery(`${plain[1] || 'v179b'}-${i}`, { short, player, nation: NATIONS[i % 5], invariants: !noInv, saveChecks: noInv ? 0 : 2 }));
+    for (let i = from; i < to; i++) out.push(playBattery(`${plain[1] || 'v179b'}-${i}`, { short, player, passive, nation: NATIONS[i % 5], invariants: !noInv, saveChecks: noInv ? 0 : 2 }));
     writeFileSync(opt('sortie'), JSON.stringify(out));
   } else {
     const [parties = 500, prefixe = 'v179b'] = plain, n = Number(parties), w = Number(opt('processus') || 2), t0 = performance.now();
     const step = Math.ceil(n / w);
     const part = (from, to) => new Promise((resolve, reject) => {
       const out = join(tmpdir(), `arken-v179b-${prefixe}-${from}-${to}${short ? '-c' : ''}${player ? '-j' : ''}.json`);
-      const p = spawn(process.execPath, ['--max-old-space-size=3000', fileURLToPath(import.meta.url), '0', prefixe, `--brut=${from}:${to}`, `--sortie=${out}`, ...args.filter(a => ['--courte', '--joueur', '--sans-invariants'].includes(a))], { stdio: ['ignore', 'inherit', 'inherit'] });
+      const p = spawn(process.execPath, ['--max-old-space-size=3000', fileURLToPath(import.meta.url), '0', prefixe, `--brut=${from}:${to}`, `--sortie=${out}`, ...args.filter(a => ['--courte', '--joueur', '--passif', '--sans-invariants'].includes(a))], { stdio: ['ignore', 'inherit', 'inherit'] });
       p.on('close', code => code ? reject(new Error(`parties ${from}-${to} : code ${code}`)) : resolve(JSON.parse(readFileSync(out, 'utf8'))));
     });
     const games = (await Promise.all(Array.from({ length: w }, (_, i) => part(i * step, Math.min(n, (i + 1) * step))).filter((_, i) => i * step < n))).flat();
-    const summary = { prefixe, courte: short, joueur: player, secondes: round((performance.now() - t0) / 1000), ...summarizeBattery(games),
+    const summary = { prefixe, courte: short, joueur: passive ? 'passif' : player, secondes: round((performance.now() - t0) / 1000), ...summarizeBattery(games),
       jourDeFin: { min: Math.min(...games.map(x => x.endDay)), mediane: median(games.map(x => x.endDay)), max: Math.max(...games.map(x => x.endDay)) } };
-    const key = opt('cle') || `${n} parties${short ? ' courtes' : ''}${player ? ' joueur' : ''}`;
+    const key = opt('cle') || `${n} parties${short ? ' courtes' : ''}${passive ? ' joueur passif' : player ? ' joueur' : ''}`;
     const file = join(HERE, 'resultats-v17.9b.json'), all = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
     all[key] = summary;
     writeFileSync(file, JSON.stringify(all, null, 1));

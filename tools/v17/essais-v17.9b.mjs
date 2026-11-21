@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
+const PASSIVE = process.argv.includes('--passif');
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const tie = { ai: { baseTieBreak: true } };
 const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) && a[k] && typeof a[k] === 'object' ? merge({ ...a[k] }, v) : v; return a; };
@@ -38,6 +39,12 @@ export const ESSAIS = {
   'g-uniforme-revenu50': m(tie, { incomeDays: 50, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
   'g-uniforme-revenu45': m(tie, { incomeDays: 45, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
   'g-uniforme-marge': m(tie, { ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, marginAdd: -.25 } }),
+  // Round 4 (Jack : le Conquérant gagne le plus souvent, ~30-35 % avec un joueur passif) : Conquérant plus fort.
+  'u50-conq': m(tie, { incomeDays: 50, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { margin: .85, warMargin: .72, extraLots: 2, attacks: 4 } } } }),
+  'u50-conq2': m(tie, { incomeDays: 50, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true, personality: { conquerant: { margin: .8, warMargin: .68, extraLots: 3, attacks: 4, recruitPace: 10, landingPace: 10, landingWarFloor: .85 } } } }),
+  // Round 5 : Valmorne (seule capitale sans port, deux côtes faibles) : ses deux points de port un peu mieux gardés au départ.
+  'u50-valm': m(tie, { incomeDays: 50, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
+  'u45-valm': m(tie, { incomeDays: 45, start: { nation: { valmorne: { p02: { infantry: 40 }, p03: { infantry: 40 } } } }, ai: { baseTieSpread: 100, capitalGuard: 100, threatExceptTarget: true } }),
   'g-garde-menace-marge': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true, marginAdd: -.2 } })
 };
 export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179b')) {
@@ -58,7 +65,7 @@ export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179
 function play(name, dir, parties, prefixe, short) {
   return new Promise((resolve, reject) => {
     const out = join(dir, 'brut.json');
-    const args = [join(dir, 'tools', 'v17', 'batterie-v17.9b.mjs'), '0', prefixe, `--brut=0:${parties}`, `--sortie=${out}`, '--sans-invariants', ...(short ? ['--courte'] : [])];
+    const args = [join(dir, 'tools', 'v17', 'batterie-v17.9b.mjs'), '0', prefixe, `--brut=0:${parties}`, `--sortie=${out}`, '--sans-invariants', ...(short ? ['--courte'] : []), ...(PASSIVE ? ['--passif'] : [])];
     const p = spawn(process.execPath, ['--max-old-space-size=3000', ...args], { stdio: ['ignore', 'inherit', 'inherit'] });
     p.on('close', async code => {
       if (code) return reject(new Error(`${name} : code ${code}`));
@@ -72,7 +79,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const [parties = 100, prefixe = 'v179e', list] = plain;
   const names = list ? list.split(',') : Object.keys(ESSAIS);
   for (const n of names) if (!ESSAIS[n]) throw new Error(`essai inconnu : ${n}`);
-  const outFile = join(ROOT, 'tools', 'v17', `resultats-v17.9b-essais${short ? '-courtes' : ''}.json`);
+  const outFile = join(ROOT, 'tools', 'v17', `resultats-v17.9b-essais${short ? '-courtes' : ''}${PASSIVE ? '-passif' : ''}.json`);
   const dirs = Object.fromEntries(names.map(n => [n, prepare(n, ESSAIS[n])]));
   const queue = [...names];
   const worker = async () => { for (let n = queue.shift(); n; n = queue.shift()) {
@@ -81,7 +88,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     results[n] = { reglages: ESSAIS[n], parties: Number(parties), ...r };
     writeFileSync(outFile, JSON.stringify(results, null, 1));
     const v = r.vainqueurParNationPct, c = r.tauxDeVictoireParCaractereTenu;
-    console.log(`${n} : ${r.conquetesParPartie} conquêtes (${r.conquetesParQuart.join(' / ')}), ${r.nationsElimineesParPartie} élim., chaîne ${r.partiesAvecEliminationsEnChaineAvant2Ans}, élim<2ans ${r.partiesAvecEliminationAvant2Ans}, famine ${r.famine.taux} %, fins ${JSON.stringify(r.fins)} | nations ${Object.values(v).join('/')} | caractères ${Object.entries(c).map(([k, x]) => k.slice(0, 4) + ' ' + x).join(', ')} | ${Math.round((Date.now() - t0) / 1000)} s`);
+    console.log(`${n} : ${r.conquetesParPartie} conquêtes (${r.conquetesParQuart.join(' / ')}), ${r.nationsElimineesParPartie} élim., chaîne ${r.partiesAvecEliminationsEnChaineAvant2Ans}, élim<2ans ${r.partiesAvecEliminationAvant2Ans}, famine ${r.famine.taux} %, fins ${JSON.stringify(r.fins)} | nations ${Object.values(v).join('/')} | ${r.vainqueurIAParCaracterePct ? 'IA vainqueur (part des parties) ' + JSON.stringify(r.vainqueurIAParCaracterePct) + ' joueur ' + r.victoiresDuJoueur + ' | ' : ''}caractères (part des victoires) ${JSON.stringify(r.vainqueurParCaracterePct)} tenus ${Object.entries(c).map(([k, x]) => k.slice(0, 4) + ' ' + x).join(', ')} | variété ${JSON.stringify(r.variete)} | ${Math.round((Date.now() - t0) / 1000)} s`);
   } };
   await Promise.all([worker(), worker()]);
 }
