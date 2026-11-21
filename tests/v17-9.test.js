@@ -380,3 +380,9 @@ test('restauration de profil : « premium: true » sans achat n’est pas accept
   }
   assert.match(readSource('src/presentation/ui/boosts-ui.js'), /r\.profile\.purchases=profile\.purchases;if\(profile\.premium\)\{r\.profile\.premium=true;/);
 });
+
+test('V17.10.1 : fenêtre d’introduction — boutons toujours visibles (collés en bas), ouverture en haut', async () => {
+  const { readSource } = await import('./helpers/sources.js');
+  assert.match(readSource('v5.css'), /dialog section > \.confirm-actions\{position:sticky/);
+  assert.match(readSource('src/presentation/ui/event-popups.js'), /sec\.scrollTop=0/);
+});
