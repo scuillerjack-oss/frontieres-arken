@@ -85,7 +85,11 @@ export const REALTIME_RULES = freezeDeep({
     recallMargin: .6,
     // V17.9b : base navale choisie à la graine entre deux points de port équivalents (même côte à viser à `baseTieSpread`
     // près), au lieu de l'ordre alphabétique (qui laissait toujours la même nation sans voisin menaçant).
-    baseTieBreak: false, baseTieSpread: .15,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
+    baseTieBreak: false, baseTieSpread: .15,
+    // V17.9b : la capitale garde au moins ces fantassins équivalents quand l'IA redéploie ses troupes de l'intérieur (0 = non).
+    capitalGuard: 0,
+    // V17.9b : une attaque terrestre gagnante en simulation ne compte plus sa cible dans la menace sur la province de départ.
+    threatExceptTarget: false,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
     emergencyRecruit: true,  // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
     // V17.5b (Jack : personnalités plus vivantes, jamais la même partie) : realtime/personalities.js, engine/ai.js.

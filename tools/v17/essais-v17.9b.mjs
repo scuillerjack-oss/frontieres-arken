@@ -28,7 +28,12 @@ export const ESSAIS = {
   'graine-rappel-0.8': m(tie, { ai: { recallMargin: .8 } }),
   'graine-estimation-0.5': m(tie, { vision: { growthAtEnd: .5 } }),
   'graine-attaques-2': m(tie, { ai: { attacksPerPace: 2 } }),
-  'graine-sans-renfort-urgence': m(tie, { ai: { emergencyRecruit: false } })
+  'graine-sans-renfort-urgence': m(tie, { ai: { emergencyRecruit: false } }),
+  // Round 2 : corrections de l'IA trouvées par le diagnostic (capitale vidée par Valmorne ; cible comptée comme menace).
+  'g-garde100': m(tie, { ai: { capitalGuard: 100 } }),
+  'g-menace': m(tie, { ai: { threatExceptTarget: true } }),
+  'g-garde-menace': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true } }),
+  'g-garde-menace-marge': m(tie, { ai: { capitalGuard: 100, threatExceptTarget: true, marginAdd: -.2 } })
 };
 export function prepare(name, override, base = join(tmpdir(), 'arken-essais-v179b')) {
   const dir = join(base, name);

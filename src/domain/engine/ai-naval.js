@@ -33,9 +33,9 @@ const hostileTo = (state, nationId, owner) => owner && owner !== nationId && !pa
 export const landThreat = (map, state, nationId, id) => combatValue(landThreatForce(map, state, nationId, id) || normalizeForce({}));
 /** Plus forte armée terrestre d'un voisin hostile (force complète, pour simuler un combat).
  *  V13 : telle que `nationId` la voit (troupes invisibles ou retranchées : estimation prudente). */
-export function landThreatForce(map, state, nationId, id) {
+export function landThreatForce(map, state, nationId, id, except = null) {
   const seen = visibleProvinces(state, map, nationId);
-  const forces = (provinceDef(map, id)?.landConnections || []).filter(n => hostileTo(state, nationId, state.provinces[n]?.ownerId))
+  const forces = (provinceDef(map, id)?.landConnections || []).filter(n => n !== except && hostileTo(state, nationId, state.provinces[n]?.ownerId))
     .map(n => { const f = perceivedForce(state, map, nationId, n, seen); f.units.warship = 0; f.wounds.warship = 0; return f; });
   // V17.5 : en temps réel, les armées hostiles VISIBLES qui marchent sur la province sont aussi une menace (ai-schedule.js).
   const coming = state.marches?.length ? incomingThreat(state, map, nationId, id, seen) : null;

@@ -411,6 +411,17 @@ function aiPlan(state, map, nationId) {
 export const INTERIOR_STACK_INFANTRY = 60;
 export const INTERIOR_MARCH_SHARE = .85;
 /**
+ * V17.9b (temps réel) : part des troupes qui quitte une province de l'intérieur (redéploiement, marche vers le front). La
+ * capitale garde au moins RULES.realtime.ai.capitalGuard fantassins équivalents : sinon Valmorne (seule capitale sans
+ * port) vidait sa capitale dès le 10e jour et la perdait au premier débarquement voisin (mesuré : V17.9b, batterie finale).
+ */
+function marchShare(state, nationId, provinceId, available) {
+  const guard = isRealtime(state) ? RULES.realtime.ai.capitalGuard : 0;
+  if (!guard || state.nations[nationId]?.capitalId !== provinceId) return INTERIOR_MARCH_SHARE;
+  const value = combatValue({ units: available }), keep = combatValue({ units: { infantry: guard } });
+  return value <= keep ? 0 : Math.min(INTERIOR_MARCH_SHARE, (value - keep) / value);
+}
+/**
  * V15.1 (cause du retard de Valmorne, docs/V15-cahier-des-charges.md) : Arken est un archipel, on n'attaque et on ne
  * s'embarque que depuis un point de port. Une armée dans une province sans route maritime, sans ennemi voisin, ne sert à
  * rien : elle marche vers le point de port voisin (la base navale d'abord). Valmorne est la seule nation dont la capitale,
@@ -424,7 +435,7 @@ function redeployInterior(state, map, nationId, owned, base) {
     const to = (p.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId && isPortPoint(map, id))
       .sort((a, b) => Number(b === base?.id) - Number(a === base?.id) || a.localeCompare(b))[0];
     if (!to) continue;
-    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * INTERIOR_MARCH_SHARE)]));
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * marchShare(state, nationId, p.id, available))]));
     if (LAND_UNIT_TYPES.some(k => units[k])) queueMoveOrder(state, map, { nationId, fromId: p.id, toId: to, units });
   }
 }
@@ -445,7 +456,7 @@ function stageToFront(state, map, nationId, owned, base, targets) {
     const to = (p.landConnections || []).filter(id => state.provinces[id]?.ownerId === nationId && front(map.provinces.find(d => d.id === id)))
       .sort((a, b) => a.localeCompare(b))[0];
     if (!to) continue;
-    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * INTERIOR_MARCH_SHARE)]));
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.floor((available[k] || 0) * marchShare(state, nationId, p.id, available))]));
     if (LAND_UNIT_TYPES.some(k => units[k]) && queueMoveOrder(state, map, { nationId, fromId: p.id, toId: to, units }).ok) return true;
   }
   return false;
@@ -503,7 +514,9 @@ export function aiAttackSlice(state, map, nationId, fromId, toId, margin, mode, 
     const r = resolveCombat({ attacker: taken, defender: interceptors && via === toId ? (() => { const d = normalizeForce(defense); d.units.warship = 0; d.wounds.warship = 0; return d; })() : defense, fortLevel: target.buildings.fort || 0, mode, fortBreach: fortBreach(state, toId) });
     if (!r.captured) continue;
     // Garder chez soi de quoi tenir face à la menace terrestre voisine.
-    const threat = landThreatForce(map, state, nationId, fromId);
+    // V17.9b (temps réel) : la province visée ne compte plus dans la menace quand la simulation dit qu'elle tombe (sa
+    // garnison est alors battue) : l'IA refusait 2 attaques terrestres gagnables sur 3 en se croyant menacée par sa cible.
+    const threat = landThreatForce(map, state, nationId, fromId, mode === 'land' && isRealtime(state) && RULES.realtime.ai.threatExceptTarget ? toId : null);
     if (threat && !holds(rest, threat, state.provinces[fromId].buildings.fort || 0)) continue;
     return units;
   }
