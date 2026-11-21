@@ -134,7 +134,7 @@ export function playBattery(seed, { short = false, nation = NATIONS[0], player =
         else if (e.type === 'famine-desertion') g.famine[e.nationId].deserted += Object.values(e.deserted || {}).reduce((a, b) => a + b, 0);
         if (e.lossesByNation) explained -= sumLosses(e.lossesByNation);
         if (e.type === 'production-complete' && e.kind === 'unit') explained += e.amount || 0;
-        if (e.type === 'retreat-lost') explained -= e.amount || 0;
+        if (e.type === 'retreat-lost' || e.type === 'stationed-lost') explained -= e.amount || 0;
         if (e.type === 'bombardment' && e.harbor) explained -= (e.harbor.attackerLost || 0) + (e.harbor.defenderLost || 0);
         if (e.type === 'famine-desertion') explained -= Object.values(e.deserted || {}).reduce((a, b) => a + b, 0);
       }
