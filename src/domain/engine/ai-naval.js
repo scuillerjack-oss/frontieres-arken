@@ -50,8 +50,18 @@ export function navalBase(map, state, owned) {
   const across = p => Math.min(Infinity, ...seaDestinations(map, p.id).filter(d => state.provinces[d.id]?.ownerId !== nationId).map(d => defenseOf(state, d.id, map, nationId)));
   const capital = state.nations[nationId]?.capitalId, home = chance(state, 'base-home', nationId) < (RULES.ai.baseAtCapital[archetypeOf(state, nationId)] || 0), atCapital = p => home && p.id === capital ? 1 : 0;
   // V16.2 : l'île mystérieuse n'est jamais la base navale (on n'y construit ni port ni usine).
-  return owned.filter(p => isPortPoint(map, p.id) && !isMysteryIsland(p.id))
-    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id))[0] || null;
+  const sorted = owned.filter(p => isPortPoint(map, p.id) && !isMysteryIsland(p.id))
+    .sort((a, b) => score(b) - score(a) || seaRouteCount(map, b.id) - seaRouteCount(map, a.id) || atCapital(b) - atCapital(a) || across(a) - across(b) || a.id.localeCompare(b.id));
+  // V17.9b (temps réel) : entre points de port équivalents (côtes visées de défense voisine), choix à la graine de la partie
+  // et non plus par ordre alphabétique — sinon Solmara garde toujours sa base face à Roc-Épine et Noireflamme n'est jamais menacée.
+  const R = RULES.realtime.ai;
+  if (sorted.length > 1 && isRealtime(state) && R.baseTieBreak) {
+    const best = sorted[0], close = p => score(p) === score(best) && seaRouteCount(map, p.id) === seaRouteCount(map, best.id) && atCapital(p) === atCapital(best)
+      && across(p) <= across(best) * (1 + R.baseTieSpread);
+    const ties = sorted.filter(close);
+    if (ties.length > 1) return ties[Math.floor(chance(state, 'base-tie', nationId) * ties.length)];
+  }
+  return sorted[0] || null;
 }
 export function aiNavalOrders(state, map, nationId, owned, base, threshold, canAttack = owner => hostileTo(state, nationId, owner), arch = null, focus = new Set()) {
   const treasury = () => state.nations[nationId].treasury;

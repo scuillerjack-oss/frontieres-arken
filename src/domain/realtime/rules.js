@@ -44,6 +44,9 @@ export const REALTIME_RULES = freezeDeep({
     interceptDaysLeft: 20,   // interception par le port d'arrivée quand il reste 20 jours de traversée
     landPerSeaTurn: 20       // conversion des durées maritimes « en tours » de la carte (2 tours = 40 j, 4 = 80 j)
   },
+  // V17.9b : troupes de départ du temps réel (le tour par tour garde START_UNITS). Une valeur absente = START_UNITS.
+  // `nation` : complément par nation et par province (déséquilibre de la carte), ajouté aux troupes de départ.
+  start: { capital: null, province: null, nation: {} },
   // §3 Économie (coûts inchangés) : revenus « par mois » affichés = revenu par tour ÷ 2
   income: { perMonth: { province: 2, bank: 2.5, factory: 1.5, port: 1, islandBank: 5 }, recapEveryDays: 30 },
   // §4 Nourriture (V17.4) — tout en centièmes de vivre dans le moteur
@@ -79,7 +82,10 @@ export const REALTIME_RULES = freezeDeep({
     attacksPerPace: 1,
     marginAdd: -.1,          // correction de la marge d'attaque de l'IA en temps réel (équilibre, mesuré : §15 V17.5)
     balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
-    recallMargin: .6,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
+    recallMargin: .6,
+    // V17.9b : base navale choisie à la graine entre deux points de port équivalents (même côte à viser à `baseTieSpread`
+    // près), au lieu de l'ordre alphabétique (qui laissait toujours la même nation sans voisin menaçant).
+    baseTieBreak: false, baseTieSpread: .15,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
     emergencyRecruit: true,  // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
     // V17.5b (Jack : personnalités plus vivantes, jamais la même partie) : realtime/personalities.js, engine/ai.js.
