@@ -272,10 +272,12 @@ test('V17.5 : armée vue sans sa composition (départ invisible) : estimation pr
   // Le pronostic n'attaque pas une province dont les renforts sont visibles en route (ne lance pas une attaque perdue).
   const t = island({ seed: 'slice' });
   t.provinces.p03.units = inf(800); t.provinces.p04.units = inf(100); t.provinces.p02.units = inf(500);
-  const alone = aiAttackSlice(t, map, AI, 'p03', 'p04', 1, 'land');
+  // V17.9b : la cible ne compte plus comme menace sur la province de départ ; c'est le renfort visible, compté dans la
+  // défense (100 + 480, marge 1,3), qui fait échouer la simulation.
+  const alone = aiAttackSlice(t, map, AI, 'p03', 'p04', 1.3, 'land');
   assert.ok(alone, 'sans renfort ennemi : attaque possible');
   sendAs(t, ME, 'p02', 'p04', inf(480));
-  assert.equal(aiAttackSlice(t, map, AI, 'p03', 'p04', 1, 'land'), null, 'renfort ennemi visible : pas d\'attaque');
+  assert.equal(aiAttackSlice(t, map, AI, 'p03', 'p04', 1.3, 'land'), null, 'renfort ennemi visible : pas d\'attaque');
 });
 
 test('V17.5 : l\'IA reconstruit son ballon (épargne raisonnable), même après l\'avoir perdu', () => {

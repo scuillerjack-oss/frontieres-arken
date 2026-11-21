@@ -33,7 +33,7 @@ test('V17.1 : RULES.realtime porte les valeurs du cahier (lecture seule)', () =>
   assert.equal(R.clock.msPerDay, 2000); assert.equal(R.clock.fastMsPerDay, 1000); assert.equal(R.clock.maxDaysPerTick, 4);
   assert.deepEqual(R.startDate, { year: 2027, month: 1, day: 1 });
   assert.deepEqual(R.gameDays, { normal: 5479, short: 2557 }); assert.deepEqual(R.gamePeriods, { normal: 183, short: 86 });
-  assert.equal(R.daysPerPeriod, 30); assert.equal(R.incomeDays, 60);
+  assert.equal(R.daysPerPeriod, 30); assert.equal(R.incomeDays, 50); // V17.9b : 50 jours (avant 60), +20 % de revenus
   assert.deepEqual(R.durations.units, { infantry: 30, cavalry: 30, armor: 60, artillery: 60, warship: 90 });
   assert.deepEqual(R.durations.buildings, { bank: 90, factory: 90, port: 90, fort: 60, farm: 60 });
   // V17.5b : trajets raccourcis d'un tiers (décision de l'équipe d'équilibrage, demande de Jack), terre selon la distance.
@@ -89,19 +89,19 @@ test('V17.1 : horloge de l\'interface — 2 s par jour, en pause par défaut, au
 });
 
 // --- Revenus -----------------------------------------------------------------------------------------------------------
-test('V17.1 : revenus quotidiens — en 60 jours, exactement un tour de revenus ; trésor entier, report < 60', () => {
-  const s = game(), me = 'valmorne', income = E.incomeFor(s, me), t0 = s.nations[me].treasury;
-  for (let d = 0; d < 60; d++) {
+test('V17.1 : revenus quotidiens — en incomeDays jours (V17.9b : 50), exactement un tour de revenus ; trésor entier, report < incomeDays', () => {
+  const s = game(), me = 'valmorne', income = E.incomeFor(s, me), t0 = s.nations[me].treasury, D = R.incomeDays;
+  for (let d = 0; d < D; d++) {
     E.advanceDay(s, map);
-    assert.ok(Number.isInteger(s.nations[me].treasury) && Number.isInteger(s.nations[me].goldCarry) && s.nations[me].goldCarry < 60);
+    assert.ok(Number.isInteger(s.nations[me].treasury) && Number.isInteger(s.nations[me].goldCarry) && s.nations[me].goldCarry < D);
   }
   assert.equal(s.nations[me].treasury - t0, income); assert.equal(s.nations[me].goldCarry, 0);
-  E.advanceDays(s, map, 15); assert.equal(s.nations[me].treasury - t0, income + Math.floor(income * 15 / 60));
-  assert.equal(s.nations[me].goldCarry, (income * 15) % 60);
+  E.advanceDays(s, map, 15); assert.equal(s.nations[me].treasury - t0, income + Math.floor(income * 15 / D));
+  assert.equal(s.nations[me].goldCarry, (income * 15) % D);
 });
 test('V17.1 : bonus d\'or (Aurel +4 %) versé au même taux qu\'au tour par tour, sans rien perdre', () => {
   const s = game({ player: 'aurel' }), id = 'aurel', base = E.incomeFor(s, id), t0 = s.nations[id].treasury;
-  E.advanceDays(s, map, 600); // 10 « tours d'économie »
+  E.advanceDays(s, map, 10 * R.incomeDays); // 10 « tours d'économie »
   const got = s.nations[id].treasury - t0, expected = base * 10 * 1.04;
   assert.ok(got > base * 10 && Math.abs(got - expected) <= 1, `${got} ≈ ${expected}`);
 });

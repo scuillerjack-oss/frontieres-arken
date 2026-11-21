@@ -26,7 +26,7 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
   const status = !owner ? 'neutre' : mine ? (co ? `à vous, avec ${name(co)}` : 'à vous') : coMine ? `à ${name(owner)}, avec vous` : `à ${name(owner)}${co ? ` et ${name(co)}` : ''}`;
   const share = islandBankShare(state, playerId);
   // V17.9 : en temps réel, revenus par mois (le revenu « par tour » vaut 2 mois) ; le partage compris (+2,5 chacun, pas +5).
-  const rtMode = state.mode === 'realtime', m = n => String(n / 2).replace('.', ',');
+  const rtMode = state.mode === 'realtime', m = n => String(Math.round(n * RULES.realtime.daysPerPeriod / RULES.realtime.incomeDays * 10) / 10).replace('.', ',');
   const bank = rtMode ? `🏦 Super banque : +${m(MI.bankIncome)} or / mois à son propriétaire (+${m(MI.bankIncome / 2)} chacun avec un co-propriétaire)${share ? ` · vous touchez +${m(share)} or / mois` : ''}`
     : `🏦 Super banque : +${MI.bankIncome} or par tour à son propriétaire (+${MI.bankIncome / 2} chacun avec un co-propriétaire)${share ? ` · vous touchez +${share} or par tour` : ''}`;
   const routes = seaRoutesFrom(map, MYSTERY_ISLAND_ID).map(r => r.via);
@@ -49,4 +49,4 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
 }
 /** Petit texte sous le nom de l'île sur la carte : super banque (et co-propriété). */
 // V17.9 : en temps réel, revenu par mois (+5/mois) au lieu du revenu « par tour » (+10).
-export const islandMapBadge = state => `🏦+${state.mode === 'realtime' ? `${String(MI.bankIncome / 2).replace('.', ',')}/mois` : MI.bankIncome}${state.provinces[MYSTERY_ISLAND_ID]?.coOwnerId ? ' 🤝' : ''}`;
+export const islandMapBadge = state => `🏦+${state.mode === 'realtime' ? `${String(Math.round(MI.bankIncome * RULES.realtime.daysPerPeriod / RULES.realtime.incomeDays * 10) / 10).replace('.', ',')}/mois` : MI.bankIncome}${state.provinces[MYSTERY_ISLAND_ID]?.coOwnerId ? ' 🤝' : ''}`;

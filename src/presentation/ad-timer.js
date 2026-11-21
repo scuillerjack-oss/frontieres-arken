@@ -62,9 +62,9 @@ export function tickAdTimer(t, { now, running, speedup = 1 }) {
 }
 export const playMinutes = t => t.playMs / MINUTE_MS;
 
-/** Récompense de la pub 🎁 : un mois de revenus (revenu par tour ÷ 2), arrondi au multiple de 5 supérieur, 10 or minimum. */
+/** Récompense de la pub 🎁 : un mois de revenus (revenu par tour × 30 ÷ incomeDays), arrondi au multiple de 5 supérieur, 10 or minimum. */
 export function rewardGold(incomePerTurn) {
-  const month = num(incomePerTurn) / 2;
+  const month = num(incomePerTurn) * RULES.realtime.daysPerPeriod / RULES.realtime.incomeDays;
   return Math.max(A.rewardMinGold, Math.ceil(month / A.rewardRoundTo) * A.rewardRoundTo);
 }
 

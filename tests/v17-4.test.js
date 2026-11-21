@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
-import { RULES } from '../src/domain/constants.js';
+import { RULES, START_UNITS } from '../src/domain/constants.js';
 import * as E from '../src/domain/game-engine.js';
 import { normalizeForce, provinceForce, resolveBattle, totalHp } from '../src/domain/combat.js';
 import { fight } from '../src/domain/engine/battles.js';
@@ -20,8 +20,17 @@ const F = RULES.realtime.food;
 const NATIONS = map.nations.map(n => n.id);
 const ME = 'valmorne';
 /** Partie temps réel calme : aucune IA ne décide (les autres nations sont « à la main »). */
+// V17.9b : Valmorne part avec un complément (2 × 40 fantassins, une ferme, RULES.realtime.start) ; ces tests mesurent les
+// règles de la nourriture sur le départ symétrique (START_UNITS), sans ce complément.
+export function symmetricStart(s) {
+  for (const p of Object.values(s.provinces)) if (p.ownerId) {
+    const cap = Object.values(s.nations).some(n => n.capitalId === Object.keys(s.provinces).find(k => s.provinces[k] === p));
+    Object.assign(p.units, cap ? START_UNITS.capital : START_UNITS.province); p.buildings.farm = 0;
+  }
+  return s;
+}
 function game({ seed = 'v174', ai = false } = {}) {
-  const s = E.createRealtimeGame({ map, playerNationId: ME, seed });
+  const s = symmetricStart(E.createRealtimeGame({ map, playerNationId: ME, seed }));
   if (!ai) for (const id of NATIONS) if (id !== ME) s.controllers[id] = 'human';
   return s;
 }
@@ -53,6 +62,9 @@ test('V17.4 : départ à l’équilibre — production 32, consommation 29,5, r�
     assert.equal(f.production, 3200, id); assert.equal(f.consumption, 2950, id); assert.equal(f.perDay, 250, id);
     assert.equal(f.reserve, 90000, id); assert.equal(f.granary, 576000, id); assert.equal(f.famine, false); assert.equal(f.alert, false);
   }
+  // V17.9b : le vrai départ de Valmorne (complément) reste nourri : +42 produits, 33,5 mangés.
+  const v = E.foodStatus(E.createRealtimeGame({ map, playerNationId: ME, seed: 'v174' }), ME);
+  assert.equal(v.production, 4200); assert.equal(v.consumption, 3350);
   day(s);
   assert.equal(E.foodStatus(s, ME).reserve, 90250, '+2,5 vivres le premier jour, compté en centièmes');
   day(s, 9);

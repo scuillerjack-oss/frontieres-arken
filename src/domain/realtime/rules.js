@@ -26,7 +26,9 @@ export const REALTIME_RULES = freezeDeep({
   endAlerts: { normal: [{ id: 'year', months: 12 }, { id: 'month', days: 30 }], short: [{ id: 'half-year', months: 6 }, { id: 'month', days: 30 }] },
   // §2 Conversion
   daysPerPeriod: 30,         // 1 « tour de délai » = 30 jours ; state.turn = période en cours
-  incomeDays: 60,            // 1 « tour d'économie » = 60 jours : revenu par jour = revenu par tour ÷ 60 (report exact, §3.1)
+  // V17.9b (Jack : économie légèrement plus généreuse) : 1 « tour d'économie » = 50 jours (avant 60), soit +20 % de revenus
+  // pour toutes les nations ; revenu par jour = revenu par tour ÷ 50 (report exact, §3.1). Textes « or / mois » : × 30 ÷ 50.
+  incomeDays: 50,
   phaseReferenceTurns: 80,   // seuils de phase écrits pour une partie de 80 tours (jour = tour × 5 479 ÷ 80)
   // §2.2 Durées d'action (jours)
   durations: {
@@ -44,8 +46,14 @@ export const REALTIME_RULES = freezeDeep({
     interceptDaysLeft: 20,   // interception par le port d'arrivée quand il reste 20 jours de traversée
     landPerSeaTurn: 20       // conversion des durées maritimes « en tours » de la carte (2 tours = 40 j, 4 = 80 j)
   },
+  // V17.9b : troupes de départ du temps réel (le tour par tour garde START_UNITS). Une valeur absente = START_UNITS.
+  // `nation` : complément par nation et par province (déséquilibre de la carte), ajouté aux troupes de départ.
+  // Valmorne (seule capitale sans port, ses deux points de port face à deux voisins ; 14 % des victoires, la plus éliminée) :
+  // +40 fantassins à Sylvaren et Branvale, et une ferme à Valmorne pour les nourrir (vivres : +42 / jour, 33,5 mangés).
+  start: { capital: null, province: null, nation: { valmorne: { p01: { farm: 1 }, p02: { infantry: 40 }, p03: { infantry: 40 } } } },
   // §3 Économie (coûts inchangés) : revenus « par mois » affichés = revenu par tour ÷ 2
-  income: { perMonth: { province: 2, bank: 2.5, factory: 1.5, port: 1, islandBank: 5 }, recapEveryDays: 30 },
+  // V17.9b : revenus par mois (30 jours) = revenu par tour × 30 ÷ incomeDays (50) — affichés tels quels par l'interface.
+  income: { perMonth: { province: 2.4, bank: 3, factory: 1.8, port: 1.2, islandBank: 6 }, recapEveryDays: 30 },
   // §4 Nourriture (V17.4) — tout en centièmes de vivre dans le moteur
   food: {
     hundredths: 100, provinceDaily: 8, islandDaily: 0, farmDaily: 10, farmMax: 5, farmCosts: [20, 25, 30, 35, 40], farmDays: 60,
@@ -80,16 +88,27 @@ export const REALTIME_RULES = freezeDeep({
     marginAdd: -.1,          // correction de la marge d'attaque de l'IA en temps réel (équilibre, mesuré : §15 V17.5)
     balloonReserve: 20,      // or gardé après l'achat d'un ballon (tour par tour : RULES.balloon.aiReserve = 60)
     recallMargin: .6,        // une attaque en route est rappelée si la simulation (garnison vue × marge) dit qu'elle échoue
+    // V17.9b : base navale choisie à la graine entre les points de port de même valeur (port, usine, routes, capitale) dont
+    // la côte visée est au plus `baseTieSpread` fois plus défendue que la plus faible (100 = n'importe lequel) : chaque partie
+    // une autre pression, au lieu de toujours viser la côte la plus faible (Noireflamme n'était jamais menacée).
+    baseTieBreak: true, baseTieSpread: 100,
+    // V17.9b : la capitale garde au moins ces fantassins équivalents quand l'IA redéploie ses troupes de l'intérieur (0 = non).
+    capitalGuard: 100,
+    // V17.9b : une attaque terrestre gagnante en simulation ne compte plus sa cible dans la menace sur la province de départ.
+    threatExceptTarget: true,
     reinforceShares: [.35, .5, .7], // parts des troupes d'une province voisine envoyées défendre une province menacée
     emergencyRecruit: true,  // menacée sans voisin qui puisse aider : un lot de fantassins sur place s'il arrive à temps
     // V17.5b (Jack : personnalités plus vivantes, jamais la même partie) : realtime/personalities.js, engine/ai.js.
     // jitter : variation (±) des seuils de chaque dirigeant, tirée à la graine de la partie. Périodes = 30 jours.
     personality: {
       jitter: .12,
-      conquerant: { margin: .9, warMargin: .78, attacks: 3, extraLots: 1, recruitPace: 20, landingPace: 15, landingWarFloor: .9, startPeriods: [1, 3], truceBreakPeriods: [4, 8], preyPeriods: [3, 8], secondPrey: 1.1 },
+      // V17.9b (Jack : le Conquérant gagne le plus souvent, ~30-35 % face à un joueur passif) : marge 0,85, recrute tous les
+      // 10 jours avec 3 lots de blindés de plus, une proie à la fois (2e dès 1,6 fois sa force), trêves rompues après 8 à 14 périodes.
+      conquerant: { margin: .85, warMargin: .78, attacks: 3, extraLots: 3, recruitPace: 10, landingPace: 15, landingWarFloor: .9, startPeriods: [1, 3], truceBreakPeriods: [8, 14], preyPeriods: [3, 8], secondPrey: 1.6 },
       heros: { menaceVictims: 2, menaceMemory: 12, coalitionChance: .6, strikeMenaceStrength: .5 },
       traitre: { opportunityChance: .2, opportunityRatio: .8, courtChance: .35, courtFromPeriod: [5, 10], busyRatio: .85, calmRatio: .6, maxAllies: 2, restPeriods: [12, 30] },
-      batisseur: { allyChance: .2, maxAllies: 2, fortMax: 3, farmsPerProvince: 3, reserve: 20, skipRecruit: .5 }
+      // V17.9b : le Bâtisseur recrute moins en paix (85 % des fenêtres sautées) et garde 60 or (il gagnait 1 partie sur 3).
+      batisseur: { allyChance: .2, maxAllies: 2, fortMax: 3, farmsPerProvince: 3, reserve: 60, skipRecruit: .85 }
     }
   },
   // §7 Rythmes du monde

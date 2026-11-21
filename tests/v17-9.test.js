@@ -251,7 +251,7 @@ test('aide (?) réécrite pour le temps réel : règles lues dans RULES.realtime
   assert.match(g('move'), new RegExp(`${R.durations.land * R.durations.landDistance.min} à ${R.durations.land * R.durations.landDistance.max} jours`));
   assert.match(g('food'), new RegExp(`${R.food.provinceDaily} vivres par jour`));
   assert.match(g('battle'), new RegExp(`${R.battle.assaults} assauts, un tous les ${R.battle.assaultEveryDays} jours`));
-  assert.match(g('build'), /\+2,5 or \/ mois/);
+  assert.match(g('build'), /\+3 or \/ mois/); // V17.9b : banque 5 or par tour d'économie (50 jours) = 3 or par mois
   assert.match(g('balloon'), new RegExp(`${R.durations.balloonHop} jours par île`));
   assert.match(g('ranking'), new RegExp(`${R.ranking.province} points par province`));
   assert.match(MYSTERY_HELP.text, new RegExp(`${RULES.mysteryIsland.routeTurns * R.durations.landPerSeaTurn} jours de mer`));
@@ -283,10 +283,10 @@ test('plus aucun « tour » visible : recrutement, réparation, bombardement, At
   noTour(welcome.replace(/<[^>]+>/g, ' '), 'accueil'); assert.match(welcome, /STRATÉGIE EN TEMPS RÉEL/);
   noTour(JSON.parse(read('manifest.webmanifest')).description, 'manifeste');
   assert.doesNotMatch(html, /<title>[^<]*tour/i);
-  // Fiche de l'île en temps réel : revenus par mois, partage compris (+2,5 chacun).
+  // Fiche de l'île en temps réel : revenus par mois (V17.9b : 10 or par 50 jours = 6 par mois), partage compris (+3 chacun).
   const chips = islandSheetView(s, map, ME, id => id, id => id).chips.join(' | ');
-  assert.match(chips, /\+5 or \/ mois à son propriétaire \(\+2,5 chacun/);
-  assert.equal(islandMapBadge(s), '🏦+5/mois', 'badge de l’île sur la carte : par mois');
+  assert.match(chips, /\+6 or \/ mois à son propriétaire \(\+3 chacun/);
+  assert.equal(islandMapBadge(s), '🏦+6/mois', 'badge de l’île sur la carte : par mois');
   // Récit de fin d'une vraie partie temps réel (V17.8) : daté au mois, sans « tour ».
   const g = createRealtimeGame({ map, playerNationId: ME, seed: 'recit' });
   for (const id of Object.keys(g.nations)) g.controllers[id] = 'ai';
