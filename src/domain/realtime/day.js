@@ -9,7 +9,7 @@
 //     interception à J−30, débarquements ;
 //  4) (assauts du jour : V17.2) ;
 //  5) chantiers et recrutements livrés ;
-//  6) revenus du jour (report exact en 1/60 : goldCarry) ; 6 bis) nourriture (V17.4, food.js) ;
+//  6) revenus du jour (report exact en 1/incomeDays (50 j depuis la V17.9b) : goldCarry) ; 6 bis) nourriture (V17.4, food.js) ;
 //  7) tous les 10 jours : coalition ; tous les 30 jours (fin de période) : guérison, forteresses qui se referment, ballons,
 //     paroles des IA et dérive de la tension, récapitulatif des revenus, histoire de la partie, journal ;
 //  8) fin de partie (vérifiée chaque jour), alertes de fin ;
@@ -122,7 +122,7 @@ function lighthouseAlerts(state) {
     state.events.push({ turn: state.turn, type: 'lighthouse', nationId: h, target: t.nationId, convoyId: t.id, provinceId: MYSTERY_ISLAND_ID, fromId: t.fromId, arriveDay: t.arriveDay });
   }
 }
-/** Revenus du jour : un « tour » de revenus en 60 jours, report exact (le trésor reste un entier, rien ne se perd). */
+/** Revenus du jour : un « tour » de revenus en RULES.realtime.incomeDays jours (50 depuis la V17.9b), report exact (le trésor reste un entier, rien ne se perd). */
 function dailyIncome(state) {
   const rt = realtimeLedger(state);
   for (const id of Object.keys(state.nations)) {

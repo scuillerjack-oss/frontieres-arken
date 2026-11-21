@@ -1743,7 +1743,7 @@ un joueur IA Normale ; avant = dépôt V17.8, mêmes outils) :
 | Variété (500) | | 1re guerre : 9 paires, la plus fréquente 21 % ; 1re alliance : 9 paires (25 %) ; 1re éliminée : 5 nations (Valmorne 23 %) ; vainqueur : 5 nations (≤ 24 %) ; 1re trahison : 12 paires (≤ 15 %) | rien ne se répète ✓ |
 | Parties courtes (200) | 12,4 conquêtes, nations 9 / 24 / 27,5 / 19 / 20,5 % | **12,7**, nations **23,5 / 16,5 / 20 / 17 / 23 %**, 0 chaîne, famine 0,3 % | ✓ |
 | Joueur IA Normale (100) | 1er dans 20 %, éliminé 19 % (dès le jour 287) | **1er dans 14 %**, éliminé 25 % (au plus tôt jour 414), rang moyen 3,06 | 20-35 % (sans réglage fin) |
-| Erreurs / invariants violés / sauvegardes différentes | 0 / 0 / 0 (1 400 vérifiées) | **0 / 0 / 0** (1 727 vérifiées) ; troupes : tout écart expliqué | ✓ |
+| Erreurs / invariants violés / sauvegardes différentes | 0 / 0 / 0 (1 400 vérifiées) | **0 / 0 / 0** (1 727 vérifiées) ; troupes : 3 jours d’écart relevés par la batterie de 500 parties avant la prise en compte des troupes stationnées d’une nation éliminée (commit e353946) ; 0 sur 200 parties de relecture après | ✓ |
 | Coût d'un jour (6 parties, au calme) | 0,29 ms (V17.5) | 0,16 ms médiane, p99 2,7 ms, pire 21,5 ms ; jour de décision 1 ms | ✓ |
 
 **Incohérences résolues en route** : la batterie a trouvé 3 « pertes » de troupes que les combats ne déclaraient pas — toutes
@@ -1770,3 +1770,12 @@ réel ; base navale à la graine et stable ; capitale de Valmorne gardée ; bran
 / mois »), `v17-4` (départ symétrique pour les règles de la nourriture + vrai départ de Valmorne), `v17-5` (renfort visible
 avec marge 1,3), `v17-7` (🎁), `v17-9` et `v16-2` (textes de l'île et de l'aide). `npm test` : 888 tests, tous verts.
 **Non vérifié** : vrai téléphone, Chrome mobile simulé (seuls des textes de revenus ont changé à l'écran).
+
+## V17.10 — Grande bêta (21/11/2026)
+- La branche longue `v17` (V17.0 à V17.9b) est fusionnée dans `main` : le jeu est désormais en temps réel, version 17.10.0.
+- L'APK de bêta charge le jeu depuis le site : il se met à jour au lancement. Le verrouillage en paysage (V16.3) n'est
+  dans l'APK que s'il a été retéléchargé une fois depuis la V16.3.
+- Points laissés au jugement de Jack pendant la bêta : rythme des conquêtes (~24 par partie de 15 ans entre IA),
+  économie +20 %, Valmorne renforcée au départ, difficulté (un joueur « moyen » finit 1er dans ~14 % des parties) ;
+  niveaux Facile / Normal / Difficile prévus après la bêta. Fiche Play Store à réécrire pour le temps réel avant
+  toute publication. Produit `premium` à créer dans la Play Console avant la bêta Google Play.
