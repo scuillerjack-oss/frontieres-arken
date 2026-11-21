@@ -37,12 +37,13 @@ import { buildPermanentJournal, buildTurnJournal } from '../engine/journal.js';
 import { progressProjects, startProjects } from '../engine/production.js';
 import { healProvinces, updateEliminations } from '../engine/recovery.js';
 import { legalDestinations } from '../engine/sea-routes.js';
-import { checkGameOver, publishTalkOrders, seededRandom } from '../engine/turn.js';
+import { publishTalkOrders, seededRandom } from '../engine/turn.js';
 import { aiNationOfDay, endAlertDays, isPeriodEnd, isRealtime, nextAiDays, periodOfDay } from './clock.js';
 import { dailyFood } from './food.js';
 import { departMoves, marchArrivals, marchEncounters } from './marches.js';
 import { joinBattle, resolveBattles } from './battles.js';
 import { aiReact, deferAnswers, releaseAnswers } from './ai-schedule.js';
+import { dailyEnd } from './end.js';
 
 const R = RULES.realtime;
 const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
@@ -222,8 +223,8 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   // 7) Rythmes du monde.
   if (day % R.world.coalitionEveryDays === 0) updateCoalition(state);
   if (isPeriodEnd(day)) periodEnd(state, map);
-  // 8) Fin de partie, alertes.
-  checkGameOver(state);
+  // 8) Fin de partie (V17.8, end.js : conquête, défaite, dernier jour, paix générale proposée au joueur), alertes.
+  dailyEnd(state, state.events.slice(eventStart));
   if (!state.gameOver) for (const a of endAlertDays(state)) if (a.day === day + 1) state.events.push({ turn: state.turn, type: 'final-days', alert: a.id, day: day + 1, ...(state.gameLength ? { length: state.gameLength } : {}) });
   stampDay(state, eventStart);
   buildPermanentJournal(state, map, rt.chronicleIndex);

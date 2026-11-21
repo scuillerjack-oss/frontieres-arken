@@ -5,21 +5,27 @@
 // retient les dernières comptées. Comme il n'existe qu'une seule sauvegarde à la fois, cette mémoire bornée suffit.
 // Sans graine utilisable, la partie n'est pas comptée du tout : mieux vaut un oubli qu'un compte faux.
 import { DIFFICULTY_IDS, difficultyOf } from './difficulty.js';
-import { DEFAULT_GAME_LENGTH, gameLengthOf } from './game-length.js';
+import { DEFAULT_GAME_LENGTH, SHORT_GAME_LENGTH, gameLengthOf, sanitizeGameLength } from './game-length.js';
+import { RULES } from './constants.js';
 
 export const COUNTED_MEMORY = 200;
 const DEFAULT_SEED = 'arken-v0'; // graine par défaut de createGameState : elle ne désigne aucune partie en particulier
 const NATION_IDS = Object.freeze(['valmorne', 'roc-epine', 'noireflamme', 'oroel', 'aurel']);
 const int = v => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(n, 1000000) : 0; };
 const counts = (raw, ids) => Object.fromEntries(ids.map(id => [id, int(raw?.[id])]));
+// V17.8 : en temps réel, la longueur d'une partie est comptée en JOURS (5 479 = 15 ans ; 2 557 = 7 ans, partie courte) :
+// ce sont aussi les clés de gamesByLength, distinctes des 80 / 40 tours des anciennes parties.
+export const FULL_LENGTHS = Object.freeze([DEFAULT_GAME_LENGTH, RULES.realtime.gameDays.normal]);
+export const isFullLength = length => FULL_LENGTHS.includes(length);
 
 /** Titres : découverts en jouant. Les conditions restent cachées tant que le titre n'est pas obtenu. */
 export const TITLES = Object.freeze([
   { id: 'premiere-page', name: 'Première page', text: 'Terminer une partie.', earned: f => true },
   { id: 'premiere-couronne', name: 'Première couronne', text: 'Gagner une partie.', earned: f => f.won },
-  { id: 'longue-marche', name: 'Longue marche', text: `Aller au bout des ${DEFAULT_GAME_LENGTH} tours.`, earned: f => f.reason === 'turn-limit' && f.length === DEFAULT_GAME_LENGTH },
-  { id: 'vif-eclair', name: 'Vif comme l’éclair', text: 'Gagner une partie courte.', earned: f => f.won && f.length !== DEFAULT_GAME_LENGTH },
-  { id: 'maitre-arken', name: 'Maître d’Arken', text: 'Tenir les cinq capitales.', earned: f => f.won && f.reason === 'capitals' },
+  { id: 'longue-marche', name: 'Longue marche', text: 'Aller au bout d’une partie complète.', earned: f => f.reason === 'turn-limit' && isFullLength(f.length) },
+  { id: 'vif-eclair', name: 'Vif comme l’éclair', text: 'Gagner une partie courte.', earned: f => f.won && !isFullLength(f.length) },
+  { id: 'maitre-arken', name: 'Maître d’Arken', text: 'Conquérir Arken : tenir les cinq capitales, ou rester la dernière nation debout.', earned: f => f.won && (f.reason === 'capitals' || f.reason === 'last-nation') },
+  { id: 'paix-arken', name: 'Paix d’Arken', text: 'Finir une partie par la paix générale.', earned: f => f.reason === 'peace' },
   { id: 'cinq-bannieres', name: 'Cinq bannières', text: 'Gagner avec chacune des cinq nations.', earned: (f, p) => NATION_IDS.every(id => p.winsByNation[id] > 0) },
   { id: 'contre-vents', name: 'Contre vents et marées', text: 'Gagner au niveau Difficile.', earned: f => f.won && f.difficulty === 'difficile' },
   { id: 'seul-contre-tous', name: 'Seul contre tous', text: 'Gagner malgré une coalition formée contre vous.', earned: f => f.won && f.coalitionAgainst },
@@ -31,19 +37,22 @@ export const titleById = id => TITLES.find(t => t.id === id) || null;
 
 export function emptyPalmares() {
   return { games: 0, wins: 0, winsByNation: counts({}, NATION_IDS), winsByDifficulty: counts({}, DIFFICULTY_IDS),
-    gamesByLength: {}, bestRank: null, fastestWin: null, titles: [], counted: [], last: null };
+    gamesByLength: {}, bestRank: null, fastestWin: null, fastestWinDays: null, bestScore: null, titles: [], counted: [], last: null };
 }
 /** Palmarès lu (profil ancien sans palmarès, ou abîmé) : tout champ invalide est remplacé, rien ne fait planter le jeu. */
 export function sanitizePalmares(raw) {
   const base = emptyPalmares();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
-  const fast = raw.fastestWin, rank = int(raw.bestRank), last = raw.last;
+  const fast = raw.fastestWin, fastDays = raw.fastestWinDays, rank = int(raw.bestRank), last = raw.last;
   return {
     games: int(raw.games), wins: int(raw.wins),
     winsByNation: counts(raw.winsByNation, NATION_IDS), winsByDifficulty: counts(raw.winsByDifficulty, DIFFICULTY_IDS),
     gamesByLength: Object.fromEntries(Object.entries(raw.gamesByLength && typeof raw.gamesByLength === 'object' ? raw.gamesByLength : {}).filter(([k]) => /^\d+$/.test(k)).map(([k, v]) => [k, int(v)])),
     bestRank: rank || null,
     fastestWin: fast && int(fast.turn) ? { turn: int(fast.turn), nationId: NATION_IDS.includes(fast.nationId) ? fast.nationId : null, length: int(fast.length) || DEFAULT_GAME_LENGTH } : null,
+    // V17.8 : records du temps réel, en jours de jeu (victoire la plus rapide) et en points (meilleur score).
+    fastestWinDays: fastDays && int(fastDays.day) ? { day: int(fastDays.day), nationId: NATION_IDS.includes(fastDays.nationId) ? fastDays.nationId : null, length: int(fastDays.length) || RULES.realtime.gameDays.normal } : null,
+    bestScore: int(raw.bestScore) || null,
     titles: [...new Set((Array.isArray(raw.titles) ? raw.titles : []).filter(titleById))],
     counted: (Array.isArray(raw.counted) ? raw.counted : []).filter(x => typeof x === 'string' && x).slice(-COUNTED_MEMORY),
     last: last && typeof last.id === 'string' && Array.isArray(last.titles) ? { id: last.id, titles: last.titles.filter(titleById) } : null
@@ -58,8 +67,11 @@ export function gameRecordId(state) {
 function factsOf(state) {
   const go = state.gameOver, me = state.playerNationId, marks = Array.isArray(state.story?.marks) ? state.story.marks : [];
   const mine = (go.ranking || []).find(r => r.nationId === me);
+  const realtime = state.mode === 'realtime';
   return { won: go.winnerId === me && go.reason !== 'player-eliminated', reason: go.reason, turn: int(go.turn), rank: int(mine?.rank), nationId: me,
-    difficulty: difficultyOf(state), length: gameLengthOf(state),
+    realtime, day: realtime ? int(go.day) : 0, score: realtime && Number.isFinite(mine?.score) ? int(mine.score) : 0,
+    difficulty: difficultyOf(state),
+    length: realtime ? (sanitizeGameLength(state.gameLength) === SHORT_GAME_LENGTH ? RULES.realtime.gameDays.short : RULES.realtime.gameDays.normal) : gameLengthOf(state),
     coalitionAgainst: marks.some(m => m[1] === 'f' && m[2] === me), lostCapital: marks.some(m => m[1] === 'c' && m[3] === me) };
 }
 /**
@@ -77,11 +89,13 @@ export function recordFinishedGame(profile, state) {
   p.games = int(p.games + 1);
   p.gamesByLength[f.length] = int((p.gamesByLength[f.length] || 0) + 1);
   if (f.rank && (!p.bestRank || f.rank < p.bestRank)) p.bestRank = f.rank;
+  if (f.score && (!p.bestScore || f.score > p.bestScore)) p.bestScore = f.score;
   if (f.won) {
     p.wins = int(p.wins + 1);
     if (f.nationId in p.winsByNation) p.winsByNation[f.nationId]++;
     p.winsByDifficulty[f.difficulty]++;
-    if (f.turn && (!p.fastestWin || f.turn < p.fastestWin.turn)) p.fastestWin = { turn: f.turn, nationId: f.nationId, length: f.length };
+    if (f.realtime) { if (f.day && (!p.fastestWinDays || f.day < p.fastestWinDays.day)) p.fastestWinDays = { day: f.day, nationId: f.nationId, length: f.length }; }
+    else if (f.turn && (!p.fastestWin || f.turn < p.fastestWin.turn)) p.fastestWin = { turn: f.turn, nationId: f.nationId, length: f.length };
   }
   const fresh = TITLES.filter(t => !p.titles.includes(t.id) && t.earned(f, p)).map(t => t.id);
   p.titles.push(...fresh);

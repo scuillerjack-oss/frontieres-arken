@@ -14,7 +14,7 @@
 
 import { RULES } from '../../domain/constants.js';
 import {
-  advanceDay, executePendingOrders, formatDate, incomeFor, proposalsToAnswer, recallConvoy, recallMarch
+  advanceDay, executePendingOrders, formatDate, incomeFor, peaceOfferPending, proposalsToAnswer, recallConvoy, recallMarch
 } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { seaFatePopups } from '../alliances-view.js';
@@ -37,13 +37,17 @@ import { profile, save, selected, state } from './session.js';
 import { calmMoment, isNewGame, syncAds } from './ad-ui.js';
 import { openPremium, setPremiumFastHandler } from './premium-ui.js';
 import { renderJournal, showEndScreen } from './turn-flow.js';
+import { syncRanking } from './ranking-ui.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
-const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'];
+// V17.8 : la fenêtre de paix générale (décision de fin) et le choix d'une nouvelle partie arrêtent aussi le temps.
+const END_HOLDS = ['#peaceDialog', '#nationDialog', '#replaceSaveDialog'];
+const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'].concat(END_HOLDS);
 // V17.7 : menus hors jeu dont l'ouverture est un « moment calme » pour la pub imposée (jamais l'écran Premium ni la fin).
 const CALM_MENUS = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog'];
 let menuWasOpen = false;
 let famineDay = null; // jour du dernier bandeau de famine (début ou rappel), pour au plus un rappel tous les 30 jours
+let lastBeat = 0; // V17.8 : temps réellement joué (horloge qui tourne), state.rt.playMs, pour l'écran de fin
 let clock = null, clockGame = null, timer = 0, gate = null, alerts = [], seen = new Set(), lastDock = '', lastTicker = '', lastAlerts = '';
 const now = () => (globalThis.performance?.now?.() ?? Date.now());
 const names = { nation: id => nation(id).short, province: id => province(id).name };
@@ -213,6 +217,8 @@ export function syncRealtime() {
     if (!isNewGame(state)) calmMoment('return'); // V17.7 : partie reprise = retour dans le jeu (moment calme), jamais une nouvelle partie
   }
   if (state.gameOver) { syncAds({ now: t, onScreen: true, running: false }); drawDock(); drawTicker(); return; }
+  if (isClockRunning(clock) && lastBeat) { const rt = state.rt || (state.rt = {}); rt.playMs = (Number(rt.playMs) || 0) + Math.min(1000, Math.max(0, t - lastBeat)); }
+  lastBeat = t;
   syncClockHolds(clock, { hidden: document.visibilityState === 'hidden', ad: document.body.dataset.adPlaying === '1', menu: outOfGame() }, t);
   // V17.7 : minutes de jeu (horloge qui tourne), icône 🎁 ; ouverture d'un menu hors jeu = moment calme.
   syncAds({ now: t, onScreen: true, running: isClockRunning(clock) });
@@ -222,10 +228,12 @@ export function syncRealtime() {
   let changed = false;
   if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; saveFor('order'); }
   const days = dueDays(clock, t), eventStart = state.events.length;
-  for (let i = 0; i < days && !state.gameOver; i++) advanceDay(state, map);
+  // V17.8 : la boucle s'arrête dès qu'une offre de paix générale arrive (elle doit toujours être montrée, temps arrêté).
+  for (let i = 0; i < days && !state.gameOver && !peaceOfferPending(state); i++) advanceDay(state, map);
   if (days || changed) refresh();
   if (days || changed) collectBanners(state.events.slice(eventStart));
   if (state.gameOver) { save(); setClockPaused(clock, true, t); drawDock(); showEndScreen(); return; }
+  syncRanking(); // V17.8 : écran 🏆 ouvert suivi tous les 10 jours ; offre de paix générale (arrête le temps)
   saveFor('day');
   drawHud(); drawDock(); drawTicker(); drawAlerts();
 }

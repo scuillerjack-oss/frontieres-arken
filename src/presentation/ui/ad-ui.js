@@ -8,7 +8,7 @@
 // Le compteur de minutes de jeu est un réglage du téléphone (`frontieres-arken-pub`), jamais dans la partie.
 // Réglage de TEST caché : `?pub-test=60` dans l'adresse = 1 seconde réelle compte pour 60 secondes de jeu (Playwright).
 
-import { battlesOf, incomeFor } from '../../domain/game-engine.js';
+import { battlesOf, incomeFor, peaceOfferPending } from '../../domain/game-engine.js';
 import {
   adTimerSnapshot, applyGiftReward, createAdTimer, forcedAdCheck, forcedShown, giftAvailable, giftUsed, restoreAdTimer, rewardGold, tickAdTimer
 } from '../ad-timer.js';
@@ -22,7 +22,7 @@ import { moveSource, profile, save, state } from './session.js';
 import { miniStep, tutoStep } from './tutorials.js';
 
 const KEY = 'frontieres-arken-pub';
-const ACTION_DIALOGS = ['#actionDialog', '#eventDialog', '#nationDialog', '#replaceSaveDialog', '#endDialog', '#premiumDialog'];
+const ACTION_DIALOGS = ['#actionDialog', '#eventDialog', '#nationDialog', '#replaceSaveDialog', '#endDialog', '#premiumDialog', '#peaceDialog']; // V17.8 : paix générale
 let timer = null, busy = false, wasOn = false, leftTutorial = false, lastSaved = -1, lastGift = '';
 const speedup = (() => { try { const v = Number(new URLSearchParams(globalThis.location?.search || '').get('pub-test')); return v > 0 ? Math.min(v, 600) : 1; } catch { return 1; } })();
 
@@ -44,6 +44,7 @@ export const inTutorialNow = () => isTutorial(state) || tutoStep !== null || min
 export function playerActing() {
   if (moveSource) return true;
   if (ACTION_DIALOGS.some(sel => $(sel)?.open)) return true;
+  if (peaceOfferPending(state)) return true; // V17.8 : offre de paix générale en attente (décision de fin), même avant que sa fenêtre s'ouvre
   if (state?.mode === 'realtime' && battlesOf(state, state.playerNationId).length) return true;
   return false;
 }

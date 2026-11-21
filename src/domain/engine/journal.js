@@ -195,7 +195,11 @@ export function journalEntry(event, map, playerNationId = null) {
     case 'coalition-dissolved': return { priority:5, type:'COALITION', category:'neutral', public:true,
       text: event.reason === 'eliminated' ? `${nationName(map,event.nationId)} a disparu : la coalition n’a plus d’objet.` : event.reason === 'deserted' ? `Plus personne ne fait front contre ${event.nationId === playerNationId ? 'vous' : nationName(map,event.nationId)} : la coalition est dissoute. Les guerres déjà ouvertes continuent.` : `${event.nationId === playerNationId ? 'Vous ne tenez' : `${nationName(map,event.nationId)} ne tient`} plus que ${safeNum(event.provinces)} provinces : la coalition est dissoute. Les guerres déjà ouvertes continuent.` };
     case 'game-over': return { priority:5, type:'FIN DE PARTIE', category: event.winnerId===playerNationId?'conquest':'foreign-conflict', public:true,
-      text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,
+      text: event.reason==='capitals' ? `${nationName(map,event.winnerId)} tient les cinq capitales : victoire !` :
+        // V17.8 : fins du temps réel (dernière nation debout, paix générale, dernier jour au classement à points).
+        event.reason==='last-nation' ? `${nationName(map,event.winnerId)} est la dernière nation debout : conquête du monde !` :
+        event.reason==='peace' ? `Paix générale : la partie s’arrête au classement actuel. ${nationName(map,event.winnerId)} termine en tête.` :
+        event.reason==='turn-limit' && Number.isFinite(event.day) ? `Le temps est écoulé : ${nationName(map,event.winnerId)} termine en tête du classement à points.` : event.reason==='player-eliminated' ? `Votre nation est éliminée. ${nationName(map,
         event.winnerId)} mène le classement.` : `Fin de la partie au tour ${safeNum(event.turn)} : ${nationName(map,event.winnerId)} termine en tête du classement.` };
     // V17.2 : batailles en temps réel (3 assauts : J, J+3, J+6).
     case 'assault': {

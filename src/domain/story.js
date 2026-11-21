@@ -98,12 +98,13 @@ export function buildEndStory(state, map) {
   });
   const tp = story ? turningPoint(story, ids, go.winnerId) : null;
   let turning = null;
+  const span = state.mode === 'realtime' ? '5 mois' : '5 tours'; // V17.8 : en temps réel, un « tour » du récit = 30 jours
   if (tp) {
     const near = marks.filter(m => Math.abs(m[0] - tp.turn) <= 2 && ['c', 'e', 't'].includes(m[1])).sort((a, b) => Math.abs(a[0] - tp.turn) - Math.abs(b[0] - tp.turn))[0];
     const cause = !near ? '' : near[1] === 'c' ? `${name(near[2])} venait de prendre la capitale de ${name(near[3])}.`
       : near[1] === 'e' ? `${name(near[2])} venait de disparaître de la carte.` : `${name(near[2])} venait de trahir ${name(near[3])}.`;
     const head = tp.kind === 'lead' ? `${name(tp.nationId)} passe en tête pour de bon, avec ${provincesText(tp.provinces)}.`
-      : tp.delta > 0 ? `${name(tp.nationId)} gagne ${provincesText(tp.delta)} en 5 tours, et en tient ${tp.provinces}.` : `${name(tp.nationId)} perd ${provincesText(-tp.delta)} en 5 tours, et n’en tient plus que ${tp.provinces}.`;
+      : tp.delta > 0 ? `${name(tp.nationId)} gagne ${provincesText(tp.delta)} en ${span}, et en tient ${tp.provinces}.` : `${name(tp.nationId)} perd ${provincesText(-tp.delta)} en ${span}, et n’en tient plus que ${tp.provinces}.`;
     turning = { turn: tp.turn, text: [head, cause].filter(Boolean).join(' ') };
   }
   return {
