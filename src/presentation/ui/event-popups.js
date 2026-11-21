@@ -17,7 +17,9 @@ export function eventPopup({kicker='',title,html='',cls='',buttons=[{label:'Cont
   return new Promise(resolve=>{const d=$('#eventDialog');let value=null;d.className=cls;$('#eventKicker').textContent=kicker;$('#eventTitle').textContent=title;$('#eventBody').innerHTML=html;
     $('#eventActions').innerHTML=buttons.map((b,i)=>`<button data-event-btn="${i}" class="${b.primary?'primary':'cancel'}">${b.label}</button>`).join('');
     document.querySelectorAll('[data-event-btn]').forEach(btn=>btn.onclick=()=>{value=buttons[Number(btn.dataset.eventBtn)].value;d.close();});
-    if(d.open)d.close();d.addEventListener('close',()=>resolve(value),{once:true});d.showModal();});
+    if(d.open)d.close();d.addEventListener('close',()=>resolve(value),{once:true});d.showModal();
+    /* V17.10.1 : toujours ouvrir en haut, le bouton reste visible en bas (collé) même si le texte dépasse */
+    const sec=d.querySelector('section');if(sec)sec.scrollTop=0;});
 }
 export const dialogClosed=dialog=>new Promise(resolve=>{if(!dialog.open)return resolve();dialog.addEventListener('close',()=>resolve(),{once:true});});
 export function showIntro(){return eventPopup({kicker:INTRO_STORY.kicker,title:INTRO_STORY.title,cls:'intro',

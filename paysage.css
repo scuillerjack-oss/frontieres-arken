@@ -79,6 +79,10 @@ dialog .primary{margin-top:10px}
 #eventDialog{width:min(calc(100vw - 24px),560px)}
 #eventDialog h2{font-size:1.25rem;margin:4px 0 6px}
 #eventDialog .confirm-actions button{margin-top:8px}
+dialog section > .confirm-actions{bottom:-14px}
+#eventDialog.intro p{font-size:.9rem;line-height:1.35;margin:5px 0}
+#eventDialog.intro .intro-masks{gap:10px;margin:0 0 4px}
+#eventDialog.intro .intro-masks span{width:34px;height:34px;font-size:1.15rem}
 #endDialog h2{font-size:1.4rem}
 dialog.ad-overlay{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh}
 .ad-card{padding:14px 18px;max-height:calc(100dvh - 24px);overflow:auto}
