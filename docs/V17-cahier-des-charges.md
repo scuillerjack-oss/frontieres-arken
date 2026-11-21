@@ -1667,3 +1667,106 @@ fenêtre « Nouvelle partie » en paysage). `npm test` : 883 tests, verts.
 3. Faille Premium : voir le point « Restauration de profil » ci-dessus (achats collés ignorés). Test mis à jour.
 `npm test` : 883 tests, verts. Playwright refait en 844 × 390, 667 × 375 et 390 × 844 : 0 erreur JS, rien de signalé hors le défilement
 voulu des fenêtres « Nouvelle partie » et « Construction ».
+
+### Réalisé V17.9b — batterie finale (21/11/2026)
+**Fait** (branche `mission/V17.9b`, version inchangée ; moteur `src/domain/`, règles `RULES.realtime`, outils `tools/v17/` ;
+présentation au strict nécessaire : textes « or / mois » lus dans les règles).
+
+**Outils** : `tools/v17/batterie-v17.9b.mjs [parties] [préfixe] [--courte] [--joueur | --passif]` (parties complètes en 2
+processus, résumé dans `tools/v17/resultats-v17.9b.json`) ; `tools/v17/essais-v17.9b.mjs [parties] [préfixe] [essais] [--passif]`
+(chaque essai sur une copie de `src/`, résultats `resultats-v17.9b-essais*.json`). `--joueur` : la nation du joueur reste
+« humaine » mais une IA Normale joue à sa place (paix acceptée si elle est 1re) ; `--passif` : le joueur ne fait rien.
+Invariants contrôlés **chaque jour** : aucune valeur négative ni fractionnaire (troupes, navires, trésor), report d'or dans
+[0, incomeDays[, vivres dans [0, grenier], aucune bataille plus longue que 6 jours + 1 assaut, aucune marche ni traversée en
+retard, **troupes conservées** (tout écart expliqué par une livraison, une perte de combat déclarée, une désertion, une
+retraite perdue, un navire coulé au port, des troupes stationnées dispersées à l'élimination), **sauvegarde / reprise
+identique** (2 jours tirés à la graine par partie : partie relue et originale jouent 30 jours, sauvegardes comparées),
+`Math.random` jamais appelé, exceptions comptées.
+
+**Causes trouvées** (diagnostic des décisions d'attaque de l'IA, 12 parties instrumentées) :
+1. **Noireflamme avantagée (33 % des victoires)** : la base navale se choisissait « côte la plus faible, puis ordre
+   alphabétique ». Solmara (deux côtes visées aussi faibles) prenait toujours Aurorelle (face à Roc-Épine) ; Noireflamme,
+   elle, fait face à la capitale d'Oroël et à la côte faible de Solmara : personne ne la menaçait jamais (débarquements reçus
+   1,7 contre 3,1 pour Valmorne). Corrigé : **base navale tirée à la graine** entre les points de port de même valeur
+   (`RULES.realtime.ai.baseTieBreak`, `baseTieSpread` 100) : chaque partie, une autre pression.
+2. **Valmorne désavantagée (13,8 %, la plus éliminée : 128 fois sur 500)** : seule capitale sans port ; l'IA y
+   redéployait 85 % de l'armée vers un port dès le 10e jour, laissant 15 hommes : capitale prise au premier débarquement
+   voisin (éliminations en moins d'un an). Corrigé : **la capitale garde 100 fantassins équivalents** au redéploiement
+   (`capitalGuard`), et Valmorne part avec **+40 fantassins à Sylvaren et Branvale et une ferme à Valmorne**
+   (`RULES.realtime.start.nation`, vivres 42 / jour pour 33,5 mangés). Forteresses à la place : essayé, sans effet (8 %).
+3. **Attaques terrestres gagnables refusées** : 2 sur 3 étaient écartées parce que l'IA comptait sa cible comme menace sur
+   sa propre province de départ. Corrigé (`threatExceptTarget`) : la cible ne compte plus quand la simulation dit qu'elle tombe.
+4. **Conquêtes** : garnisons de départ plus faibles (25 ou 20 au lieu de 40, capitales 150 / 120), marge d'attaque −0,2,
+   rappels, estimation prudente, quotas : **aucun effet** (21,9 à 24,1, tableau ci-dessous). Au débarquement, l'armée entière
+   de l'IA vaut en médiane 1,06 fois ce qu'il faut : c'est l'argent qui manque. Retenu (piste de Jack) : **économie +20 %**,
+   un « tour d'économie » = **50 jours** (au lieu de 60) ; textes « or / mois » tirés des règles (province 2,4, banque 3,
+   usine 1,8, port 1,2, île 6 ; 🎁 = un mois de revenus).
+5. **Caractères** (demande de Jack : Conquérant ~30-35 % face à un joueur passif, autres 15-25 %) : Conquérant marge 0,85,
+   recrute tous les 10 jours avec 3 lots de blindés de plus, une proie à la fois (2e dès 1,6 fois sa force), trêves rompues
+   après 8 à 14 périodes ; Bâtisseur qui recrute moins en paix (85 % des fenêtres) et garde 60 or (il gagnait 35-38 %).
+
+**Essais** (100 parties de 15 ans chacun, tout-IA sauf mention ; nations = Valmorne / Roc-Épine / Noireflamme / Oroël / Solmara) :
+
+| Essai | Conquêtes | Élim. | Victoires par nation (%) | Remarque |
+|---|---|---|---|---|
+| Dépôt V17.8 | 22,9 | 0,76 | 12 / 17 / 36 / 22 / 13 | |
+| Base navale à la graine (écart 15 %) | 22,1 | 0,81 | 14 / 18 / 29 / 25 / 14 | |
+| + garnisons 25 / 20 (capitales 150 / 120) | 22,4 à 24,1 | 0,6 à 1 | Noireflamme 34-37 | éliminations < 2 ans × 3 |
+| + marge −0,2 / rappel 0,8 / estimation 0,5 | 23,9 / 21,9 / 22,6 | | Noireflamme 30-37 | |
+| + garde de la capitale et menace sans la cible | 23,1 | 0,94 | 10 / 21 / 35 / 21 / 13 | |
+| + base tirée entre tous les ports | 22,8 | 0,96 | 12 / 19 / 33 / 25 / 11 | |
+| + revenus 50 jours | 25 | 1 | 10 / 29 / 25 / 24 / 12 | |
+| + Valmorne complétée (revenus 50 j) | 25,1 | 1,07 | **18 / 24 / 23 / 20 / 15** | |
+| idem, revenus 45 jours | 27 | 1,02 | 20 / 20 / 32 / 18 / 10 | Noireflamme repart |
+| Réglages retenus sans les revenus +20 % | 20,3 / 21,8 (marge −0,2) | 0,84 | 13 / 19 / 32 / 22 / 14 | |
+| Joueur passif, Conquérant d'origine / renforcé (v-c1 à v-c4) | 13-15 | | | Conquérant 24-27 % → **32 %** |
+
+**Mesures finales** (réglages du dépôt ; 500 parties de 15 ans tout-IA, 200 parties courtes, 100 avec joueur passif, 100 avec
+un joueur IA Normale ; avant = dépôt V17.8, mêmes outils) :
+
+| Mesure | Avant | **Après** | Cible |
+|---|---|---|---|
+| Conquêtes par partie (15 ans) | 22,2 (7,9 / 4,6 / 5,3 / 4,5) | **23,6** (7,8 / 5,3 / 5,9 / 4,6), écart-type 9,4, de 2 à 65 | 27-40 : **non atteinte** |
+| Parties presque figées (≤ 5 / ≤ 10 conquêtes en 15 ans) | 12 / 45 sur 500 | **3 / 26** | |
+| Victoires par nation (500 parties) | 13,8 / 17,2 / **33** / 18,6 / 17,4 % | **15 / 21 / 23,8 / 19 / 21,2 %** | 15-25 % ✓ |
+| Victoires par caractère, joueur passif (100 parties) | Conquérant 24, Bâtisseur 38, Traître 23, Héros 15 % | **Conquérant 36, Traître 27, Bâtisseur 23, Héros 14 %** | Conquérant 30-35, autres 15-25 (à ±5 près sur 100 parties) |
+| Victoires par caractère, tout-IA (500) | Héros 35,6, Bâtisseur 25,4, Traître 20,4, Conquérant 18,6 % | Héros 37,4, Traître 26,8, Bâtisseur 21,2, Conquérant 14,6 % | (équilibre des nations seulement) |
+| Nations éliminées par partie | 0,81 | 0,96 (Valmorne 137, Roc-Épine 92, Noireflamme 86, Oroël 85, Solmara 80) | |
+| Éliminations avant 2 ans / en chaîne | 41 / 0 parties | 59 / **1** partie sur 500 | pas de chaos ✓ |
+| Plus grande armée finale (médiane / max) | 3 090 / 6 033 or | 3 646 / 7 932 or | |
+| Famine (nations) | 3 % | **2,9 %** (1,8 % avec joueur Normal ; 11 % avec joueur passif : le passif lui-même) | < 5 % ✓ |
+| Fins de 15 ans | 500 au dernier jour | 500 au dernier jour ; aucune conquête du monde avant 5 ans | ✓ |
+| Île mystérieuse | 0,93 prise / partie, 274 parties, 1re prise jour 4 269 | 0,87, 260 parties, jour 4 517 ; preneurs équilibrés (73 à 97) | |
+| Batailles (débarquements) | 34,6 (14,1) | 36,2 (14,6) ; 63,5 assauts | |
+| Ballons construits / abattus | 47,6 / 46,6 | 64,8 / 63,1 | |
+| Trahisons / alliances par partie | 5,95 / 7,76 | 4,7 / 7,59 ; cibles : Héros 975, Bâtisseur 710, Conquérant 349, Traître 318 | |
+| Variété (500) | | 1re guerre : 9 paires, la plus fréquente 21 % ; 1re alliance : 9 paires (25 %) ; 1re éliminée : 5 nations (Valmorne 23 %) ; vainqueur : 5 nations (≤ 24 %) ; 1re trahison : 12 paires (≤ 15 %) | rien ne se répète ✓ |
+| Parties courtes (200) | 12,4 conquêtes, nations 9 / 24 / 27,5 / 19 / 20,5 % | **12,7**, nations **23,5 / 16,5 / 20 / 17 / 23 %**, 0 chaîne, famine 0,3 % | ✓ |
+| Joueur IA Normale (100) | 1er dans 20 %, éliminé 19 % (dès le jour 287) | **1er dans 14 %**, éliminé 25 % (au plus tôt jour 414), rang moyen 3,06 | 20-35 % (sans réglage fin) |
+| Erreurs / invariants violés / sauvegardes différentes | 0 / 0 / 0 (1 400 vérifiées) | **0 / 0 / 0** (1 727 vérifiées) ; troupes : tout écart expliqué | ✓ |
+| Coût d'un jour (6 parties, au calme) | 0,29 ms (V17.5) | 0,16 ms médiane, p99 2,7 ms, pire 21,5 ms ; jour de décision 1 ms | ✓ |
+
+**Incohérences résolues en route** : la batterie a trouvé 3 « pertes » de troupes que les combats ne déclaraient pas — toutes
+expliquées (retraite sans port, navire coulé à quai par un bombardement, troupes stationnées d'une nation éliminée) ; une
+boucle peu utile : une nation rachète un navire à quai que le bombardement permanent d'en face coule tous les ~130 jours (rare,
+laissé). Parties courtes : l'île n'est presque jamais prise en 7 ans (5 parties sur 200, 80 jours de mer et 3 armées de
+garnison) — laissé tel quel.
+
+**Écarts et choix (à faire juger par Jack)** :
+1. **Conquêtes 23,6 au lieu de 27-40** : la carte bouge plus qu'avant (moins de parties figées, chaque nation menacée), mais
+   la cible n'est pas atteinte sans changer une règle de combat validée (3 assauts, renforts…) ; revenus 45 jours : 27, mais
+   Noireflamme repart à 32 %. Proposition : accepter ~24 en bêta, ou décider d'aller plus loin.
+2. **Économie +20 %** (tour d'économie de 50 jours) : choisie sur la piste proposée par Jack ; tous les textes « or / mois »
+   suivent (province 2,4 au lieu de 2).
+3. **Valmorne complétée au départ** (+80 fantassins, une ferme) : compense la carte (seule capitale sans port) ; elle reste
+   la plus souvent éliminée mais gagne 15 % (tout-IA) et 23,5 % en partie courte.
+4. Tout-IA, le **Héros** gagne le plus (37 %) ; face à un joueur passif, le **Conquérant** (36 %). Joueur IA Normale : 14 %
+   de victoires (un peu bas, à revoir avec les niveaux de difficulté après la bêta).
+
+**Tests** : `tests/v17-9b.test.js` (5 tests : 3 parties courtes complètes — dont une avec joueur Normal — sans exception ni
+invariant violé, troupes conservées, sauvegarde/reprise identique, `Math.random` jamais appelé ; troupes de départ du temps
+réel ; base navale à la graine et stable ; capitale de Valmorne gardée ; branchements). **Tests modifiés** (revenus en
+50 jours, Valmorne complétée, menace sans la cible) : `v17-1` (règles, revenus quotidiens, bonus d'Aurel), `v17-3` (« +9,6 or
+/ mois »), `v17-4` (départ symétrique pour les règles de la nourriture + vrai départ de Valmorne), `v17-5` (renfort visible
+avec marge 1,3), `v17-7` (🎁), `v17-9` et `v16-2` (textes de l'île et de l'aide). `npm test` : 888 tests, tous verts.
+**Non vérifié** : vrai téléphone, Chrome mobile simulé (seuls des textes de revenus ont changé à l'écran).
