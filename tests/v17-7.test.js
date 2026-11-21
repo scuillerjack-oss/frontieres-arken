@@ -222,7 +222,7 @@ test('V17.7 branchements : 🎁 sur le bord de la carte, pubs aux moments calmes
   const rt = readSource('src/presentation/ui/realtime-ui.js');
   assert.match(rt, /if \(pausing\) calmMoment\('pause'\)/);
   assert.match(rt, /if \(menuOpen && !menuWasOpen\) calmMoment\('menu'\)/);
-  assert.match(rt, /CALM_MENUS = \['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog'\]/, 'jamais à l’ouverture de l’écran Premium');
+  assert.match(rt, /CALM_MENUS = \['#settingsDialog', '#helpDialog', '#palmaresDialog'\]/, 'jamais à l’ouverture de l’écran Premium (V17.9 : ni des Atouts, une boutique)');
   assert.match(rt, /calmMoment\('return'\)/);
   assert.match(rt, /syncAds\(\{ now: t, onScreen: true, running: isClockRunning\(clock\) \}\)/);
   assert.match(rt, /openPremium\(\{ from: 'fast' \}\)/);
@@ -230,7 +230,7 @@ test('V17.7 branchements : 🎁 sur le bord de la carte, pubs aux moments calmes
   const ui = readSource('src/presentation/ui/ad-ui.js');
   assert.match(ui, /calmMoment\('home', \{ tutorial: leftTutorial \}\)/, 'retour à l’accueil depuis le tutoriel : pas de pub');
   assert.match(ui, /premium: profile\?\.premium === true, tutorial, refused: adsRefusedThisSession\(\), action: playerActing\(\)/);
-  assert.match(ui, /isTutorial\(state\) \|\| tutoStep !== null \|\| miniStep !== null/);
+  assert.match(ui, /isTutorial\(state\) \|\| tutoStep !== null;/); // V17.9 : plus de mini tuto
   assert.match(ui, /if \(moveSource\) return true;/);
   assert.match(ui, /battlesOf\(state, state\.playerNationId\)\.length/);
   assert.match(ui, /document\.body\.dataset\.adPlaying = '1'[\s\S]*showRewardedAd[\s\S]*finally \{ delete document\.body\.dataset\.adPlaying;/);

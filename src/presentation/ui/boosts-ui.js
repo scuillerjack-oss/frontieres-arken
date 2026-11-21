@@ -29,7 +29,8 @@ export async function startPlay(){
 }
 // --- V12 : atouts, missions du jour, achats de test, profil ------------------------------------------------------
 export function trackMissions(events){
-  const r=missionDeltas(events,state.playerNationId),res=addMissionProgress(profile,todayLocal(),r);saveMyProfile();
+  const r=missionDeltas(events,state.playerNationId);if(!Object.values(r).some(Boolean))return; // V17.9 : rien à compter (appelée chaque jour en temps réel)
+  const res=addMissionProgress(profile,todayLocal(),r);saveMyProfile();
   if(res.completed.length)setTimeout(()=>toast(`Mission accomplie : ${res.completed.map(m=>m.label).join(' · ')}${res.tokens?` — 5/5 : +${res.tokens} jeton !`:''}`),400);
 }
 export function openBoosts(){
@@ -61,5 +62,5 @@ function restoreProfileView(){
   $('#boostBody').innerHTML=`<p>Colle ici le texte copié avec « Copier mon profil ». Il remplacera le profil de cet appareil (jetons, atouts, achats). Ta partie en cours n’est pas touchée.</p>\
 <textarea id="restoreText" rows="6" placeholder="ARKEN-PROFIL-1:…"></textarea><div class="confirm-actions"><button class="cancel" id="restoreBack">Retour</button><button class="primary" id="restoreGo">Restaurer</button></div>`;
   $('#restoreBack').onclick=openBoosts;
-  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
+  $('#restoreGo').onclick=()=>{const r=importProfile($('#restoreText').value);if(!r.ok)return toast(r.error);if(profile.premium){r.profile.premium=true;r.profile.adsRemoved=true;} /* V17.9 : un Premium déjà acheté sur ce téléphone reste */setProfile(r.profile);saveMyProfile();if(state){applyBoosts(state);save();}openBoosts();toast('Profil restauré');};
 }

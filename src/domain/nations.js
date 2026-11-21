@@ -4,7 +4,7 @@ import { RULES } from './constants.js';
 
 const TITLES = Object.freeze({ valmorne: 'Levées des bois', 'roc-epine': 'Murs de pierre', noireflamme: 'Forges noires', oroel: 'Marins du Nord', aurel: 'Comptoirs du Sud' });
 const EFFECTS = Object.freeze({
-  gold: pct => `+${pct} % d’or chaque tour`,
+  gold: pct => `+${pct} % sur vos revenus en or`, // V17.9 : temps réel (plus de « tour »)
   recruit: pct => `+${pct} % d’infanterie recrutée`,
   build: pct => `Chantiers ${pct} % plus rapides`,
   fort: pct => `Forteresses ${pct} % plus solides`,

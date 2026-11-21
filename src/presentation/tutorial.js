@@ -97,15 +97,17 @@ export const tutorialCompleted = (storage = globalThis.localStorage) => safeGet(
 const mine = s => s?.playerNationId;
 const ownMarches = (s, toId) => (s?.marches || []).filter(m => m.nationId === mine(s) && !m.returning && (!toId || m.toId === toId));
 const watchedMarch = s => ownMarches(s, TUTO_MARCH.to).find(m => m.fromId === TUTO_MARCH.from) || null;
+/** Ordre de déplacement du joueur pas encore parti (l'interface l'exécute dans le quart de seconde qui suit). */
+const pendingMove = (s, from, to) => (s?.orders || []).some(o => o.kind === 'move' && o.status === 'pending' && o.nationId === mine(s) && (!from || o.fromId === from) && o.toId === to);
 /** L'armée de l'étape « rappel » : encore en route, ou déjà rappelée (elle rentre). */
-const recalledOrWatched = s => watchedMarch(s) || (s?.marches || []).find(m => m.nationId === mine(s) && m.returning && m.recalled && m.toId === TUTO_MARCH.from) || null;
+const recalledOrWatched = s => watchedMarch(s) || pendingMove(s, TUTO_MARCH.from, TUTO_MARCH.to) || (s?.marches || []).find(m => m.nationId === mine(s) && m.returning && m.recalled && m.toId === TUTO_MARCH.from) || null;
 const battleAt = (s, id = TUTO_BATTLE.province) => (s?.battles || []).find(b => b.provinceId === id) || null;
 const takenBattle = s => s?.provinces?.[TUTO_BATTLE.province]?.ownerId === mine(s);
 const awaitingAlly = s => (s?.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === mine(s) && o.target === TUTO_ALLY && ['pending', 'awaiting'].includes(o.status));
 const alliedWithAlly = s => (s?.diplomacy?.treaties || []).some(t => t.active !== false && t.type === 'alliance' && t.parties.includes(mine(s)) && t.parties.includes(TUTO_ALLY));
 const alliancePlanned = s => (s?.orders || []).some(o => o.kind === 'diplomacy' && o.nationId === mine(s) && o.target === TUTO_ALLY && o.action === 'alliance');
 /** Le tutoriel pourrait-il encore montrer la bataille ? (armée en route vers Haut-Bois, ou bataille en cours) */
-export const battleComing = s => Boolean(battleAt(s) || ownMarches(s, TUTO_BATTLE.province).length);
+export const battleComing = s => Boolean(battleAt(s) || ownMarches(s, TUTO_BATTLE.province).length || pendingMove(s, null, TUTO_BATTLE.province));
 
 // --- Étapes ---------------------------------------------------------------------------------------------------------
 // `on` : événement(s) de l'interface qui font avancer l'étape (geste réel) ; 'ok' = bouton de la bulle.
@@ -134,7 +136,7 @@ export const TUTORIAL_STEPS = Object.freeze([
   { id: 'bienvenue', theme: 'carte', title: 'Bienvenue', on: 'ok', next: 'C’est parti ›', targets: [],
     text: 'Une petite partie d’entraînement, en temps réel. Le temps reste en pause pendant les explications. Votre vraie partie n’est pas touchée. « Quitter » à tout moment.' },
   { id: 'defiler', theme: 'carte', title: 'La carte', on: 'pan', targets: [],
-    text: 'Arken : 5 nations sur 5 îles. La carte fait le tour du monde : on sort à droite, on revient par la gauche. Deux doigts (ou + / −) pour zoomer.',
+    text: 'Arken : 5 nations sur 5 îles. La carte n’a pas de bord : on sort à droite, on revient par la gauche. Deux doigts (ou + / −) pour zoomer.',
     goal: 'Faites glisser la carte du doigt.' },
   { id: 'capitale', theme: 'carte', title: 'Votre capitale', on: 'select:p01', targets: [P('p01')],
     text: 'Vous êtes Valmorne, au nord-ouest. Le chiffre au-dessus d’une ville = les PV de ses troupes ; « ? » = inconnu.',
@@ -173,10 +175,10 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: 'Les troupes partent tout de suite. Plus la province est loin, plus le trajet est long.',
     goal: 'Valmorne → « Déplacer / Attaquer » → Sylvaren (en vert) → « Envoyer maintenant » → « Confirmer ».' },
   { id: 'avancer', theme: 'armee', title: 'L’armée avance', on: [], clock: 'run', targets: ['#rtPlay'],
-    until: s => { const m = watchedMarch(s); return !m || s.day - m.startDay >= TUTO_MARCH.watchDays; },
+    until: s => { const m = watchedMarch(s); return m ? s.day - m.startDay >= TUTO_MARCH.watchDays : !pendingMove(s, TUTO_MARCH.from, TUTO_MARCH.to); },
     text: 'L’icône de char avance d’un pas par jour sur sa flèche. Le chiffre = les jours avant l’arrivée.',
     goal: 'Touchez ▶ et regardez-la avancer.' },
-  { id: 'rappel', theme: 'armee', title: 'Le rappel', on: 'recall', targets: ['#rtRecall', '.unit-token.own'],
+  { id: 'rappel', theme: 'armee', title: 'Le rappel', on: 'recall', targets: ['#rtRecall', '.unit-token.own', P(TUTO_MARCH.to)],
     dynamic: s => recalledOrWatched(s) ? null : { text: 'Votre armée est déjà arrivée. « Rappeler » existe tant qu’une armée est en route : elle fait demi-tour sur place.', targets: [], on: ['ok'], goal: '', next: 'Suivant ›' },
     text: 'Une armée en route peut faire demi-tour : le retour dure le temps déjà parcouru.',
     goal: 'Touchez l’armée sur la carte, puis « Rappeler ».' },
@@ -188,17 +190,17 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: 'Une armée qui arrive pendant une bataille la rejoint au prochain assaut. Sylvaren est plus loin : elle arrivera après.',
     goal: 'Sylvaren → « Déplacer / Attaquer » → Haut-Bois → « Envoyer maintenant » → « Confirmer ».' },
   { id: 'marche', theme: 'bataille', title: 'En marche', on: [], clock: 'run', targets: ['#rtPlay'],
-    until: s => Boolean(battleAt(s)) || takenBattle(s) || !ownMarches(s, TUTO_BATTLE.province).length,
+    until: s => Boolean(battleAt(s)) || takenBattle(s) || (!ownMarches(s, TUTO_BATTLE.province).length && !pendingMove(s, null, TUTO_BATTLE.province)),
     text: 'Vos armées marchent vers Haut-Bois. Oroël les voit venir : une armée en marche est visible depuis sa province d’arrivée.',
     goal: 'Touchez ▶ jusqu’au premier assaut.' },
-  { id: 'bataille', theme: 'bataille', title: 'La bataille', on: 'battle-open', targets: ['.rt-battle.mine'],
+  { id: 'bataille', theme: 'bataille', title: 'La bataille', on: 'battle-open', targets: ['.rt-battle.mine', P(TUTO_BATTLE.province)],
     dynamic: s => battleAt(s) ? null : { text: 'Pas de bataille en cours à Haut-Bois. Une bataille dure au plus 3 assauts ; la fiche ⚔ montre chaque assaut et le bouton « Retraite ».', targets: [], on: ['ok'], goal: '', next: 'Suivant ›' },
     text: `Une bataille = ${R.battle.assaults} assauts, un tous les ${R.battle.assaultEveryDays} jours. « Retraite » ramène vos troupes tout de suite. Le défenseur, lui, ne peut pas quitter la province.`,
     goal: 'Touchez ⚔ sur Haut-Bois.' },
   { id: 'assauts', theme: 'bataille', title: 'Les assauts', on: [], clock: 'run', targets: ['#rtPlay'],
     until: s => !battleAt(s),
     text: `Après le ${R.battle.assaults}e assaut sans prise, l’attaquant se replie. Prise = la province change de main tout de suite.`,
-    goal: 'Touchez ▶ et suivez la bataille jusqu’au bout.' },
+    goal: 'Fermez la fiche (×), puis touchez ▶ et suivez la bataille jusqu’au bout.' },
   { id: 'issue', theme: 'bataille', title: 'Fin de la bataille', on: 'ok', next: 'Suivant ›', targets: [P(TUTO_BATTLE.province)],
     dynamic: s => takenBattle(s) ? { text: 'Haut-Bois est à vous : la province change de main dès l’assaut gagnant. Ses bâtiments sont gardés ; une production qui y était en cours est perdue (remboursée).' }
       : { text: 'La défense a tenu : vos survivants rentrent par la route. Le Journal garde le récit de chaque assaut.' },
@@ -211,8 +213,8 @@ export const TUTORIAL_STEPS = Object.freeze([
   // 6. La mer, le ballon
   { id: 'mer', theme: 'mer', title: 'La mer et les convois', on: 'move-sea', targets: [CONFIRM, '#confirmMove', DEST(TUTO_SEA.to), SHEET(TUTO_SEA.from, 'move'), P(TUTO_SEA.from)],
     text: `Depuis un point de port, on embarque : ${D.sea} jours de mer environ vers l’île voisine (${D.islandSea} vers l’île mystérieuse). Les navires de guerre escortent ; un convoi peut être intercepté.`,
-    goal: 'Branvale → « Déplacer / Attaquer » → Nordhème → « Envoyer maintenant » → « Confirmer ».' },
-  { id: 'ballon', theme: 'mer', title: 'Le ballon d’observation', on: 'balloon-send', targets: [ONCE('[data-balloon-to]:not(:disabled)'), '[data-balloon].own'],
+    goal: 'Branvale → « Déplacer / Attaquer » → Nordhème (de l’autre côté de la mer, à l’est) → « Envoyer maintenant » → « Confirmer ».' },
+  { id: 'ballon', theme: 'mer', title: 'Le ballon d’observation', on: 'balloon-send', targets: [ONCE('[data-balloon-to]:not(:disabled)'), '[data-balloon].own', P('p01')],
     text: `Le ballon 🎈 (usine, ${RULES.balloon.cost} or) vole d’île en île (${D.balloonHop} jours) et montre tout de l’île survolée. La nation survolée peut l’abattre.`,
     goal: 'Touchez 🎈 sur la carte, puis « Envoyer » vers une nation.' },
   // 7. Diplomatie
@@ -237,7 +239,7 @@ export const TUTORIAL_STEPS = Object.freeze([
     text: `Points : ${R.ranking.province} par province, +${R.ranking.capital} par capitale, et des points pour les troupes, le trésor et les jours sans famine. Mis à jour tous les ${R.ranking.refreshEveryDays} jours.`,
     goal: 'Touchez 🏆 Classement.' },
   { id: 'fin', theme: 'fin', title: 'La fin de la partie', on: 'ok', next: 'Suivant ›', targets: [],
-    text: 'Une partie dure 15 ans, jusqu’au 31 décembre 2041 (environ 3 h). Elle finit plus tôt si une nation tient les 5 capitales, ou si toutes sont en paix. Le classement désigne alors le vainqueur.' },
+    text: `15 ans de jeu (environ 3 h) : le 31 décembre 2041, le classement 🏆 désigne le vainqueur. Avant : qui tient les 5 capitales (ou reste seul) gagne ; toutes les nations alliées et en paix ${R.end.peaceDays} jours : la fin vous est proposée.` },
   { id: 'cadeau', theme: 'fin', title: 'La 🎁', on: 'ok', next: 'Suivant ›', targets: [],
     text: `Dans une vraie partie, une 🎁 apparaît parfois à gauche de la carte : une courte pub, si vous voulez, contre un mois de revenus (${R.ads.rewardMinGold} or au moins). Jamais dans ce tutoriel.` },
   { id: 'bravo', theme: 'fin', title: 'Tutoriel terminé !', on: 'ok', next: 'Terminer', action: 'finish', targets: [],

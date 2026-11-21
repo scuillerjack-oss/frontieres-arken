@@ -10,7 +10,7 @@ const RT = RULES.realtime, DUR = RT.durations, MONTH = RT.income.perMonth;
 const or = n => `${String(n).replace('.', ',')} or / mois`;
 export const TUTORIAL_GUIDE = Object.freeze([
   { id:'identity', title:'Votre royaume', text:`Vous dirigez {nation}. Le temps avance tout seul : 1 jour = ${RT.clock.msPerDay / 1000} secondes. ▶ / ⏸ en bas à droite ; en pause, vous pouvez tout faire.` },
-  { id:'map', title:'Carte et zoom', text:'Faites glisser la carte : elle fait le tour du monde. Zoom : deux doigts ou + / −. Recentrer : ◎. Touchez une province pour voir sa fiche.' },
+  { id:'map', title:'Carte et zoom', text:'Faites glisser la carte : elle n’a pas de bord, on sort à droite et on revient par la gauche. Zoom : deux doigts ou + / −. Recentrer : ◎. Touchez une province pour voir sa fiche.' },
   { id:'time', title:'Le temps', text:`La partie commence le 1er janvier 2027, en pause. ▶ : 1 jour toutes les ${RT.clock.msPerDay / 1000} secondes ; ⏩ ×2 avec Premium. Il ne s’arrête qu’en pause, dans les menus (⚙, ?, Atouts, Palmarès) et appli fermée.` },
   { id:'move', title:'Donner un ordre', text:`« Déplacer / Attaquer », puis une province verte. Les troupes partent tout de suite : ${DUR.land * DUR.landDistance.min} à ${DUR.land * DUR.landDistance.max} jours vers une province voisine selon la distance, moins en cavalerie seule.` },
   { id:'recruit', title:'Recruter', text:`Chaque + ajoute un lot : ${RULES.units.infantry.amount} fantassins ou ${RULES.units.cavalry.amount} cavaliers en ${DUR.units.infantry} jours ; blindés et artillerie en ${DUR.units.armor} jours (usine). Payé tout de suite.` },

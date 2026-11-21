@@ -42,7 +42,7 @@ export const ALLOWED_GRANTS = Object.freeze(['tokens', 'premium']);
 export const PREMIUM_PRODUCTS = Object.freeze(PRODUCTS.filter(p => p.grants.premium).map(p => p.id));
 
 export const BOOST_INFO = Object.freeze({
-  gold:    { label: 'Or', icon: '◉', text: 'Gains d’or de chaque tour' },
+  gold:    { label: 'Or', icon: '◉', text: 'Revenus en or (+1 % par niveau)' },
   recruit: { label: 'Recrutement', icon: '⚔', text: 'Infanterie recrutée (100 → 110 au niveau 10)' },
   build:   { label: 'Construction', icon: '⚒', text: 'Vitesse de construction' },
   fort:    { label: 'Défense', icon: '▣', text: 'Effet de défense des forts' },
@@ -54,8 +54,8 @@ export const BOOST_INFO = Object.freeze({
  * `group` : deux missions du même groupe ne tombent jamais le même jour.
  */
 export const MISSION_CATALOG = Object.freeze([
-  { id: 'tours-3', group: 'tours', metric: 'turns', target: 3, label: 'Jouer 3 tours' },
-  { id: 'tours-5', group: 'tours', metric: 'turns', target: 5, label: 'Jouer 5 tours' },
+  { id: 'tours-3', group: 'tours', metric: 'turns', target: 3, label: 'Jouer 3 mois de jeu' },
+  { id: 'tours-5', group: 'tours', metric: 'turns', target: 5, label: 'Jouer 5 mois de jeu' },
   { id: 'infanterie-50', group: 'infanterie', metric: 'infantry', target: 50, label: 'Recruter 50 fantassins' },
   { id: 'infanterie-100', group: 'infanterie', metric: 'infantry', target: 100, label: 'Recruter 100 fantassins' },
   { id: 'cavalerie-10', group: 'cavalerie', metric: 'cavalry', target: 10, label: 'Recruter 10 cavaliers' },
@@ -174,7 +174,9 @@ export function importProfile(text) {
     const json = typeof atob === 'function' ? decodeURIComponent(escape(atob(b64))) : Buffer.from(b64, 'base64').toString('utf8');
     const parsed = JSON.parse(json);
     if (!parsed || typeof parsed !== 'object' || parsed.version !== PROFILE_VERSION) return { ok: false, error: 'Profil illisible ou d’une autre version' };
-    return { ok: true, profile: sanitizeProfile(parsed) };
+    // V17.9 (relecture) : un texte collé ne donne jamais le Premium à lui seul (« premium: true », « adsRemoved », « starterPack »
+    // sont ignorés) : seul un ACHAT enregistré (Premium ou Pack débutant) le rend, et le magasin le revérifie au lancement.
+    return { ok: true, profile: sanitizeProfile({ ...parsed, premium: false, adsRemoved: false, starterPack: false }) };
   } catch { return { ok: false, error: 'Profil illisible (texte incomplet ?)' }; }
 }
 
@@ -264,7 +266,7 @@ export function missionDeltas(events = [], nationId) {
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
     switch (e.type) {
-      case 'turn-start': d.turns++; break;
+      case 'turn-start': case 'month-played': d.turns++; break; // V17.9 : en temps réel, un mois de jeu joué
       case 'production-complete':
         if (e.nationId === nationId && e.kind === 'unit' && e.productionType === 'infantry') d.infantry += int(e.amount);
         if (e.nationId === nationId && e.kind === 'unit' && e.productionType === 'cavalry') d.cavalry += int(e.amount);

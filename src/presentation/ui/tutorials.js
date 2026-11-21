@@ -42,18 +42,25 @@ export function raiseMiniTuto(){const box=$('#miniTuto');if(tutoStep===null||!bo
 // est surligné (classe tuto-target), et la bulle se place à l'opposé de la cible pour ne jamais la cacher.
 // Le temps est en pause pendant les explications ; les étapes « regarder » le laissent tourner jusqu'à ce que ce qu'on
 // attend soit arrivé dans la partie (armée qui avance, bataille finie, réponse), puis il s'arrête de lui-même.
-export let tutoStep=null,tutoTimer=0,tutoTargetEl=null,tutoFocused=null;
+export let tutoStep=null,tutoTimer=0,tutoTargetEl=null,tutoFocused=null,tutoDestFocused=null;
 function tutoVisible(sel){const el=document.querySelector(sel);if(!el||!el.getClientRects().length)return false;const top=[...document.querySelectorAll('dialog[open]')].at(-1);return top?top.contains(el):!el.closest('dialog');}
 export function refreshTuto(){
   if(tutoStep===null||!state)return;
   if(tutorialWaitDone(tutoStep,state))return setTutoStep(tutoStep+1); // étape « regarder » finie : la suite, en pause
   const v=tutorialStepView(tutoStep,state),box=$('#miniTuto');
-  // Province à toucher hors de l'écran : la carte s'y centre (une fois par étape, dès qu'aucune fenêtre n'est ouverte).
+  const sel=firstVisibleTarget(v.targets,tutoVisible),el=sel?document.querySelector(sel):null;
+  // Cible de la carte hors de l'écran (ou sous la bulle) : la carte se centre sur sa province (une fois par étape, dès
+  // qu'aucune fenêtre n'est ouverte).
   const prov=(v.targets||[]).map(t=>t.match(/^\[data-id="(p\d\d)"\]$/)?.[1]).filter(Boolean).at(-1);
   if(prov&&tutoFocused!==tutoStep&&!moveSource&&!document.querySelector('dialog[open]')){tutoFocused=tutoStep;
-    const r=document.querySelector(`[data-id="${prov}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect();
-    if(!r||r.right<f.left+30||r.left>f.right-30||r.bottom<f.top+30||r.top>f.bottom-30){focusProvince(prov);updateLabelScale();}}
-  const sel=firstVisibleTarget(v.targets,tutoVisible),el=sel?document.querySelector(sel):null;
+    const probe=el?.closest('svg')?el:document.querySelector(`[data-id="${prov}"] .area`),r=probe?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect(),b=box.hidden?null:box.getBoundingClientRect();
+    const cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0,under=b&&cx>b.left&&cx<b.right&&cy>b.top&&cy<b.bottom;
+    if(!r||under||cx<f.left+30||cx>f.right-30||cy<f.top+30||cy>f.bottom-30){focusProvince(prov);updateLabelScale();}}
+  // Pendant le choix d'une destination : la destination demandée hors de l'écran → la carte s'y centre (une fois par étape).
+  const dest=(v.targets||[]).map(t=>t.match(/destination\[data-id="(p\d\d)"\]/)?.[1]).filter(Boolean)[0];
+  if(dest&&moveSource&&tutoDestFocused!==tutoStep&&!document.querySelector('dialog[open]')){tutoDestFocused=tutoStep;
+    const r=document.querySelector(`#mapWorld [data-id="${dest}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect(),cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0;
+    if(!r||cx<f.left+30||cx>f.right-30||cy<f.top+30||cy>f.bottom-30){focusProvince(dest);updateLabelScale();}}
   if(el!==tutoTargetEl){tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=el;if(el){el.classList.add('tuto-target');if(!el.closest('svg'))el.scrollIntoView?.({block:'nearest'});}}
   else el?.classList.add('tuto-target'); // la carte est redessinée chaque jour : on remet la classe
   const place=el?bubblePlacement(el.getBoundingClientRect(),innerHeight):(moveSource?'bottom':'top');

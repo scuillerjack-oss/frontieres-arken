@@ -40,13 +40,15 @@ import { renderJournal, showEndScreen } from './turn-flow.js';
 import { syncRanking } from './ranking-ui.js';
 import { TUTO_SPEED, isTutorial, tutorialAllowsPlay } from '../tutorial.js';
 import { tuto, tutoStep } from './tutorials.js';
+import { trackMissions } from './boosts-ui.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
 // V17.8 : la fenêtre de paix générale (décision de fin) et le choix d'une nouvelle partie arrêtent aussi le temps.
 const END_HOLDS = ['#peaceDialog', '#nationDialog', '#replaceSaveDialog'];
 const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'].concat(END_HOLDS);
 // V17.7 : menus hors jeu dont l'ouverture est un « moment calme » pour la pub imposée (jamais l'écran Premium ni la fin).
-const CALM_MENUS = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog'];
+// V17.9 : l'écran Atouts n'en fait plus partie (boutique : jamais de pub imposée par-dessus, ad-ui.js ACTION_DIALOGS).
+const CALM_MENUS = ['#settingsDialog', '#helpDialog', '#palmaresDialog'];
 let menuWasOpen = false;
 let famineDay = null; // jour du dernier bandeau de famine (début ou rappel), pour au plus un rappel tous les 30 jours
 let lastBeat = 0; // V17.8 : temps réellement joué (horloge qui tourne), state.rt.playMs, pour l'écran de fin
@@ -229,12 +231,19 @@ export function syncRealtime() {
   if (menuOpen && !menuWasOpen) calmMoment('menu');
   menuWasOpen = menuOpen;
   let changed = false;
+  // V17.9 (relecture) : le début des événements est pris AVANT les ordres exécutés par l'interface : leurs avis (phare,
+  // annulations, guerre déclarée…) passent eux aussi par les bandeaux (collectBanners) et les missions.
+  const eventStart = state.events.length;
   if ((state.orders || []).some(o => o.status === 'pending')) { executePendingOrders(state, map); changed = true; saveFor('order'); }
-  const days = dueDays(clock, t), eventStart = state.events.length;
+  const days = dueDays(clock, t);
   // V17.8 : la boucle s'arrête dès qu'une offre de paix générale arrive (elle doit toujours être montrée, temps arrêté).
+  const dayBefore = state.day;
   for (let i = 0; i < days && !state.gameOver && !peaceOfferPending(state); i++) advanceDay(state, map);
+  let months = 0; for (let d = dayBefore + 1; d <= state.day; d++) if ((d - 1) % 30 === 0) months++; // V17.9 : mois de jeu joués (missions)
   if (days || changed) refresh();
   if (days || changed) collectBanners(state.events.slice(eventStart));
+  // V17.9 : missions des Atouts en temps réel (jamais dans le tutoriel) : faits du joueur et mois de jeu joués.
+  if ((days || changed) && !isTutorial(state)) { const fresh = state.events.slice(eventStart); for (let k = 0; k < months; k++) fresh.push({ type: 'month-played' }); if (fresh.length) trackMissions(fresh); }
   if (state.gameOver) { save(); setClockPaused(clock, true, t); drawDock(); showEndScreen(); return; }
   syncRanking(); // V17.8 : écran 🏆 ouvert suivi tous les 10 jours ; offre de paix générale (arrête le temps)
   saveFor('day');
@@ -261,7 +270,7 @@ export function setRealtimeSpeed(mode) {
   else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (isPremium()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
   lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
   if (mode === 'pause') tuto('pause'); // V17.9 : tutoriel
-  if (pausing && !inTutorial()) calmMoment('pause'); // V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)
+  if (pausing) calmMoment('pause'); // (jamais de pub en tutoriel : ad-ui.js inTutorialNow) V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)
   return true;
 }
 /** V17.9 : le tutoriel arrête le temps pendant ses explications (ce n'est pas un « moment calme » : jamais de pub). */

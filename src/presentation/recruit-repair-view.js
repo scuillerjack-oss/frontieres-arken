@@ -1,9 +1,10 @@
 // V14.2 — fonctions pures (sans DOM) de l'interface, testables sous Node (retours de bêta de Jack du 25/10/2026).
 //  5. Recrutement : chaque type de troupe s'ouvre sur un panneau PV / dégâts (par lot ou par unité, c'est écrit).
-//  6. Navires en convalescence : ce que ça veut dire, PV actuels et tours restants.
+//  6. Navires en convalescence : ce que ça veut dire, PV actuels et jours restants (V17.9 : en jours).
 import { RULES } from '../domain/constants.js';
 import { bonusPct, nationBonusPct } from '../domain/boosts.js';
-import { SHIP_REPAIR_TURNS } from '../domain/game-engine.js';
+// V17.9 : en temps réel seulement (le tour par tour n'est plus jouable) : durées en jours, lues dans RULES.realtime.
+const RT = RULES.realtime;
 
 /** V15.3 : d'où viennent les fantassins en plus. L'atout du profil et le bonus de nation s'additionnent. */
 export function recruitBonusLabels(state, nationId) {
@@ -13,7 +14,8 @@ export function recruitBonusLabels(state, nationId) {
 }
 
 const fr = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-const tours = n => `${n} tour${n > 1 ? 's' : ''}`;
+const jours = n => `${n} jour${n > 1 ? 's' : ''}`;
+const REPAIR_DAYS = RT.recovery.shipRepairDays, REPAIR_RANGE = `${REPAIR_DAYS[0]} à ${REPAIR_DAYS.at(-1)} jours`;
 const NAMES = { infantry: ['fantassin', 'fantassins'], cavalry: ['cavalier', 'cavaliers'], armor: ['blindé', 'blindés'], artillery: ['artilleur', 'artilleurs'], warship: ['navire de guerre', 'navires de guerre'] };
 // Points forts lus dans RULES.combat.multipliers (dégâts × 1,5 ou plus contre une cible).
 const TARGETS = { infantry: 'fantassins', cavalry: 'cavaliers', armor: 'blindés', artillery: 'artillerie', warship: 'navires' };
@@ -32,14 +34,14 @@ export function recruitUnitDetail(key) {
   const strong = Object.entries(mult).filter(([, m]) => m >= 1.5).map(([t, m]) => `${TARGETS[t]} (×${String(m).replace('.', ',')})`);
   const weak = Object.entries(mult).filter(([, m]) => m <= .5).map(([t, m]) => `${TARGETS[t]} (×${String(m).replace('.', ',')})`);
   const notes = [];
-  if (key === 'warship') notes.push('Escorte les convois et défend son port. Blessé, il se répare dans un port construit en 3 à 5 tours.');
+  if (key === 'warship') notes.push(`Escorte les convois et défend son port. Blessé, il se répare dans un port construit en ${REPAIR_RANGE}.`);
   if (key === 'infantry' || key === 'cavalry') notes.push(`Un lot = ${n} ${NAMES[key][1]}. Les PV et les dégâts du lot sont ceux des ${n} réunis.`);
   if (key !== 'warship') notes.push(`En débarquement, les dégâts tombent à ${Math.round(RULES.combat.landingPenalty * 100)} %.`);
   return {
     key, label: r.label, perLot, lotSize: n,
     lotLabel: perLot ? `par lot de ${n} ${NAMES[key][1]}` : `par unité (1 ${NAMES[key][0]} par lot)`,
     unit: { hp: c.hp, damage: c.damage }, lot: { hp: c.hp * n, damage: c.damage * n },
-    cost: r.cost, turns: r.turns, strong, weak, notes
+    cost: r.cost, turns: r.turns, days: RT.durations.units[key] ?? r.turns * RT.daysPerPeriod, strong, weak, notes
   };
 }
 /** Panneau HTML du détail (ouvert par un bouton « ⓘ », jamais par les boutons + / − : aucun recrutement par accident). */
@@ -50,7 +52,7 @@ export function recruitDetailHtml(key) {
     ? `<div class="unit-stat"><b>${fr(d.lot.hp)} PV</b> · <b>${fr(d.lot.damage)} dégâts par assaut</b> <small>${d.lotLabel}</small></div><div class="unit-stat sub">soit ${fr(d.unit.hp)} PV et ${fr(d.unit.damage)} dégâts par ${NAMES[d.key][0]}</div>`
     : `<div class="unit-stat"><b>${fr(d.unit.hp)} PV</b> · <b>${fr(d.unit.damage)} dégâts par assaut</b> <small>${d.lotLabel}</small></div>`;
   return `<div class="unit-detail" data-unit-detail="${d.key}">${main}`
-    + `<div class="unit-stat sub">${d.cost} or · ${tours(d.turns)} de recrutement</div>`
+    + `<div class="unit-stat sub">${d.cost} or · ${jours(d.days)} de recrutement</div>`
     + (d.strong.length ? `<div class="unit-stat good">Fort contre : ${d.strong.join(', ')}</div>` : '')
     + (d.weak.length ? `<div class="unit-stat bad">Faible contre : ${d.weak.join(', ')}</div>` : '')
     + d.notes.map(t => `<p>${t}</p>`).join('')
@@ -58,16 +60,17 @@ export function recruitDetailHtml(key) {
 }
 
 /** Explication de la convalescence (règle du moteur, lue dans SHIP_REPAIR_TURNS). */
-export const SHIP_REPAIR_TEXT = `En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort. Dans un port construit, ils reviennent à 100 % en ${SHIP_REPAIR_TURNS.map(r => r.turns).join(', ').replace(/, (\d)$/,
-  ' ou $1')} tours selon les dégâts ; sans port construit, ils se réparent lentement (5 % par tour) ; en mer, pas du tout.`;
+export const SHIP_REPAIR_TEXT = `En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort. Dans un port construit, ils reviennent à 100 % en ${REPAIR_DAYS.join(', ').replace(/, (\d+)$/,
+  ' ou $1')} jours selon les dégâts ; sans port construit, ils se réparent lentement (${RT.recovery.fieldRepairPctPer30} % par mois) ; en mer, pas du tout.`;
 /**
  * Pastille de la fiche de province pour MES navires (info = shipRepairInfo du moteur) : '' si aucun navire.
- * Navires en bon état : PV seulement ; blessés : PV actuels / max, % et tours restants, et l'explication.
+ * Navires en bon état : PV seulement ; blessés : PV actuels / max, % et jours restants, et l'explication.
  */
 export function shipRepairChip(info) {
   if (!info || !info.ships) return '';
   const pct = Math.round(100 * info.hp / Math.max(1, info.maxHp)), what = `${info.ships} ${NAMES.warship[info.ships > 1 ? 1 : 0]}`;
   if (!info.wounded) return `<span class="info-chip ship-chip">⚓ ${what} : ${fr(info.hp)} PV (100 %)</span>`;
-  const where = info.inPort ? `réparation au port : 100 % dans ${tours(info.turnsLeft)}` : `pas de port construit ici : 100 % dans ${tours(info.turnsLeft)} environ (port construit : 3 à 5 tours)`;
+  const left = Number.isFinite(info.daysLeft) ? info.daysLeft : (info.turnsLeft || 0) * RT.daysPerPeriod;
+  const where = info.inPort ? `réparation au port : 100 % dans ${jours(left)}` : `pas de port construit ici : 100 % dans ${jours(left)} environ (port construit : ${REPAIR_RANGE})`;
   return `<span class="info-chip ship-chip wounded">⚓ ${what} en convalescence : ${fr(info.hp)} / ${fr(info.maxHp)} PV (${pct} %) · ${where}<small>${SHIP_REPAIR_TEXT}</small></span>`;
 }

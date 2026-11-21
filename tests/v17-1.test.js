@@ -360,5 +360,6 @@ test('V17.1 : écran provisoire — horloge ▶ / ⏸, date affichée, ordres pa
   assert.match(ui, /\$\('#rtPlay'\)\?\.addEventListener\('click', \(\) => setRealtimeSpeed\('play'\)\)/); // V17.3 : ▶ ⏸ ⏩ en bas à droite (remplace « ▶ Jouer / ⏸ Pause » du bandeau)
   assert.match(ui, /recallMarch\(state/); assert.match(ui, /recallConvoy\(state/);
   assert.match(ui, /if\(state\.mode==='realtime'\)return; \/\/ V17\.1 : pas de fin du tour en temps réel/);
-  assert.match(ui, /turnBasedTest\(\)\?createGameState:createRealtimeGame/);
+  assert.match(ui, /setState\(applyBoosts\(createRealtimeGame\(\{map,/); // V17.9 : toujours en temps réel (?tour-par-tour retiré)
+  assert.doesNotMatch(ui, /turnBasedTest|tour-par-tour/);
 });

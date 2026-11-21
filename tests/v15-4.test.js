@@ -84,10 +84,10 @@ test('V15.4 : les seuils de l’IA suivent la longueur (relance de la guerre, B�
   assert.ok(!ctx(game(), 36).includes('fin'));
   assert.ok(ctx(game(), 75).includes('fin'));
 });
-test('V15.4 : le tutoriel reste en 80 tours, sans longueur propre', () => {
+test('V15.4 : le tutoriel a la longueur normale, sans longueur propre (V17.9 : temps réel, 183 périodes = 15 ans)', () => {
   const t = createTutorialState({ map });
   assert.equal('gameLength' in t, false);
-  assert.equal(gameLengthOf(t), 80);
+  assert.equal(gameLengthOf(t), 183);
 });
 test('V15.4 : deux parties courtes de même graine sont identiques (moteur déterministe)', () => {
   const play = () => { const s = allAI(short({ seed: 'meme' })); for (let i = 0; i < 12; i++) resolveInterturn(s, map); return JSON.stringify(s); };

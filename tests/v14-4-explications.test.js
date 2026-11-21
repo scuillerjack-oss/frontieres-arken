@@ -56,7 +56,7 @@ test('explications : stockage — pas de profil mais une partie sauvegardée = a
 test('explications : interface — bulles filtrées, compteur à chaque vraie partie (pas le tutoriel), tutoriel rejouable', () => {
   const app = readSource('app.js'), html = read('index.html');
   assert.match(app, /function hintsOn\(\)\{return hintsActive\(profile\)/);
-  assert.match(app, /if \(!state\.settings\.hints \|\| !hintsOn\(\)/, 'toutes les bulles passent par hintsOn');
+  assert.match(app, /if \(!state\?\.settings\?\.hints \|\| !hintsOn\(\)/, 'toutes les bulles passent par hintsOn'); // V17.9 : state?.
   // Le compteur avance au choix de la nation d'une nouvelle partie, et nulle part ailleurs (le tutoriel ne compte pas).
   assert.equal(app.match(/recordGameStarted\(profile\)/g).length, 1);
   assert.match(app, /\$\('#nationDialog'\)\.close\(\);save\(\);recordGameStarted\(profile\);saveMyProfile\(\);/);

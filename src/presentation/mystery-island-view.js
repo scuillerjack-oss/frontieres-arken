@@ -25,7 +25,10 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
   const mine = owner === playerId, coMine = co === playerId;
   const status = !owner ? 'neutre' : mine ? (co ? `à vous, avec ${name(co)}` : 'à vous') : coMine ? `à ${name(owner)}, avec vous` : `à ${name(owner)}${co ? ` et ${name(co)}` : ''}`;
   const share = islandBankShare(state, playerId);
-  const bank = `🏦 Super banque : +${MI.bankIncome} or par tour à son propriétaire (+${MI.bankIncome / 2} chacun avec un co-propriétaire)${share ? ` · vous touchez +${share} or par tour` : ''}`;
+  // V17.9 : en temps réel, revenus par mois (le revenu « par tour » vaut 2 mois) ; le partage compris (+2,5 chacun, pas +5).
+  const rtMode = state.mode === 'realtime', m = n => String(n / 2).replace('.', ',');
+  const bank = rtMode ? `🏦 Super banque : +${m(MI.bankIncome)} or / mois à son propriétaire (+${m(MI.bankIncome / 2)} chacun avec un co-propriétaire)${share ? ` · vous touchez +${m(share)} or / mois` : ''}`
+    : `🏦 Super banque : +${MI.bankIncome} or par tour à son propriétaire (+${MI.bankIncome / 2} chacun avec un co-propriétaire)${share ? ` · vous touchez +${share} or par tour` : ''}`;
   const routes = seaRoutesFrom(map, MYSTERY_ISLAND_ID).map(r => r.via);
   const myPorts = routes.filter(id => state.provinces[id]?.ownerId === playerId).map(provinceName);
   const D = RULES.realtime.durations, rt = state.mode === 'realtime'; // V17.5b : en jours en temps réel
@@ -35,7 +38,8 @@ export function islandSheetView(state, map, playerId, name, provinceName) {
     bank, route,
     co ? `🤝 Co-propriétaire : ${name(co)} (base commune, super banque partagée ; s’il rompt l’alliance avec ${name(owner)}, il perd sa part)` : '',
     // V17.5b : phare — qui tient l'île voit les flottes qui s'y dirigent (de qui, arrivée ; composition selon la vision).
-    ...(mine || coMine ? lighthouseFleets(state, map, playerId).map(f => `🗼 Flotte de ${name(f.nationId)} en route vers l’île${Number.isFinite(f.arriveDay) ? `, arrivée le ${formatDate(f.arriveDay)}` : ''}${f.known ? ` (${LAND_UNIT_TYPES.reduce((n, k) => n + (f.units[k] || 0), 0)} soldats, ${f.warships} navire${f.warships > 1 ? 's' : ''})` : ' (composition inconnue)'}`) : []),
+    ...(mine || coMine ? lighthouseFleets(state, map, playerId).filter(f => !f.ally).map(f => // V17.9 : pas les flottes alliées
+      `🗼 Flotte de ${name(f.nationId)} en route vers l’île${Number.isFinite(f.arriveDay) ? `, arrivée le ${formatDate(f.arriveDay)}` : ''}${f.known ? ` (${LAND_UNIT_TYPES.reduce((n, k) => n + (f.units[k] || 0), 0)} soldats, ${f.warships} navire${f.warships > 1 ? 's' : ''})` : ' (composition inconnue)'}`) : []),
     mine || coMine ? '🗼 Phare : vous voyez toute flotte qui fait route vers l’île' : '',
     `🚫 On n’y construit rien et on n’y recrute personne : pour la garder, il faut y laisser des troupes`,
     !owner ? `⚔ Garnison neutre : elle ne recrute jamais et ne bouge jamais. Deux alliés qui débarquent le même tour la prennent ensemble` : '',

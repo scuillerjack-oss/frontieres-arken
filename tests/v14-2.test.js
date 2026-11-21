@@ -454,13 +454,13 @@ test('navires en convalescence : nouveaux dégâts pendant la réparation → d�
   assert.equal(s.provinces.p02.wounds.warship, 0);
 });
 
-test('navires en convalescence : expliqué dans la fiche (PV actuels, tours restants, sens du mot)', () => {
+test('navires en convalescence : expliqué dans la fiche (PV actuels, jours restants (V17.9), sens du mot)', () => {
   const s = shipGame({ wounds: 1000 });
   const chip = shipRepairChip(shipRepairInfo(s, 'p02'));
-  assert.match(chip, /3 navires de guerre en convalescence : 1 100 \/ 2 100 PV \(52 %\) · réparation au port : 100 % dans 5 tours/);
+  assert.match(chip, /3 navires de guerre en convalescence : 1 100 \/ 2 100 PV \(52 %\) · réparation au port : 100 % dans 150 jours/); // V17.9 : en jours (5 périodes de 30 jours)
   assert.match(chip, /En convalescence = navires blessés : ils ont perdu des PV et tirent moins fort/);
-  assert.match(SHIP_REPAIR_TEXT, /3, 4 ou 5 tours/);
-  assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 1000, port: false }), 'p02')), /pas de port construit ici : 100 % dans 10 tours environ \(port construit : 3 à 5 tours\)/);
+  assert.match(SHIP_REPAIR_TEXT, /90, 120 ou 150 jours/);
+  assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 1000, port: false }), 'p02')), /pas de port construit ici : 100 % dans 300 jours environ \(port construit : 90 à 150 jours\)/);
   assert.match(shipRepairChip(shipRepairInfo(shipGame({ wounds: 0 }), 'p02')), /3 navires de guerre : 2 100 PV \(100 %\)/);
   assert.equal(shipRepairChip(null), '');
   assert.match(readSource('app.js'), /shipRepairChip\(safeEngine\(\(\)=>shipRepairInfo\(state,selected,state\.playerNationId\),null\)\)/);
