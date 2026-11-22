@@ -13,14 +13,14 @@ Les phrases de Jack de cette conversation-là sont à lui redemander ; elles ser
 ## Retours reçus le 22/11/2026 (captures d'écran, 8 h 22 – 8 h 30)
 Constatés sur les 4 captures envoyées avec le retour bêta :
 
-- [ ] R1 — Diplomatie : Oroël écrit « La tension entre nous atteint 10 % » alors que la fenêtre de réponse
+- [x] R1 (V17.10.2, PR #50) — Diplomatie : Oroël écrit « La tension entre nous atteint 10 % » alors que la fenêtre de réponse
       affiche « TENSION 30 % (TENDU) ». Les deux chiffres doivent être les mêmes (ou le message doit dire
       clairement de quel moment il parle).
-- [ ] R2 — Bandeau d'annonces tronqué : « En pause — touchez ▶ pour faire avancer le… »,
+- [x] R2 (V17.10.2, PR #50) — Bandeau d'annonces tronqué : « En pause — touchez ▶ pour faire avancer le… »,
       « Roc-Épine → vous : « Vous avez toute ma… » ». Le texte doit être lisible en entier (2 lignes, défilement
       ou toucher pour lire).
-- [ ] R3 — Vivres affichés avec une décimale (« 922,5 ») : afficher un nombre entier.
-- [ ] R4 — Les grands noms de nations (OROËL, VALMORNE, SOLMARA…) passent sous / sur les boutons (roue des
+- [x] R3 (V17.10.2, PR #50) — Vivres affichés avec une décimale (« 922,5 ») : afficher un nombre entier.
+- [x] R4 (V17.10.2, PR #50) — Les grands noms de nations (OROËL, VALMORNE, SOLMARA…) passent sous / sur les boutons (roue des
       réglages, drapeaux, étoiles de capitale, effectifs « 218 ») et les masquent. Boutons, drapeaux et chiffres
       doivent toujours rester lisibles au-dessus des noms.
 
@@ -42,13 +42,13 @@ Constatés sur les 4 captures envoyées avec le retour bêta :
 > de virage.
 
 Traduit en tâches :
-- [ ] R1 (remplacé) — Les dirigeants ne citent **jamais** de pourcentage de tension dans leurs messages : des mots
+- [x] R1 (V17.10.2, PR #50) (remplacé) — Les dirigeants ne citent **jamais** de pourcentage de tension dans leurs messages : des mots
       (« nos relations se tendent », « la tension monte entre nous »…), adaptés au niveau réel (10 % = encore faible :
       pas de « tension » dramatique). Les pourcentages restent seulement dans l'interface (en-tête, conséquences).
 - [ ] R5 — Drapeau sur la nation du joueur incompris : c'est l'emblème posé sur la capitale. Le rendre compréhensible
       (fiche/aide au toucher, ou le retirer si l'étoile de capitale suffit).
-- [ ] R6 — Pouvoir vraiment dézoomer : voir tout le monde d'un coup, moins d'informations à la fois, plus lisible et précis.
-- [ ] R7 — Routes maritimes : traits droits, sans virage. Chaque nation a 2 ports ; les ports relient les nations voisines
+- [x] R6 (V17.10.2, PR #50) — Pouvoir vraiment dézoomer : voir tout le monde d'un coup, moins d'informations à la fois, plus lisible et précis.
+- [x] R7 (V17.11, PR #51) — Routes maritimes : traits droits, sans virage. Chaque nation a 2 ports ; les ports relient les nations voisines
       en un grand cercle ; l'île mystérieuse, beaucoup plus petite, est au centre et chaque port y est relié en ligne
       droite. Distance (durée de trajet) île mystérieuse ↔ chaque nation : égale.
 
@@ -83,13 +83,13 @@ Traduit en tâches :
 > visible quand on zoome, mais alors il faudrait tourner un petit peu quand même, tu vois.
 
 Traduit en tâches :
-- [ ] R8 — Ports invisibles : l'icône de port doit apparaître sur les 2 provinces portuaires de chaque nation (dès le début).
-- [ ] R9 — Espacer les nations (aspect brouillon) ; routes maritimes qui ne se croisent pas.
-- [ ] R10 — Île mystérieuse = vrai îlot central, à égale distance de toutes les nations, et visiblement plus loin
+- [x] R8 (V17.11, PR #51) — Ports invisibles : l'icône de port doit apparaître sur les 2 provinces portuaires de chaque nation (dès le début).
+- [x] R9 (V17.11, PR #51) — Espacer les nations (aspect brouillon) ; routes maritimes qui ne se croisent pas.
+- [x] R10 (V17.11, PR #51) — Île mystérieuse = vrai îlot central, à égale distance de toutes les nations, et visiblement plus loin
       (et plus longue à rejoindre) qu'une nation voisine.
-- [ ] R11 — Île mystérieuse : une seule province, beaucoup plus petite que les nations, nommée « Île mystérieuse »
+- [x] R11 (V17.11, PR #51) — Île mystérieuse : une seule province, beaucoup plus petite que les nations, nommée « Île mystérieuse »
       (vérifier qu'aucun nom de nation, ex. Noireflamme, ne s'affiche dessus).
-- [ ] R12 — Carte qui boucle : les copies d'une même nation sont trop proches (« on a l'impression qu'il y a 15
+- [x] R12 (V17.10.2, PR #50) — Carte qui boucle : les copies d'une même nation sont trop proches (« on a l'impression qu'il y a 15
       territoires ») ; plus d'océan entre deux répétitions, pour qu'on ne voie jamais deux fois la même nation à l'écran
       en même temps, ou presque. Avec R6 (dézoom).
 - Plus tard : Jack enverra un schéma plus propre du plan des routes.
