@@ -60,30 +60,30 @@ test('carte : p21 « Île mystérieuse », une province neutre au centre (petite
   assert.deepEqual(d.landConnections, []);
   assert.equal(d.landmassId, 'ile-mysterieuse');
   assert.ok(!map.nations.some(n => n.id === P), 'ce n’est pas une nation');
-  // La petite île rocheuse au centre de la carte Leonardo (1536 × 1536) : contour entre x 610…745 et y 610…800.
+  // La petite île rocheuse de la carte Leonardo, au centre de la couronne des 5 nations (V17.11 : carte espacée, même
+  // dessin à l'échelle 0,75) : environ 95 × 135 px, son repère au milieu.
   const xs = d.geometry.points.map(p => p[0]), ys = d.geometry.points.map(p => p[1]);
-  assert.ok(Math.min(...xs) >= 600 && Math.max(...xs) <= 750 && Math.min(...ys) >= 600 && Math.max(...ys) <= 800, 'contour au centre');
-  assert.ok(d.port && d.port.anchor.x > Math.max(...xs), 'point de port en mer, à l’est de l’île');
-  assert.equal(map.image.href, 'assets/carte-leonardo.jpg', 'pas de nouveau dessin de carte');
+  assert.ok(Math.max(...xs) - Math.min(...xs) < 110 && Math.max(...ys) - Math.min(...ys) < 150, 'petite île');
+  assert.ok(Math.min(...xs) >= 600 && Math.max(...xs) <= 800 && Math.min(...ys) >= 600 && Math.max(...ys) <= 820, 'contour au centre');
+  // V17.11 : les 10 routes arrivent au centre de l'île (point de port = repère de l'île).
+  assert.deepEqual(d.port.anchor, d.markerAnchor);
+  assert.equal(map.image.href, 'assets/carte-arken-v17-11.jpg', 'V17.11 : la carte Leonardo, îles espacées (même dessin)');
 });
 
-test('carte : 5 routes vers l’île (une par nation, depuis son point de port le plus proche) ; l’anneau ne change pas', () => {
+test('carte : V17.11 — 10 routes vers l’île (une par point de port, 2 par nation), toutes de même longueur ; l’anneau ne change pas', () => {
   const toIsland = map.maritimeRoutes.filter(r => r.includes(P)).map(r => r.find(x => x !== P)).sort();
-  assert.deepEqual(toIsland, ['p03', 'p07', 'p11', 'p13', 'p17']);
-  assert.deepEqual(toIsland.map(id => map.provinces.find(p => p.id === id).initialOwner).sort(), [...NATIONS].sort());
+  assert.deepEqual(toIsland, ['p02', 'p03', 'p05', 'p07', 'p09', 'p11', 'p13', 'p14', 'p17', 'p19']);
+  for (const n of NATIONS) assert.equal(toIsland.filter(id => map.provinces.find(p => p.id === id).initialOwner === n).length, 2, n);
   const anchor = map.provinces.find(p => p.id === P).port.anchor;
-  for (const id of toIsland) {
-    const owner = map.provinces.find(p => p.id === id).initialOwner, dist = q => Math.hypot(q.port.anchor.x - anchor.x, q.port.anchor.y - anchor.y);
-    const closest = map.provinces.filter(p => p.initialOwner === owner && p.port).sort((a, b) => dist(a) - dist(b))[0];
-    assert.equal(closest.id, id, `${owner} : point de port le plus proche`);
-  }
+  const lengths = toIsland.map(id => { const q = map.provinces.find(p => p.id === id).port.anchor; return Math.hypot(q.x - anchor.x, q.y - anchor.y); });
+  assert.ok(Math.max(...lengths) - Math.min(...lengths) <= 2, `île à égale distance des 10 ports : ${lengths.map(Math.round)}`);
   assert.deepEqual(map.maritimeRoutes.filter(r => !r.includes(P)).map(r => [...r].sort().join('-')).sort(), ['p02-p05', 'p03-p14', 'p07-p17', 'p09-p13', 'p11-p19']);
   // Durées : 4 tours vers l'île, 2 entre deux nations.
   for (const r of seaRoutesFrom(map, P)) assert.equal(r.turns, RULES.mysteryIsland.routeTurns);
   assert.equal(RULES.mysteryIsland.routeTurns, 4);
   for (const [a, b] of map.maritimeRoutes.filter(r => !r.includes(P))) assert.equal(seaRoutesFrom(map, a).find(r => r.via === b).turns, 2);
   // Le module de carte généré est à jour avec le JSON (tools/carte).
-  const json = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v9-carte.json'), 'utf8'));
+  const json = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v17-11-carte.json'), 'utf8'));
   assert.ok(json.provinces.some(p => p.id === P && p.neutral && p.nation === null));
   assert.equal(json.seaRoutes.length, map.maritimeRoutes.length);
 });
@@ -174,7 +174,7 @@ test('routes : depuis l’île, débarquement possible chez n’importe quelle n
   const s = game();
   s.provinces[P].ownerId = 'valmorne'; s.provinces[P].units = units(300);
   const dest = legalDestinations(map, s, P);
-  assert.deepEqual(dest.map(d => d.id).sort(), ['p03', 'p07', 'p11', 'p13', 'p17']);
+  assert.deepEqual(dest.map(d => d.id).sort(), ['p02', 'p03', 'p05', 'p07', 'p09', 'p11', 'p13', 'p14', 'p17', 'p19']); // V17.11 : les 10 ports
   assert.ok(dest.every(d => d.type === 'sea' && d.turns === 4));
   assert.deepEqual([...new Set(dest.map(d => map.provinces.find(p => p.id === d.id).initialOwner))].sort(), [...NATIONS].sort());
   // Un débarquement depuis l'île chez Noireflamme arrive en 4 tours.
@@ -353,7 +353,7 @@ test('ballons : jamais au-dessus de l’île, jamais de passage par l’île ; 2
 test('IA : elle convoite l’île quand sa simulation de combat dit qu’elle la prend, jamais sinon', () => {
   const s = game('ia-ile');
   s.controllers.valmorne = 'ai';
-  assert.deepEqual(islandLaunchPoints(s, map, 'valmorne').map(x => x.id), ['p03']);
+  assert.deepEqual(islandLaunchPoints(s, map, 'valmorne').map(x => x.id), ['p02', 'p03']); // V17.11 : ses 2 points de port
   // Garnison complète (960 fantassins…) contre 400 fantassins : pas de tentative.
   s.provinces.p03.units = units(400);
   aiIslandOrders(s, map, 'valmorne', new Set(), 1.15);
@@ -471,7 +471,7 @@ test('interface : fiche « Île mystérieuse » (garnison, super banque +10, rou
   assert.equal(v.kicker, 'Île mystérieuse · neutre');
   assert.ok(v.chips.some(c => /Garnison toujours visible par tous/.test(c)));
   assert.ok(v.chips.some(c => /Super banque : \+10 or par tour/.test(c)));
-  assert.ok(v.chips.some(c => /Routes : 4 tours vers chacune des 5 nations/.test(c) && /depuis Branvale/.test(c)));
+  assert.ok(v.chips.some(c => /Routes : 4 tours depuis chacun des 10 ports, 2 par nation \(contre 2 entre deux nations voisines\)/.test(c) && /depuis Sylvaren, Branvale/.test(c)));
   assert.ok(v.chips.some(c => /pour la garder, il faut y laisser des troupes/.test(c)));
   assert.equal(v.canMove, false);
   const { s: j } = jointCapture('fiche-2');

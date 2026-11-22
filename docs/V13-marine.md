@@ -1,5 +1,9 @@
 # FRONTIÈRES: ARKEN — V13 — Mer en anneau
 
+> **V17.11 (22/11/2026)** : carte espacée et 10 routes droites vers l'île mystérieuse (une par point de port), toutes de
+> même durée ; l'anneau garde les mêmes 5 paires de ports, avec une durée unique. Voir `docs/V17-cahier-des-charges.md`,
+> section « V17.11 ». Les longueurs et coordonnées ci-dessous sont celles de la V13.
+
 > Lot A du cahier V13 (section 1 « Mer »), décisions validées par Jack. Remplace les règles d'embarquement et de
 > débarquement de `V10-marine.md` (durée, convois, interception, escorte et débarquement en mode « landing » inchangés).
 > Code : `src/domain/game-engine.js` (section marine + IA maritime), carte : `tools/carte/arken-v9-carte.json`

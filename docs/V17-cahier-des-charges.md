@@ -1824,3 +1824,65 @@ fin, vainqueur et nombre d'événements identiques.
 « monde entier »), `v17-4` (vivres entiers), `v14-4-repliques` (contexte « relations / rupture »), versions.
 **Vérifié** dans Chrome mobile simulé (Playwright, 860 × 390, échelle 3) : nouvelle partie, ~45 jours en temps réel,
 bandeau, zoom minimal, glisse jusqu'à la répétition, noms sous les boutons, fil des échanges et réponse à un message.
+
+## V17.11 — routes maritimes en anneau (22/11/2026)
+
+Demande de Jack (22/11/2026) et retours de bêta R8 à R11 (`docs/BETA-V17-retours-Jack.md`), schéma à main levée :
+`docs/assets/schema-routes-jack-2026-11-22.jpg`. Les 5 nations en couronne autour de l'île mystérieuse ; chaque nation a
+2 ports, un tourné vers chaque voisine ; **rouge** = 5 routes courtes port à port entre voisines (l'anneau) ; **vert** =
+10 routes droites, une par port, vers l'île au centre, longues et de même longueur. Aucun virage, aucun croisement.
+
+**Choix tranché.** En V9, Jack voulait que chaque île soit reliée à toutes les autres ; la V13 est passée à l'anneau. Le
+message du 22/11 (le plus récent) est appliqué : anneau + étoile. Deux nations non voisines passent par l'anneau (une
+escale) ou par l'île. Aucune nation n'est isolée : l'anneau seul relie les 20 provinces (test).
+
+**Carte espacée (R9, R10, R11).** Nouvelle image `assets/carte-arken-v17-11.jpg` = le même dessin Leonardo, chaque île
+découpée avec son liseré d'eau claire, réduite à l'échelle **0,75** (sans rotation) et déplacée en couronne autour de
+l'île mystérieuse ; mer de fond reconstituée, îlots décoratifs retirés. **Cadre inchangé (1536 × 1536)** : largeur du
+monde, `WRAP_OCEAN` et `WORLD_FIT` (V17.10.2) non modifiés ; au zoom minimal en 860 × 390, les 5 nations et l'île tiennent
+à l'écran. `assets/carte-leonardo.jpg` reste la référence (plus chargée par le jeu, retirée du cache hors ligne).
+Outils : `tools/carte/anneau-v17-11.py` (image + `tools/carte/arken-v17-11-carte.json`) à partir de
+`tools/carte/arken-v9-carte.json` et de la disposition `tools/carte/anneau-v17-11-disposition.json` (centre de chaque
+nation, point de port des 10 provinces portuaires), puis `node tools/carte/generer-module.mjs`. La disposition a été
+choisie par recherche automatique : chaque nation placée pour que ses 2 ports soient exactement à 430 px du centre de
+l'île, en ligne droite sans toucher terre, au plus près des angles d'un pentagone, routes de l'anneau aussi courtes que
+possible. Identifiants p01…p21, nations, voisinages et identifiant de carte (`arken-v9-leonardo`) inchangés.
+
+**Ports (inchangés : mêmes provinces qu'en V13, ancres déplacées).**
+
+| Nation | Port vers la voisine précédente | Port vers la voisine suivante |
+|---|---|---|
+| Valmorne | Sylvaren p02 → Roc-Épine | Branvale p03 → Oroël |
+| Oroël | Nordhème p14 → Valmorne | Glacenoire p13 → Noireflamme |
+| Noireflamme | Noireflamme p09 → Oroël | Grèsrouge p11 → Solmara |
+| Solmara (aurel) | Lunémont p19 → Noireflamme | Aurorelle p17 → Roc-Épine |
+| Roc-Épine | Belrivage p07 → Solmara | Roc-Épine p05 → Valmorne |
+
+**Routes (15, toutes droites, aucun point de passage).** Anneau : p03-p14 (142 px), p13-p09 (149), p11-p19 (151),
+p17-p07 (152), p05-p02 (325 : Valmorne et Roc-Épine, l'une au-dessus de l'autre, restent les plus éloignées). Île : les
+10 ports à **430 px** chacun du centre de l'île (avant : 5 routes de 166 à 449 px, une avec un virage). Chaque route vers
+l'île est plus longue que toute route de l'anneau. À l'écran, une route de l'île s'arrête au bord de l'îlot
+(`ISLAND_LANE_GAP`) pour que l'île reste visible ; le convoi va jusqu'au centre.
+
+**Durées (identiques par type, `RULES`).** Anneau : `RULES.naval.ringTurns` = 2 tours = **40 jours**
+(`RULES.realtime.durations.sea`), quelle que soit la longueur dessinée (`map.equalSeaRoutes`) ; île :
+`RULES.mysteryIsland.routeTurns` = 4 tours = **80 jours** (`durations.islandSea`) depuis chacun des 10 ports. Valeurs
+de la V17.5b gardées. Marches à terre inchangées : la référence de distance suit l'échelle (245 × 0,75 = 183,75).
+
+**Interface.** R8 : les ancres ⚓ des points de port sont affichées à tous les zooms (le zoom « monde » les cachait).
+R11 : le nom « Île mystérieuse » reste affiché sous l'îlot au zoom « monde » ; pas de pastille de port sur l'île (rien ne
+s'y construit). Fiche de l'île : « 80 jours depuis chacun des 10 ports, 2 par nation (contre 40 jours entre deux nations voisines) ».
+
+**Sauvegardes.** Schéma inchangé. Les 5 routes de l'anneau et les 5 anciennes routes de l'île existent toujours : un
+convoi d'une partie V17.10 continue sa route. Un convoi sur une route qui n'existe plus arrive normalement (testé avec un
+ancien Branvale → Noireflamme).
+
+**Mesures (IA, 20 parties de 10 ans en temps réel, avant → après).** Convois 531 → 623 ; convois d'attaque vers une
+nation 320 → 344 ; conquêtes 311 → 316 dont par la mer 117 → 120 ; convois vers l'île 12 → 73 ; île prise 4 → 18 fois ;
+nations éliminées 13 → 12. L'IA attaque toujours par la mer ; l'île est beaucoup plus disputée (10 routes au lieu de 5).
+Empreintes du tour par tour reprises (`tools/v17/empreintes-tour-par-tour-v17.11*.json`) : la carte change aussi pour lui.
+
+**Tests** : `tests/v17-11.test.js` (anneau connexe, 2 ports par nation, 10 routes vers l'île de même durée et même
+longueur, routes droites sans croisement, aucune nation inaccessible, marches à terre inchangées, sauvegarde V17.10 avec
+convois en mer, ports visibles) ; modifiés : `marine-v10`, `marine-v13`, `v9-map`, `v16-2`, `v14-1` (Solmara près du bas
+de la carte), `v15-3` (garnison de l'île imprenable pour juger le Bâtisseur), `v17-1` (empreintes), `publication`, versions.

@@ -87,7 +87,7 @@ test('V13 : anneau maritime — chaque île reliée à ses 2 voisines par une ro
   assert.equal(pairs.size, 5);
   assert.deepEqual(new Set(islands), new Set(ring));
   assert.equal(RING_ROUTES.length, 5);
-  assert.equal(map.maritimeRoutes.length, 10, 'V16.2 : + 5 routes vers l’île mystérieuse');
+  assert.equal(map.maritimeRoutes.length, 15, 'V17.11 : + 10 routes vers l’île mystérieuse (V16.2 : 5)');
   for (const [a, b] of map.maritimeRoutes) {
     assert.ok(byId(a).port && byId(b).port, `${a}-${b} : extrémité sans port`);
     assert.notEqual(islandOf(a), islandOf(b));
@@ -129,7 +129,7 @@ test('V9 : zones tactiles = polygones dans l\'image, sans chevauchement, centre 
     if (hit.length > 1) overlaps.add(hit.join('+'));
   }
   assert.deepEqual([...overlaps], []);
-  for (const p of map.provinces) if (p.port)
+  for (const p of map.provinces) if (p.port && !p.neutral) // V17.11 : les routes de l'île arrivent en son centre
     assert.ok(!map.provinces.some(q => pointInPolygon(p.port.anchor, q.geometry.points)), `ancre de ${p.id} sur la terre`);
 });
 
@@ -140,7 +140,8 @@ test('V9 : flèche d\'un ordre maritime = tracé de la route (ancres des ports +
   const [arrow] = playerOrderArrows(s, map);
   assert.equal(arrow.routeType, 'sea');
   const path = orderPath(map, arrow);
-  const lane = map.seaLanes.find(l => l.from === 'p07' && l.to === 'p17');
+  const lane = map.seaLanes.find(l => [l.from, l.to].sort().join('-') === 'p07-p17'); // V17.11 : routes droites (aucun waypoint)
+  assert.deepEqual(lane.waypoints, []);
   assert.deepEqual(path, [byId('p07').markerAnchor, byId('p07').port.anchor, ...lane.waypoints, byId('p17').port.anchor, byId('p17').markerAnchor]);
   // Sens inverse : même tracé retourné.
   const back = orderPath(map, { fromId: 'p17', toId: 'p07', routeType: 'sea' });

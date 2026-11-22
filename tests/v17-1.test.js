@@ -330,9 +330,11 @@ test('V17.1 : moteur temps réel pur (src/domain/realtime/) : ni DOM, ni Math.ra
 });
 
 // --- Tour par tour inchangé ----------------------------------------------------------------------------------------
-test('V17.1 : le tour par tour est inchangé (empreintes de la V16.4.1, graine 0 : IA, joueur scripté, sauvegarde, atouts, tutoriel)', () => {
+// V17.11 : la carte change pour tous les modes (îles espacées, 10 routes vers l'île au lieu de 5) : les empreintes du tour
+// par tour sont reprises à la V17.11 (celles de la V16.4.1 restent dans tools/v17 pour mémoire). Moteur du tour par tour inchangé.
+test('V17.1 : le tour par tour est inchangé (empreintes de la V17.11, graine 0 : IA, joueur scripté, sauvegarde, atouts, tutoriel)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arken-v171-'));
-  for (const [ref, extra] of [['tools/v17/empreintes-tour-par-tour-v16.4.1.json', []], ['tools/v17/empreintes-tour-par-tour-v16.4.1-40-tours.json', ['--longueur=40']]]) {
+  for (const [ref, extra] of [['tools/v17/empreintes-tour-par-tour-v17.11.json', []], ['tools/v17/empreintes-tour-par-tour-v17.11-40-tours.json', ['--longueur=40']]]) {
     const out = join(dir, `${extra.length}.json`);
     const r = spawnSync(process.execPath, ['tools/equilibre.mjs', '--empreintes', '--graines=1', `--ecrire=${out}`, ...extra], { cwd: root, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);

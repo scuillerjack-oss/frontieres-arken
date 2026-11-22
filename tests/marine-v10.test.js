@@ -38,8 +38,8 @@ test('les navires de guerre ne se déplacent que par mer', () => {
 });
 
 // --- Durée --------------------------------------------------------------------------------------------------------
-test('durée : max(2, ⌈longueur / 150⌉) tours, calculée depuis la longueur des routes', () => {
-  assert.deepEqual(RULES.naval, { stageLength: 150, minTurns: 2 });
+test('durée : max(2, ⌈longueur / 150⌉) tours (carte V6) ; V17.11 : carte Leonardo à routes égales (anneau 2, île 4)', () => {
+  assert.deepEqual(RULES.naval, { stageLength: 150, minTurns: 2, ringTurns: 2 });
   assert.deepEqual([50, 99, 201, 236, 306, 366, 447, 543, 625].map(seaTravelTurns), [2, 2, 2, 2, 3, 3, 3, 4, 5]);
   // V13 : l'anneau n'a que des routes courtes (2 tours) ; la durée reste calculée depuis la longueur.
   // V16.2 : les 5 routes de l'île mystérieuse (p21) durent RULES.mysteryIsland.routeTurns (4) tours, quelle que soit leur longueur.
@@ -47,8 +47,9 @@ test('durée : max(2, ⌈longueur / 150⌉) tours, calculée depuis la longueur 
   for (const [a, b] of map.maritimeRoutes) {
     const d = sea(s, a).find(x => x.id === b);
     if ([a, b].includes('p21')) { assert.equal(d.turns, RULES.mysteryIsland.routeTurns, `${a}-${b} : 4 tours`); continue; }
-    assert.equal(d.turns, seaTravelTurns(lane(a, b).length), `${a}-${b}`);
-    assert.equal(d.turns, 2, `${a}-${b} : 2 tours`);
+    // V17.11 (schéma de Jack) : toutes les routes de l'anneau durent RULES.naval.ringTurns, quelle que soit leur longueur dessinée.
+    assert.ok(map.equalSeaRoutes && lane(a, b));
+    assert.equal(d.turns, RULES.naval.ringTurns, `${a}-${b} : 2 tours`);
   }
 });
 

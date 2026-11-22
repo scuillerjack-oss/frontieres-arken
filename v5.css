@@ -569,7 +569,9 @@ body.live-on #turnAnim{padding-top:calc(env(safe-area-inset-top) + 140px)}
 .flag-cloth{fill:var(--flag);stroke:#1a1208;stroke-width:3.5;stroke-linejoin:round}
 .province-label .flag-crest{font-size:22px;fill:#fff;stroke:#1a1208;stroke-width:3px}
 /* Niveaux de détail : vue du monde = noms de nations, pastilles, capitales ; les noms de provinces arrivent en zoomant. */
-.detail-0 .province-label .name,.detail-0 .province-label .building,.detail-0 .province-label .city,.detail-0 .port-marker.site,.detail-0 .convoy-stage{display:none}
+.detail-0 .province-label .name,.detail-0 .province-label .building,.detail-0 .province-label .city,.detail-0 .convoy-stage{display:none}
+/* V17.11 (retour R11 de Jack) : le nom « Île mystérieuse » reste affiché à tous les zooms, sous l'îlot. */
+.detail-0 .province-label.mystery-island .name{display:inline}
 .detail-0 .route.maritime{opacity:.6}
 /* Mer autour de la carte (marge verticale) : même bleu que les bords de l'image Leonardo. */
 #viewport{background:#114464}
