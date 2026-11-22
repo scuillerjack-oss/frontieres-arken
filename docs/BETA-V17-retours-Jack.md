@@ -51,3 +51,45 @@ Traduit en tâches :
 - [ ] R7 — Routes maritimes : traits droits, sans virage. Chaque nation a 2 ports ; les ports relient les nations voisines
       en un grand cercle ; l'île mystérieuse, beaucoup plus petite, est au centre et chaque port y est relié en ligne
       droite. Distance (durée de trajet) île mystérieuse ↔ chaque nation : égale.
+
+### 22/11/2026 — 8 h 38 (dont phrases retrouvées du rapport commencé dans l'autre conversation)
+> Par exemple, dans cette partie, j'ai Solmara. Je suis même pas sûr de savoir quelles sont mes deux provinces qui
+> possèdent un port d'entrée de jeu. Car le logo du port n'a plus l'air d'être présent.
+>
+> Ok, d'accord, j'ai compris. Visuellement, il faut espacer un petit peu tout ça, parce que là, ça fait très brouillon.
+> Et les traits en pointillé qui désignent les lignes maritimes se croisent, c'est pas très propre. Je sais que mon
+> croquis s'était fait sur un morceau de béton avec un crayon à main levée. Je vais essayer de te faire un truc un petit
+> peu plus propre pour que tu comprennes ce que j'ai en tête. Mais dans tous les cas, dans un premier temps, tu peux les
+> espacer un peu. Il faut que l'île mystérieuse soit vraiment un genre d'îlot central. Visuellement, il faut qu'on
+> comprenne aussi au premier coup d'œil que c'est plus long d'aller à l'île mystérieuse que d'aller sur une autre nation.
+> Là, on a l'impression que c'est pareil. On a même l'impression que l'île mystérieuse est plus proche de certaines îles
+> que d'autres. Par exemple, on a l'impression que Noir Flamme est plus loin que Rogue Épine.
+>
+> Petite photo histoire que tu comprennes bien, là je suis dézoomé au maximum donc je vois pas du tout l'ensemble de la
+> carte. Et j'ai l'impression d'avoir deux fois le même ennemi autour de moi tellement que les territoires sont
+> rapprochés. Donc il faut vraiment faire quelque chose. Ensuite, le nom de l'île du milieu. J'ai l'impression
+> qu'actuellement c'est Noir Flamme. Je voulais l'appeler île mystérieuse pour qu'elle ait un nom vraiment différent des
+> autres nations. Puisque c'est pas une nation, c'est juste une île avec une seule province. Alors je l'ai peut-être mal
+> vu parce que justement je peux pas dézoomer comme il faut. Mais au cas où je le redis, l'île mystérieuse c'est juste
+> une seule province, visuellement beaucoup plus petite que les 5 autres nations. Et qui porte le nom de île mystérieuse.
+>
+> J'ai commencé la bêta, je vais te faire plusieurs rapports, comme ça tu peux bosser au fur et à mesure dessus. Il
+> faudrait qu'on puisse dézoomer un peu plus pour pouvoir voir la carte dans son ensemble. Et il faudrait justement
+> que... Comment je peux expliquer ? En gros, par exemple, les deux territoires de Valmore visibles, donc le même
+> territoire mais plusieurs fois sur la même carte, puisque c'est ce qu'on voulait, que la carte puisse défiler, ils
+> sont trop proches. On a l'impression qu'il y a 15 territoires en fait. Donc il faut qu'ils soient quand même un peu
+> éloignés. Je sais pas comment expliquer. Il faut que visuellement on n'ait pas l'impression qu'il y ait deux
+> territoires de Valmorne, etc. Il faut que déjà ce soit visible quand on dézoome. Alors évidemment il faut que ce soit
+> visible quand on zoome, mais alors il faudrait tourner un petit peu quand même, tu vois.
+
+Traduit en tâches :
+- [ ] R8 — Ports invisibles : l'icône de port doit apparaître sur les 2 provinces portuaires de chaque nation (dès le début).
+- [ ] R9 — Espacer les nations (aspect brouillon) ; routes maritimes qui ne se croisent pas.
+- [ ] R10 — Île mystérieuse = vrai îlot central, à égale distance de toutes les nations, et visiblement plus loin
+      (et plus longue à rejoindre) qu'une nation voisine.
+- [ ] R11 — Île mystérieuse : une seule province, beaucoup plus petite que les nations, nommée « Île mystérieuse »
+      (vérifier qu'aucun nom de nation, ex. Noireflamme, ne s'affiche dessus).
+- [ ] R12 — Carte qui boucle : les copies d'une même nation sont trop proches (« on a l'impression qu'il y a 15
+      territoires ») ; plus d'océan entre deux répétitions, pour qu'on ne voie jamais deux fois la même nation à l'écran
+      en même temps, ou presque. Avec R6 (dézoom).
+- Plus tard : Jack enverra un schéma plus propre du plan des routes.
