@@ -37,6 +37,7 @@ import { profile, save, selected, state } from './session.js';
 import { calmMoment, isNewGame, syncAds } from './ad-ui.js';
 import { openPremium, setPremiumFastHandler } from './premium-ui.js';
 import { renderJournal, showEndScreen } from './turn-flow.js';
+import { openTalk } from './talk-screen.js';
 import { syncRanking } from './ranking-ui.js';
 import { TUTO_SPEED, isTutorial, tutorialAllowsPlay } from '../tutorial.js';
 import { tuto, tutoStep } from './tutorials.js';
@@ -50,6 +51,7 @@ const OUT_OF_GAME = ['#settingsDialog', '#helpDialog', '#boostDialog', '#palmare
 // V17.9 : l'écran Atouts n'en fait plus partie (boutique : jamais de pub imposée par-dessus, ad-ui.js ACTION_DIALOGS).
 const CALM_MENUS = ['#settingsDialog', '#helpDialog', '#palmaresDialog'];
 let menuWasOpen = false;
+let tickerOpen = 'journal'; // V17.10.2 : ce que le toucher du bandeau du haut ouvre (« talk » = fil des messages, sinon le Journal)
 let famineDay = null; // jour du dernier bandeau de famine (début ou rappel), pour au plus un rappel tous les 30 jours
 let lastBeat = 0; // V17.8 : temps réellement joué (horloge qui tourne), state.rt.playMs, pour l'écran de fin
 let clock = null, clockGame = null, timer = 0, gate = null, alerts = [], seen = new Set(), lastDock = '', lastTicker = '', lastAlerts = '';
@@ -184,11 +186,12 @@ function drawTicker() {
   bar.hidden = false;
   const tokens = currentTokens(), me = state.playerNationId;
   const t = tickerText(state, me, { paused: clock.paused, mine: tokens.filter(x => x.own).length, coming: tokens.filter(x => x.relation === 'foreign' && !x.returning && state.provinces[x.toId]?.ownerId === me).length, battle: battleNews() }), key = t.icon + t.text;
-  bar.classList.toggle('paused', clock.paused);
+  bar.classList.toggle('paused', clock.paused); tickerOpen = t.open || 'journal';
   if (key === lastTicker) return;
   lastTicker = key;
   $('#liveTitle').textContent = ''; $('#liveTime').textContent = ''; $('#liveKind').hidden = true;
   $('#liveNews').textContent = `${t.icon} ${t.text}`;
+  bar.setAttribute('aria-label', `${t.text} — toucher pour ${tickerOpen === 'talk' ? 'lire le message en entier' : 'ouvrir le Journal'}`);
 }
 /** Barre du haut : plus de « TOUR » (la date est en bas à droite) ; trésor avec le revenu par mois sous le montant (§3.1). */
 function drawHud() {
@@ -289,7 +292,7 @@ export function installRealtime() {
     if (document.visibilityState === 'visible' && onScreen()) calmMoment('return'); // V17.7 : retour dans le jeu
   });
   addEventListener('pagehide', () => { if (realtimeOn()) saveFor('hidden'); });
-  $('#liveBar')?.addEventListener('click', event => { if (!realtimeOn() || event.target.closest('#livePause')) return; renderJournal(false); });
+  $('#liveBar')?.addEventListener('click', event => { if (!realtimeOn() || event.target.closest('#livePause')) return; if (tickerOpen === 'talk') openTalk(); else renderJournal(false); });
   $('#rtPlay')?.addEventListener('click', () => setRealtimeSpeed('play'));
   $('#rtPause')?.addEventListener('click', () => setRealtimeSpeed('pause'));
   $('#rtFast')?.addEventListener('click', () => setRealtimeSpeed('fast'));

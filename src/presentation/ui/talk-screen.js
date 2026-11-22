@@ -3,7 +3,7 @@
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
 import { tensionText } from '../alliances-view.js';
 import { TONE_ORDER, crestGlyph, talkBadgeCount, talkFeed, tensionGauge, toneMeta } from '../leaders-view.js';
-import { leaderHint, queueTalk, talkOptions, tensionLevel } from '../talk-facade.js';
+import { leaderHint, queueTalk, talkOptions, tensionLabel, tensionLevel } from '../talk-facade.js';
 import { $, nation, toast } from './base.js';
 import { render } from './map-view.js';
 import { actionModal } from './province-sheet.js';
@@ -50,11 +50,14 @@ export function openTalk(){
   if(!$('#talkDialog').open)$('#talkDialog').showModal();
   tutorial('talk','Échanges entre dirigeants','Les dirigeants se parlent en public. Tu n’écris pas : tu choisis un ton (hostile, neutre ou amical). Les messages hostiles font monter la tension et le risque de guerre.');
 }
+// V17.10.2 : le message dit (en mots) le palier de tension du jour où il a été publié ; s'il a changé depuis, l'en-tête le dit.
+export function replyTension(original,t){if(!original||t.war||original.to!==state.playerNationId||!Number.isFinite(original.tension))return'';
+  const then=safeEngine(()=>tensionLabel(original.tension),t.label);return then!==t.label?` · ${then.toUpperCase()} LORS DU MESSAGE`:'';}
 export function openTalkCompose(to,replyTo=null){
   const options=safeEngine(()=>talkOptions(state,map,{from:state.playerNationId,to,replyTo}),[]),original=replyTo?(state.talk||[]).find(m=>m.id===replyTo):null,t=tensionWith(to);
   if($('#talkDialog').open)$('#talkDialog').close();
   const byTone=Object.fromEntries(options.map(o=>[o.tone,o])),ordered=TONE_ORDER.map(k=>byTone[k]).filter(Boolean);
-  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · ${t.war?`EN GUERRE · TENSION ${t.value} %`:`TENSION ${t.value} % (${t.label.toUpperCase()})`}`,
+  actionModal(replyTo?`Répondre à ${nation(to).short}`:`Échange avec ${nation(to).short}`,`MESSAGE PUBLIC · ${t.war?`EN GUERRE · TENSION ${t.value} %`:`TENSION ${t.value} % (${t.label.toUpperCase()})`}${replyTension(original,t)}`,
    `${original?`<blockquote class="talk-quote ${toneMeta(original.tone).cls}">${nationBadge(original.from)} ${escapeHtml(state.mode==='realtime'?realtimeText(original.text):original.text)}</blockquote>`:''}<p class="talk-help">Choisis un ton. Le texte est écrit pour toi ; tous les dirigeants le liront.</p>
    <div class="tone-list">${ordered.length?ordered.map(o=>{const tone=toneMeta(o.tone);
      return`<button class="tone-card ${tone.cls}" data-tone="${o.tone}" aria-pressed="false"><span class="tone-name">${tone.icon} ${tone.label}</span><span class="tone-text">« ${escapeHtml(state.mode==='realtime'?realtimeText(o.text):o.text)} »</span>${o.preview&&o.preview!==o.text?`<small>${escapeHtml(o.preview)}</small>`:''}</button>`;

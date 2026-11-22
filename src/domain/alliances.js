@@ -237,7 +237,7 @@ export function resolveHelpRequests(state, map, locked, routes = null) {
     const arch = archetypeOf(state, o.to) || 'batisseur';
     const pool = d.reason === 'ally-of-target' ? HELP_LINES.allyOfTarget : d.reason === 'out-of-reach' ? HELP_LINES.outOfReach : HELP_LINES[arch]?.[req.kind]?.[d.accept ? 'yes' : 'no'] || HELP_LINES.batisseur.defend.no;
     const core = pickLine(state, pool, o.to, 'help-line', state.turn, o.to, o.nationId, req.kind), tone = d.accept ? 'amical' : 'neutre';
-    const text = composeLine(state, map, { from: o.to, to: o.nationId, tone, core: fillHelp(core, map, o.nationId, req.target, req.provinceId), keys: ['help', state.turn, req.kind] });
+    const text = composeLine(state, map, { from: o.to, to: o.nationId, tone, core: fillHelp(core, map, o.nationId, req.target, req.provinceId), keys: ['help', state.turn, req.kind], tensionEffect: false });
     const msg = publishTalk(state, { from: o.to, to: o.nationId, tone, text, core, ai: true, awaitReply: false, tension: false });
     // V14.2 : trajet estimé, puis HELP_TURNS tours d'aide sur place (le trajet ne « mange » plus l'aide).
     const reach = d.accept ? helpTravelTurns(state, o.to, { requester: o.nationId, kind: req.kind, target: req.target, provinceId: req.provinceId }, routes) : 0;

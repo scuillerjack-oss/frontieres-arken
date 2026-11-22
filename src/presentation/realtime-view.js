@@ -315,12 +315,13 @@ export function realtimeText(text) {
 // --- Message d'événement (en haut au centre) ------------------------------------------------------------------------
 /** Dernier fait marquant connu du joueur ; à défaut, une consigne. `paused` : rappel de la pause. */
 export function tickerText(state, me, { paused = false, mine = 0, coming = 0, battle = '' } = {}) {
-  if (paused) return { icon: '⏸', text: 'En pause — touchez ▶ pour faire avancer le temps' };
+  // V17.10.2 : texte court (bandeau de 2 lignes sur téléphone en paysage) ; `open` = ce que le toucher du bandeau ouvre.
+  if (paused) return { icon: '⏸', text: 'En pause — touchez ▶ pour reprendre', open: 'journal' };
   if (battle) return { icon: '⚔', text: battle };
   if (coming) return { icon: '⚠', text: `${coming} armée${coming > 1 ? 's' : ''} étrangère${coming > 1 ? 's' : ''} en route vers vos provinces` };
   // Temps réel : le journal permanent se remplit chaque jour (le récapitulatif « Récent » du moteur, lui, une fois par période).
   const last = state.mode === 'realtime' ? (state.chronicle || []).at(-1) : (state.turnJournal || [])[0];
-  if (last?.text) return { icon: '📜', text: realtimeText(String(last.text).split('\n')[0]) };
+  if (last?.text) return { icon: '📜', text: realtimeText(String(last.text).split('\n')[0]), open: last.category === 'talk' ? 'talk' : 'journal' };
   if (mine) return { icon: '⚔', text: `${mine} troupe${mine > 1 ? 's' : ''} en route · touchez la date pour les voir ou les rappeler` };
   return { icon: '🧭', text: 'Touchez une de vos provinces pour donner un ordre : il part tout de suite.' };
 }

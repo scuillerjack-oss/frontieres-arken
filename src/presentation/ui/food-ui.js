@@ -1,5 +1,5 @@
 // Interface — V17.4 : la réserve de vivres dans la barre du haut (temps réel seulement) et les messages de nourriture.
-// Une case « 🌾 VIVRES 900 · +2,5/j » juste après le trésor (emplacement #foodStat de la V17.3) ; la toucher explique l'état.
+// Une case « 🌾 VIVRES 900 · +8/j » (entiers depuis la V17.10.2) juste après le trésor (emplacement #foodStat de la V17.3) ; la toucher explique l'état.
 
 import { foodHud } from '../food-view.js';
 import { $, toast } from './base.js';

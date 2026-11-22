@@ -1,17 +1,17 @@
 // V17.4 — Textes de la nourriture (pur : aucun DOM). Le moteur compte en centièmes de vivre (src/domain/realtime/food.js) ;
-// l'affichage arrondit au dixième, à la française (« 29,5 »).
+// l'affichage montre des vivres ENTIERS (V17.10.2, retour bêta de Jack : « 922,5 » → « 922 ») : arrondi vers le bas, sans
+// rien changer au calcul du moteur (une valeur négative est arrondie vers zéro : −2,5 → « −2 »).
 
 import { RULES } from '../domain/constants.js';
 import { farmCost, farmLevel, foodStatus, provinceFoodHundredths } from '../domain/game-engine.js';
 
 const H = () => RULES.realtime.food.hundredths;
-/** 2950 → « 29,5 » ; 90000 → « 900 » ; arrondi au dixième, sans zéro inutile. */
+/** 92250 → « 922 » ; 90000 → « 900 » ; 123456 → « 1 234 » ; entier, partie décimale coupée. */
 export function vivres(hundredths) {
-  const tenths = Math.round((Number(hundredths) || 0) / (H() / 10)), sign = tenths < 0 ? '−' : '', a = Math.abs(tenths);
-  const whole = Math.floor(a / 10), rest = a % 10;
-  return `${sign}${String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}${rest ? `,${rest}` : ''}`;
+  const v = Number(hundredths) || 0, whole = Math.floor(Math.abs(v) / H() + 1e-9), sign = v < 0 && whole > 0 ? '−' : '';
+  return `${sign}${String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
 }
-/** « +2,5 / jour », « −3 / jour », « ±0 / jour ». */
+/** « +2 / jour », « −3 / jour », « ±0 / jour » (V17.10.2 : entiers). */
 export const perDayText = perDay => `${perDay > 0 ? '+' : perDay < 0 ? '' : '±'}${vivres(perDay)} / jour`;
 
 /** Barre du haut : réserve, « +N / jour », et l'état (normal, alerte, famine, grenier plein). */

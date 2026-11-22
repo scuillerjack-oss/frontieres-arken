@@ -12,7 +12,7 @@
 // Brouillard de guerre respecté : un nombre de troupes n'est cité que pour une province que l'auteur ET le destinataire
 // voient (vision.js) ; provinces, nombre de provinces, tour, guerre, alliance, trêve et tension sont publics entre eux.
 import { gameLengthOf, scaleTurn } from './game-length.js';
-import { chance, archetypeOf, atWar, treatyOf, getTension } from './leaders.js';
+import { chance, archetypeOf, atWar, treatyOf, getTension, talkTensionDelta, tensionCap, tensionRank } from './leaders.js';
 import { visibleProvinces } from './vision.js';
 import { hashString } from './profile.js';
 
@@ -83,7 +83,29 @@ function facing(state, map, from, to) {
  * Éléments de contexte disponibles (vrais) pour `from` → `to` au ton `tone` : [{ id, text }]. Au moins un (le tour).
  * Exporté pour les tests.
  */
-export function contextFragments(state, map, { from, to = null, tone }) {
+/**
+ * V17.10.2 (retours bêta de Jack, 22/11/2026) :
+ *  - « un président ne dit pas à un autre : nos tensions sont de 45 % » → un dirigeant ne cite JAMAIS de pourcentage :
+ *    il dit le niveau de tension en mots (TENSION_WORDS, un par palier calme / tendu / hostile / au bord de la guerre) ;
+ *    les pourcentages restent dans l'interface ;
+ *  - le niveau dit est celui qui RÉSULTE du message (son propre effet inclus), pour coïncider avec le palier affiché dès
+ *    sa publication (avant : « atteint 10 % » alors que ce message hostile la portait à 30 %, « tendu »). Pour un message
+ *    du joueur, l'effet n'utilise que la personnalité révélée (rien n'est dévoilé). `tensionEffect: false` = message
+ *    sans effet sur la tension (réponse à une demande d'aide).
+ */
+export const TENSION_WORDS = Object.freeze([
+  Object.freeze({ hostile: 'Nos relations commencent à se refroidir.', neutre: 'Nos relations restent calmes.', amical: 'Nos relations sont au beau fixe.' }),
+  Object.freeze({ hostile: 'La tension monte entre nos deux pays.', neutre: 'Nos relations se sont tendues.', amical: 'Nos relations se sont tendues ; apaisons-les.' }),
+  Object.freeze({ hostile: 'Nos relations n’ont jamais été aussi mauvaises.', neutre: 'Nos relations sont devenues hostiles.', amical: 'Nos relations sont mauvaises : il est temps de les réparer.' }),
+  Object.freeze({ hostile: 'Nous sommes au bord de la rupture.', neutre: 'Nos deux pays sont au bord de la guerre.', amical: 'Nous sommes au bord de la guerre : reculons tant qu’il est temps.' })
+]);
+export function talkedTension(state, from, to, tone, { tensionEffect = true } = {}) {
+  const now = getTension(state, from, to);
+  if (!tensionEffect || !to) return now;
+  const d = talkTensionDelta(state, from, to, tone, { known: state.controllers?.[from] !== 'ai' });
+  return Math.max(0, Math.min(tensionCap(state, from, to), Math.round(now + d)));
+}
+export function contextFragments(state, map, { from, to = null, tone, effectTone = tone, tensionEffect = true }) {
   const T = state.turn || 1, out = [], add = (id, byTone) => out.push({ id, text: byTone[tone] || byTone.neutre });
   const left = gameLengthOf(state) - T;
   if (left > 0 && left <= scaleTurn(state, 10)) add('fin', { hostile: `Plus que ${plural(left, 'tour')} : le temps vous est compté.`, neutre: `Plus que ${plural(left, 'tour')} avant la fin : chacun fait ses comptes.`, amical: `Plus que ${plural(left, 'tour')} : finissons-les en bons termes.` });
@@ -100,7 +122,7 @@ export function contextFragments(state, map, { from, to = null, tone }) {
     else if (truce) { const k = since(state, truce.started); add('treve', k
       ? { hostile: `Notre trêve n’a que ${plural(k, 'tour')} : elle reste fragile.`, neutre: `Notre trêve tient depuis ${plural(k, 'tour')}.`, amical: `Notre trêve tient depuis ${plural(k, 'tour')} : continuons.` }
       : { hostile: 'Notre trêve vient d’être signée : elle reste fragile.', neutre: 'Notre trêve vient d’être signée.', amical: 'Notre trêve vient d’être signée : faisons-la durer.' }); }
-    else { const t = getTension(state, from, to); add('tension', { hostile: `La tension entre nous atteint ${t} %.`, neutre: `La tension entre nous est de ${t} %.`, amical: `La tension entre nous n’est que de ${t} %.` }); }
+    else add('tension', TENSION_WORDS[tensionRank(talkedTension(state, from, to, effectTone, { tensionEffect }))]);
     const face = facing(state, map, from, to);
     if (face.length) {
       const [a, b] = face[Math.floor(chance(state, 'compose-face', T, from, to) * face.length) % face.length], A = provName(map, a), B = provName(map, b);
@@ -156,9 +178,9 @@ const traitOf = (state, from) => state.controllers?.[from] === 'human' ? 'joueur
  * Compose une réplique. `core` = fond déjà rempli (noms, or…). Déterministe : mêmes état, graine et clés → même texte.
  * Ne modifie pas l'état (la mémoire est mise à jour à la publication, rememberTalk).
  */
-export function composeLine(state, map, { from, to = null, tone, core, keys = [] }) {
+export function composeLine(state, map, { from, to = null, tone, core, keys = [], tensionEffect = true }) {
   const trait = traitOf(state, from), t = OPENINGS[trait][tone] ? tone : 'neutre';
-  const opens = OPENINGS[trait][t], closes = CLOSINGS[trait][t], ctx = contextFragments(state, map, { from, to, tone: t });
+  const opens = OPENINGS[trait][t], closes = CLOSINGS[trait][t], ctx = contextFragments(state, map, { from, to, tone: t, effectTone: tone, tensionEffect });
   const r = k => chance(state, 'compose', k, from, to ?? '*', t, ...keys);
   const o0 = Math.floor(r('o') * opens.length), c0 = Math.floor(r('c') * ctx.length), k0 = Math.floor(r('k') * (closes.length + 2));
   const build = (o, c, k) => {

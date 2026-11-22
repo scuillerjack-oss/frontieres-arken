@@ -16,7 +16,7 @@ import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { MYSTERY_ISLAND_ID, islandMapBadge } from '../mystery-island-view.js';
-import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapTransform } from '../map-am3-view.js';
+import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapPeriod, wrapTransform } from '../map-am3-view.js';
 import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
@@ -32,6 +32,8 @@ export let pointers = new Map(), pinching = false, pinchStart = null, ignoreClic
 export let frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, transformFrame=0;
 // V9 : repère de la carte Leonardo (1536 × 1536). Zoom max plus grand que la V6 (2,5) pour viser 20 provinces sur téléphone.
 export const FRAME = map.frame, MAX_ZOOM = 3, PAN_SLACK = .22;
+// V17.10.2 : période du défilement sans fin = largeur de la carte + océan (WRAP_OCEAN, map-am3-view.js).
+export const PERIOD = wrapPeriod(FRAME);
 // Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
 export let minZoom = 1;
 // V17.6 : copies de la carte de chaque côté (défilement horizontal sans fin) et niveau de détail courant.
@@ -127,7 +129,10 @@ function announceOrder(){const count=state.orders.filter(o=>o.status==='pending'
 export function render(){
   const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),badges=safeEngine(()=>troopBadges(state,map),null);
   // V17.6 : tout le dessin va dans #mapWorld ; des copies (<use>) le répètent à gauche et à droite (défilement sans fin).
-  const world=E('g',{id:'mapWorld',class:`detail-${Math.max(0,detail)}`});
+  // V17.10.2 : deux étages, répétés chacun par ses copies — #mapBase (fond, provinces, liserés, grands noms de nations)
+  // puis #mapWorld (routes, drapeaux, étoiles, pastilles, « ? », icônes) : un nom, même celui d'une copie voisine,
+  // ne passe jamais devant un drapeau, une capitale, un chiffre ou un marqueur.
+  const base=E('g',{id:'mapBase',class:`detail-${Math.max(0,detail)}`}),world=E('g',{id:'mapWorld',class:`detail-${Math.max(0,detail)}`});
   for(const [id,color] of [['arrow-green','#62ed99'],['arrow-red','#ff625b']]){const marker=E('marker',{id,viewBox:'0 0 10 10',refX:'8',refY:'5',markerUnits:'strokeWidth',markerWidth:'3.4',
     markerHeight:'3.4',orient:'auto-start-reverse'});marker.append(E('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));defs.append(marker)}
   backgroundImage ||= E('image',{href:map.image.href,x:0,y:0,width:map.image.width,height:map.image.height,preserveAspectRatio:'none',class:'map-image'});
@@ -137,7 +142,7 @@ export function render(){
   for(const [id,x1,y1,x2,y2] of [['fade-l',0,0,1,0],['fade-r',1,0,0,0],['fade-t',0,0,0,1],['fade-b',0,1,0,0]]){const g=E('linearGradient',{id,x1,y1,x2,y2});
     g.append(E('stop',{offset:0,'stop-color':SEA_EDGE,'stop-opacity':1}),E('stop',{offset:1,'stop-color':SEA_EDGE,'stop-opacity':0}));defs.append(g);}
   const fade=(x,y,width,height,id)=>E('rect',{x,y,width,height,fill:`url(#${id})`,class:'edge-fade'}),W=FRAME.width,H=FRAME.height,B=70;
-  world.append(backgroundImage,fade(-1,0,B,H,'fade-l'),fade(W-B,0,B+1,H,'fade-r'),fade(-1,-1,W+2,B,'fade-t'),fade(-1,H-B,W+2,B+1,'fade-b'),provinceLayer,highlightLayer,borderLayer);
+  base.append(backgroundImage,fade(-1,0,B,H,'fade-l'),fade(W-B,0,B+1,H,'fade-r'),fade(-1,-1,W+2,B,'fade-t'),fade(-1,H-B,W+2,B+1,'fade-b'),provinceLayer,highlightLayer,borderLayer);
   // V10 : liseré bleu = mon territoire, liseré rouge = nations en guerre contre moi (au-dessus du voile et de la sélection).
   // Chaque liseré est découpé à l'intérieur de son territoire : bleu et rouge ne se recouvrent jamais à une frontière commune.
   const polygonPoints=id=>province(id).geometry.points.map(x=>x.join(',')).join(' ');
@@ -168,7 +173,7 @@ export function render(){
   // V17.3 : en temps réel, convois et armées en marche sont des icônes qui avancent chaque jour (map-units-layer.js) ;
   // l'ancien jeton de convoi « tours restants » reste pour le tour par tour.
   const rt=state.mode==='realtime',convoyLayer=E('g',{class:'convoys'});if(!rt)for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
-  world.append(nationNameLayer(),...routeLayer,labelLayer,convoyLayer);
+  base.append(nationNameLayer());world.append(...routeLayer,labelLayer,convoyLayer);
   world.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
   if(rt)world.append(safeEngine(()=>unitsLayer(),E('g',{id:'rtUnits'})));
   if(rt)world.append(safeEngine(()=>battlesLayer(),E('g',{id:'rtBattles'}))); // V17.2 / V17.3 : ⚔ « n/3 » des batailles en cours // dans #mapWorld : les copies <use> du défilement sans fin la répètent
@@ -178,7 +183,7 @@ export function render(){
       );
     arrow.addEventListener('click',event=>{event.stopPropagation();openPendingOrder(order.id)});arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingOrder(order.id)}});world.append(arrow);
   }
-  svg.replaceChildren(defs,world,...wrapUses());
+  svg.replaceChildren(defs,base,...wrapUses('#mapBase'),world,...wrapUses('#mapWorld'));
   const coalition=coalitionBanner(state,id=>nation(id).short),chip=$('#coalitionBtn');chip.hidden=!coalition;if(coalition){chip.textContent=coalition.text;chip.dataset.mine=coalition.mine?'1':'0';}
   const army=totalArmy(state,state.playerNationId);if(!rt)$('#turn').innerHTML=`${Math.min(state.turn,gameLengthOf(state))}<span class="turn-max">/${gameLengthOf(state)}</span>`;
     $('#turn').closest('.hud-stat')?.classList.toggle('turn-final',!state.gameOver&&state.turn>gameLengthOf(state)-5);$('#gold').textContent=state.nations[state.playerNationId].treasury;
@@ -188,17 +193,21 @@ export function render(){
 }
 // V17.6 : copies de #mapWorld de chaque côté. Elles ne reçoivent pas les touchers eux-mêmes : un toucher sur une copie
 // décale la carte d'une largeur (invisible) puis est rejoué sur la carte d'origine (voir onCopyClick).
-function wrapUses(){const out=[];for(let k=-wrapCopies;k<=wrapCopies;k++)if(k)out.push(E('use',{href:'#mapWorld',x:k*FRAME.width,y:0,class:'wrap-copy','data-copy':k}));return out;}
+// V17.10.2 : copies espacées d'une PÉRIODE (carte + océan), plus d'une largeur de carte.
+function wrapUses(href){const out=[];for(let k=-wrapCopies;k<=wrapCopies;k++)if(k)out.push(E('use',{href,x:k*PERIOD,y:0,class:'wrap-copy','data-copy':k}));return out;}
+const periodPx=()=>mapContentSize.width*PERIOD/FRAME.width;
 // La carte est un SVG large de (2 × copies + 1) cartes ; l'origine de la transformation est le centre de la carte d'origine,
 // qui reste au centre du cadre : les calculs d'avant (zoom, centrage, vue de lancement) ne changent pas.
 export function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
   const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
-  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME); // V17.6 : au plus une largeur de carte à l'écran
-  const copies=wrapCopyCount(frameSize.width,mapContentSize.width*minZoom),changed=copies!==wrapCopies;wrapCopies=copies;
-  const n=2*wrapCopies+1;svg.setAttribute('viewBox',`${-wrapCopies*FRAME.width} 0 ${n*FRAME.width} ${FRAME.height}`);
-  Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width*n}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2-wrapCopies*mapContentSize.width}px`,
-    top:`${(frameSize.height-mapContentSize.height)/2}px`,transformOrigin:`${mapContentSize.width*(wrapCopies+.5)}px 50%`});
-  if(changed&&svg.querySelector('#mapWorld'))svg.replaceChildren(...[...svg.children].filter(c=>!c.classList.contains('wrap-copy')),...wrapUses());
+  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME,PERIOD); // V17.10.2 : le monde entier, jamais deux fois le même point
+  const copies=wrapCopyCount(frameSize.width,periodPx()*minZoom),changed=copies!==wrapCopies;wrapCopies=copies;
+  // SVG large de 2 × copies périodes + une carte ; la carte d'origine reste au centre (origine de la transformation).
+  const side=wrapCopies*PERIOD,sidePx=wrapCopies*periodPx();svg.setAttribute('viewBox',`${-side} 0 ${FRAME.width+2*side} ${FRAME.height}`);
+  Object.assign(svg.style,{position:'absolute',width:`${mapContentSize.width+2*sidePx}px`,height:`${mapContentSize.height}px`,left:`${(frameSize.width-mapContentSize.width)/2-sidePx}px`,
+    top:`${(frameSize.height-mapContentSize.height)/2}px`,transformOrigin:`${sidePx+mapContentSize.width/2}px 50%`});
+  if(changed&&svg.querySelector('#mapWorld')){const keep=[...svg.children].filter(c=>!c.classList.contains('wrap-copy')),[d,b,w]=['defs','#mapBase','#mapWorld'].map(q=>keep.find(c=>c.matches(q)));
+    svg.replaceChildren(d,b,...wrapUses('#mapBase'),w,...wrapUses('#mapWorld'));}
   clampTransform();updateLabelScale();}
 // Centre la vue sur une province (capitale du joueur au lancement).
 export function focusProvince(id){const d=province(id);if(!mapContentSize.width)return;const k=mapContentSize.width/FRAME.width;tx=(FRAME.width/2-d.markerAnchor.x)*k*scale;ty=(FRAME.height/2-d.markerAnchor.y)*k*scale;clampTransform(0);}
@@ -213,13 +222,13 @@ function updateWholeMapButton(){const b=$('#wholeMapBtn');if(!b)return;b.hidden=
   const whole=showsWholeMap(scale,minZoom);b.textContent=whole?`◎ ${BACK_TO_CAPITAL_LABEL}`:`🗺 ${WHOLE_MAP_LABEL}`;b.dataset.whole=whole?'1':'0';}
 // V17.6 : --ui = zoom^-0,75 (lisible dézoomé), niveau de détail (data-detail) changé seulement quand il change.
 export function updateLabelScale(){updateWholeMapButton();const svg=$('#map');svg.style.setProperty('--ui',iconScale(scale).toFixed(3));svg.style.setProperty('--line',(1/Math.pow(scale,.7)).toFixed(3));
-  const level=detailLevel(mapContentSize.width/FRAME.width*scale);if(level!==detail){detail=level;svg.dataset.detail=String(level);svg.querySelector('#mapWorld')?.setAttribute('class',`detail-${level}`);}}
-// (la classe est sur #mapWorld, pas sur #map : les copies <use> la reçoivent aussi)
+  const level=detailLevel(mapContentSize.width/FRAME.width*scale);if(level!==detail){detail=level;svg.dataset.detail=String(level);svg.querySelector('#mapWorld')?.setAttribute('class',`detail-${level}`);svg.querySelector('#mapBase')?.setAttribute('class',`detail-${level}`);}}
+// (la classe est sur #mapWorld et #mapBase, pas sur #map : les copies <use> la reçoivent aussi)
 // edgeSlack : marge de glisse au-delà du bord vertical (0 = la carte reste calée sur le cadre, utilisé pour recentrer).
 // V17.6 : horizontalement, plus de bord : x est ramené modulo la largeur d'une copie.
 export function clampTransform(edgeSlack=PAN_SLACK){
   if(!frameSize.width||!frameSize.height)return;
-  const next=wrapTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack);
+  const next=wrapTransform({scale,x:tx,y:ty},frameSize,mapContentSize,MAX_ZOOM,minZoom,edgeSlack,periodPx());
   scale=next.scale;tx=next.x;ty=next.y;
   if(!transformFrame)transformFrame=requestAnimationFrame(applyTransform);
 }
@@ -229,15 +238,18 @@ function applyTransform(){if(transformFrame)cancelAnimationFrame(transformFrame)
 function onCopyClick(event){
   const use=event.target?.closest?.('use.wrap-copy');if(!use)return;
   event.stopPropagation();event.preventDefault();if(Date.now()<ignoreClickUntil)return;
-  tx+=copyShift(use.dataset.copy,mapContentSize,scale);applyTransform();
+  tx+=copyShift(use.dataset.copy,mapContentSize,scale,periodPx());applyTransform();
   const hit=document.elementFromPoint(event.clientX,event.clientY);
-  if(hit&&hit.closest('#mapWorld'))hit.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:event.clientX,clientY:event.clientY}));
+  if(hit&&hit.closest('#mapWorld,#mapBase'))hit.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:event.clientX,clientY:event.clientY}));
   clampTransform();
 }
 $('#viewport')?.addEventListener('click',onCopyClick,true);
 export function pointerDistance(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 export const viewport=$('#viewport');
-export function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;clampTransform();updateLabelScale();}
+// V17.10.2 : arrivé au zoom minimal (boutons ou pincement), le monde est recentré : les 5 nations et l'île d'un coup,
+// jamais coupées par le bord (on peut ensuite faire glisser la carte librement).
+export function zoomBy(factor){const next=Math.max(minZoom,Math.min(MAX_ZOOM,scale*factor)),ratio=next/scale;scale=next;tx*=ratio;ty*=ratio;if(scale<=minZoom+1e-6){tx=0;ty=0;}clampTransform();updateLabelScale();}
+export function centerIfWholeMap(){if(scale>minZoom+1e-6)return false;tx=0;ty=0;clampTransform(0);return true;}
 export const setScale = value => { scale = value; };
 export const setTx = value => { tx = value; };
 export const setTy = value => { ty = value; };

@@ -59,7 +59,7 @@ export function refreshTuto(){
   // Pendant le choix d'une destination : la destination demandée hors de l'écran → la carte s'y centre (une fois par étape).
   const dest=(v.targets||[]).map(t=>t.match(/destination\[data-id="(p\d\d)"\]/)?.[1]).filter(Boolean)[0];
   if(dest&&moveSource&&tutoDestFocused!==tutoStep&&!document.querySelector('dialog[open]')){tutoDestFocused=tutoStep;
-    const r=document.querySelector(`#mapWorld [data-id="${dest}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect(),cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0;
+    const r=document.querySelector(`#mapBase [data-id="${dest}"] .area`)?.getBoundingClientRect(),f=$('#viewport').getBoundingClientRect(),cx=r?r.left+r.width/2:0,cy=r?r.top+r.height/2:0;
     if(!r||cx<f.left+30||cx>f.right-30||cy<f.top+30||cy>f.bottom-30){focusProvince(dest);updateLabelScale();}}
   if(el!==tutoTargetEl){tutoTargetEl?.classList.remove('tuto-target');tutoTargetEl=el;if(el){el.classList.add('tuto-target');if(!el.closest('svg'))el.scrollIntoView?.({block:'nearest'});}}
   else el?.classList.add('tuto-target'); // la carte est redessinée chaque jour : on remet la classe
