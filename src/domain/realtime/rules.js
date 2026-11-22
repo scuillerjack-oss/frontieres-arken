@@ -40,9 +40,12 @@ export const REALTIME_RULES = freezeDeep({
     // trajets raccourcis d'un tiers (30 → 20 jours ; mer 60 → 40, île 120 → 80), mesuré : docs/V17 « Réalisé V17.5b ».
     land: 20,                // province voisine par la terre (voisin à la distance de référence)
     cavalryLand: 13,         // armée composée uniquement de cavalerie (même proportion qu'avant : 20 / 30)
-    landDistance: { reference: 245, min: .75, max: 1.5 }, // × distance entre les repères des 2 provinces ÷ 245, borné (15 à 30 j)
-    sea: 40,                 // mer, entre deux nations (anneau) : 2 tours de carte au moins, plus pour une route longue
-    islandSea: 80,           // vers / depuis l'île mystérieuse
+    // V17.11 : les îles sont dessinées à l'échelle 0,75 (carte espacée) : la référence suit (245 × 0,75), durées inchangées.
+    landDistance: { reference: 183.75, min: .75, max: 1.5 }, // × distance entre les repères des 2 provinces ÷ référence, borné (15 à 30 j)
+    // V17.11 (schéma de Jack) : routes droites, TOUTES égales par type : les 5 routes de l'anneau = sea, les 10 routes
+    // port → île mystérieuse = islandSea (une par point de port, 2 par nation). L'île est plus loin que la voisine.
+    sea: 40,                 // mer, entre deux nations voisines (anneau) : RULES.naval.ringTurns × landPerSeaTurn
+    islandSea: 80,           // vers / depuis l'île mystérieuse, depuis n'importe lequel des 10 ports : routeTurns × landPerSeaTurn
     interceptDaysLeft: 20,   // interception par le port d'arrivée quand il reste 20 jours de traversée
     landPerSeaTurn: 20       // conversion des durées maritimes « en tours » de la carte (2 tours = 40 j, 4 = 80 j)
   },

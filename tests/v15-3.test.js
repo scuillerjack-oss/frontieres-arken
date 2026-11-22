@@ -149,7 +149,10 @@ test('bonus : chantier, infanterie et or arrivent dans le moteur, et s’ajouten
 
 // --- Bâtisseur et bases navales ---------------------------------------------------------------------------------------
 const builder = (turn, value = 2000) => { const s = allAi(game({ seed: 'b1' })); setArch(s, 'roc-epine', 'batisseur'); for (const [id, a] of [['valmorne', 'heros'], ['noireflamme', 'heros'], ['oroel', 'heros'], ['aurel', 'heros']]) setArch(s, id, a); s.turn = turn;
-  s.provinces.p05.units = { infantry: value, cavalry: 0, armor: 40, artillery: 0 }; s.provinces.p05.buildings.port = 1; s.provinces.p05.buildings.factory = 1; s.provinces.p05.warships = 6; s.nations['roc-epine'].treasury = 900; s.ai.plannedTurn = null; return s; };
+  s.provinces.p05.units = { infantry: value, cavalry: 0, armor: 40, artillery: 0 }; s.provinces.p05.buildings.port = 1; s.provinces.p05.buildings.factory = 1; s.provinces.p05.warships = 6; s.nations['roc-epine'].treasury = 900; s.ai.plannedTurn = null;
+  // V17.11 : Roc-Épine (p05) a maintenant sa route vers l'île mystérieuse ; garnison de l'île imprenable ici, pour ne juger
+  // que la guerre contre les nations (prendre l'île neutre n'est pas « se battre » contre quelqu'un).
+  s.provinces.p21.units.infantry = 100000; return s; };
 test('Bâtisseur : sage avant la fin de partie, il attaque ensuite avec son trésor', () => {
   const before = builder(RULES.ai.builderLateTurn - 1), after = builder(RULES.ai.builderLateTurn);
   assert.equal(builderAwake(before, map, 'roc-epine'), false); assert.equal(builderAwake(after, map, 'roc-epine'), true);

@@ -45,9 +45,15 @@ const SEA_EDGE = '#114464';
 const pathData = points => points.map((pt,i)=>`${i?'L':'M'}${Math.round(pt.x)} ${Math.round(pt.y)}`).join(' ');
 // Route maritime : liseré sombre + pointillés clairs, épaisseur adaptée au zoom (--line).
 // V13 : routes neutres, une seule couleur (plus d'état jaune « open » hérité de la V9).
+// V17.11 : une route vers l'île mystérieuse s'arrête au bord de l'île (ISLAND_LANE_GAP, repère de la carte) : l'îlot reste visible
+// au milieu de l'étoile des 10 routes (le convoi, lui, va jusqu'au centre de l'île).
+export const ISLAND_LANE_GAP=58;
+const towards=(from,to,gap)=>{const dx=to.x-from.x,dy=to.y-from.y,l=Math.hypot(dx,dy)||1;return{x:from.x+dx*gap/l,y:from.y+dy*gap/l};};
 function seaLane(lane){
-  const a=province(lane.from),b=province(lane.to);
-  const d=pathData([a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor]),g=E('g',{class:'route maritime','data-lane':`${lane.from}-${lane.to}`});
+  const a=province(lane.from),b=province(lane.to),pts=[a.port?.anchor||a.markerAnchor,...lane.waypoints,b.port?.anchor||b.markerAnchor];
+  if(a.neutral)pts[0]=towards(pts[0],pts[1],ISLAND_LANE_GAP);
+  if(b.neutral)pts[pts.length-1]=towards(pts[pts.length-1],pts[pts.length-2],ISLAND_LANE_GAP);
+  const d=pathData(pts),g=E('g',{class:'route maritime','data-lane':`${lane.from}-${lane.to}`});
   g.append(E('path',{d,class:'casing'}),E('path',{d,class:'dash'}));return g;
 }
 // Port : ancre aux couleurs de la nation propriétaire de la province (V13 : construit ou non).
@@ -154,7 +160,8 @@ export function render(){
     const d=outlinePath(border.segments);borderLayer.append(E('path',{d,class:`territory ${border.kind}`,'data-nation':border.nationId,'clip-path':`url(#${clipId})`}));}
   if(selected&&!moveSource){const clip=E('clipPath',{id:'clip-selected'});clip.append(E('polygon',{points:polygonPoints(selected)}));defs.append(clip);}
   map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
-  map.provinces.filter(d=>d.port).forEach(d=>routeLayer.push(portMarker(d)));
+  // V17.11 : les 10 routes arrivent au centre de l'île mystérieuse (rien ne s'y construit) : pas de pastille de port sur l'île.
+  map.provinces.filter(d=>d.port&&!d.neutral).forEach(d=>routeLayer.push(portMarker(d)));
   for(const d of map.provinces){
     const p=state.provinces[d.id],diploState=relationWithPlayer(state,p.ownerId),classes=['province'];
     if(selected===d.id)classes.push('selected');

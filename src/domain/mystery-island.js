@@ -6,7 +6,8 @@
 //   - Ses troupes sont toujours visibles par tous (vision.js), quel que soit le propriétaire.
 //   - Super banque : RULES.mysteryIsland.bankIncome or par tour au propriétaire (income.js) ; on n'y construit ni n'y
 //     recrute rien (orders.js). La super banque ne se construit pas ailleurs et ne se détruit pas.
-//   - 5 routes maritimes (une par nation), RULES.mysteryIsland.routeTurns tours chacune (sea-routes.js).
+//   - V17.11 : 10 routes maritimes droites (une par point de port, 2 par nation), RULES.mysteryIsland.routeTurns tours
+//     chacune, toutes égales (sea-routes.js) ; V16.2 : 5 routes.
 //   - Prise à deux : deux alliés qui débarquent le même tour la prennent ensemble (battles.js) : celui qui la prend
 //     (règle de combat : le plus de PV restants) est le propriétaire, l'allié devient co-propriétaire (`coOwnerId`) :
 //     banque partagée moitié-moitié, base commune (droit de passage V13.4). Alliance rompue → part perdue, troupes

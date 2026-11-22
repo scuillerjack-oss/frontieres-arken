@@ -26,7 +26,7 @@ const RING = ['ile-nord-ouest', 'ile-nord-est', 'ile-est', 'ile-sud', 'ile-sud-o
 test('anneau : exactement 5 routes, NO ↔ NE ↔ E ↔ S ↔ SO ↔ NO', () => {
   assert.equal(RING_ROUTES.length, 5);
   assert.equal(RING_LANES.length, 5);
-  assert.equal(map.maritimeRoutes.length, 10, 'V16.2 : anneau + 5 routes vers l’île mystérieuse');
+  assert.equal(map.maritimeRoutes.length, 15, 'V17.11 : anneau + 10 routes vers l’île mystérieuse (V16.2 : 5)');
   const pairs = RING_ROUTES.map(([a, b]) => [islandOf(a), islandOf(b)].sort().join('|')).sort();
   const expected = RING.map((isl, i) => [isl, RING[(i + 1) % 5]].sort().join('|')).sort();
   assert.deepEqual(pairs, expected);
@@ -58,6 +58,7 @@ test('anneau : aucune route n\'en croise une autre ni ne coupe une province (tes
   // Les routes restent en mer : aucun segment ne traverse le contour d'une province.
   for (const lane of map.seaLanes) for (const [a, b] of segments(lanePoints(lane))) for (const p of map.provinces) {
     const poly = p.geometry.points.map(([x, y]) => ({ x, y }));
+    if (p.id === 'p21' && [lane.from, lane.to].includes('p21')) continue; // V17.11 : les routes de l'île arrivent en son centre
     for (const [c, d] of segments([...poly, poly[0]])) assert.ok(!crosses(a, b, c, d), `${lane.from}-${lane.to} coupe ${p.id}`);
   }
   // Ancres de port : près de la côte de leur province (moins de 40 px du contour), plus près d'elle que des autres.
@@ -78,7 +79,7 @@ test('embarquement dès le tour 1 depuis un point de port NON construit, vers le
   assert.equal(s.turn, 1);
   for (const id of PORTS) assert.equal(s.provinces[id].buildings.port, 0);
   assert.deepEqual(sea(s, 'p03'), [{ id: 'p14', type: 'sea', via: 'p14', turns: 2 }, { id: 'p21', type: 'sea', via: 'p21', turns: 4 }]); // V16.2 : + l'île
-  assert.deepEqual(sea(s, 'p02'), [{ id: 'p05', type: 'sea', via: 'p05', turns: 2 }]);
+  assert.deepEqual(sea(s, 'p02'), [{ id: 'p05', type: 'sea', via: 'p05', turns: 2 }, { id: 'p21', type: 'sea', via: 'p21', turns: 4 }]); // V17.11 : chaque port va à l'île
   assert.equal(embarkStatus(map, s, 'p03').ok, true);
   assert.ok(isPortPoint(map, 'p02') && isPortPoint(map, 'p03') && !isPortPoint(map, 'p01') && !isPortPoint(map, 'p04'));
   const r = queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 30 } });
@@ -153,7 +154,7 @@ test('un point de port conquis permet de rembarquer (retour et suite de l\'annea
   assert.equal(s.provinces.p14.ownerId, 'valmorne', 'Nordhème conquise par la mer');
   assert.equal(s.provinces.p14.buildings.port, 0);
   // Rembarquement depuis le point de port conquis (non construit) : retour vers Branvale.
-  assert.deepEqual(sea(s, 'p14').map(d => d.id), ['p03']); // Nordhème n'a pas de route vers l'île (V16.2 : c'est Glacenoire)
+  assert.deepEqual(sea(s, 'p14').map(d => d.id), ['p03', 'p21']); // V17.11 : chaque point de port a sa route vers l'île
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p14', toId: 'p03', units: { infantry: 10 } }).ok, true);
   // Glacenoire (p13) conquise à son tour : on peut continuer l'anneau vers Noireflamme (p09).
   s.provinces.p13.ownerId = 'valmorne';

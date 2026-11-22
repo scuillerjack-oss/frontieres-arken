@@ -274,7 +274,8 @@ test('carte au lancement : la capitale du joueur est au centre de l\'écran du t
     // hauteur du centre (zoom limité à 1,5 pour garder les voisins en vue, glisse limitée à la marge habituelle du doigt).
     assert.ok(Math.abs(at.x - viewport.width / 2) < 1, `${n.id} : x = ${Math.round(at.x)}`);
     assert.ok(Math.abs(at.y - viewport.height / 2) <= .15 * viewport.height, `${n.id} : y = ${Math.round(at.y)}`);
-    if (!['valmorne', 'oroel'].includes(n.id)) assert.ok(Math.abs(at.y - viewport.height / 2) < 1, `${n.id} : exactement au centre`);
+    // V17.11 (carte espacée) : Aurorelle (Solmara) est près du bas de la carte, comme Valmorne en haut.
+    if (!['valmorne', 'oroel', 'aurel'].includes(n.id)) assert.ok(Math.abs(at.y - viewport.height / 2) < 1, `${n.id} : exactement au centre`);
   }
   // Valmorne (à l'ouest) : avant la V14.1, le zoom 1 ne permettait pas de la centrer (la carte montrait l'ouest).
   const val = map.provinces.find(p => p.id === 'p01');

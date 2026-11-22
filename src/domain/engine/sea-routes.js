@@ -16,13 +16,19 @@ export function landingCoast(map, endId) {
   const end = provinceDef(map, endId);
   return end ? [end.id] : [];
 }
-/** V16.2 : durée d'une route : RULES.mysteryIsland.routeTurns vers ou depuis l'île mystérieuse, sinon selon sa longueur. */
-export const routeTurns = (a, b, length) => isMysteryIsland(a) || isMysteryIsland(b) ? RULES.mysteryIsland.routeTurns : seaTravelTurns(length);
+/**
+ * V16.2 : durée d'une route : RULES.mysteryIsland.routeTurns vers ou depuis l'île mystérieuse, sinon selon sa longueur.
+ * V17.11 (schéma de Jack, docs/V17-cahier-des-charges.md) : sur une carte à routes égales (`map.equalSeaRoutes`, carte
+ * Leonardo), toutes les routes de l'anneau durent RULES.naval.ringTurns, quelle que soit leur longueur dessinée ; les 10
+ * routes vers l'île durent toutes RULES.mysteryIsland.routeTurns (plus long que l'anneau).
+ */
+export const routeTurns = (a, b, length, map) => isMysteryIsland(a) || isMysteryIsland(b) ? RULES.mysteryIsland.routeTurns
+  : map?.equalSeaRoutes ? RULES.naval.ringTurns : seaTravelTurns(length);
 /** Routes maritimes au départ d'une province (qu'un port y soit construit ou non), toujours dans les deux sens. */
 export function seaRoutesFrom(map, fromId) {
   return (map.maritimeRoutes || []).filter(([a, b]) => a === fromId || b === fromId).map(([a, b]) => {
     const via = a === fromId ? b : a, lane = laneOf(map, fromId, via);
-    return { via, length: lane?.length ?? 0, turns: routeTurns(fromId, via, lane?.length ?? 0) };
+    return { via, length: lane?.length ?? 0, turns: routeTurns(fromId, via, lane?.length ?? 0, map) };
   });
 }
 /** Destinations par mer depuis une province (sans condition de port) : [{ id, type:'sea', via, turns }]. */
