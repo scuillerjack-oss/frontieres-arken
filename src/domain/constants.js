@@ -100,7 +100,9 @@ export const RULES = Object.freeze({
   },
   // V10 marine (docs/V10-marine.md) : durée d'une traversée = max(minTurns, arrondi supérieur de length / stageLength)
   // tours, length = longueur de la route en unités de la carte (1536 × 1536). 1 tour = 1 étape en mer.
-  naval:{ stageLength:150, minTurns:2 },
+  // V17.11 : ringTurns = durée unique des 5 routes de l'anneau sur la carte Leonardo (map.equalSeaRoutes), toujours plus
+  // courte que les 10 routes vers l'île (mysteryIsland.routeTurns). Temps réel : × durations.landPerSeaTurn (40 et 80 jours).
+  naval:{ stageLength:150, minTurns:2, ringTurns:2 },
   // V14.4 (retour de Jack : « débarquements presque toujours repoussés par les forteresses ») : bombardement d'une
   // forteresse côtière par les navires de guerre. Brèche = part de la protection de la forteresse neutralisée (en %).
   // Calibré par simulation : docs/V14.4-cahier-des-charges.md, Réalisé, Équipe gameplay.
@@ -122,7 +124,7 @@ export const RULES = Object.freeze({
   // V16.2 : île mystérieuse (src/domain/mystery-island.js, docs/V16-cahier-des-charges.md). Une province neutre au centre de
   // la carte. garrisonFactor : garnison de départ = ce multiple de TOUTES les troupes d'une nation en début de partie (même
   // composition) ; elle ne recrute ni ne bouge jamais. bankIncome : super banque, or par tour au propriétaire (partagée
-  // moitié-moitié avec un co-propriétaire). routeTurns : durée des 5 routes vers l'île (2 entre nations). aiMargin : marge
+  // moitié-moitié avec un co-propriétaire). routeTurns : durée des 10 routes vers l'île, une par point de port (V17.11 ; 5 en V16.2), 2 entre nations. aiMargin : marge
   // de l'IA sur la garnison simulée avant de débarquer ; aiKeepShare : part des troupes que l'IA garde sur l'île quand elle
   // en part pour débarquer ailleurs ; aiMinGarrison : garnison (fantassins équivalents) que l'IA maintient sur l'île.
   mysteryIsland:{ provinceId:'p21', garrisonFactor:3, bankIncome:10, routeTurns:4, aiMargin:1.15, aiKeepShare:.5, aiMinGarrison:200 },

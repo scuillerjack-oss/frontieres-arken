@@ -1,5 +1,7 @@
 // Carte V9 « Leonardo » : 5 îles, une par nation, 4 provinces par île, 10 ports, 10 routes maritimes.
 // V16.2 : + l'île mystérieuse (p21, neutre, une seule province) au centre, reliée par 5 routes (une par nation).
+// V17.11 (schéma de Jack) : îles espacées en couronne autour de l'île mystérieuse (assets/carte-arken-v17-11.jpg, même
+// dessin, échelle 0,75) ; 15 routes droites : l'anneau (5, port à port entre voisines) + 10 routes port → île, égales.
 // Même format que arkenV1Map (voir validate-map.js) : le moteur ne lit que les identifiants,
 // les voisinages terrestres et les routes maritimes ; la géométrie ne sert qu'à l'affichage.
 import { MAP_SCHEMA_VERSION } from '../domain/constants.js';
@@ -21,7 +23,7 @@ export const arkenV9Map = Object.freeze({
   nations: nationsV9,
   // Repère d'affichage : l'image de fond et toutes les coordonnées partagent ce cadre.
   frame: { width: D.imageSize[0], height: D.imageSize[1] },
-  image: { href: 'assets/carte-leonardo.jpg', width: D.imageSize[0], height: D.imageSize[1] },
+  image: { href: D.source, width: D.imageSize[0], height: D.imageSize[1] },
   islands: D.islands,
   // L'ordre p01..p20 est conservé : la capitale d'une nation est sa 1re province (create-game-state.js). p21 vient après.
   provinces: D.provinces.map(p => ({
@@ -40,6 +42,8 @@ export const arkenV9Map = Object.freeze({
   })),
   // Mécanique V6 inchangée : une route n'est utilisable que si les deux ports sont construits.
   seaZones: [{ id: SEA_ZONE, connections: [] }],
+  // V17.11 : durées égales par type de route (sea-routes.js routeTurns) : anneau = RULES.naval.ringTurns, île = routeTurns.
+  equalSeaRoutes: true,
   maritimeRoutes: D.seaRoutes.map(r => [r.from, r.to]),
   // Tracé des routes (affichage et flèches d'ordres) : ancre du port de départ → waypoints → port d'arrivée.
   seaLanes: D.seaRoutes.map(r => ({ from: r.from, to: r.to, waypoints: r.waypoints.map(xy), length: r.length })),

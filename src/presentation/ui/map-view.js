@@ -149,7 +149,8 @@ export function render(){
     const d=outlinePath(border.segments);borderLayer.append(E('path',{d,class:`territory ${border.kind}`,'data-nation':border.nationId,'clip-path':`url(#${clipId})`}));}
   if(selected&&!moveSource){const clip=E('clipPath',{id:'clip-selected'});clip.append(E('polygon',{points:polygonPoints(selected)}));defs.append(clip);}
   map.seaLanes.forEach(lane=>routeLayer.push(seaLane(lane)));
-  map.provinces.filter(d=>d.port).forEach(d=>routeLayer.push(portMarker(d)));
+  // V17.11 : les 10 routes arrivent au centre de l'île mystérieuse (rien ne s'y construit) : pas de pastille de port sur l'île.
+  map.provinces.filter(d=>d.port&&!d.neutral).forEach(d=>routeLayer.push(portMarker(d)));
   for(const d of map.provinces){
     const p=state.provinces[d.id],diploState=relationWithPlayer(state,p.ownerId),classes=['province'];
     if(selected===d.id)classes.push('selected');

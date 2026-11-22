@@ -1,4 +1,6 @@
-// Génère src/map/arken-v9-data.js à partir de tools/carte/arken-v9-carte.json (carte validée par Jack).
+// Génère src/map/arken-v9-data.js à partir de tools/carte/arken-v17-11-carte.json (V17.11 : îles espacées, routes en
+// anneau + étoile vers l'île mystérieuse, produit par tools/carte/anneau-v17-11.py depuis arken-v9-carte.json, la carte
+// Leonardo de référence validée par Jack).
 // Usage : node tools/carte/generer-module.mjs
 // Le JSON reste la source maintenable ; le module JS est ce que le jeu charge (pas de fetch, marche hors ligne).
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -6,7 +8,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const src = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v9-carte.json'), 'utf8'));
+const src = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v17-11-carte.json'), 'utf8'));
 
 const data = {
   source: src.source,
@@ -24,9 +26,9 @@ const data = {
 };
 
 const lines = [
-  '// FICHIER GÉNÉRÉ par tools/carte/generer-module.mjs depuis tools/carte/arken-v9-carte.json.',
+  '// FICHIER GÉNÉRÉ par tools/carte/generer-module.mjs depuis tools/carte/arken-v17-11-carte.json.',
   '// Ne pas modifier à la main : modifier le JSON puis relancer le générateur.',
-  '// Coordonnées dans le repère de assets/carte-leonardo.jpg (1536 × 1536).',
+  '// Coordonnées dans le repère de assets/carte-arken-v17-11.jpg (1536 × 1536, même cadre que la carte Leonardo).',
   `export const ARKEN_V9_DATA = ${JSON.stringify(data)};`,
   ''
 ];
