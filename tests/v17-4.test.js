@@ -350,12 +350,14 @@ test('V17.4 : food.js et food-view.js purs (ni DOM, ni hasard, ni date), modules
   assert.ok((src.match(/fireFactorFor\(state,/g) || []).length >= 6);
 });
 
-test('V17.4 : textes — vivres au dixième, « +N / jour », ligne 🌾 de la fiche, carte Ferme', () => {
-  assert.equal(vivres(2950), '29,5'); assert.equal(vivres(90000), '900'); assert.equal(vivres(109750), '1 097,5'); assert.equal(vivres(-250), '−2,5');
-  assert.equal(perDayText(250), '+2,5 / jour'); assert.equal(perDayText(-4000), '−40 / jour'); assert.equal(perDayText(0), '±0 / jour');
+test('V17.4 : textes — vivres (entiers depuis la V17.10.2), « +N / jour », ligne 🌾 de la fiche, carte Ferme', () => {
+  // V17.10.2 (retour bêta de Jack : « 922,5 ») : entiers, arrondis vers le bas (vers zéro pour un négatif).
+  assert.equal(vivres(2950), '29'); assert.equal(vivres(90000), '900'); assert.equal(vivres(109750), '1 097'); assert.equal(vivres(-250), '−2');
+  assert.equal(vivres(92250), '922'); assert.equal(vivres(99), '0'); assert.equal(vivres(-99), '0');
+  assert.equal(perDayText(250), '+2 / jour'); assert.equal(perDayText(-4000), '−40 / jour'); assert.equal(perDayText(0), '±0 / jour');
   const s = game(), cap = capital(s);
-  assert.deepEqual(foodHud(s, ME), { reserve: '900', perDay: '+2,5 / jour', tone: 'ok', note: 'Production 32 · consommation 29,5',
-    label: 'Vivres : 900, +2,5 / jour. Production 32 · consommation 29,5' });
+  assert.deepEqual(foodHud(s, ME), { reserve: '900', perDay: '+2 / jour', tone: 'ok', note: 'Production 32 · consommation 29',
+    label: 'Vivres : 900, +2 / jour. Production 32 · consommation 29' });
   assert.equal(provinceFoodLine(s, cap), '🌾 +8 vivres / jour');
   s.provinces[cap].buildings.farm = 2;
   assert.equal(provinceFoodLine(s, cap), '🌾 +28 vivres / jour · ferme niveau 2');

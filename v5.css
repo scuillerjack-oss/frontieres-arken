@@ -710,3 +710,16 @@ body.rt-on #rankBtn span{font-size:.9rem}body.rt-on #rankBtn i{font-size:1.25rem
 .end-duration{font-size:.82rem;color:#cfdbe0;margin:4px 0}
 .end-ranking .rank-detail{margin-left:30px}
 .end-characters small{color:#a8bbc4}
+
+/* === V17.10.2 — corrections bêta (22/11/2026) ===
+   R2 : le message d'événement en haut tient sur DEUX lignes (police un peu plus petite) au lieu d'une ligne coupée « … » ;
+   le toucher ouvre le message complet (fil des échanges) ou le Journal.
+   R4 : les boutons d'interface sont toujours au-dessus de la carte (fond opaque, ordre d'empilement explicite) : un grand
+   nom de nation ne transparaît plus à travers ⚙, ?, le zoom ou les boutons du bas. */
+body.rt-on .live-line{font-size:.74rem;line-height:1.22;-webkit-line-clamp:2}
+.map-shell{z-index:0}
+#viewport{z-index:0}
+.hud,nav.bottom-bar{z-index:7}
+.zoom button,.boost-map-btn,.whole-map-btn,.gift-btn{background-color:#0a2231}
+.rt-dock{background:#071722}
+#map{-webkit-user-select:none;user-select:none}

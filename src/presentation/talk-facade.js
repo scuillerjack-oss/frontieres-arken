@@ -12,3 +12,4 @@ export const talkOptions = (state, map, args) => pick('talkOptions')(state, map,
 export const queueTalk = (state, map, args) => pick('queueTalk')(state, map, args);
 export const tensionLevel = (state, a, b) => pick('tensionLevel')(state, a, b);
 export const leaderHint = (state, nationId) => pick('leaderHint')(state, nationId);
+export const tensionLabel = value => pick('tensionLabel')(value);

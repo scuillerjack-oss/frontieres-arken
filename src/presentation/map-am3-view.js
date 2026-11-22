@@ -10,7 +10,25 @@ import { provinceIntel, perceivedForce, visibleProvinces } from '../domain/visio
 
 // --- 1. Bouclage horizontal --------------------------------------------------------------------------------------------
 
-/** Ramène x dans [-width/2, width/2[ (width = largeur d'une copie de la carte à l'écran, en pixels). */
+/**
+ * V17.10.2 (retour de Jack : « on a l'impression qu'il y a 15 territoires », « deux fois le même ennemi autour de moi ») :
+ * océan entre deux répétitions du monde, en LARGEURS DE CARTE. C'est la constante unique du bouclage : si la carte
+ * change (nations espacées, île déplacée), tout suit (période, copies, zoom minimal). Avec 2,25, la période vaut
+ * 3,25 largeurs : sur un téléphone couché (~860 × 390), le zoom minimal (WORLD_FIT) montre le monde entier, et jamais
+ * deux fois le même point à l'écran (au plus un bout de répétition sur un bord quand on fait défiler).
+ */
+export const WRAP_OCEAN = 2.25;
+/**
+ * V17.10.2 : au zoom minimal, la carte n'occupe que 72 % de la vue « contain » : le monde entier reste visible ENTRE la
+ * barre d'infos (en haut) et la barre du temps (en bas), avec de la marge (l'autre équipe peut écarter les nations).
+ */
+export const WORLD_FIT = .72;
+/** Période horizontale du bouclage (repère de la carte) : largeur de la carte + océan. */
+export const wrapPeriod = (frame, ocean = WRAP_OCEAN) => Number(frame?.width) * (1 + ocean);
+/** Même période, en pixels au zoom 1, pour une carte de largeur `contentWidth` pixels. */
+export const wrapPeriodPx = (contentWidth, ocean = WRAP_OCEAN) => Number(contentWidth) * (1 + ocean);
+
+/** Ramène x dans [-width/2, width/2[ (width = période du bouclage à l'écran, en pixels). */
 export function wrapX(x, width) {
   const w = Number(width), v = Number(x) || 0;
   if (!(w > 0)) return v;
@@ -21,40 +39,42 @@ export function wrapX(x, width) {
 /**
  * Nombre de copies à dessiner DE CHAQUE CÔTÉ de la carte d'origine pour que l'écran soit toujours couvert, quel que soit
  * x dans [-W/2, W/2[ : la carte d'origine (centrée sur le milieu de l'écran + x) peut finir au milieu de l'écran, il faut
- * alors ceil((largeur écran / 2) / W) copies pour aller jusqu'au bord. W est pris au zoom minimal (le pire cas).
+ * alors ceil((largeur écran / 2) / W) copies pour aller jusqu'au bord. W = période au zoom minimal (le pire cas).
  */
-export function wrapCopyCount(viewportWidth, copyWidthAtMinZoom) {
-  const vw = Number(viewportWidth), w = Number(copyWidthAtMinZoom);
+export function wrapCopyCount(viewportWidth, periodAtMinZoom) {
+  const vw = Number(viewportWidth), w = Number(periodAtMinZoom);
   if (!(vw > 0) || !(w > 0)) return 1;
   return Math.max(1, Math.ceil(vw / 2 / w - 1e-9));
 }
 
-/** Transformation de la carte : zoom borné, vertical borné (comme avant), horizontal bouclé. */
-export function wrapTransform(transform, viewport, content, maxZoom, minZoom, edgeSlack) {
+/** Transformation de la carte : zoom borné, vertical borné (comme avant), horizontal bouclé sur la période (pixels au zoom 1). */
+export function wrapTransform(transform, viewport, content, maxZoom, minZoom, edgeSlack, periodWidth = wrapPeriodPx(content.width)) {
   const bounded = mapFrameTransform(transform, viewport, content, maxZoom, minZoom, edgeSlack);
-  return { scale: bounded.scale, x: wrapX(transform.x, content.width * bounded.scale), y: bounded.y };
+  return { scale: bounded.scale, x: wrapX(transform.x, periodWidth * bounded.scale), y: bounded.y };
 }
 
 /**
  * Toucher une copie : de combien déplacer la carte (en pixels) pour amener la carte d'origine sous le doigt.
- * La copie n°k est dessinée k largeurs à droite de l'origine : on décale de k largeurs (invisible, copies identiques).
+ * La copie n°k est dessinée k périodes à droite de l'origine : on décale de k périodes (invisible, copies identiques).
  */
-export const copyShift = (copyIndex, content, scale) => (Number(copyIndex) || 0) * content.width * scale;
+export const copyShift = (copyIndex, content, scale, periodWidth = wrapPeriodPx(content.width)) => (Number(copyIndex) || 0) * periodWidth * scale;
 
 /**
- * Zoom minimal (règle AM 3) : jamais plus d'UNE largeur de carte à l'écran — la répétition ne se voit qu'en faisant
- * défiler, jamais deux fois la même île à l'écran. Zoom 1 = carte « cover » ; on ne descend pas sous la vue « contain »
- * (monde entier en hauteur) ni sous la largeur de l'écran. Résultat ≤ 1.
+ * Zoom minimal. V17.10.2 (retour de Jack : « il faut réellement pouvoir dézoomer », « je ne vois même pas les informations
+ * complètes de mon pays ») : on descend jusqu'à WORLD_FIT × la vue « contain » (le monde entier, 5 nations et île
+ * mystérieuse, tient à l'écran hors des barres d'interface), sauf si l'écran est plus large qu'une PÉRIODE (carte +
+ * océan) : jamais deux fois le même point à l'écran. Zoom 1 = carte « cover ». Résultat ≤ 1.
+ * Avant (V17.6) : jamais plus d'une largeur de carte, d'où un zoom minimal de 1 en paysage.
  */
-export function wrapMinZoom(viewport, frame) {
+export function wrapMinZoom(viewport, frame, period = wrapPeriod(frame), fit = WORLD_FIT) {
   const vw = Number(viewport?.width), vh = Number(viewport?.height);
   if (!(vw > 0) || !(vh > 0)) return 1;
   const cover = Math.max(vw / frame.width, vh / frame.height), contain = Math.min(vw / frame.width, vh / frame.height);
-  return Math.min(1, Math.max(contain / cover, vw / (frame.width * cover)));
+  return Math.min(1, Math.max(fit * contain / cover, vw / (period * cover)));
 }
 
-/** Repère de la carte (x) ramené dans la carte d'origine [0, largeur[. */
-export const wrapMapX = (x, frameWidth) => ((Number(x) % frameWidth) + frameWidth) % frameWidth;
+/** Repère de la carte (x) ramené dans la période d'origine [0, période[ (période = largeur de carte + océan). */
+export const wrapMapX = (x, period) => ((Number(x) % period) + period) % period;
 
 // --- 2. Niveaux de détail ------------------------------------------------------------------------------------------------
 

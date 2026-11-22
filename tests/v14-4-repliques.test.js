@@ -94,7 +94,7 @@ test('répliques : 80 tours IA contre IA — aucune phrase redite par un même d
         set.add(e.text);
         assert.doesNotMatch(e.text, /[{}]|undefined|NaN|\b0 tour\b|  /, e.text);
         assert.ok(e.text.length <= 250, `${e.text.length} caractères`);
-        assert.match(e.text, /tour|guerre|alliance|trêve|tension|province|soldats|voisines|frontière|fait face/, `contexte : ${e.text}`);
+        assert.match(e.text, /tour|guerre|alliance|trêve|tension|relations|rupture|province|soldats|voisines|frontière|fait face/, `contexte : ${e.text}`); // V17.10.2 : tension dite en mots
       }
     }
     assert.ok(total > 20, `${seed} : ${total} messages`);
