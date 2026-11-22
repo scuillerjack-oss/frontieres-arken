@@ -93,3 +93,18 @@ Traduit en tâches :
       territoires ») ; plus d'océan entre deux répétitions, pour qu'on ne voie jamais deux fois la même nation à l'écran
       en même temps, ou presque. Avec R6 (dézoom).
 - Plus tard : Jack enverra un schéma plus propre du plan des routes.
+
+### 22/11/2026 — 8 h 42 — schéma des routes (`docs/assets/schema-routes-jack-2026-11-22.jpg`)
+> Je te fais un schéma de ce que j'aimerais. C'est à main levée, évidemment. Mais au moins, tu comprendras un petit peu
+> mieux. Chaque espèce de cercle dessiné à main levée, volontairement pas droit, et coupé en 4, sont les nations. Le
+> cercle au milieu est l'île mystérieuse. C'est à main levée, donc l'échelle n'est pas bonne. C'est juste pour que tu
+> comprennes les axes maritimes que j'aimerais. Sur mon schéma, je vais les faire de 2 couleurs pour que tu puisses les
+> voir du premier coup d'œil. En rouge, ce sont les axes maritimes, les routes maritimes entre nations. Et en vert, ce
+> qui permet d'aller à l'île mystérieuse. Comme tu peux le voir, même sans passer par l'île mystérieuse, chaque nation
+> sont reliées les unes aux autres. Je me fiche que ça fasse la forme d'un triangle, d'un rectangle, ou de que sais-je.
+> Du moment que chaque port est relié à l'île mystérieuse, et comme tu le sais, il y a 2 ports par nation.
+
+Lecture du schéma (précise R7/R9/R10) : 5 nations (4 provinces chacune) disposées en couronne autour de l'île.
+Chaque nation a 2 ports, un à chaque extrémité, tourné vers sa voisine. **Rouge** : routes courtes port à port entre
+nations voisines (5 routes, l'anneau). **Vert** : 10 routes droites, une par port, vers l'île mystérieuse au centre
+(longues, toutes de même longueur). Aucun croisement.
