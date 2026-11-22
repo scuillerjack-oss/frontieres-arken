@@ -186,3 +186,12 @@ body.rt-on nav.bottom-bar #rankBtn i{font-size:1.2rem}
   dialog[open] > #miniTuto.tuto-full{display:block;max-height:34dvh}
   dialog[open] > #miniTuto.tuto-full > .mini-tuto-actions{flex-direction:row}
 }
+/* === V17.10.2 — corrections bêta (22/11/2026), téléphone couché ===
+   R2 : bandeau du haut sur deux lignes, police adaptée, marges réduites (les alertes restent dessous, à +50 px).
+   R4 : ⚙, ?, zoom et boutons posés sur la carte : fond opaque, au-dessus de la carte. */
+@media (orientation:landscape) and (max-height:560px){
+  body.rt-on .live-bar{padding:4px 10px 4px 9px;max-height:44px}
+  body.rt-on .live-line{font-size:.72rem;line-height:1.2;-webkit-line-clamp:2}
+  .hud .icon-btn{background:#071722}
+  .zoom button,.whole-map-btn{background:#071722}
+}

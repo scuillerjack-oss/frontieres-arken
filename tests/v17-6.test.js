@@ -10,7 +10,7 @@ import { createGameState } from '../src/state/create-game-state.js';
 import { provinceIntel, visibleProvinces } from '../src/domain/vision.js';
 import {
   DETAIL_THRESHOLDS, badgeTone, copyShift, detailLevel, formatTroops, iconScale, nationLabels, troopBadge, troopBadges,
-  wrapCopyCount, wrapMapX, wrapMinZoom, wrapTransform, wrapX
+  wrapCopyCount, wrapMapX, wrapMinZoom, wrapTransform, wrapX, WRAP_OCEAN, WORLD_FIT, wrapPeriod, wrapPeriodPx
 } from '../src/presentation/map-am3-view.js';
 
 const read = p => readFileSync(join(root, p), 'utf8');
@@ -53,34 +53,45 @@ test('V17.6 : wrapTransform — zoom borné, vertical borné comme avant, horizo
   const viewport = { width: 844, height: 390 }, content = { width: 844, height: 844 }, minZoom = 390 / 844;
   const t = wrapTransform({ scale: 9, x: 5000, y: -1e6 }, viewport, content, 3, minZoom, .22);
   assert.equal(t.scale, 3);
-  assert.ok(Math.abs(t.x) <= content.width * 3 / 2);
+  assert.ok(Math.abs(t.x) <= wrapPeriodPx(content.width) * 3 / 2, 'V17.10.2 : bouclé sur la période (carte + océan)');
   assert.ok(t.y > -1e6 && t.y < 0, 'vertical borné');
   const low = wrapTransform({ scale: .01, x: 1e4, y: 0 }, viewport, content, 3, minZoom, .22);
   assert.equal(low.scale, minZoom);
-  assert.ok(Math.abs(low.x) <= 195 + 1e-9);
+  assert.ok(Math.abs(low.x) <= wrapPeriodPx(content.width) * minZoom / 2 + 1e-9);
 });
 
-test('V17.6 : toucher une copie → décalage d’un nombre entier de copies ; repère ramené dans la carte d’origine', () => {
-  const content = { width: 844, height: 844 };
-  assert.equal(copyShift(1, content, 2), 1688);
-  assert.equal(copyShift(-2, content, .5), -844);
-  assert.equal(copyShift('1', content, 1), 844, 'data-copy est une chaîne');
-  assert.equal(wrapMapX(1536 + 232, 1536), 232);
-  assert.equal(wrapMapX(-1536 + 232, 1536), 232);
+test('V17.6 : toucher une copie → décalage d’un nombre entier de périodes (V17.10.2 : carte + océan) ; repère ramené dans la période d’origine', () => {
+  const content = { width: 844, height: 844 }, P = wrapPeriodPx(844);
+  assert.equal(P, 844 * (1 + WRAP_OCEAN));
+  assert.equal(copyShift(1, content, 2), 2 * P);
+  assert.equal(copyShift(-2, content, .5), -P);
+  assert.equal(copyShift('1', content, 1), P, 'data-copy est une chaîne');
+  assert.equal(copyShift(1, content, 1, 844), 844, 'période explicite');
+  const W = wrapPeriod(map.frame);
+  assert.equal(wrapMapX(W + 232, W), 232);
+  assert.equal(wrapMapX(-W + 232, W), 232);
 });
 
-test('V17.6 : zoom minimal — jamais plus d’une largeur de carte à l’écran (jamais deux fois la même île)', () => {
-  const frame = map.frame;
-  for (const vp of [{ width: 844, height: 390 }, { width: 390, height: 844 }, { width: 667, height: 375 }, { width: 915, height: 412 }, { width: 1024, height: 1024 }, { width: 390, height: 640 }]) {
-    const z = wrapMinZoom(vp, frame), cover = Math.max(vp.width / frame.width, vp.height / frame.height);
+test('V17.10.2 : zoom minimal — le monde entier d’un coup (5 nations + île), jamais deux fois le même point à l’écran', () => {
+  const frame = map.frame, P = wrapPeriod(frame);
+  assert.ok(WRAP_OCEAN >= 1, 'nettement plus d’océan entre deux répétitions qu’une largeur de carte');
+  assert.equal(P, frame.width * (1 + WRAP_OCEAN));
+  // Étendue réelle du monde (toutes les provinces, île mystérieuse comprise), repère de la carte.
+  const pts = map.provinces.flatMap(d => d.geometry.points), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const world = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  for (const vp of [{ width: 860, height: 390 }, { width: 844, height: 390 }, { width: 915, height: 412 }, { width: 667, height: 375 }, { width: 390, height: 844 }, { width: 1024, height: 1024 }, { width: 390, height: 640 }]) {
+    const z = wrapMinZoom(vp, frame), cover = Math.max(vp.width / frame.width, vp.height / frame.height), k = cover * z; // pixels par unité de carte
     assert.ok(z <= 1, JSON.stringify(vp));
-    assert.ok(frame.width * cover * z >= vp.width - 1e-9, `une copie couvre au moins la largeur de l’écran ${JSON.stringify(vp)}`);
-    // Avec ce zoom, une seule copie de chaque côté suffit toujours.
-    assert.equal(wrapCopyCount(vp.width, frame.width * cover * z), 1, JSON.stringify(vp));
+    // Le monde entier tient à l'écran avec de la marge (barres d'interface en haut et en bas : ~60 px chacune en paysage).
+    assert.ok((world.y1 - world.y0) * k <= vp.height * .75 && (world.x1 - world.x0) * k <= vp.width * .75, `monde entier visible ${JSON.stringify(vp)}`);
+    assert.ok(vp.width <= P * k + 1e-6, `jamais deux fois la même nation ${JSON.stringify(vp)}`);
+    assert.equal(wrapCopyCount(vp.width, P * k), 1, JSON.stringify(vp));
   }
-  assert.equal(wrapMinZoom({ width: 844, height: 390 }, frame), 1, 'paysage : la carte remplit la largeur');
-  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame) - 390 / 844) < 1e-9, 'portrait : toute la largeur de la carte, pas plus');
+  // Téléphone couché de Jack (~860 × 390) : bien plus dézoomé qu'avant (V17.6 : zoom minimal 1, Solmara ne tenait pas).
+  assert.ok(wrapMinZoom({ width: 860, height: 390 }, frame) < .5);
+  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame) - WORLD_FIT * 390 / 844) < 1e-9, 'portrait : toute la largeur de la carte, avec de la marge');
   assert.equal(wrapMinZoom({ width: 0, height: 0 }, frame), 1);
+  assert.equal(wrapMinZoom({ width: 844, height: 390 }, frame, frame.width, 1), 1, 'sans océan ni marge : la règle V17.6 (une largeur de carte)');
 });
 
 // --- Niveaux de détail -------------------------------------------------------------------------------------------------
@@ -102,7 +113,7 @@ test('V17.6 : niveaux de détail selon les pixels par unité de carte (monde →
   assert.ok(iconScale(.46) * .46 < iconScale(1), 'mais restent plus petites à l’écran vue du monde');
 });
 
-test('V17.6 : CSS — détails masqués vue du monde (noms de provinces, bâtiments), sur #mapWorld pour que les copies suivent', () => {
+test('V17.6 : CSS — détails masqués vue du monde (noms de provinces, bâtiments), sur #mapWorld et #mapBase pour que les copies suivent', () => {
   const css = read('v5.css');
   assert.match(css, /\.detail-0 \.province-label \.name,\.detail-0 \.province-label \.building/);
   assert.match(css, /\.detail-1 \.nation-name\{opacity:/);
@@ -111,7 +122,8 @@ test('V17.6 : CSS — détails masqués vue du monde (noms de provinces, bâtime
   assert.match(css, /#map\{overflow:visible\}/);
   const app = readSource('app.js');
   assert.match(app, /setAttribute\('class',`detail-\$\{level\}`\)/, 'classe de détail posée sur #mapWorld');
-  assert.match(app, /E\('use',\{href:'#mapWorld',x:k\*FRAME\.width/, 'copies <use> décalées d’une largeur de carte');
+  assert.match(app, /E\('use',\{href,x:k\*PERIOD/, 'V17.10.2 : copies <use> décalées d’une période (carte + océan)');
+  assert.match(app, /export const PERIOD = wrapPeriod\(FRAME\)/, 'une seule constante (WRAP_OCEAN) décide de l’écart');
   assert.match(app, /addEventListener\('click',onCopyClick,true\)/, 'toucher sur une copie rejoué sur l’origine');
 });
 

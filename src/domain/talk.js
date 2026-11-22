@@ -486,6 +486,7 @@ export function publishTalk(state, { from, to = null, tone, text, replyTo = null
   if (to) {
     // V14.2 : la personnalité du destinataire change l'effet (Conquérant provoqué, Héros charmé, Bâtisseur indifférent).
     if (tension) { addTension(state, from, to, talkTensionDelta(state, from, to, tone), 'talk'); noteTalkEffect(state, from, to, tone); }
+    msg.tension = getTension(state, from, to); // V17.10.2 : tension au moment du message (affichée si elle a changé depuis)
     if (state.controllers?.[to] === 'human' && awaitReply && !replyTo) {
       const list = (state.talkPending[to] ||= []);
       list.push(msg.id);

@@ -10,7 +10,7 @@ import { $, nation, toast } from './src/presentation/ui/base.js';
 import { openBoosts, startPlay } from './src/presentation/ui/boosts-ui.js';
 import { beginNewGame, continueSavedGame, setup, showWelcome } from './src/presentation/ui/game-flow.js';
 import {
-  MAX_ZOOM, applyLaunchView, clampTransform, drag, frameSize, ignoreClickUntil, measureFrame, minZoom, pinchStart,
+  MAX_ZOOM, applyLaunchView, centerIfWholeMap, clampTransform, drag, frameSize, ignoreClickUntil, measureFrame, minZoom, pinchStart,
   pinching, pointerDistance, pointers, render, scale, setDrag, setIgnoreClickUntil, setPinchStart, setPinching,
   setScale, setTx, setTy, tx, ty, updateLabelScale, viewport, zoomBy
 } from './src/presentation/ui/map-view.js';
@@ -45,7 +45,7 @@ viewport.addEventListener('pointermove',event=>{
   if(!drag.panning&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>6){drag.panning=true;viewport.setPointerCapture?.(drag.pointerId);setIgnoreClickUntil(Date.now()+400);}
   if(drag.panning){setTx(tx+(event.clientX-drag.lastX));setTy(ty+(event.clientY-drag.lastY));drag.lastX=event.clientX;drag.lastY=event.clientY;clampTransform();}
 });
-const endPointer=event=>{pointers.delete(event.pointerId);if(pointers.size<2&&pinching){setPinching(false);setPinchStart(null);setIgnoreClickUntil(Date.now()+600);updateLabelScale();}if(drag?.pointerId===event.pointerId){if(drag.panning){setIgnoreClickUntil(Date.now()+400);tuto('pan');}setDrag(null);}}; // V17.9 : tutoriel (faire glisser la carte)
+const endPointer=event=>{pointers.delete(event.pointerId);if(pointers.size<2&&pinching){setPinching(false);setPinchStart(null);setIgnoreClickUntil(Date.now()+600);centerIfWholeMap();updateLabelScale();}if(drag?.pointerId===event.pointerId){if(drag.panning){setIgnoreClickUntil(Date.now()+400);tuto('pan');}setDrag(null);}}; // V17.9 : tutoriel (faire glisser la carte)
 viewport.addEventListener('pointerup',endPointer);viewport.addEventListener('pointercancel',endPointer);
 
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());

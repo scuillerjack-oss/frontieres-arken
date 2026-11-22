@@ -1779,3 +1779,48 @@ avec marge 1,3), `v17-7` (🎁), `v17-9` et `v16-2` (textes de l'île et de l'ai
   économie +20 %, Valmorne renforcée au départ, difficulté (un joueur « moyen » finit 1er dans ~14 % des parties) ;
   niveaux Facile / Normal / Difficile prévus après la bêta. Fiche Play Store à réécrire pour le temps réel avant
   toute publication. Produit `premium` à créer dans la Play Console avant la bêta Google Play.
+
+## V17.10.2 — corrections bêta (22/11/2026)
+Retours de Jack sur la v17.10.1+947c86f (temps réel, téléphone Android couché ~860 × 390). Aucune règle de jeu ni
+d'économie changée.
+
+- **R1 — Tension dite en mots, cohérente avec l'en-tête.** Cause : la phrase « La tension entre nous atteint 10 % » était
+  composée AVANT l'effet du message lui-même (un message hostile ajoute +20 : 10 % → 30 %, « tendu ») ; la tension est
+  bien symétrique, rien n'était figé ailleurs. Décision de Jack : un dirigeant ne cite plus jamais de pourcentage. Le
+  fragment « tension » de `src/domain/talk-compose.js` dit désormais le palier en mots (`TENSION_WORDS` : calme / tendu /
+  hostile / au bord de la guerre × hostile / neutre / amical, ex. « La tension monte entre nos deux pays. », « Nous sommes
+  au bord de la rupture. »), le palier étant celui qui RÉSULTE du message (`talkedTension` : effet inclus, plafond d'alliance
+  ou de trêve ; pour un message du joueur, seulement la personnalité révélée ; aucun effet pour une réponse à une demande
+  d'aide). Les pourcentages restent dans l'interface. Le message garde la tension du moment (`tension`) : si le palier a
+  changé depuis, l'en-tête « Répondre à … » ajoute « · TENDU LORS DU MESSAGE ». Pas de traduction anglaise dans le jeu.
+- **R2 — Bandeau du haut lisible.** Deux lignes (police 0,72 rem en paysage) au lieu d'une ligne coupée « … » ; texte de
+  pause raccourci : « En pause — touchez ▶ pour reprendre ». Toucher le bandeau ouvre le fil des échanges (message complet)
+  quand il montre un message, sinon le Journal. Boutons voisins inchangés.
+- **R3 — Vivres entiers** partout (`vivres()` de `src/presentation/food-view.js` : arrondi vers le bas, vers zéro pour un
+  négatif) : « 922,5 » → « 922 », « +8,5/j » → « +8/j ». Le moteur compte toujours en centièmes.
+- **R4 — Ordre d'affichage de la carte.** Cause : les copies du défilement sans fin (`<use>`) étaient dessinées après la
+  carte d'origine ; le grand nom d'une nation proche du bord, dans une copie, passait devant les drapeaux, étoiles,
+  pastilles et « ? » de la carte voisine ; et les boutons ronds (⚙, ?, zoom) étaient translucides. Correction : deux étages
+  répétés chacun par leurs copies — `#mapBase` (fond, provinces, liserés, noms de nations) puis `#mapWorld` (routes,
+  drapeaux, étoiles, pastilles, « ? », icônes) ; boutons opaques, empilement explicite (carte z 0, barres z 7) ; pas de
+  sélection de texte sur la carte.
+- **R6 — Vrai dézoom.** Le zoom minimal (boutons − et pincement) montre maintenant le monde entier (5 nations + île
+  mystérieuse) entre la barre d'infos et la barre du temps : `WORLD_FIT` = 72 % de la vue « contain » (avant : zoom
+  minimal 1 en paysage, Solmara ne tenait pas à l'écran). Arrivé au zoom minimal, la vue se recentre sur le monde. Vue du
+  monde : noms de nations, pastilles, capitales ; noms de provinces et bâtiments en zoomant (niveaux existants).
+- **R12 — Océan entre deux répétitions du monde.** Constante unique `WRAP_OCEAN` (= 2,25 largeurs de carte, dans
+  `src/presentation/map-am3-view.js`) : période = carte + océan ; copies, bouclage, toucher d'une copie et zoom minimal la
+  suivent. Au zoom minimal, jamais deux fois le même point à l'écran (au plus un bout de répétition sur un bord en faisant
+  défiler). Routes maritimes, ports et `src/map/arken-v9-map.js` non touchés (équipe V17.11-routes).
+- **Non fait / à savoir** : la marge de glisse verticale (22 %) n'a pas été augmentée ; elle permet déjà de remonter le bas
+  de la carte au-dessus de la barre du temps.
+
+**Empreintes du tour par tour** (`tools/v17/empreintes-tour-par-tour-v16.4.1*.json`) : seules les parties sont régénérées,
+car les textes des dirigeants ont changé. Preuve que rien d'autre ne bouge : mêmes empreintes, textes masqués (`text`,
+`talkMemory`, `preview`, tension du message), entre la V17.10.1 et la V17.10.2, sur 80 et 40 tours ; classement, tour de
+fin, vainqueur et nombre d'événements identiques.
+
+**Tests** : `tests/v17-10-2.test.js` (10 tests : R1 à R6/R12) ; modifiés : `v17-6` (bouclage sur la période, zoom minimal
+« monde entier »), `v17-4` (vivres entiers), `v14-4-repliques` (contexte « relations / rupture »), versions.
+**Vérifié** dans Chrome mobile simulé (Playwright, 860 × 390, échelle 3) : nouvelle partie, ~45 jours en temps réel,
+bandeau, zoom minimal, glisse jusqu'à la répétition, noms sous les boutons, fil des échanges et réponse à un message.
