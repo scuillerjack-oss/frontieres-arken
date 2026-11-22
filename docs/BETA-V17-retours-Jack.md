@@ -108,3 +108,10 @@ Lecture du schéma (précise R7/R9/R10) : 5 nations (4 provinces chacune) dispos
 Chaque nation a 2 ports, un à chaque extrémité, tourné vers sa voisine. **Rouge** : routes courtes port à port entre
 nations voisines (5 routes, l'anneau). **Vert** : 10 routes droites, une par port, vers l'île mystérieuse au centre
 (longues, toutes de même longueur). Aucun croisement.
+
+### 22/11/2026 — 8 h 46 (`docs/assets/beta-v17-zoom-max-2026-11-22.jpg`)
+> Une autre "preuve" que de zoomer est indispensable ! Comme tu peux le voir sur la photo, je suis dézoomé au maximum.
+> Je ne vois même pas les informations complètes de mon pays. Je ne parle même pas de celles des autres.
+
+→ Confirme R6 (priorité haute). Sur la capture : au zoom minimal, Solmara ne tient même pas à l'écran ; une armée
+en marche (« 30 j ») est cachée sous la barre du temps en bas ; vivres encore à virgule (R3).
