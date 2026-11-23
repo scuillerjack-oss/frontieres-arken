@@ -148,8 +148,8 @@ test('V17.11 : interface — ancres de port visibles à tous les zooms (R8), pas
   assert.doesNotMatch(css, /\.detail-0 \.port-marker/, 'aucun zoom ne cache les ports (retour R8 de Jack)');
   const view = readFileSync(join(root, 'src/presentation/ui/map-view.js'), 'utf8');
   assert.match(view, /map\.provinces\.filter\(d=>d\.port&&!d\.neutral\)\.forEach\(d=>routeLayer\.push\(portMarker\(d\)\)\)/);
-  assert.equal(map.image.href, 'assets/carte-arken-v17-11.jpg');
-  assert.ok(readFileSync(join(root, 'sw.js'), 'utf8').includes("'./assets/carte-arken-v17-11.jpg'"));
+  assert.equal(map.image.href, 'assets/carte-arken-v17-12.jpg'); // V17.12 : îles encore écartées (même dessin)
+  assert.ok(readFileSync(join(root, 'sw.js'), 'utf8').includes("'./assets/carte-arken-v17-12.jpg'"));
   // Île mystérieuse : beaucoup plus petite que chaque nation (aire < 1/10 de la plus petite nation).
   const area = pts => Math.abs(pts.reduce((s, [x, y], i) => { const [u, v] = pts[(i + 1) % pts.length]; return s + x * v - u * y; }, 0) / 2);
   const nationArea = n => map.provinces.filter(p => p.initialOwner === n).reduce((s, p) => s + area(p.geometry.points), 0);

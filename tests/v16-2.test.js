@@ -64,10 +64,12 @@ test('carte : p21 « Île mystérieuse », une province neutre au centre (petite
   // dessin à l'échelle 0,75) : environ 95 × 135 px, son repère au milieu.
   const xs = d.geometry.points.map(p => p[0]), ys = d.geometry.points.map(p => p[1]);
   assert.ok(Math.max(...xs) - Math.min(...xs) < 110 && Math.max(...ys) - Math.min(...ys) < 150, 'petite île');
-  assert.ok(Math.min(...xs) >= 600 && Math.max(...xs) <= 800 && Math.min(...ys) >= 600 && Math.max(...ys) <= 820, 'contour au centre');
+  // V17.12 : cadre agrandi (1826 × 1900) ; l'île reste au milieu de la couronne, près du centre du cadre.
+  const { width: FW, height: FH } = map.frame, mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
+  assert.ok(Math.abs(mx - FW / 2) <= .1 * FW && Math.abs(my - FH / 2) <= .1 * FH, 'contour au centre');
   // V17.11 : les 10 routes arrivent au centre de l'île (point de port = repère de l'île).
   assert.deepEqual(d.port.anchor, d.markerAnchor);
-  assert.equal(map.image.href, 'assets/carte-arken-v17-11.jpg', 'V17.11 : la carte Leonardo, îles espacées (même dessin)');
+  assert.equal(map.image.href, 'assets/carte-arken-v17-12.jpg', 'V17.12 : la carte Leonardo, îles écartées (même dessin)');
 });
 
 test('carte : V17.11 — 10 routes vers l’île (une par point de port, 2 par nation), toutes de même longueur ; l’anneau ne change pas', () => {
@@ -83,7 +85,7 @@ test('carte : V17.11 — 10 routes vers l’île (une par point de port, 2 par n
   assert.equal(RULES.mysteryIsland.routeTurns, 4);
   for (const [a, b] of map.maritimeRoutes.filter(r => !r.includes(P))) assert.equal(seaRoutesFrom(map, a).find(r => r.via === b).turns, 2);
   // Le module de carte généré est à jour avec le JSON (tools/carte).
-  const json = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v17-11-carte.json'), 'utf8'));
+  const json = JSON.parse(readFileSync(join(root, 'tools/carte/arken-v17-12-carte.json'), 'utf8'));
   assert.ok(json.provinces.some(p => p.id === P && p.neutral && p.nation === null));
   assert.equal(json.seaRoutes.length, map.maritimeRoutes.length);
 });

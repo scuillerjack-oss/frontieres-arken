@@ -59,7 +59,8 @@ test('le convoi avance d\'une étape par tour et arrive au bout de turns inter-t
   s.provinces.p14.ownerId = 'valmorne'; // tête de pont déjà tenue
   const before = s.provinces.p14.units.infantry;
   assert.equal(queueMoveOrder(s, map, { nationId: 'valmorne', fromId: 'p03', toId: 'p14', units: { infantry: 60 } }).ok, true);
-  const turns = seaTravelTurns(lane('p03', 'p14').length);
+  // V17.12 : la longueur dessinée ne compte plus (îles écartées : 435 px) ; durée = celle de la route (anneau, 2 tours).
+  const turns = sea(s, 'p03').find(d => d.id === 'p14').turns;
   assert.equal(turns, 2);
   resolveInterturn(s, map);
   assert.equal(s.provinces.p03.units.infantry, 40, 'troupes embarquées');

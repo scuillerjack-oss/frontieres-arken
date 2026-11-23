@@ -2,6 +2,8 @@
 // V16.2 : + l'île mystérieuse (p21, neutre, une seule province) au centre, reliée par 5 routes (une par nation).
 // V17.11 (schéma de Jack) : îles espacées en couronne autour de l'île mystérieuse (assets/carte-arken-v17-11.jpg, même
 // dessin, échelle 0,75) ; 15 routes droites : l'anneau (5, port à port entre voisines) + 10 routes port → île, égales.
+// V17.12 (retour de bêta du 23/11) : îles encore écartées (assets/carte-arken-v17-12.jpg, cadre 1826 × 1900), même taille ;
+// uniquement visuel (les durées ne dépendent pas de la longueur dessinée : equalSeaRoutes).
 // Même format que arkenV1Map (voir validate-map.js) : le moteur ne lit que les identifiants,
 // les voisinages terrestres et les routes maritimes ; la géométrie ne sert qu'à l'affichage.
 import { MAP_SCHEMA_VERSION } from '../domain/constants.js';

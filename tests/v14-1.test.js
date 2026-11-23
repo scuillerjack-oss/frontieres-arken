@@ -15,6 +15,7 @@ import { reputation, ensureLeaders } from '../src/domain/leaders.js';
 import { pickLine, publishTalk, talkLineLists, allTalkLines, sameTurnTexts } from '../src/domain/talk.js';
 import { RULES } from '../src/domain/constants.js';
 import { launchView, wholeMapView, showsWholeMap, screenPoint, WHOLE_MAP_LABEL, LAUNCH_MAX_ZOOM } from '../src/presentation/launch-view.js';
+import { zoomOneScale } from '../src/presentation/map-am3-view.js';
 import { journalCategoryClass } from '../src/presentation/map-orders-view.js';
 import { arkenV9Map as map } from '../src/map/arken-v9-map.js';
 import { createGameState } from '../src/state/create-game-state.js';
@@ -263,13 +264,17 @@ test('simulation : jamais deux fois la même réplique au même tour entre deux 
 // --- 5. Carte centrée sur la capitale au lancement ----------------------------------------------------------------------
 test('carte au lancement : la capitale du joueur est au centre de l\'écran du téléphone', () => {
   const frame = map.frame, viewport = { width: 390, height: 660 };
-  const cover = Math.max(viewport.width / frame.width, viewport.height / frame.height);
+  // V17.12 : zoom 1 = « cover » de l'ancien cadre 1536 × 1536 (zoomOneScale), comme l'interface (map-view.js measureFrame).
+  const cover = zoomOneScale(viewport);
   const content = { width: frame.width * cover, height: frame.height * cover };
   for (const n of map.nations) {
     const capital = map.provinces.find(p => p.id === createGameState({ map, playerNationId: n.id }).nations[n.id].capitalId);
-    const view = launchView({ anchor: capital.markerAnchor, frame, viewport, content });
+    // V17.6 : la carte boucle horizontalement : l'interface centre la capitale en x par la translation (applyLaunchView),
+    // seul le vertical décide du zoom de lancement.
+    const anchor = { x: frame.width / 2, y: capital.markerAnchor.y };
+    const view = launchView({ anchor, frame, viewport, content });
     assert.ok(view.scale >= 1 && view.scale <= LAUNCH_MAX_ZOOM, `${n.id} zoom ${view.scale}`);
-    const at = screenPoint({ point: capital.markerAnchor, frame, viewport, content, view });
+    const at = screenPoint({ point: anchor, frame, viewport, content, view });
     // Centrée ; une capitale collée au bord de la carte (Valmorne, Glacenoire : tout en haut) reste à moins de 15 % de la
     // hauteur du centre (zoom limité à 1,5 pour garder les voisins en vue, glisse limitée à la marge habituelle du doigt).
     assert.ok(Math.abs(at.x - viewport.width / 2) < 1, `${n.id} : x = ${Math.round(at.x)}`);
@@ -279,7 +284,7 @@ test('carte au lancement : la capitale du joueur est au centre de l\'écran du t
   }
   // Valmorne (à l'ouest) : avant la V14.1, le zoom 1 ne permettait pas de la centrer (la carte montrait l'ouest).
   const val = map.provinces.find(p => p.id === 'p01');
-  assert.ok(launchView({ anchor: val.markerAnchor, frame, viewport, content }).scale > 1);
+  assert.ok(launchView({ anchor: { x: frame.width / 2, y: val.markerAnchor.y }, frame, viewport, content }).scale > 1);
   // « Voir toute la carte » : zoom minimal, centré ; le bouton bascule ensuite vers la capitale.
   const minZoom = Math.min(viewport.width / frame.width, viewport.height / frame.height) / cover;
   assert.deepEqual(wholeMapView(minZoom), { scale: minZoom, x: 0, y: 0 });

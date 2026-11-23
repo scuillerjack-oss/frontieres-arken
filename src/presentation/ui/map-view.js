@@ -16,7 +16,7 @@ import { playSfx, syncMusic } from './audio.js';
 import { relationWithPlayer, totalArmy } from '../overview-view.js';
 import { tensionLevel } from '../talk-facade.js';
 import { MYSTERY_ISLAND_ID, islandMapBadge } from '../mystery-island-view.js';
-import { copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapPeriod, wrapTransform } from '../map-am3-view.js';
+import { ZOOM_REFERENCE, copyShift, detailLevel, wrapMinZoom, iconScale, nationLabels, troopBadges, wrapCopyCount, wrapPeriod, wrapTransform, zoomOneScale } from '../map-am3-view.js';
 import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
@@ -31,10 +31,11 @@ export let scale = 1, tx = 0, ty = 0, drag = null;
 export let pointers = new Map(), pinching = false, pinchStart = null, ignoreClickUntil = 0;
 export let frameSize={width:0,height:0}, mapContentSize={width:0,height:0}, transformFrame=0;
 // V9 : repère de la carte Leonardo (1536 × 1536). Zoom max plus grand que la V6 (2,5) pour viser 20 provinces sur téléphone.
+// V17.12 : cadre agrandi (îles écartées) ; le zoom reste mesuré sur l'ancien cadre (ZOOM_REFERENCE), zoom max inchangé.
 export const FRAME = map.frame, MAX_ZOOM = 3, PAN_SLACK = .22;
 // V17.10.2 : période du défilement sans fin = largeur de la carte + océan (WRAP_OCEAN, map-am3-view.js).
 export const PERIOD = wrapPeriod(FRAME);
-// Zoom 1 = la carte remplit le cadre (« cover ») ; le zoom minimal montre le monde entier (« contain »).
+// Zoom 1 = un cadre de 1536 × 1536 remplirait l'écran (« cover ») ; le zoom minimal montre le monde entier (« contain »).
 export let minZoom = 1;
 // V17.6 : copies de la carte de chaque côté (défilement horizontal sans fin) et niveau de détail courant.
 export let wrapCopies = 1;
@@ -206,8 +207,9 @@ const periodPx=()=>mapContentSize.width*PERIOD/FRAME.width;
 // La carte est un SVG large de (2 × copies + 1) cartes ; l'origine de la transformation est le centre de la carte d'origine,
 // qui reste au centre du cadre : les calculs d'avant (zoom, centrage, vue de lancement) ne changent pas.
 export function measureFrame(){const viewport=$('#viewport'),svg=$('#map');frameSize={width:viewport.clientWidth,height:viewport.clientHeight};if(!frameSize.width||!frameSize.height)return;
-  const cover=Math.max(frameSize.width/FRAME.width,frameSize.height/FRAME.height);
-  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME,PERIOD); // V17.10.2 : le monde entier, jamais deux fois le même point
+  // V17.12 : zoom 1 = « cover » de l'ancien cadre 1536 × 1536 (ZOOM_REFERENCE) : îles à la même taille qu'avant à zoom égal.
+  const cover=zoomOneScale(frameSize,ZOOM_REFERENCE);
+  mapContentSize={width:FRAME.width*cover,height:FRAME.height*cover};minZoom=wrapMinZoom(frameSize,FRAME,PERIOD,undefined,ZOOM_REFERENCE); // V17.10.2 : le monde entier, jamais deux fois le même point
   const copies=wrapCopyCount(frameSize.width,periodPx()*minZoom),changed=copies!==wrapCopies;wrapCopies=copies;
   // SVG large de 2 × copies périodes + une carte ; la carte d'origine reste au centre (origine de la transformation).
   const side=wrapCopies*PERIOD,sidePx=wrapCopies*periodPx();svg.setAttribute('viewBox',`${-side} 0 ${FRAME.width+2*side} ${FRAME.height}`);

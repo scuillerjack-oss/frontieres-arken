@@ -1886,3 +1886,70 @@ Empreintes du tour par tour reprises (`tools/v17/empreintes-tour-par-tour-v17.11
 longueur, routes droites sans croisement, aucune nation inaccessible, marches à terre inchangées, sauvegarde V17.10 avec
 convois en mer, ports visibles) ; modifiés : `marine-v10`, `marine-v13`, `v9-map`, `v16-2`, `v14-1` (Solmara près du bas
 de la carte), `v15-3` (garnison de l'île imprenable pour juger le Bâtisseur), `v17-1` (empreintes), `publication`, versions.
+
+## V17.12 — îles écartées (23/11/2026)
+
+Retour de bêta de Jack (23/11/2026) : depuis le vrai dézoom (V17.10.2), au zoom minimal on voit « une espèce de grosse
+tache » : les 5 nations et l'île mystérieuse serrées au milieu. Demande : **écarter les îles**, proportionnellement
+(exemple indicatif : 2 → 5 entre nations, 4 → 10 pour l'île, soit ≈ ×2,5), **uniquement visuel** : aucune durée, aucune
+règle, aucune taille d'île ne change.
+
+**Ce qui a été fait.**
+- Nouvelle image `assets/carte-arken-v17-12.jpg` (**1826 × 1900** au lieu de 1536 × 1536, 342 Ko au lieu de 308 Ko) :
+  chaque île de la V17.11 est **déplacée** d'un vecteur entier, sans rotation et à la même échelle (0,75 du dessin
+  Leonardo) ; mer de fond de la V17.11 étirée au nouveau cadre. Outils : `tools/carte/anneau-v17-12.py` (à partir de
+  `tools/carte/arken-v17-11-carte.json`, de la carte Leonardo et de `tools/carte/anneau-v17-12-disposition.json`), puis
+  `node tools/carte/generer-module.mjs` → `tools/carte/arken-v17-12-carte.json` et `src/map/arken-v9-data.js`.
+- Disposition choisie par recherche automatique : 10 ports à **600 px** du centre de l'île (au lieu de 430), routes
+  toujours droites, sans croisement ni terre traversée ; chaque ancre de port reste sur la côte de SA province (mêmes
+  10 provinces portuaires ; certaines ancres ont glissé le long de la côte, jusqu’à ~95 px pour Branvale, Valmorne) ; nations dans
+  le même ordre et à peu près aux mêmes angles autour de l'île.
+- **Écarts obtenus** (mer de côte à côte, V17.11 → V17.12) : entre voisines 152 / 124 / 149 / 165 / 366 →
+  **424 / 258 / 390 / 366 / 527 px** (×2,8 / ×2,1 / ×2,6 / ×2,2 / ×1,4 ; **×2,4 en moyenne** hors Valmorne–Roc-Épine,
+  déjà la paire la plus éloignée) ; entre chaque nation et l'île 155 / 312 / 283 / 296 / 249 → **325 / 497 / 466 / 476 /
+  423 px** (×1,6 à ×2,1). Routes dessinées : anneau 142-326 → **322-529 px**, île 430 → **600 px** (×1,4).
+- **Limite (géométrique, à faire juger par Jack)** : avec des îles de taille fixe placées en couronne autour de l'île
+  mystérieuse, écarter les nations agrandit les écarts entre voisines plus vite que la distance à l'île (le tour de la
+  couronne grandit plus vite que son rayon). ×2,5 partout est impossible : avec des routes vers l'île ×2,5 (≈ 1 075 px),
+  deux voisines seraient plus éloignées l'une de l'autre que de l'île. Choix retenu : l'île reste **la plus loin**
+  (chaque route vers l'île dépasse d'au moins 13 % la plus longue route de l'anneau), ce qui plafonne le rayon vers
+  600 px (à 700 px, l'île ne serait plus qu'à 3 % au-delà de Valmorne–Roc-Épine). Le monde grandit d'environ ×1,2 ; les
+  îles paraissent un peu plus petites au zoom minimal (le monde entier doit tenir à l'écran) et la mer entre elles
+  2 à 2,5 fois plus large.
+- **Zoom** : le zoom reste mesuré sur l'ancien cadre (`ZOOM_REFERENCE` = 1536 × 1536, `zoomOneScale` dans
+  `src/presentation/map-am3-view.js`) : zoom 1, **zoom maximal** (3), vue de lancement, taille des icônes et niveaux de
+  détail donnent exactement les mêmes pixels par unité de carte qu'en V17.11 (rien n'est plus petit) ; seul le **zoom
+  minimal** descend plus bas (844 × 390 : 0,269 au lieu de 0,333) pour montrer les 5 nations et l'île, toujours à 72 % de
+  la vue « contain » (`WORLD_FIT`). `wrapMinZoom` prend un cadre de référence (facultatif).
+- **Océan de bouclage** : `WRAP_OCEAN` (2,25 largeurs de carte) inchangé ; la période suit le cadre agrandi (5 935 unités
+  au lieu de 4 992) : au zoom minimal, jamais deux fois le même point, et la répétition voisine est séparée par ~4 300
+  unités de mer, plus de 8 fois l'écart entre deux voisines : on ne croit pas voir deux fois la même nation.
+- Identifiants (nations, p01…p21, carte `arken-v9-leonardo`), voisinages, routes et clé de sauvegarde inchangés.
+  `assets/carte-arken-v17-11.jpg` reste dans le dépôt (supprimer un fichier demande l'accord de Jack) mais n'est plus mis
+  en cache hors ligne ; il est encore copié dans l'APK / AAB (+308 Ko inutiles, à retirer avec l'accord de Jack).
+
+**Durées et règles : strictement identiques.** Anneau `RULES.naval.ringTurns` = 2 tours = 40 jours, île
+`RULES.mysteryIsland.routeTurns` = 4 tours = 80 jours (`map.equalSeaRoutes`) ; marches à terre : les distances internes
+à une île sont identiques au pixel près (coordonnées entières décalées d'un vecteur entier), référence 183,75 inchangée.
+Vision, ballons, bombardement, IA : aucun ne lit les coordonnées (vérifié). Seul endroit qui lisait la longueur dessinée :
+la durée de secours d'un ordre sans durée dans `embark` (`convoys.js`, `seaTravelTurns(longueur)`) — jamais atteinte
+dans les parties mesurées, désormais `routeTurns` (durée par type de route). Preuves :
+- empreintes du tour par tour (`tools/v17/empreintes-tour-par-tour-v17.11*.json`, 80 et 40 tours) : **identiques, non
+  régénérées** (test `v17-1`) ;
+- 10 parties tout-IA de 10 ans en temps réel, V17.11 (commit f5688ac) contre V17.12 : **état complet identique au bit près**
+  (empreinte SHA-256 de l'état tous les 30 jours) ; mêmes mesures : 283 convois dont 14 vers l'île, 220 conquêtes, île
+  prise 3 fois, 8 nations éliminées ;
+- une vraie sauvegarde produite par le code V17.11 (convois en mer vers l'île et vers une voisine,
+  `tests/data/sauvegarde-v17-11.json`) se charge et, 400 jours plus tard, donne exactement l'état calculé en V17.11.
+
+**Tests** : `tests/v17-12.test.js` (7 tests : îles identiques décalées d'un vecteur entier, écarts agrandis et île la plus
+loin, durées 40 / 80 jours et marches identiques, moteur indépendant de la longueur dessinée, sauvegarde V17.11 rejouée au
+bit près, zoom max identique et zoom min = monde entier en 844 × 390, 860 × 390, 667 × 375 et 390 × 844, image en cache et
+de poids raisonnable) ; `tests/v17-11.test.js` (routes droites sans croisement, 10 routes égales…) passe sur la nouvelle
+carte. Modifiés : `marine-v10` (durée lue sur la route, plus sur la longueur), `v14-1` (vue de lancement avec le zoom de
+référence), `v17-6` (zoom minimal avec le cadre de référence), `v9-map` (cadre 1826 × 1900), `v16-2`, `v17-11`,
+`publication` (nouvelle image), versions.
+**Vérifié** dans Chrome mobile simulé (Playwright, 844 × 390, 390 × 844, 667 × 375, échelle 2) : zoom minimal, zoom
+maximal, glisser jusqu'à la répétition, toucher une province (fiche de Branvale), envoyer un convoi Branvale → île
+(« par mer, 80 jours », jeton « 78 j » après 2 jours) ; 0 erreur JS. Captures avant / après au zoom minimal :
+`docs/assets/v17-12-zoom-min-avant-844x390.jpg`, `docs/assets/v17-12-zoom-min-apres-844x390.jpg`.

@@ -3,6 +3,9 @@
 > **V17.11 (22/11/2026)** : carte espacée et 10 routes droites vers l'île mystérieuse (une par point de port), toutes de
 > même durée ; l'anneau garde les mêmes 5 paires de ports, avec une durée unique. Voir `docs/V17-cahier-des-charges.md`,
 > section « V17.11 ». Les longueurs et coordonnées ci-dessous sont celles de la V13.
+>
+> **V17.12 (23/11/2026)** : îles encore écartées (uniquement visuel) : routes vers l'île de 600 px (au lieu de 430), anneau
+> de 322 à 529 px ; durées inchangées (anneau 40 jours, île 80 jours), aucune règle ne lit la longueur dessinée.
 
 > Lot A du cahier V13 (section 1 « Mer »), décisions validées par Jack. Remplace les règles d'embarquement et de
 > débarquement de `V10-marine.md` (durée, convois, interception, escorte et débarquement en mode « landing » inchangés).
