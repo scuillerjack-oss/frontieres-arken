@@ -51,9 +51,9 @@ test('B12 corrigé : le service worker ne met en cache que les réponses valides
   assert.ok(fetchHandler.indexOf('response.clone()') < fetchHandler.indexOf('caches.open'), 'clone avant caches.open');
 });
 
-test('V9 : la carte (V17.11 : carte Leonardo espacée) et les modules de la carte V9 sont mis en cache hors ligne', () => {
+test('V9 : la carte (V17.12 : carte Leonardo, îles écartées) et les modules de la carte V9 sont mis en cache hors ligne', () => {
   const sw = read('sw.js');
-  for (const p of ['./assets/carte-arken-v17-11.jpg', './src/map/arken-v9-map.js', './src/map/arken-v9-data.js']) assert.ok(sw.includes(`'${p}'`), p);
+  for (const p of ['./assets/carte-arken-v17-12.jpg', './src/map/arken-v9-map.js', './src/map/arken-v9-data.js']) assert.ok(sw.includes(`'${p}'`), p);
   // Tout module importé par le jeu est dans la liste du service worker.
   const imports = [...read('app.js').matchAll(/from '\.\/([^']+)'/g)].map(m => m[1]);
   for (const p of imports) assert.ok(sw.includes(`'./${p}'`), `module non mis en cache : ${p}`);

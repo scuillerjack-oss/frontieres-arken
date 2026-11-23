@@ -23,6 +23,16 @@ export const WRAP_OCEAN = 2.25;
  * barre d'infos (en haut) et la barre du temps (en bas), avec de la marge (l'autre équipe peut écarter les nations).
  */
 export const WORLD_FIT = .72;
+/**
+ * V17.12 (retour de Jack du 23/11 : « une espèce de grosse tache » au zoom minimal) : les îles sont écartées, le cadre de la
+ * carte grandit (1536 × 1536 → 1826 × 1900) sans que les îles changent de taille. Le ZOOM reste défini par rapport à
+ * l'ancien cadre : zoom 1 = autant de pixels par unité de carte qu'avant (« cover » d'un cadre de 1536 × 1536). Zoom
+ * maximal, vue de lancement, taille des icônes et niveaux de détail sont donc identiques à la V17.11 ; seul le zoom
+ * minimal descend plus bas, pour montrer le monde entier.
+ */
+export const ZOOM_REFERENCE = Object.freeze({ width: 1536, height: 1536 });
+/** Pixels par unité de carte au zoom 1 (« cover » du cadre de référence). */
+export const zoomOneScale = (viewport, ref = ZOOM_REFERENCE) => Math.max(Number(viewport?.width) / ref.width, Number(viewport?.height) / ref.height);
 /** Période horizontale du bouclage (repère de la carte) : largeur de la carte + océan. */
 export const wrapPeriod = (frame, ocean = WRAP_OCEAN) => Number(frame?.width) * (1 + ocean);
 /** Même période, en pixels au zoom 1, pour une carte de largeur `contentWidth` pixels. */
@@ -66,10 +76,11 @@ export const copyShift = (copyIndex, content, scale, periodWidth = wrapPeriodPx(
  * océan) : jamais deux fois le même point à l'écran. Zoom 1 = carte « cover ». Résultat ≤ 1.
  * Avant (V17.6) : jamais plus d'une largeur de carte, d'où un zoom minimal de 1 en paysage.
  */
-export function wrapMinZoom(viewport, frame, period = wrapPeriod(frame), fit = WORLD_FIT) {
+export function wrapMinZoom(viewport, frame, period = wrapPeriod(frame), fit = WORLD_FIT, ref = frame) {
   const vw = Number(viewport?.width), vh = Number(viewport?.height);
   if (!(vw > 0) || !(vh > 0)) return 1;
-  const cover = Math.max(vw / frame.width, vh / frame.height), contain = Math.min(vw / frame.width, vh / frame.height);
+  // V17.12 : `ref` = cadre qui définit le zoom 1 (ZOOM_REFERENCE dans l'interface ; par défaut le cadre lui-même).
+  const cover = Math.max(vw / ref.width, vh / ref.height), contain = Math.min(vw / frame.width, vh / frame.height);
   return Math.min(1, Math.max(fit * contain / cover, vw / (period * cover)));
 }
 

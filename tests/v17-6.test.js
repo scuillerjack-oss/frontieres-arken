@@ -10,7 +10,7 @@ import { createGameState } from '../src/state/create-game-state.js';
 import { provinceIntel, visibleProvinces } from '../src/domain/vision.js';
 import {
   DETAIL_THRESHOLDS, badgeTone, copyShift, detailLevel, formatTroops, iconScale, nationLabels, troopBadge, troopBadges,
-  wrapCopyCount, wrapMapX, wrapMinZoom, wrapTransform, wrapX, WRAP_OCEAN, WORLD_FIT, wrapPeriod, wrapPeriodPx
+  wrapCopyCount, wrapMapX, wrapMinZoom, wrapTransform, wrapX, WRAP_OCEAN, WORLD_FIT, wrapPeriod, wrapPeriodPx, ZOOM_REFERENCE, zoomOneScale
 } from '../src/presentation/map-am3-view.js';
 
 const read = p => readFileSync(join(root, p), 'utf8');
@@ -80,7 +80,8 @@ test('V17.10.2 : zoom minimal — le monde entier d’un coup (5 nations + île)
   const pts = map.provinces.flatMap(d => d.geometry.points), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   const world = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
   for (const vp of [{ width: 860, height: 390 }, { width: 844, height: 390 }, { width: 915, height: 412 }, { width: 667, height: 375 }, { width: 390, height: 844 }, { width: 1024, height: 1024 }, { width: 390, height: 640 }]) {
-    const z = wrapMinZoom(vp, frame), cover = Math.max(vp.width / frame.width, vp.height / frame.height), k = cover * z; // pixels par unité de carte
+    // V17.12 : zoom 1 = « cover » de l'ancien cadre 1536 × 1536 (ZOOM_REFERENCE), comme l'interface (map-view.js).
+    const z = wrapMinZoom(vp, frame, P, WORLD_FIT, ZOOM_REFERENCE), cover = zoomOneScale(vp), k = cover * z; // pixels par unité de carte
     assert.ok(z <= 1, JSON.stringify(vp));
     // Le monde entier tient à l'écran avec de la marge (barres d'interface en haut et en bas : ~60 px chacune en paysage).
     assert.ok((world.y1 - world.y0) * k <= vp.height * .75 && (world.x1 - world.x0) * k <= vp.width * .75, `monde entier visible ${JSON.stringify(vp)}`);
@@ -88,8 +89,11 @@ test('V17.10.2 : zoom minimal — le monde entier d’un coup (5 nations + île)
     assert.equal(wrapCopyCount(vp.width, P * k), 1, JSON.stringify(vp));
   }
   // Téléphone couché de Jack (~860 × 390) : bien plus dézoomé qu'avant (V17.6 : zoom minimal 1, Solmara ne tenait pas).
-  assert.ok(wrapMinZoom({ width: 860, height: 390 }, frame) < .5);
-  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame) - WORLD_FIT * 390 / 844) < 1e-9, 'portrait : toute la largeur de la carte, avec de la marge');
+  assert.ok(wrapMinZoom({ width: 860, height: 390 }, frame, P, WORLD_FIT, ZOOM_REFERENCE) < .5);
+  const contain = Math.min(390 / frame.width, 844 / frame.height);
+  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame, P, WORLD_FIT, ZOOM_REFERENCE) - WORLD_FIT * contain / zoomOneScale({ width: 390, height: 844 })) < 1e-9, 'portrait : toute la largeur de la carte, avec de la marge');
+  // Sans cadre de référence : le cadre lui-même (règle V17.10.2 inchangée).
+  assert.ok(Math.abs(wrapMinZoom({ width: 390, height: 844 }, frame) - WORLD_FIT * contain / Math.max(390 / frame.width, 844 / frame.height)) < 1e-9);
   assert.equal(wrapMinZoom({ width: 0, height: 0 }, frame), 1);
   assert.equal(wrapMinZoom({ width: 844, height: 390 }, frame, frame.width, 1), 1, 'sans océan ni marge : la règle V17.6 (une largeur de carte)');
 });
@@ -104,8 +108,8 @@ test('V17.6 : niveaux de détail selon les pixels par unité de carte (monde →
   assert.equal(detailLevel(undefined), 0);
   // Téléphone couché 844 × 390 : 0,55 px par unité au zoom 1.
   const k = 844 / 1536;
-  assert.equal(detailLevel(k * wrapMinZoom({ width: 844, height: 390 }, map.frame)), 0, 'paysage, zoom minimal (une largeur de carte) : vue du monde');
-  assert.equal(detailLevel(k * wrapMinZoom({ width: 390, height: 844 }, map.frame)), 0, 'portrait, zoom minimal : vue du monde');
+  assert.equal(detailLevel(k * wrapMinZoom({ width: 844, height: 390 }, map.frame, undefined, undefined, ZOOM_REFERENCE)), 0, 'paysage, zoom minimal (une largeur de carte) : vue du monde');
+  assert.equal(detailLevel(k * wrapMinZoom({ width: 390, height: 844 }, map.frame, undefined, undefined, ZOOM_REFERENCE)), 0, 'portrait, zoom minimal : vue du monde');
   assert.equal(detailLevel(k * 1.3), 1, 'vue de lancement : noms de provinces visibles');
   assert.equal(detailLevel(k * 3), 2, 'zoom maximal');
   // Les icônes grossissent dans le repère de la carte quand on dézoome, rétrécissent quand on zoome.

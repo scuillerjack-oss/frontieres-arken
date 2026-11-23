@@ -117,7 +117,7 @@ test('V13 : la mer est ouverte dans les deux sens dès le tour 1 (ports construi
 
 test('V9 : zones tactiles = polygones dans l\'image, sans chevauchement, centre dans sa province (B7)', () => {
   const { width, height } = map.frame;
-  assert.deepEqual([width, height], [1536, 1536]);
+  assert.deepEqual([width, height], [1826, 1900]); // V17.12 : cadre agrandi (îles écartées), 1536 × 1536 jusqu'à la V17.11
   for (const p of map.provinces) {
     assert.ok(p.geometry.points.length >= 3);
     for (const [x, y] of p.geometry.points) assert.ok(x >= 0 && x <= width && y >= 0 && y <= height, `${p.id} hors image`);

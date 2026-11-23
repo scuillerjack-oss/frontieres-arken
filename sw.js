@@ -11,7 +11,7 @@ const ASSETS=[
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  './assets/carte-arken-v17-11.jpg',
+  './assets/carte-arken-v17-12.jpg',
   './src/domain/alliances-more-lines.js',
   './src/domain/alliances.js',
   './src/domain/boosts.js',

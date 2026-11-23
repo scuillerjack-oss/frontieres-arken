@@ -8,7 +8,7 @@ import {
 import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
 import { addToProvince, emptyForceLocal, fight, lossCount, unitCount } from './battles.js';
-import { isPortPoint, laneOf, seaDestinations, seaRoutesFrom, seaTravelTurns } from './sea-routes.js';
+import { isPortPoint, laneOf, routeTurns, seaDestinations, seaRoutesFrom } from './sea-routes.js';
 import { departureDiplomacy, pairWar, provinceDef } from './shared.js';
 
 // --- V10 marine : convois, étapes en mer, interceptions, débarquements (docs/V10-marine.md) -----------------
@@ -29,7 +29,7 @@ export function stampConvoy(state, t, day = state.day) {
 }
 export function embark(state, map, o, force) {
   const route = seaDestinations(map, o.fromId).find(x => x.id === o.toId)
-    || { via: o.via || o.toId, turns: o.turns || seaTravelTurns(laneOf(map, o.fromId, o.via || o.toId)?.length) };
+    || { via: o.via || o.toId, turns: o.turns || routeTurns(o.fromId, o.via || o.toId, laneOf(map, o.fromId, o.via || o.toId)?.length, map) }; // V17.12 : durée par type de route (jamais la longueur dessinée sur la carte Leonardo)
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   const id = `c${state.transportSequence++}`, turns = seaDuration(state, route.turns);
   state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns, departed: state.turn,
