@@ -141,6 +141,10 @@ function completeRealtime(copy) {
   for (const n of Object.values(copy.nations || {})) n.goldCarry = Math.max(0, Math.floor(Number(n.goldCarry) || 0));
   copy.marches = Array.isArray(copy.marches) ? copy.marches : [];
   copy.marchSequence = Math.max(1, Number(copy.marchSequence) || 1);
+  // V17.13 : itinéraires en cours (déplacements longs), créés au premier ordre d'itinéraire : une partie qui n'en a jamais
+  // donné n'a pas ces champs (état identique au bit près à la V17.12). Itinéraire illisible : écarté.
+  if ('journeys' in copy) copy.journeys = Array.isArray(copy.journeys) ? copy.journeys.filter(j => j && typeof j === 'object' && Array.isArray(j.legs) && j.legs.length && Number.isInteger(j.at) && j.legs[j.at] && j.carried) : [];
+  if ('journeySequence' in copy) copy.journeySequence = Math.max(1, Number(copy.journeySequence) || 1);
   copy.battles = Array.isArray(copy.battles) ? copy.battles : [];
   copy.bombardOrders = Array.isArray(copy.bombardOrders) ? copy.bombardOrders : [];
   copy.endOffer = copy.endOffer && typeof copy.endOffer === 'object' ? copy.endOffer : { peaceSince: null, nextOfferDay: null };

@@ -288,7 +288,10 @@ test('V17.3 : interface — ▶ ⏸ ⏩ et date en bas à droite, cadenas Premiu
   // Le temps ne s'arrête que hors du jeu (Réglages, Aide, Atouts, Palmarès, Premium, fin de partie), pub, arrière-plan.
   assert.match(ui, /OUT_OF_GAME = \['#settingsDialog', '#helpDialog', '#boostDialog', '#palmaresDialog', '#premiumDialog', '#endDialog'\]/);
   assert.doesNotMatch(ui.match(/const OUT_OF_GAME[^\n]*/)[0], /actionDialog|eventDialog|journalDialog|talkDialog/, 'fiches, alertes, journal, échanges : le temps tourne');
-  assert.match(ui, /if \(mode === 'fast' && !isPremium\(\)\) \{ openPremium\(\{ from: 'fast' \}\)/); // V17.7 : vraie offre Premium (achat de test)
+  // V17.7 : vraie offre Premium (achat de test). V17.13 : le verrou passe par fastUnlocked() = Premium, ou gratuit en bêta
+  // interne (BETA_X2_GRATUIT, tests/v17-13.test.js) ; avec le drapeau à false, c'est exactement le verrou Premium d'avant.
+  assert.match(ui, /if \(mode === 'fast' && !fastUnlocked\(\)\) \{ openPremium\(\{ from: 'fast' \}\)/);
+  assert.match(ui, /export const fastUnlocked = \(\) => fastSpeedUnlocked\(profile\);/);
   assert.match(ui, /createDayClock\(\{ now: t, paused: true \}\)/, 'reprise toujours en pause');
   assert.match(ui, /if\(rt\)world\.append\(safeEngine\(\(\)=>unitsLayer\(\)/, 'icônes DANS #mapWorld (copies <use>)');
   assert.match(ui, /if\(!rt\)save\(\)/, 'plus de sauvegarde à chaque rendu en temps réel');

@@ -6,6 +6,7 @@ import { productById } from '../../domain/profile.js';
 import { premiumScreenHtml } from '../premium-view.js';
 import { BILLING_ENABLED, loadStorePrices, purchase } from '../store.js';
 import { todayLocal } from '../profile-storage.js';
+import { BETA_X2_GRATUIT } from '../beta-flags.js';
 import { $, toast } from './base.js';
 import { profile, saveMyProfile } from './session.js';
 
@@ -17,7 +18,7 @@ let prices = {};
 export function openPremium({ from = '' } = {}) {
   const dialog = $('#premiumDialog'), body = $('#premiumBody');
   if (!dialog || !body) return;
-  body.innerHTML = premiumScreenHtml(profile, { billing: BILLING_ENABLED, prices, from });
+  body.innerHTML = premiumScreenHtml(profile, { billing: BILLING_ENABLED, prices, from, betaFast: BETA_X2_GRATUIT });
   body.querySelectorAll('[data-premium-buy]').forEach(b => b.onclick = async () => {
     body.querySelectorAll('[data-premium-buy]').forEach(x => { x.disabled = true; });
     const id = b.dataset.premiumBuy, r = await purchase(profile, id, { date: todayLocal(), save: saveMyProfile });

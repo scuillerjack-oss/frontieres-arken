@@ -42,6 +42,9 @@ import { syncRanking } from './ranking-ui.js';
 import { TUTO_SPEED, isTutorial, tutorialAllowsPlay } from '../tutorial.js';
 import { tuto, tutoStep } from './tutorials.js';
 import { trackMissions } from './boosts-ui.js';
+import { fastSpeedUnlocked } from '../beta-flags.js';
+import { idleJourneys, journeyBlock, journeyOfToken, wireJourneyButtons } from './journey-ui.js';
+import { journeyBanners } from '../journey-view.js';
 
 const SPEED_KEY = 'frontieres-arken-vitesse'; // réglage du téléphone (§11) : jamais dans la partie
 // V17.8 : la fenêtre de paix générale (décision de fin) et le choix d'une nouvelle partie arrêtent aussi le temps.
@@ -60,7 +63,9 @@ const names = { nation: id => nation(id).short, province: id => province(id).nam
 export const realtimeOn = () => Boolean(state) && state.mode === 'realtime';
 const onScreen = () => realtimeOn() && !$('#gameScreen').hidden;
 export const isPremium = () => profile?.premium === true; // V17.7 : achat Premium ou Pack débutant (profile.js)
-const savedSpeed = () => { try { return isPremium() && localStorage.getItem(SPEED_KEY) === '2' ? 2 : 1; } catch { return 1; } };
+// V17.13 : ⏩ ×2 = Premium, ou gratuit en bêta interne (BETA_X2_GRATUIT, src/presentation/beta-flags.js : false en production).
+export const fastUnlocked = () => fastSpeedUnlocked(profile);
+const savedSpeed = () => { try { return fastUnlocked() && localStorage.getItem(SPEED_KEY) === '2' ? 2 : 1; } catch { return 1; } };
 
 // --- Sauvegarde espacée ------------------------------------------------------------------------------------------
 function saveFor(reason) {
@@ -78,11 +83,12 @@ function recall(kind, id) {
 }
 /** Fiche d'une icône de la carte : qui, d'où vers où, arrivée prévue, composition (selon la vision), « Rappeler ». */
 export function openUnit(token) {
-  const s = tokenSheet(token, state.day, names);
+  const s = tokenSheet(token, state.day, names), journey = token.own ? journeyOfToken(token) : null;
   tuto('unit-open'); // V17.9 : tutoriel
   actionModal(s.title, s.kicker.toUpperCase(), `<div class="order-detail unit-sheet"><b>${s.route}</b><span>📅 ${s.arrival}</span><span>${token.known ? '👁' : '❔'} ${s.composition}</span></div>\
 <div class="confirm-actions rt-unit-actions"><button class="cancel" id="rtUnitSee">Voir l’arrivée</button>${token.recallable ? '<button class="primary" id="rtRecall">Rappeler</button>' : ''}</div>\
-${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-tour sur place : le retour dure le temps déjà parcouru.</p>' : ''}`);
+${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-tour sur place : le retour dure le temps déjà parcouru.</p>' : ''}${journey ? journeyBlock(journey) : ''}`);
+  wireJourneyButtons(() => $('#actionDialog').close()); // V17.13 : itinéraire (annuler / changer de destination)
   $('#rtUnitSee').onclick = () => { $('#actionDialog').close(); focusProvince(token.toId); };
   const b = $('#rtRecall');
   if (b) b.onclick = () => { $('#actionDialog').close(); recall(token.kind, token.id); };
@@ -93,8 +99,9 @@ setBattleRefresh(() => { saveFor('order'); refresh(); }); // après une retraite
 function openTroops() {
   const mine = currentTokens().filter(t => t.own);
   actionModal('Troupes en route', dateText(state.day).toUpperCase(), mine.map(t => `<div class="unit-row troop-row"><span>${t.kind === 'convoy' ? '⛵' : '⚔'} ${province(t.fromId).name} → \
-${province(t.toId).name}<small>${compositionText(t)} · arrivée le ${formatDate(t.arriveDay)}</small></span>${t.recallable ? `<button data-recall="${t.kind}:${t.id}">Rappeler</button>` : '<b>retour</b>'}</div>`).join('')
-    + bombardRows() || '<p>Aucune troupe en route. Touchez une de vos provinces puis « Déplacer / Attaquer » : l’ordre part tout de suite et l’armée apparaît sur la carte.</p>');
+${province(t.toId).name}<small>${compositionText(t)} · arrivée le ${formatDate(t.arriveDay)}${journeyOfToken(t) ? ` · 🧭 itinéraire vers ${province(journeyOfToken(t).toId).name} (touchez l’icône)` : ''}</small></span>${t.recallable ? `<button data-recall="${t.kind}:${t.id}">Rappeler</button>` : '<b>retour</b>'}</div>`).join('')
+    + idleJourneys().map(journeyBlock).join('') + bombardRows() || '<p>Aucune troupe en route. Touchez une de vos provinces puis « Déplacer / Attaquer » : l’ordre part tout de suite et l’armée apparaît sur la carte.</p>');
+  wireJourneyButtons(openTroops); // V17.13 : itinéraires dont l'étape n'est pas encore partie (ou en bataille)
   wireBombardRows(openTroops); // V17.2 : bombardements permanents (« Arrêter »)
   document.querySelectorAll('[data-recall]').forEach(b => b.onclick = () => { const [kind, id] = b.dataset.recall.split(':'); recall(kind, id); openTroops(); });
 }
@@ -114,7 +121,7 @@ function pushBanners(list) {
 function collectBanners(events) {
   const me = state.playerNationId;
   const fresh = [...eventBanners(events, me, names), ...seaBanners(seaFatePopups(events, me, names), state.day),
-    ...incomingBanners(state, currentTokens(), me, names, seen), ...proposalBanners(proposalsToAnswer(state, me), names, seen)];
+    ...incomingBanners(state, currentTokens(), me, names, seen), ...proposalBanners(proposalsToAnswer(state, me), names, seen), ...journeyBanners(events, me, names)]; // V17.13 : itinéraires
   const start = (events || []).filter(e => e.type === 'famine-start' && e.nationId === me).at(-1);
   if (start) famineDay = Number(start.day) || state.day;
   if ((events || []).some(e => e.type === 'famine-end' && e.nationId === me)) famineDay = null;
@@ -170,14 +177,14 @@ function drawDock() {
   if (!dock) return;
   dock.hidden = false;
   const paused = clock.paused, running = isClockRunning(clock), fast = clock.speed === 2;
-  const key = JSON.stringify([state.day, paused, running, fast, isPremium(), inTutorial()]);
+  const key = JSON.stringify([state.day, paused, running, fast, fastUnlocked(), inTutorial()]);
   if (key === lastDock) return;
   lastDock = key;
   $('#rtDateText').textContent = dateText(state.day);
   $('#rtSpeedTag').textContent = paused ? 'EN PAUSE' : !running ? 'ARRÊTÉ' : inTutorial() ? 'TUTORIEL · 1 J/S' : fast ? '×2' : '×1';
   dock.classList.toggle('paused', paused); dock.classList.toggle('fast', fast && !paused);
   $('#rtPlay').setAttribute('aria-pressed', String(!paused && !fast)); $('#rtPause').setAttribute('aria-pressed', String(paused));
-  $('#rtFast').setAttribute('aria-pressed', String(!paused && fast)); $('#rtFast').classList.toggle('locked', !isPremium());
+  $('#rtFast').setAttribute('aria-pressed', String(!paused && fast)); $('#rtFast').classList.toggle('locked', !fastUnlocked());
   $('#rtDate').setAttribute('aria-label', `${dateText(state.day)} : voir les troupes en route`);
 }
 function drawTicker() {
@@ -267,10 +274,10 @@ export function setRealtimeSpeed(mode) {
     lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
     return true;
   }
-  if (mode === 'fast' && !isPremium()) { openPremium({ from: 'fast' }); return true; } // V17.7 : vraie offre (achat de test en bêta)
+  if (mode === 'fast' && !fastUnlocked()) { openPremium({ from: 'fast' }); return true; } // V17.7 : vraie offre (achat de test en bêta)
   const pausing = mode === 'pause' && !clock.paused;
   if (mode === 'pause') { setClockPaused(clock, true, t); saveFor('pause'); }
-  else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (isPremium()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
+  else { setClockSpeed(clock, mode === 'fast' ? 2 : 1, t); setClockPaused(clock, false, t); try { if (fastUnlocked()) localStorage.setItem(SPEED_KEY, String(clock.speed)); } catch {} }
   lastDock = ''; lastTicker = ''; drawDock(); drawTicker();
   if (mode === 'pause') tuto('pause'); // V17.9 : tutoriel
   if (pausing) calmMoment('pause'); // (jamais de pub en tutoriel : ad-ui.js inTutorialNow) V17.7 : ⏸ = moment calme (pub imposée au plus toutes les 10 min de jeu)

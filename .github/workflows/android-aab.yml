@@ -93,6 +93,13 @@ jobs:
       - if: steps.cle.outputs.ok == 'true'
         # Les tests tournent SANS les plugins natifs et sans ARKEN_PLAY_BUILD : ils vérifient le comportement PWA/bêta.
         run: env -u ARKEN_PLAY_BUILD -u ARKEN_ADS_PRODUCTION npm test
+      - name: Garde-fou de publication (BETA_X2_GRATUIT à false en production)
+        if: steps.cle.outputs.ok == 'true'
+        # V17.13 : échoue si ARKEN_ADS_PRODUCTION (ou ARKEN_PRODUCTION) est défini alors que la vitesse ×2 est encore
+        # gratuite (src/presentation/beta-flags.js). Test interne (cas actuel) : passe. L'APK de bêta n'appelle pas ce script.
+        env:
+          ARKEN_PRODUCTION: ${{ vars.ARKEN_PRODUCTION }}
+        run: node scripts/check-release-flags.js
       - name: Plugins natifs du build Play (AdMob, Play Billing)
         if: steps.cle.outputs.ok == 'true'
         run: node scripts/play-deps.js

@@ -26,6 +26,7 @@ import { render } from './map-view.js';
 import { moveSource, selected, setMoveSource, setSelected, state } from './session.js';
 import { nationChips, openTalkCompose, safeEngine } from './talk-screen.js';
 import { placeTutorial, tuto, tutorial } from './tutorials.js';
+import { clearRedirect, isRedirecting, journeyTap, journeyTexts } from './journey-ui.js';
 import { durationText, landMarchText, monthlyIncomeText, productionDays, realtimeText, seaDays } from '../realtime-view.js';
 
 // V17.3 : en temps réel, les ordres partent tout de suite et les durées se lisent en jours, les revenus par mois.
@@ -37,7 +38,8 @@ const perTurn=n=>rtOn()?monthlyIncomeText(n):`+${n} or/tour`;
 export const sheetSlots={food:id=>{const line=provinceFoodLine(state,id);return line?`<span class="info-chip food-chip">${line}</span>`:'';}}; // V17.4 : ligne 🌾 (vide sur l'île et au tour par tour)
 
 export function selectProvince(id){
-  if(moveSource){if(legalDestinations(map,state,moveSource).some(x=>x.id===id))openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
+  // V17.13 : en temps réel, une province plus loin que les voisines ouvre l'ITINÉRAIRE (journey-ui.js) ; voisine : inchangé.
+  if(moveSource){const near=legalDestinations(map,state,moveSource).some(x=>x.id===id);if(journeyTap(id,near))return;if(near)openForceSelection(moveSource,id);else if(id!==moveSource&&province(id).landmassId!==province(moveSource).landmassId)toast(seaMoveRefusal(map,state,moveSource,id));return;}
   setSelected(id);render();showProvinceSheet();tuto(`select:${id}`);
   tutorial('province-sheet','Inspecter une province','Propriétaire, bâtiments, troupes connues et actions possibles : tout est sur cette fiche.');
 }
@@ -98,9 +100,9 @@ navire de plus">+</button></div><p class="bombard-protection"><b>${v.text}</b></
 }
 function startMove(){setMoveSource(selected);$('#provinceSheet').hidden=true;placeTutorial();$('#moveBanner').hidden=false;
   const st=embarkStatus(map,state,moveSource),noPort=seaRoutesFrom(map,moveSource).length&&!st.ok;
-  $('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte${state.diplomacy.treaties.some(t=>t.active!==false&&t.type==='alliance'&&t.parties.includes(state.playerNationId))?' (liseré vert = allié : passage libre)':''}`;
-  if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement','Touchez une province verte. Liseré vert autour d’une nation : votre allié, qu’on ne peut pas attaquer.');}
-export function cancelMove(){setMoveSource(null);$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}
+  $('#movePrompt').textContent=`Depuis ${province(moveSource).name} : touchez une destination verte${rtOn()?' ou plus loin (itinéraire)':''}${state.diplomacy.treaties.some(t=>t.active!==false&&t.type==='alliance'&&t.parties.includes(state.playerNationId))?' (liseré vert = allié : passage libre)':''}`;
+  if(noPort)toast(st.reason);render();tutorial('move','Ordres de déplacement',rtOn()?`Touchez une province verte. ${journeyTexts().farHint}`:'Touchez une province verte. Liseré vert autour d’une nation : votre allié, qu’on ne peut pas attaquer.');}
+export function cancelMove(){clearRedirect();setMoveSource(null);$('#moveBanner').hidden=true;render();if(selected)showProvinceSheet();}
 export function actionModal(title,kicker,html){const dialog=$('#actionDialog');if(dialog.open)dialog.close();$('#actionTitle').textContent=title;$('#actionKicker').textContent=kicker;$('#actionBody').innerHTML=html;dialog.showModal();}
 export function confirmationModal(title,details,onConfirm){actionModal(title,'VÉRIFIE TON ORDRE',
   `${details}<div class="confirm-actions"><button class="cancel" id="cancelConfirmation">Annuler</button><button class="primary" id="acceptConfirmation">Confirmer</button></div>`);

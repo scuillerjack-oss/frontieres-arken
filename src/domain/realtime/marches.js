@@ -10,10 +10,11 @@ import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
 import { addToProvince, lossCount, takeOrderForces, unitCount } from '../engine/battles.js';
 import { besieged, joinBattle } from './battles.js';
-import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
+import { embark, journeyForce, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
 import { departureDiplomacy, pairTreaty, pairWar } from '../engine/shared.js';
 import { fireFactorFor } from './food.js';
+import { stopJourney } from './itinerary.js';
 
 const D = RULES.realtime.durations;
 const hasUnits = f => COMBAT_TYPES.some(k => f.units[k] > 0);
@@ -42,14 +43,15 @@ function nextMarchId(state) {
   return `m${state.marchSequence++}`;
 }
 /** Une armée prend la route : elle quitte sa province maintenant (elle ne la défend plus). */
-export function createMarch(state, { nationId, fromId, toId, force, startDay = state.day, returning = false, passage = false, guest = false, map = null, days: fixed = null }) {
+export function createMarch(state, { nationId, fromId, toId, force, startDay = state.day, returning = false, passage = false, guest = false, map = null, days: fixed = null, journeyId = null }) {
   const owner = state.provinces[toId]?.ownerId ?? null;
   const legacy = toLegacy(force), days = fixed ?? landTravelDays(legacy.units, map, fromId, toId);
   const m = {
     id: nextMarchId(state), kind: 'land', nationId, fromId, toId, ...legacy, startDay, arriveDay: startDay + days,
     targetOwner: owner, hostile: !returning && owner !== nationId && !hasPassage(state, nationId, owner), truces: trucesOf(state, nationId),
     ...(returning ? {} : departureDiplomacy(state, nationId, owner)),
-    ...(returning ? { returning: true } : {}), ...(passage ? { passage: true } : {}), ...(guest ? { guest: true } : {})
+    ...(returning ? { returning: true } : {}), ...(passage ? { passage: true } : {}), ...(guest ? { guest: true } : {}),
+    ...(journeyId && !returning ? { journeyId } : {}) // V17.13 : étape d'un itinéraire (realtime/itinerary.js)
   };
   (state.marches ||= []).push(m);
   return m;
@@ -64,23 +66,26 @@ export function departMoves(state, map, orders) {
     const owner = state.provinces[o.toId]?.ownerId, from = state.provinces[o.fromId];
     if (o.passage && o.routeType !== 'sea' && owner !== o.nationId && !hasPassage(state, o.nationId, owner)) {
       state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'passage-lost' });
+      stopJourney(state, o.journeyId, 'blocked', o.fromId);
       continue;
     }
     // V17.2 : le défenseur ne peut pas quitter une province assiégée tant que la bataille dure (ses alliés stationnés non plus).
     if (besieged(state, o.fromId, o.nationId)) {
       state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: 'besieged', naval: o.routeType === 'sea' });
+      stopJourney(state, o.journeyId, 'besieged', o.fromId);
       continue;
     }
     const guestOk = o.guest && from && from.ownerId !== o.nationId && hasPassage(state, o.nationId, from.ownerId);
     if (!from || (from.ownerId !== o.nationId && !guestOk)) {
       state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: o.nationId, fromId: o.fromId, provinceId: o.toId, reason: o.guest ? 'passage-lost' : 'origin-lost' });
+      stopJourney(state, o.journeyId, 'lost', o.fromId);
       continue;
     }
     const force = takeOrderForces(state, o);
-    if (!force || !hasUnits(force)) continue;
+    if (!force || !hasUnits(force)) { stopJourney(state, o.journeyId, 'lost', o.fromId); continue; }
     if (o.routeType === 'sea') embark(state, map, o, force);
     else {
-      const m = createMarch(state, { nationId: o.nationId, fromId: o.fromId, toId: o.toId, force, passage: Boolean(o.passage), guest: Boolean(o.guest), map });
+      const m = createMarch(state, { nationId: o.nationId, fromId: o.fromId, toId: o.toId, force, passage: Boolean(o.passage), guest: Boolean(o.guest), map, journeyId: o.journeyId || null });
       state.events.push({ turn: state.turn, type: 'march-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, provinceId: o.toId, marchId: m.id, amount: unitCount(force), arriveDay: m.arriveDay, hostile: m.hostile });
     }
     state.ai?.replay?.push({ turn: state.turn, nationId: o.nationId, action: 'move', target: o.toId });
@@ -139,10 +144,10 @@ export function marchArrivals(state, map, fought, day = state.day) {
     for (const m of arriving.filter(x => x.toId === toId)) {
       const force = marchForce(m), owner = target?.ownerId;
       if (m.returning) { arriveHome(state, m, force); continue; }
-      if (owner === m.nationId) { addToProvince(target, force); state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force) }); continue; }
+      if (owner === m.nationId) { addToProvince(target, force); state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), ...(m.journeyId ? { journeyId: m.journeyId, journeyForce: journeyForce(m) } : {}) }); continue; }
       if (hasPassage(state, m.nationId, owner)) {
         addStationed(state, m.nationId, toId, force);
-        state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), passage: true, target: owner });
+        state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), passage: true, target: owner, ...(m.journeyId ? { journeyId: m.journeyId, journeyForce: journeyForce(m) } : {}) });
         continue;
       }
       if (m.passage) { state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: m.nationId, fromId: m.fromId, provinceId: toId, reason: 'passage-lost' }); sendBack(state, m, force, day); continue; }
@@ -173,6 +178,7 @@ export function recallMarch(state, { nationId, marchId }) {
   if (m.returning) return { ok: false, error: 'Cette armée rentre déjà' };
   const elapsed = Math.max(0, state.day - m.startDay), force = marchForce(m);
   state.marches = state.marches.filter(x => x !== m);
+  stopJourney(state, m.journeyId, 'recalled', m.fromId); // V17.13 : un rappel arrête l'itinéraire (pas de nouveau départ)
   const back = { ...m, fromId: m.toId, toId: m.fromId };
   if (!elapsed) { arriveHome(state, back, force); return { ok: true, arriveDay: state.day }; }
   const r = createMarch(state, { nationId, fromId: m.toId, toId: m.fromId, force, startDay: state.day, returning: true });
@@ -187,6 +193,7 @@ export function recallConvoy(state, { nationId, convoyId }) {
   if (t.returning) return { ok: false, error: 'Ce convoi rentre déjà' };
   const elapsed = Math.max(0, Math.floor(Number(t.stage) || 0)), force = legacyForce(t);
   state.transports = state.transports.filter(x => x !== t);
+  stopJourney(state, t.journeyId, 'recalled', t.fromId); // V17.13
   if (!elapsed) { arriveHome(state, { nationId, fromId: t.toId, toId: t.fromId }, force); return { ok: true, arriveDay: state.day }; }
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   const id = `c${state.transportSequence++}`;

@@ -21,6 +21,7 @@ import { crestGlyph } from '../leaders-view.js';
 import { $, E, icons, nation, province, toast } from './base.js';
 import { balloonLayer } from './balloon-ui.js';
 import { unitsLayer } from './map-units-layer.js';
+import { farDestinations, isRedirecting, journeysLayer } from './journey-ui.js';
 import { battlesLayer } from './realtime-battles-ui.js';
 import { openPendingOrder, selectProvince } from './province-sheet.js';
 import { moveSource, save, selected, state } from './session.js';
@@ -134,7 +135,7 @@ function destinations(){return new Set(moveSource?legalDestinations(map,state,mo
 let orderCount=0,orderGame=null;
 function announceOrder(){const count=state.orders.filter(o=>o.status==='pending').length;if(orderGame===state&&count>orderCount)playSfx('order');orderGame=state;orderCount=count;}
 export function render(){
-  const svg=$('#map'),allowed=destinations(),routeLayer=[],defs=E('defs'),badges=safeEngine(()=>troopBadges(state,map),null);
+  const svg=$('#map'),allowed=isRedirecting()?new Set():destinations(),far=safeEngine(()=>farDestinations(),new Set()),routeLayer=[],defs=E('defs'),badges=safeEngine(()=>troopBadges(state,map),null);
   // V17.6 : tout le dessin va dans #mapWorld ; des copies (<use>) le répètent à gauche et à droite (défilement sans fin).
   // V17.10.2 : deux étages, répétés chacun par ses copies — #mapBase (fond, provinces, liserés, grands noms de nations)
   // puis #mapWorld (routes, drapeaux, étoiles, pastilles, « ? », icônes) : un nom, même celui d'une copie voisine,
@@ -167,13 +168,14 @@ export function render(){
     const p=state.provinces[d.id],diploState=relationWithPlayer(state,p.ownerId),classes=['province'];
     if(selected===d.id)classes.push('selected');
     if(p.ownerId===state.playerNationId&&!moveSource)classes.push('player-province');
-    if(moveSource)classes.push(d.id===moveSource?'source':allowed.has(d.id)?`destination${allyBlockedTarget(state,state.playerNationId,d.id)?' ally-passage':''}`:'blocked');
+    if(moveSource)classes.push(d.id===moveSource?'source':allowed.has(d.id)?`destination${allyBlockedTarget(state,state.playerNationId,d.id)?' ally-passage':''}`:far.has(d.id)?'far-destination':'blocked'); // V17.13 : plus loin = itinéraire
     const group=E('g',{class:classes.join(' '),'data-id':d.id,role:'button',tabindex:'0','aria-label':`${d.name}, ${nation(p.ownerId).short}`});
     group.style.setProperty('--owner',nation(p.ownerId).color);group.style.setProperty('--diplo',diploState==='war'?'#e45c56':diploState==='alliance'?'#3fcf74':'#f3f1e9');
     // Le polygone est à la fois le dessin et la zone tactile (plus de chevauchement : B7).
     const points=d.geometry.points.map(x=>x.join(',')).join(' ');group.append(E('polygon',{points,class:'area'}));
     if((selected===d.id&&!moveSource)||d.id===moveSource||(moveSource&&allowed.has(d.id))){const kind=moveSource&&allowed.has(d.id)?'destination':'selected',attrs={points,class:`outline ${kind}`};
       if(kind==='selected'&&selected===d.id&&!moveSource)attrs['clip-path']='url(#clip-selected)';highlightLayer.append(E('polygon',attrs));}
+    else if(moveSource&&far.has(d.id))highlightLayer.append(E('polygon',{points,class:'outline far'})); // V17.13 : pointillés = itinéraire possible
     labelLayer.append(provinceLabel(d,p,badges?.[d.id]));
     group.addEventListener('click',()=>{if(Date.now()<ignoreClickUntil)return;selectProvince(d.id);});
     group.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(d.id);}});provinceLayer.append(group);
@@ -183,6 +185,7 @@ export function render(){
   const rt=state.mode==='realtime',convoyLayer=E('g',{class:'convoys'});if(!rt)for(const m of convoyMarkers(state,map))convoyLayer.append(convoyMarker(m));
   base.append(nationNameLayer());world.append(...routeLayer,labelLayer,convoyLayer);
   world.append(safeEngine(()=>balloonLayer(),E('g',{class:'balloons'}))); // V16.1 : ballons d'observation (les siens, et les étrangers au-dessus de chez soi)
+  if(rt)world.append(safeEngine(()=>journeysLayer(),E('g',{class:'journeys'}))); // V17.13 : itinéraires du joueur (étapes à venir, 🏁)
   if(rt)world.append(safeEngine(()=>unitsLayer(),E('g',{id:'rtUnits'})));
   if(rt)world.append(safeEngine(()=>battlesLayer(),E('g',{id:'rtBattles'}))); // V17.2 / V17.3 : ⚔ « n/3 » des batailles en cours // dans #mapWorld : les copies <use> du défilement sans fin la répètent
   for(const order of playerOrderArrows(state,map)){

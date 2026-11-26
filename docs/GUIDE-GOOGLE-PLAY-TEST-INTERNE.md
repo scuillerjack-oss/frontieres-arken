@@ -153,6 +153,9 @@ même fichier deux fois. Attends le prochain AAB, ou demande à Claude d'en rela
 ---
 
 ## Pour plus tard (pas maintenant)
+- **Vitesse ×2 gratuite des bêtas (V17.13) : à remettre à false avant la production.** Pendant les bêtas internes,
+  ⏩ ×2 est gratuit pour tous les testeurs grâce au drapeau `BETA_X2_GRATUIT` (`src/presentation/beta-flags.js`).
+  Avant la publication publique, Claude le passe à `false` : ⏩ redevient Premium (voir `docs/SORTIE-ARKEN.md`, §3).
 - **Publication publique.** Avec un compte personnel, Google exige d'abord un **test fermé
   avec 12 testeurs pendant 14 jours d'affilée** avant d'autoriser la production (cahier V12, §7).
 - **Envoi automatique.** GitHub pourrait envoyer l'AAB tout seul à Google Play, sans la

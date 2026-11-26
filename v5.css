@@ -725,3 +725,13 @@ body.rt-on .live-line{font-size:.74rem;line-height:1.22;-webkit-line-clamp:2}
 .zoom button,.boost-map-btn,.whole-map-btn,.gift-btn{background-color:#0a2231}
 .rt-dock{background:#071722}
 #map{-webkit-user-select:none;user-select:none}
+/* V17.13 : déplacements longs — provinces lointaines (itinéraire possible) et itinéraires en cours */
+.province.far-destination .area{fill:#020a10;fill-opacity:.22}
+.highlights .outline.far{fill:none;stroke:#bff5d3;stroke-width:5;stroke-dasharray:14 12;opacity:.85}
+.journey-route path{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.journey-route .journey-casing{stroke:#071722;stroke-width:calc(10px * var(--line,1));opacity:.45}
+.journey-route .journey-ahead{stroke:var(--nation);stroke-width:calc(5px * var(--line,1));stroke-dasharray:calc(6px * var(--line,1)) calc(12px * var(--line,1));opacity:.9}
+.journey-route .journey-ahead.sea{stroke-dasharray:calc(3px * var(--line,1)) calc(9px * var(--line,1))}
+.journey-route .journey-end text{font-size:46px;text-anchor:middle;pointer-events:none}
+.journey-plan b{line-height:1.35}
+.journey-sheet .confirm-actions{margin-top:.4rem}
