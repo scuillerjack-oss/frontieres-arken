@@ -42,6 +42,9 @@ export {
 } from './realtime/clock.js';
 export { landTravelDays, recallConvoy, recallMarch } from './realtime/marches.js';
 export { createRealtimeGame } from './realtime/create.js';
+export {
+  cancelJourney, crossingsOf, journeyById, journeyRemaining, journeyStatus, planItinerary, playerJourneys, reachableByItinerary, redirectJourney, startJourney
+} from './realtime/itinerary.js'; // V17.13 : déplacements longs
 // V17.8 : fin de partie et classement à points du temps réel.
 export { famineTotal, nationScore, nextRankingDay, noFamineDays, rankingSnapshot, realtimeRanking, refreshRanking, troopGold } from './realtime/ranking.js';
 export { aliveNations, allAllied, answerPeaceOffer, combatBetweenAlive, dailyEnd, endRealtimeGame, peaceDays, peaceOfferPending } from './realtime/end.js';

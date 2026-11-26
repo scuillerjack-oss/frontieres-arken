@@ -7,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const UI = ['base', 'session', 'tutorials', 'map-view', 'province-sheet', 'diplomacy-screen', 'event-popups', 'talk-screen',
-  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui', 'map-units-layer', 'ad-ui', 'premium-ui', 'ranking-ui'];
+  'turn-flow', 'turn-anim', 'audio', 'boosts-ui', 'game-flow', 'balloon-ui', 'live-ui', 'realtime-ui', 'food-ui', 'realtime-battles-ui', 'map-units-layer', 'ad-ui', 'premium-ui', 'ranking-ui', 'journey-ui']; // V17.13 : journey-ui
 const ENGINE = ['shared', 'income', 'sea-routes', 'orders', 'diplomacy', 'battles', 'production', 'convoys', 'bombard', 'recovery',
   'ai-naval', 'ai', 'ai-help', 'coalition', 'journal', 'turn', 'balloons', 'ai-island'];
 // V17.1 : moteur du temps réel (src/domain/realtime/), lu avec le moteur (mêmes règles de pureté).
-export const REALTIME = Object.freeze(['rules', 'clock', 'marches', 'day', 'create', 'food', 'battles', 'ai-schedule', 'personalities', 'ranking', 'end']); // V17.2 : battles ; V17.5 : ai-schedule ; V17.5b : personalities ; V17.8 : ranking, end
+export const REALTIME = Object.freeze(['rules', 'clock', 'marches', 'day', 'create', 'food', 'battles', 'ai-schedule', 'personalities', 'ranking', 'end', 'itinerary']); // V17.13 : itinerary ; V17.2 : battles ; V17.5 : ai-schedule ; V17.5b : personalities ; V17.8 : ranking, end
 
 /** V15.3 : modules du domaine ajoutés hors de engine/ (lus par tests/v15-3.test.js, qui vérifie qu'ils restent purs). */
 export const DOMAIN_MODULES_V15_3 = Object.freeze(['src/domain/difficulty.js', 'src/domain/nations.js']);
@@ -21,6 +21,9 @@ export const DOMAIN_MODULES_V15_4 = Object.freeze(['src/domain/game-length.js', 
 
 /** V16.2 : nouveau module du domaine hors de engine/ (île mystérieuse), lu par tests/v16-2.test.js (pur). */
 export const DOMAIN_MODULES_V16_2 = Object.freeze(['src/domain/mystery-island.js']);
+
+/** V17.13 : modules de présentation purs des itinéraires et du drapeau ×2 de bêta (lus par tests/v17-13.test.js). */
+export const PRESENTATION_MODULES_V17_13 = Object.freeze(['src/presentation/journey-view.js', 'src/presentation/beta-flags.js']);
 
 /** V17.6 : module de présentation pur de la carte « façon AM 3 » (lu par tests/v17-6.test.js : sans DOM, en cache hors ligne). */
 export const PRESENTATION_MODULES_V17_6 = Object.freeze(['src/presentation/map-am3-view.js']);

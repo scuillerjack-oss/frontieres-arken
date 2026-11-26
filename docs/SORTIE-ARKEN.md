@@ -76,6 +76,12 @@ Ensuite : onglet Actions → **AAB Google Play (test interne)** → Run workflow
 
 ## 3. Points à surveiller
 
+- **Checklist avant la PRODUCTION (V17.13) — vitesse ×2 gratuite des bêtas : à remettre à false avant la production.**
+  Dans `src/presentation/beta-flags.js`, passer `export const BETA_X2_GRATUIT = true;` à `false` (une seule ligne, rien
+  d'autre à toucher) : ⏩ ×2 redevient réservé au Premium. Tant qu'il vaut `true`, tout testeur a ⏩ gratuitement (APK de
+  bêta ET test interne Google Play). Le test `tests/v17-13.test.js` vérifie aujourd'hui `true` : il faudra le passer à
+  `false` dans le même commit (Claude s'en charge quand Jack dit « on publie »).
+
 - Les pubs de production peuvent mettre quelques heures, voire quelques jours, à s'afficher tant qu'AdMob n'a pas validé l'application (elle doit être publiée ou liée au store). Un jeu sans pub dans ce délai n'est pas une panne.
 - Avec un compte développeur personnel, Google exige un **test fermé avec 12 testeurs pendant 14 jours** avant la production (cahier V12, point 7).
 - Rien n'a pu être essayé sur un vrai téléphone par Claude (pas d'Android ici) : le premier test interne sert aussi de vérification. Note ce qui coince et envoie des captures.

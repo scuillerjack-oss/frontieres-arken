@@ -33,7 +33,7 @@ export function embark(state, map, o, force) {
   state.transportSequence = Math.max(1, Number(state.transportSequence) || 1);
   const id = `c${state.transportSequence++}`, turns = seaDuration(state, route.turns);
   state.transports.push({ id, nationId: o.nationId, fromId: o.fromId, toId: o.toId, via: route.via, lane: [o.fromId, route.via].sort().join('|'), stage: 0, turns, departed: state.turn,
-    truces: trucesOf(state, o.nationId), ...(state.mode === 'realtime' ? departureDiplomacy(state, o.nationId, state.provinces[o.toId]?.ownerId) : {}), ...(o.navalStrike ? { strike: true } : {}), ...(o.passage ? { passage: true } : {}), ...(allyPortOf(state, o) ? { allyPort: allyPortOf(state, o) } : {}
+    truces: trucesOf(state, o.nationId), ...(state.mode === 'realtime' ? departureDiplomacy(state, o.nationId, state.provinces[o.toId]?.ownerId) : {}), ...(o.navalStrike ? { strike: true } : {}), ...(o.passage ? { passage: true } : {}), ...(o.journeyId ? { journeyId: o.journeyId } : {}), ...(allyPortOf(state, o) ? { allyPort: allyPortOf(state, o) } : {}
     ), ...(state.mode === 'realtime' ? { departDay: state.day, arriveDay: state.day + turns } : {}), ...toLegacy(force) });
   state.events.push({ turn: state.turn, type: 'convoy-departed', nationId: o.nationId, fromId: o.fromId, toId: o.toId, convoyId: id, turns, escort: force.units.warship, amount: unitCount(force) });
 }
@@ -212,14 +212,14 @@ export function resolveTransports(state, map, fought, { onLanding = null } = {})
       }
       if (target.ownerId === t.nationId) {
         addToProvince(target, force);
-        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), returning: Boolean(t.returning) });
+        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), returning: Boolean(t.returning), ...(t.journeyId ? { journeyId: t.journeyId } : {}) });
         if (!t.returning) dockEscort(state, map, toId, t.nationId, t.fromId, laneKey(t), t.turns);
         continue;
       }
       if (hasPassage(state, t.nationId, target.ownerId)) {
         // V13.4 : chez un allié, le convoi débarque paisiblement : ses troupes stationnent (droit de passage).
         addStationed(state, t.nationId, toId, force);
-        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), passage: true, target: target.ownerId });
+        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), passage: true, target: target.ownerId, ...(t.journeyId ? { journeyId: t.journeyId } : {}) });
         continue;
       }
       if (t.passage) {

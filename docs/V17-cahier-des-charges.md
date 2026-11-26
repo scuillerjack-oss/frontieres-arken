@@ -1953,3 +1953,65 @@ référence), `v17-6` (zoom minimal avec le cadre de référence), `v9-map` (cad
 maximal, glisser jusqu'à la répétition, toucher une province (fiche de Branvale), envoyer un convoi Branvale → île
 (« par mer, 80 jours », jeton « 78 j » après 2 jours) ; 0 erreur JS. Captures avant / après au zoom minimal :
 `docs/assets/v17-12-zoom-min-avant-844x390.jpg`, `docs/assets/v17-12-zoom-min-apres-844x390.jpg`.
+
+## V17.13 — déplacements longs en un seul ordre + vitesse ×2 gratuite en bêta interne (26/11/2026)
+
+Demandes de Jack (26/11/2026) :
+1. **Déplacements longs** : pouvoir désigner n'importe quelle province, même à l'autre bout de la carte ; le jeu calcule
+   l'itinéraire et les troupes enchaînent les étapes seules, même pendant des mois de jeu. Itinéraire tracé, arrivée
+   estimée, annuler / rediriger en route, recalcul ou arrêt propre si une étape devient impossible, combats inchangés.
+2. **×2 gratuit en bêta interne** derrière un drapeau unique, à repasser à `false` à la publication (×2 redevient Premium).
+
+**Ce qui a été fait — itinéraires.**
+- Moteur pur `src/domain/realtime/itinerary.js` (sans DOM, testé sous Node) : `planItinerary` (plus court chemin en
+  jours, Dijkstra déterministe, sur `legalDestinations` : routes terrestres + routes maritimes, embarquement seulement
+  depuis un point de port, débarquement au port au bout de la route ; durées = celles du départ réel :
+  `landTravelDays` × distance, mer `seaDuration`), `startJourney`, `cancelJourney`, `redirectJourney`,
+  `advanceJourneys` (appelé chaque jour dans `advanceDay`, après les arrivées et les assauts), `stopJourney`.
+- **Chaque étape est un ordre de déplacement ordinaire** (`queueMoveOrder` → marche ou convoi portant `journeyId`) :
+  combats à l'arrivée, « affronter une nation = entrer en guerre » (`departureDiplomacy`), trêves, passage chez un allié,
+  interceptions en mer, rencontres en chemin : exactement les règles d'avant, à chaque province traversée. L'étape
+  suivante part le jour d'arrivée sur place (aucun jour perdu), avec les troupes arrivées (au plus les forces parties :
+  jamais la garnison en plus). Une étape hostile attend l'issue de la bataille ; victoire → la suite repart, défaite →
+  arrêt avec avis.
+- **Choix de l'itinéraire (décision du chef de projet, à valider par Jack en bêta)** : le plus court passant uniquement
+  par ses provinces et celles de ses alliés (jamais de guerre déclarée « en passant ») ; s'il n'en existe pas, le plus
+  court tout court, et la fenêtre prévient « ⚠ Traverse Oroël : y entrer déclare la GUERRE à Oroël ». Jamais à travers
+  une nation en trêve avec soi (territoire interdit). Avec des navires de guerre : uniquement par la mer.
+- **Recalcul à chaque étape** avec la carte du jour : chemin prévu devenu interdit → nouvel itinéraire (bandeau 🧭
+  « Route coupée à … : nouvel itinéraire ») ; plus aucun chemin, troupes perdues, repoussées, départ impossible
+  (province assiégée) → arrêt propre à l'étape (bandeau 🛑 avec la raison). Arrivée → bandeau 🏁.
+- **Annuler** : les troupes finissent l'étape en cours puis s'arrêtent. **Changer de destination** : n'importe quelle
+  province, pris en compte à la prochaine étape (on ne change pas de route au milieu d'un chemin). **Rappeler** (déjà
+  existant) : demi-tour tout de suite, l'itinéraire s'arrête.
+- Déplacement vers une **voisine : inchangé** (même fenêtre, pas d'itinéraire). Tour par tour : inchangé.
+- Interface : `src/presentation/ui/journey-ui.js` + rendu pur `src/presentation/journey-view.js`. En mode « Déplacer /
+  Attaquer », les voisines restent vertes et les provinces plus loin ont un liseré en pointillés ; les toucher ouvre la
+  fenêtre « Itinéraire » (étapes, nombre d'étapes, durée, date d'arrivée estimée, nations traversées, forces 50 / 100 % /
+  au choix, durée recalculée selon les forces). Sur la carte : étapes à venir en pointillés aux couleurs de la nation
+  et drapeau 🏁 à l'arrivée (l'étape en cours est l'icône habituelle). Fiche de l'icône et liste « Troupes en route » :
+  itinéraire, arrivée estimée, prochaine étape, « Annuler l'itinéraire », « Changer de destination ».
+- Textes en **français et en anglais** (`JOURNEY_TEXTS.fr` / `.en`, mêmes clés, testé) ; le jeu affiche le français
+  (`JOURNEY_LANG`), l'anglais de la branche `mission/V16-anglais` n'étant pas fusionné.
+- Sauvegarde : `state.journeys` / `journeySequence`, créés au premier itinéraire seulement (une partie sans itinéraire
+  reste identique au bit près à la V17.12 : test de la sauvegarde V17.11 rejouée inchangé) ; itinéraire illisible écarté.
+
+**Ce qui a été fait — ×2 gratuit en bêta.** Drapeau unique `BETA_X2_GRATUIT` dans `src/presentation/beta-flags.js`
+(`true` aujourd'hui), lu par `fastSpeedUnlocked(profile)` → `realtime-ui.js` (`fastUnlocked()` : ⏩ sans cadenas, vitesse
+retenue). À `false` : exactement le verrou Premium V17.7. Logique Premium intacte (écran, achat de test, pas de pub
+imposée pour un Premium) ; l'écran Premium dit « Bêta interne : la vitesse ×2 est gratuite pendant les tests ». Aucun
+paiement activé. Documenté : `docs/SORTIE-ARKEN.md` §3 et `docs/GUIDE-GOOGLE-PLAY-TEST-INTERNE.md` (« à remettre à
+false avant la production »). Le tutoriel garde son rythme (1 jour / s).
+
+**Tests** : `tests/v17-13.test.js` (15 tests : plus court chemin, embarquement depuis un port, traversée signalée,
+arrivée à la date estimée, guerre déclarée et conquêtes en chemin, trêve = territoire interdit, arrêt propre, recalcul,
+annuler, rediriger, rappel, navires par mer seulement, voisine inchangée, sauvegarde, pureté / cache hors ligne / FR-EN,
+drapeau ×2). Modifiés : `v17-3` (verrou ⏩ via `fastUnlocked()`), versions (17.13.0).
+**Vérifié** dans Chrome mobile simulé (Playwright, 844 × 390 et 390 × 844, tactile) : Valmorne → Tréfond (4 étapes,
+102 jours, avertissement Oroël), confirmation, tracé et 🏁 sur la carte, ⏩ ×2 sans Premium (pas d'écran Premium), fiche
+de l’armée avec l’itinéraire, changement de destination (Haut-Bois), annulation ; 0 erreur JS (seul favicon.ico absent du serveur local, comme avant).
+
+**Limites / à tester en bêta** : l'arrivée estimée ne compte pas les batailles en chemin (dit dans la fenêtre) ; une
+redirection ne fait pas demi-tour au milieu d'une étape ; la province de départ du mode déplacement n'est pas touchable
+pendant « Changer de destination » (pour s'arrêter à l'étape en cours : « Annuler l'itinéraire ») ; les IA n'utilisent
+pas d'itinéraires (elles raisonnent étape par étape comme avant).

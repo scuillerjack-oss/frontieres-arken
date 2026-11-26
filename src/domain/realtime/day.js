@@ -44,6 +44,7 @@ import { departMoves, marchArrivals, marchEncounters } from './marches.js';
 import { joinBattle, resolveBattles } from './battles.js';
 import { aiReact, deferAnswers, releaseAnswers } from './ai-schedule.js';
 import { dailyEnd } from './end.js';
+import { advanceJourneys } from './itinerary.js';
 
 const R = RULES.realtime;
 const settleStationed = (state, map) => { settlePassage(state, map); settleMysteryIsland(state); };
@@ -207,6 +208,8 @@ export function advanceDay(state, map, { random = () => seededRandom(state) } = 
   resolveBattles(state, map, fought, day);
   settleStationed(state, map);
   lighthouseAlerts(state); // V17.9 : île prise aujourd'hui → les flottes déjà en route sont signalées
+  // V17.13 : itinéraires (déplacements longs) — une étape finie repart vers la suivante (ordre ordinaire, départ demain).
+  advanceJourneys(state, map, eventStart);
   // 7a) Tous les 10 jours : bombardements permanents, puis guérison (pas dans une province en bataille, ni 10 jours après).
   if (day % R.bombard.everyDays === 0) markDays(rt.bombarded, bombardTick(state, map, fought), day);
   markDays(rt.fought, fought, day);

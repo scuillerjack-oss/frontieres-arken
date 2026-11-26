@@ -155,5 +155,5 @@ test('V17.12 : nouvelle image (poids raisonnable), en cache hors ligne ; outils 
   const lay = JSON.parse(readFileSync(join(root, 'tools/carte/anneau-v17-12-disposition.json'), 'utf8'));
   assert.equal(lay.S, 0.75);
   assert.deepEqual(lay.frame, [1826, 1900]);
-  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '17.12.0');
+  assert.equal(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, '17.13.0');
 });
