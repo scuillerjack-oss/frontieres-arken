@@ -88,7 +88,7 @@ export function openUnit(token) {
   actionModal(s.title, s.kicker.toUpperCase(), `<div class="order-detail unit-sheet"><b>${s.route}</b><span>📅 ${s.arrival}</span><span>${token.known ? '👁' : '❔'} ${s.composition}</span></div>\
 <div class="confirm-actions rt-unit-actions"><button class="cancel" id="rtUnitSee">Voir l’arrivée</button>${token.recallable ? '<button class="primary" id="rtRecall">Rappeler</button>' : ''}</div>\
 ${token.recallable ? '<p class="help-intro">Rappelées, les troupes font demi-tour sur place : le retour dure le temps déjà parcouru.</p>' : ''}${journey ? journeyBlock(journey) : ''}`);
-  wireJourneyButtons(); // V17.13 : itinéraire (annuler / changer de destination)
+  wireJourneyButtons(() => $('#actionDialog').close()); // V17.13 : itinéraire (annuler / changer de destination)
   $('#rtUnitSee').onclick = () => { $('#actionDialog').close(); focusProvince(token.toId); };
   const b = $('#rtRecall');
   if (b) b.onclick = () => { $('#actionDialog').close(); recall(token.kind, token.id); };
