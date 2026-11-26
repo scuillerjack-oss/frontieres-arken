@@ -10,8 +10,7 @@ import {
   availableForces, cancelJourney, journeyById, journeyStatus, planItinerary, playerJourneys, reachableByItinerary, redirectJourney, startJourney
 } from '../../domain/game-engine.js';
 import { arkenV9Map as map } from '../../map/arken-v9-map.js';
-import { forceSelection } from '../guide-input.js';
-import { journeyDate, journeyRoute, journeyTexts, planSummary, stepsText } from '../journey-view.js';
+import { journeyDate, journeyPreset, journeyRoute, journeyTexts, planSummary, stepsText } from '../journey-view.js';
 import { $, E, nation, province, toast, unitKeys } from './base.js';
 import { render } from './map-view.js';
 import { actionModal, confirmationModal } from './province-sheet.js';
@@ -56,7 +55,9 @@ export function openJourneySelection(fromId, toId) {
   const available = availableForces(state, fromId, me());
   setMoveSource(null); $('#moveBanner').hidden = true;
   const port = planItinerary(map, state, { nationId: me(), fromId, toId, units: available, warships: 1 }).ok && available.warships > 0;
-  const row = (key, label) => `<div class="unit-row"><span>${label}</span><b>${available[key] || 0}</b><input data-force="${key}" type="number" min="0" max="${available[key] || 0}" value="${key === 'warships' ? 0 : forceSelection(available, '50')[key] || 0}" ${available[key] ? '' : 'disabled'}></div>`;
+  const preset = mode => journeyPreset(available, mode, { port });
+  const first = preset('50'); // province qui n'a que des navires : les navires sont présélectionnés (relecture V17.13)
+  const row = (key, label) => `<div class="unit-row"><span>${label}</span><b>${available[key] || 0}</b><input data-force="${key}" type="number" min="0" max="${available[key] || 0}" value="${key === 'warships' ? first.warships : first.units[key] || 0}" ${available[key] ? '' : 'disabled'}></div>`;
   const rows = [...LAND_UNIT_TYPES.map(k => row(k, unitKeys[k])), ...(port ? [row('warships', 'Navires (escorte)')] : [])].join('');
   actionModal(T().title, `${province(fromId).name} → ${province(toId).name}`, `<div id="journeyPlan"></div><p>${T().choose}</p>${port ? `<p class="sea-note">⚓ ${T().shipsSeaOnly}</p>` : ''}\
 <div class="force-presets"><button data-preset="50">50 %</button><button data-preset="100">100 %</button><button data-preset="manual">Personnaliser</button></div>${rows}<p id="forceSummary"></p>\
@@ -66,8 +67,10 @@ export function openJourneySelection(fromId, toId) {
   document.querySelectorAll('[data-force]').forEach(i => { i.oninput = update; });
   document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
     if (b.dataset.preset === 'manual') { document.querySelector('[data-force]')?.focus(); return; }
-    const chosen = forceSelection(available, b.dataset.preset);
-    for (const k of LAND_UNIT_TYPES) document.querySelector(`[data-force="${k}"]`).value = chosen[k];
+    const chosen = preset(b.dataset.preset);
+    for (const k of LAND_UNIT_TYPES) document.querySelector(`[data-force="${k}"]`).value = chosen.units[k];
+    const ships = document.querySelector('[data-force="warships"]');
+    if (ships && chosen.warships) ships.value = chosen.warships;
     update();
   });
   update();

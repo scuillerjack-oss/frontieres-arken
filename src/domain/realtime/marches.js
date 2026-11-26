@@ -10,7 +10,7 @@ import { LAND_UNIT_TYPES, RULES } from '../constants.js';
 import { addStationed, hasPassage } from '../passage.js';
 import { addToProvince, lossCount, takeOrderForces, unitCount } from '../engine/battles.js';
 import { besieged, joinBattle } from './battles.js';
-import { embark, stampConvoy, trucesOf } from '../engine/convoys.js';
+import { embark, journeyForce, stampConvoy, trucesOf } from '../engine/convoys.js';
 import { ensureWar } from '../engine/diplomacy.js';
 import { departureDiplomacy, pairTreaty, pairWar } from '../engine/shared.js';
 import { fireFactorFor } from './food.js';
@@ -144,10 +144,10 @@ export function marchArrivals(state, map, fought, day = state.day) {
     for (const m of arriving.filter(x => x.toId === toId)) {
       const force = marchForce(m), owner = target?.ownerId;
       if (m.returning) { arriveHome(state, m, force); continue; }
-      if (owner === m.nationId) { addToProvince(target, force); state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), ...(m.journeyId ? { journeyId: m.journeyId } : {}) }); continue; }
+      if (owner === m.nationId) { addToProvince(target, force); state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), ...(m.journeyId ? { journeyId: m.journeyId, journeyForce: journeyForce(m) } : {}) }); continue; }
       if (hasPassage(state, m.nationId, owner)) {
         addStationed(state, m.nationId, toId, force);
-        state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), passage: true, target: owner, ...(m.journeyId ? { journeyId: m.journeyId } : {}) });
+        state.events.push({ turn: state.turn, type: 'movement', nationId: m.nationId, fromId: m.fromId, toId, amount: unitCount(force), passage: true, target: owner, ...(m.journeyId ? { journeyId: m.journeyId, journeyForce: journeyForce(m) } : {}) });
         continue;
       }
       if (m.passage) { state.events.push({ turn: state.turn, type: 'attack-cancelled', nationId: m.nationId, fromId: m.fromId, provinceId: toId, reason: 'passage-lost' }); sendBack(state, m, force, day); continue; }

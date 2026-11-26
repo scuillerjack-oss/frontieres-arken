@@ -220,6 +220,12 @@ export function stopJourney(state, journeyId, reason, provinceId) {
  * avec la carte du jour. Étape impossible et aucun autre chemin, troupes perdues ou repoussées : arrêt propre + avis.
  * `fromEvent` : index des événements du jour (arrivées de la journée).
  */
+/**
+ * Jour de départ réel d'une étape mise en attente PENDANT le traitement du jour (advanceJourneys) : l'ordre part au début
+ * du jour suivant (étape 1 d'advanceDay, ou executePendingOrders de l'interface, realtime-ui.js, une fois state.day
+ * passé au lendemain). Même calcul que journeyStatus ensuite (state.day + durée) et que la marche / le convoi créés.
+ */
+const legDepartDay = state => state.day + 1;
 export function advanceJourneys(state, map, fromEvent = 0) {
   if (!state.journeys?.length) return; // aucune écriture dans l'état sans itinéraire (parties identiques à la V17.12)
   const today = state.events.slice(fromEvent);
@@ -231,8 +237,13 @@ export function advanceJourneys(state, map, fromEvent = 0) {
     const tr = transportOf(state, j);
     if (tr) { if (tr.returning) endJourney(state, j, { type: 'journey-stopped', reason: 'turned-back', provinceId: leg.fromId }); else j.phase = 'travel'; continue; }
     const here = leg.toId;
-    if ((state.battles || []).some(b => b.provinceId === here && b.attackers.some(e => e.nationId === j.nationId))) { j.phase = 'battle'; continue; }
-    const arrived = today.some(e => e.journeyId === j.id && (e.type === 'movement' || e.type === 'convoy-arrived'));
+    // Bataille à l'étape : étape hostile, même si la province visée était à soi au départ (prise par l'ennemi pendant la
+    // marche) — une victoire laisse l'itinéraire continuer (relecture V17.13).
+    if ((state.battles || []).some(b => b.provinceId === here && b.attackers.some(e => e.nationId === j.nationId))) { j.phase = 'battle'; j.hostileLeg = true; continue; }
+    // Même cas quand la province est reprise dès le premier assaut, le jour même de l'arrivée (bataille déjà finie).
+    if (today.some(e => e.type === 'assault' && e.provinceId === here && (e.attackers || []).includes(j.nationId))) j.hostileLeg = true;
+    const arrivals = today.filter(e => e.journeyId === j.id && (e.type === 'movement' || e.type === 'convoy-arrived'));
+    const arrived = arrivals.length > 0;
     const held = friendlyProvince(state, j.nationId, here);
     // Départ annulé avant d'être parti (ordre retiré par le joueur) : les troupes n'ont pas bougé.
     if (j.phase === 'order' && !arrived) { endJourney(state, j, { type: 'journey-stopped', reason: 'cancelled', provinceId: leg.fromId }); continue; }
@@ -242,9 +253,13 @@ export function advanceJourneys(state, map, fromEvent = 0) {
     if (!ok) { endJourney(state, j, { type: 'journey-stopped', reason: j.hostileLeg ? 'repelled' : 'lost', provinceId: here }); continue; }
     j.passed.push(here);
     if (here === j.toId || j.at === j.legs.length - 1) { endJourney(state, j, { type: 'journey-arrived', provinceId: here }); continue; }
+    // Relecture V17.13 : on ne repart qu'avec l'armée de l'itinéraire, c'est-à-dire ses SURVIVANTS réellement arrivés
+    // (effectif porté par l'avis d'arrivée), jamais avec la garnison ni une autre armée présente sur place ; borné par
+    // le disponible. Étape gagnée en bataille : l'effectif d'avant la bataille, borné par ce qui tient la province prise.
+    const came = arrivals.at(-1)?.journeyForce || j.carried;
     const avail = availableForces(state, here, j.nationId);
-    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.min(int(j.carried.units[k]), int(avail[k]))]));
-    const warships = Math.min(int(j.carried.warships), int(avail.warships));
+    const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.min(int(came.units?.[k]), int(j.carried.units[k]), int(avail[k]))]));
+    const warships = Math.min(int(came.warships), int(j.carried.warships), int(avail.warships));
     if (!total(units, warships)) { endJourney(state, j, { type: 'journey-stopped', reason: 'lost', provinceId: here }); continue; }
     j.carried = { units, warships };
     const planned = j.legs.slice(j.at + 1).map(l => l.toId).join(',');
@@ -253,6 +268,6 @@ export function advanceJourneys(state, map, fromEvent = 0) {
     j.legs = plan.legs; j.at = 0;
     const r = queueLeg(state, map, j, here);
     if (!r.ok) { endJourney(state, j, { type: 'journey-stopped', reason: 'order', error: r.error, provinceId: here }); continue; }
-    if (plan.legs.map(l => l.toId).join(',') !== planned) state.events.push({ turn: state.turn, type: 'journey-rerouted', reason: 'blocked', nationId: j.nationId, journeyId: j.id, provinceId: here, toId: j.toId, arriveDay: state.day + 1 + plan.days });
+    if (plan.legs.map(l => l.toId).join(',') !== planned) state.events.push({ turn: state.turn, type: 'journey-rerouted', reason: 'blocked', nationId: j.nationId, journeyId: j.id, provinceId: here, toId: j.toId, arriveDay: legDepartDay(state) + plan.days });
   }
 }

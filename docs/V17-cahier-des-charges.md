@@ -2015,3 +2015,23 @@ de l’armée avec l’itinéraire, changement de destination (Haut-Bois), annul
 redirection ne fait pas demi-tour au milieu d'une étape ; la province de départ du mode déplacement n'est pas touchable
 pendant « Changer de destination » (pour s'arrêter à l'étape en cours : « Annuler l'itinéraire ») ; les IA n'utilisent
 pas d'itinéraires (elles raisonnent étape par étape comme avant).
+
+**Relecture V17.13 (26/11/2026) — corrections** (5 tests ajoutés dans `tests/v17-13.test.js`, 20 au total) :
+1. **Effectif à chaque étape** : l'avis d'arrivée d'une étape (`movement`, `convoy-arrived`) porte `journeyForce`
+   (survivants réellement arrivés) ; l'itinéraire ne repart qu'avec min(survivants, effectif de l'itinéraire, disponible).
+   Avant : min(effectif de départ, disponible) → la garnison de l'étape ou une autre armée arrivée là était emmenée
+   (10 partent, 4 meurent, 5 en garnison → repartait à 10 ; maintenant 6). Étape gagnée en bataille : effectif d'avant
+   la bataille, borné par ce qui tient la province prise (limite : si une autre armée à soi a combattu dans la même
+   bataille, les deux sont fusionnées par le moteur de bataille et l'itinéraire peut en reprendre jusqu'à son effectif).
+2. **Étape vers chez soi prise par l'ennemi pendant la marche** : bataille à l'étape (en cours, ou province reprise dès
+   le premier assaut le jour même) = étape hostile (`hostileLeg = true`) ; victoire → l'itinéraire continue (avant :
+   arrêt « troupes perdues en chemin »).
+3. **Date après recalcul** : vérifiée — l'étape mise en attente pendant le traitement du jour D part au début du jour
+   D + 1 (étape 1 d'`advanceDay`, ou `executePendingOrders` de l'interface une fois le jour passé). La formule
+   `state.day + 1 + durée` était donc juste ; elle passe par `legDepartDay()` (commentée) et un test vérifie que la
+   date annoncée = la fiche de l'itinéraire = la date réelle du convoi + étapes restantes. Aucun jour d'avance constaté.
+4. **Province qui n'a que des navires** : la fenêtre d'itinéraire présélectionne les navires (50 % arrondi au-dessus,
+   100 %) au lieu d'une sélection vide (`journeyPreset`, `journey-view.js`).
+5. **Garde-fou de publication** : `scripts/check-release-flags.js`, lancé par `android-aab.yml` avant la construction
+   (pas par l'APK de bêta) : échec si build de production (`ARKEN_ADS_PRODUCTION` ou `ARKEN_PRODUCTION`) avec
+   `BETA_X2_GRATUIT = true`. Test interne Google Play (aujourd'hui) : passe. Documenté dans `docs/SORTIE-ARKEN.md` §3.

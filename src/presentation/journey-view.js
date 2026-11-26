@@ -3,6 +3,7 @@
 // Textes en français ET en anglais (mêmes clés, même sens, vérifié par tests/v17-13.test.js) : le jeu affiche le
 // français tant que le choix de la langue (branche V16-anglais) n'est pas fusionné ; JOURNEY_LANG est le seul réglage.
 
+import { LAND_UNIT_TYPES } from '../domain/constants.js';
 import { dateOfDay, formatDate } from '../domain/realtime/clock.js';
 import { orderPath } from './map-orders-view.js';
 
@@ -92,6 +93,18 @@ export function stepsText(fromId, legs, names, lang = JOURNEY_LANG) {
  * Résumé d'un itinéraire calculé (planItinerary) pour la fenêtre de l'ordre : étapes, durée, date d'arrivée, avertissements.
  * `names` : { province(id), nation(id) }.
  */
+/**
+ * Forces préréglées de la fenêtre d'itinéraire (50 % / 100 %). Les navires ne sont proposés que si `port` (itinéraire
+ * tout en mer possible) ; ils restent à 0 tant qu'il y a des troupes terrestres (escorte au choix). Relecture V17.13 :
+ * province qui n'a QUE des navires → ce sont eux qui sont présélectionnés (sinon la sélection était vide).
+ */
+export function journeyPreset(available = {}, mode = '50', { port = false } = {}) {
+  const n = k => Math.max(0, Math.floor(Number(available[k]) || 0));
+  const pick = v => mode === '100' ? v : mode === '50' ? Math.ceil(v / 2) : 0;
+  const land = LAND_UNIT_TYPES.some(k => n(k) > 0);
+  const units = Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, mode === '100' ? n(k) : mode === '50' ? Math.floor(n(k) / 2) : 0]));
+  return { units, warships: port && !land ? pick(n('warships')) : 0 };
+}
 export function planSummary(plan, { fromId, day, names, lang = JOURNEY_LANG }) {
   const T = journeyTexts(lang);
   if (!plan?.ok) return null;

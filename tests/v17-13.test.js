@@ -250,3 +250,96 @@ test('V17.13 : départ d’étape retiré avant de partir → itinéraire arrêt
   const stop = ofType(s, 'journey-stopped').at(-1);
   assert.equal(stop.reason, 'cancelled'); assert.equal(stop.provinceId, 'p01');
 });
+
+// --- Relecture V17.13 -------------------------------------------------------------------------------------------------
+import { ensureWar } from '../src/domain/engine/diplomacy.js';
+import { journeyPreset } from '../src/presentation/journey-view.js';
+import { checkReleaseFlags, betaX2Flag, isProductionBuild } from '../scripts/check-release-flags.js';
+
+test('V17.13 relecture : à l’étape, on ne repart qu’avec les survivants de l’armée (jamais la garnison ni une autre armée)', () => {
+  const s = game();
+  const r = start(s, { fromId: 'p01', toId: 'p04', units: { infantry: 10 } });
+  const mid = r.plan.legs[0].toId;
+  const m = s.marches.find(x => x.journeyId === r.journeyId);
+  m.units.infantry = 6; // 4 morts en chemin
+  s.provinces[mid].units = { ...s.provinces[mid].units, infantry: 5 }; // garnison de l'étape
+  // Une autre armée à soi arrive le même jour à l'étape : elle n'est pas « adoptée » par l'itinéraire.
+  assert.ok(E.queueMoveOrder(s, map, { nationId: ME, fromId: 'p01', toId: mid, units: { infantry: 40 } }).ok);
+  E.executePendingOrders(s, map);
+  s.marches.at(-1).arriveDay = m.arriveDay;
+  run(s, r.plan.legs[0].days);
+  const next = s.marches.find(x => x.journeyId === r.journeyId) || s.orders.find(o => o.journeyId === r.journeyId);
+  if (!s.marches.some(x => x.journeyId === r.journeyId)) run(s, 1);
+  const leg2 = s.marches.find(x => x.journeyId === r.journeyId);
+  assert.ok(leg2 || next, 'l’itinéraire continue');
+  assert.equal((leg2 || next).units.infantry, 6, 'repart avec les 6 survivants');
+  assert.equal(s.journeys[0].carried.units.infantry, 6);
+  assert.equal(s.provinces[mid].units.infantry, 5 + 40, 'garnison et autre armée restent à l’étape');
+  run(s, 60);
+  assert.equal(ofType(s, 'journey-arrived').at(-1)?.provinceId, 'p04');
+});
+
+test('V17.13 relecture : étape vers sa province prise par l’ennemi en chemin, bataille gagnée → l’itinéraire continue', () => {
+  const s = game();
+  s.provinces.p01.units.infantry = 2000; s.provinces.p01.units.armor = 200;
+  const r = start(s, { fromId: 'p01', toId: 'p04', units: { infantry: 2000, armor: 200 } });
+  const mid = r.plan.legs[0].toId;
+  assert.equal(s.journeys[0].hostileLeg, false, 'étape vers chez soi au départ');
+  ensureWar(s, ME, 'oroel');
+  s.provinces[mid].ownerId = 'oroel';
+  s.provinces[mid].units = Object.fromEntries(Object.keys(s.provinces[mid].units).map(k => [k, 0]));
+  s.provinces[mid].units.infantry = 5;
+  run(s, r.plan.legs[0].days + 15);
+  assert.equal(s.provinces[mid].ownerId, ME, 'province reprise');
+  assert.ok(!ofType(s, 'journey-stopped').some(e => e.reason === 'lost'), 'pas de « troupes perdues en chemin »');
+  run(s, 60);
+  assert.equal(ofType(s, 'journey-arrived').at(-1)?.provinceId, 'p04');
+});
+
+test('V17.13 relecture : date annoncée après recalcul = date réelle (départ le lendemain de l’arrivée à l’étape)', () => {
+  const s = game();
+  const r = start(s, { fromId: 'p01', toId: 'p16', units: { infantry: 50 } });
+  s.provinces.p14.ownerId = 'aurel'; truce(s, 'aurel');
+  run(s, r.plan.legs[0].days);
+  const re = ofType(s, 'journey-rerouted').at(-1), j = s.journeys[0];
+  assert.ok(re && j);
+  assert.equal(E.journeyStatus(s, j).arriveDay, re.arriveDay, 'fiche (ordre en attente) = avis');
+  E.executePendingOrders(s, map); // comme l'interface (realtime-ui.js) au tic suivant : state.day est déjà le lendemain
+  const st = E.journeyStatus(s, j), tr = st.transport;
+  assert.ok(tr, 'l’étape suivante est partie');
+  assert.equal(st.arriveDay, re.arriveDay, 'date annoncée = date réelle du convoi + étapes restantes');
+  assert.equal(tr.arriveDay, re.day + 1 + j.legs[0].days, 'départ le lendemain de l’arrivée');
+});
+
+test('V17.13 relecture : province qui n’a que des navires → navires présélectionnés dans la fenêtre d’itinéraire', () => {
+  const none = { infantry: 0, cavalry: 0, archers: 0, armor: 0, artillery: 0 };
+  assert.deepEqual(journeyPreset({ ...none, warships: 3 }, '50', { port: true }).warships, 2);
+  assert.deepEqual(journeyPreset({ ...none, warships: 1 }, '50', { port: true }).warships, 1);
+  assert.deepEqual(journeyPreset({ ...none, warships: 3 }, '100', { port: true }).warships, 3);
+  assert.equal(journeyPreset({ ...none, infantry: 10, warships: 3 }, '50', { port: true }).warships, 0, 'avec des terrestres : escorte au choix');
+  assert.equal(journeyPreset({ ...none, infantry: 10, warships: 3 }, '50', { port: true }).units.infantry, 5);
+  assert.equal(journeyPreset({ ...none, warships: 3 }, '50', { port: false }).warships, 0, 'pas de route maritime : pas de navires');
+  const ui = read('src/presentation/ui/journey-ui.js');
+  assert.match(ui, /journeyPreset\(available, mode, \{ port \}\)/);
+  assert.match(ui, /key === 'warships' \? first\.warships/);
+});
+
+test('V17.13 relecture : garde-fou de publication — AAB de production refusé tant que BETA_X2_GRATUIT vaut true', () => {
+  const src = read('src/presentation/beta-flags.js');
+  assert.equal(betaX2Flag(src), BETA_X2_GRATUIT);
+  assert.equal(isProductionBuild({}), false);
+  assert.equal(isProductionBuild({ ARKEN_ADS_PRODUCTION: 'true' }), true);
+  assert.equal(isProductionBuild({ ARKEN_PRODUCTION: '1' }), true);
+  assert.equal(isProductionBuild({ ARKEN_PRODUCTION: 'false' }), false);
+  const on = 'export const BETA_X2_GRATUIT = true;', off = 'export const BETA_X2_GRATUIT = false;';
+  assert.equal(checkReleaseFlags(on, {}).ok, true, 'test interne : ×2 gratuit autorisé');
+  assert.equal(checkReleaseFlags(on, { ARKEN_ADS_PRODUCTION: 'true' }).ok, false);
+  assert.equal(checkReleaseFlags(on, { ARKEN_PRODUCTION: '1' }).ok, false);
+  assert.equal(checkReleaseFlags(off, { ARKEN_PRODUCTION: '1' }).ok, true);
+  assert.equal(checkReleaseFlags('rien', {}).ok, false, 'drapeau introuvable = refus');
+  // Branché sur l'AAB Google Play seulement, avant la construction ; l'APK de bêta n'y touche pas.
+  const aab = read('.github/workflows/android-aab.yml'), apk = read('.github/workflows/android-apk.yml');
+  assert.ok(aab.indexOf('node scripts/check-release-flags.js') > 0 && aab.indexOf('node scripts/check-release-flags.js') < aab.indexOf('node scripts/build.js'));
+  assert.doesNotMatch(apk, /check-release-flags/);
+  assert.match(read('docs/SORTIE-ARKEN.md'), /check-release-flags\.js/);
+});

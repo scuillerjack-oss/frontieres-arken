@@ -19,6 +19,8 @@ import { departureDiplomacy, pairWar, provinceDef } from './shared.js';
  * code fait avancer les convois d'un jour par appel. Une durée « en tours » de la carte (2, 4 pour l'île) vaut 30 jours
  * le tour (60 / 120 jours, RULES.realtime.durations). Au tour par tour : inchangé.
  */
+/** V17.13 (relecture) : effectif réellement arrivé d'une étape d'itinéraire (survivants), porté par l'avis d'arrivée. */
+export const journeyForce = x => ({ units: Object.fromEntries(LAND_UNIT_TYPES.map(k => [k, Math.max(0, Math.floor(Number(x.units?.[k]) || 0))])), warships: Math.max(0, Math.floor(Number(x.warships) || 0)) });
 export const seaDuration = (state, turns) => state?.mode === 'realtime' ? turns * RULES.realtime.durations.landPerSeaTurn : turns;
 /** V17.1 : date de départ et d'arrivée d'un convoi temps réel (affichage, sauvegarde). */
 export function stampConvoy(state, t, day = state.day) {
@@ -212,14 +214,14 @@ export function resolveTransports(state, map, fought, { onLanding = null } = {})
       }
       if (target.ownerId === t.nationId) {
         addToProvince(target, force);
-        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), returning: Boolean(t.returning), ...(t.journeyId ? { journeyId: t.journeyId } : {}) });
+        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), returning: Boolean(t.returning), ...(t.journeyId ? { journeyId: t.journeyId, journeyForce: journeyForce(t) } : {}) });
         if (!t.returning) dockEscort(state, map, toId, t.nationId, t.fromId, laneKey(t), t.turns);
         continue;
       }
       if (hasPassage(state, t.nationId, target.ownerId)) {
         // V13.4 : chez un allié, le convoi débarque paisiblement : ses troupes stationnent (droit de passage).
         addStationed(state, t.nationId, toId, force);
-        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), passage: true, target: target.ownerId, ...(t.journeyId ? { journeyId: t.journeyId } : {}) });
+        state.events.push({ turn: state.turn, type: 'convoy-arrived', nationId: t.nationId, fromId: t.fromId, toId, provinceId: toId, amount: unitCount(force), passage: true, target: target.ownerId, ...(t.journeyId ? { journeyId: t.journeyId, journeyForce: journeyForce(t) } : {}) });
         continue;
       }
       if (t.passage) {

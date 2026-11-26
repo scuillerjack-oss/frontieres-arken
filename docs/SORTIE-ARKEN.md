@@ -81,6 +81,10 @@ Ensuite : onglet Actions → **AAB Google Play (test interne)** → Run workflow
   d'autre à toucher) : ⏩ ×2 redevient réservé au Premium. Tant qu'il vaut `true`, tout testeur a ⏩ gratuitement (APK de
   bêta ET test interne Google Play). Le test `tests/v17-13.test.js` vérifie aujourd'hui `true` : il faudra le passer à
   `false` dans le même commit (Claude s'en charge quand Jack dit « on publie »).
+  **Garde-fou automatique** : `scripts/check-release-flags.js`, lancé par le workflow « AAB Google Play » (jamais par
+  l'APK de bêta), fait ÉCHOUER le build si c'est un build de production (variable de dépôt `ARKEN_ADS_PRODUCTION` ou
+  `ARKEN_PRODUCTION` définie) alors que `BETA_X2_GRATUIT` vaut encore `true`. Test interne (aucune des deux variables) :
+  le contrôle passe. Vérification à la main : `ARKEN_PRODUCTION=1 node scripts/check-release-flags.js`.
 
 - Les pubs de production peuvent mettre quelques heures, voire quelques jours, à s'afficher tant qu'AdMob n'a pas validé l'application (elle doit être publiée ou liée au store). Un jeu sans pub dans ce délai n'est pas une panne.
 - Avec un compte développeur personnel, Google exige un **test fermé avec 12 testeurs pendant 14 jours** avant la production (cahier V12, point 7).
